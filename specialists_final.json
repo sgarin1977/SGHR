@@ -1,0 +1,2746 @@
+[
+  {
+    "full_name": "Юрий",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Lisboa",
+    "contacts": "+351965650403"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Lisboa",
+    "contacts": "+351910244137"
+  },
+  {
+    "full_name": "Владимир Пушкарь",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Lisboa",
+    "contacts": "+351934419861"
+  },
+  {
+    "full_name": "Роман",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Фаро",
+    "contacts": "+351920374044"
+  },
+  {
+    "full_name": "Роман",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Sintra",
+    "contacts": "+351927920120"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Porto",
+    "contacts": "+351960371494"
+  },
+  {
+    "full_name": "Ян",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Porto",
+    "contacts": "+351939696288"
+  },
+  {
+    "full_name": "Роман",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Amadora",
+    "contacts": "+351924189391"
+  },
+  {
+    "full_name": "Стас",
+    "profession": "Car Painting",
+    "direction": "Auto & Transport",
+    "city": "Faro",
+    "contacts": "+351920400672"
+  },
+  {
+    "full_name": "Денис",
+    "profession": "Car Painting",
+    "direction": "Auto & Transport",
+    "city": "Almada",
+    "contacts": "+351914073081"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Rental",
+    "direction": "Auto & Transport",
+    "city": "Алгарве",
+    "contacts": "+351913078814"
+  },
+  {
+    "full_name": "Марина",
+    "profession": "Rental",
+    "direction": "Auto & Transport",
+    "city": "Coimbra",
+    "contacts": "+351910142207"
+  },
+  {
+    "full_name": "Вадим",
+    "profession": "Driver",
+    "direction": "Auto & Transport",
+    "city": "Albufeira",
+    "contacts": "+351965363300"
+  },
+  {
+    "full_name": "Анатолий",
+    "profession": "Auto Upholstery",
+    "direction": "Auto & Transport",
+    "city": "Mem",
+    "contacts": "+351936906266"
+  },
+  {
+    "full_name": "Виктор",
+    "profession": "Car Transport & Customs",
+    "direction": "Auto & Transport",
+    "city": "Lisboa",
+    "contacts": "+351919228786"
+  },
+  {
+    "full_name": "Алексей",
+    "profession": "Car Sales",
+    "direction": "Auto & Transport",
+    "city": "Porto",
+    "contacts": "+351938016539"
+  },
+  {
+    "full_name": "Валерий",
+    "profession": "Auto Mechanic",
+    "direction": "Auto & Transport",
+    "city": "Алгарве",
+    "contacts": "+351969366350"
+  },
+  {
+    "full_name": "Алина",
+    "profession": "Accountant",
+    "direction": "Accounting",
+    "city": "Lisboa",
+    "contacts": "+351913141755"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Accountant",
+    "direction": "Accounting",
+    "city": "Lisboa",
+    "contacts": "+351967309730"
+  },
+  {
+    "full_name": "Виктория",
+    "profession": "Accountant",
+    "direction": "Accounting",
+    "city": "Lisboa",
+    "contacts": "+351938084120"
+  },
+  {
+    "full_name": "Марина",
+    "profession": "Accountant",
+    "direction": "Accounting",
+    "city": "Porto",
+    "contacts": "+351934596329"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Accountant",
+    "direction": "Accounting",
+    "city": "Coimbra",
+    "contacts": "+351933729163"
+  },
+  {
+    "full_name": "Назар",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Силвиш(Алгарве)",
+    "contacts": "+351966678652"
+  },
+  {
+    "full_name": "Василий",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Lisboa",
+    "contacts": "+351927982763"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Lisboa",
+    "contacts": "+351927404862"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Lisboa",
+    "contacts": "+351969167416"
+  },
+  {
+    "full_name": "Лиза",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Lisboa",
+    "contacts": "+351966209088"
+  },
+  {
+    "full_name": "Игорь",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Lisboa",
+    "contacts": "+351964116049"
+  },
+  {
+    "full_name": "Полина",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Porto",
+    "contacts": "+351961626736"
+  },
+  {
+    "full_name": "Лилия",
+    "profession": "Web Designer",
+    "direction": "IT & Design",
+    "city": "Aveiro",
+    "contacts": "+351962037309"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Информатика Сети",
+    "direction": "IT & Design",
+    "city": "Lisboa",
+    "contacts": "+351932946592"
+  },
+  {
+    "full_name": "Геннадий",
+    "profession": "Device Repair",
+    "direction": "Smartphone Repair",
+    "city": "Лоуреш",
+    "contacts": "+351938913431"
+  },
+  {
+    "full_name": "Роман",
+    "profession": "System Administrator",
+    "direction": "IT & Design",
+    "city": "Porto",
+    "contacts": "+351918836156"
+  },
+  {
+    "full_name": "Nan",
+    "profession": "Tech Support",
+    "direction": "Smartphone Repair",
+    "city": "Porto",
+    "contacts": "+351924429424"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Device Repair",
+    "direction": "Smartphone Repair",
+    "city": "Porto",
+    "contacts": "+351964683444"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Device Repair",
+    "direction": "Smartphone Repair",
+    "city": "Setubal",
+    "contacts": "+351961275680"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Device Repair",
+    "direction": "Smartphone Repair",
+    "city": "Lisboa",
+    "contacts": "+351920088699"
+  },
+  {
+    "full_name": "Даниил",
+    "profession": "Device Repair",
+    "direction": "Smartphone Repair",
+    "city": "Lisboa",
+    "contacts": "231024048"
+  },
+  {
+    "full_name": "Иван",
+    "profession": "Tech Support",
+    "direction": "Smartphone Repair",
+    "city": "Albufeira",
+    "contacts": "+351910965645"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Device Repair",
+    "direction": "Smartphone Repair",
+    "city": "Lisboa",
+    "contacts": "+351924491628"
+  },
+  {
+    "full_name": "Анна",
+    "profession": "SEO Specialist",
+    "direction": "IT & Design",
+    "city": "Albufeira",
+    "contacts": "+351932678914"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Breeder",
+    "direction": "Pets",
+    "city": "Porto",
+    "contacts": "+351962800718"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Veterinarian",
+    "direction": "Pets",
+    "city": "Porto",
+    "contacts": "+351919770438"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Veterinarian",
+    "direction": "Pets",
+    "city": "Porto",
+    "contacts": "+351962800718"
+  },
+  {
+    "full_name": "Марина",
+    "profession": "Breeder",
+    "direction": "Pets",
+    "city": "Setubal",
+    "contacts": "+351934564659"
+  },
+  {
+    "full_name": "Марина",
+    "profession": "Breeder",
+    "direction": "Pets",
+    "city": "Lisboa",
+    "contacts": "+351962518392"
+  },
+  {
+    "full_name": "Анастасия",
+    "profession": "Breeder",
+    "direction": "Pets",
+    "city": "Porto",
+    "contacts": "+351914100459"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Breeder",
+    "direction": "Pets",
+    "city": "Porto",
+    "contacts": "+351961032124"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Yoga Instructor",
+    "direction": "Sport",
+    "city": "Albufeira",
+    "contacts": "+351966386801"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Hypnotherapist",
+    "direction": "Esoterics",
+    "city": "Lisboa",
+    "contacts": "+351929444382"
+  },
+  {
+    "full_name": "Анастасия",
+    "profession": "Yoga Instructor",
+    "direction": "Sport",
+    "city": "Porto",
+    "contacts": "+79057606727 WhatsApp"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Yoga Instructor",
+    "direction": "Sport",
+    "city": "Lisboa",
+    "contacts": "+351966115411"
+  },
+  {
+    "full_name": "Анна",
+    "profession": "Yoga Instructor",
+    "direction": "Sport",
+    "city": "Albufeira",
+    "contacts": "+351932678914"
+  },
+  {
+    "full_name": "Элина",
+    "profession": "Traditional Chinese Medicine",
+    "direction": "Medicine",
+    "city": "Coimbra",
+    "contacts": "+351910130838"
+  },
+  {
+    "full_name": "Инна",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351968103289"
+  },
+  {
+    "full_name": "Катерина",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Leiria",
+    "contacts": "+351920118486"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Sesimbra",
+    "contacts": "+351962040210"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Авейру",
+    "contacts": "+351910770877"
+  },
+  {
+    "full_name": "Inna",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Cascais",
+    "contacts": "+351919279585"
+  },
+  {
+    "full_name": "Валентина",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Амадора",
+    "contacts": "+351963401964"
+  },
+  {
+    "full_name": "Nan",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351927388413"
+  },
+  {
+    "full_name": "Валентина",
+    "profession": "Therapeutic Massage",
+    "direction": "Medicine",
+    "city": "Portimao",
+    "contacts": "+351928063007"
+  },
+  {
+    "full_name": "Александра",
+    "profession": "Косметология",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351918291021"
+  },
+  {
+    "full_name": "Павел",
+    "profession": "Osteopath",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351933657593"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Podiatrist",
+    "direction": "Medicine",
+    "city": "Albufeira",
+    "contacts": "+351965439100"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Psychologist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351936476108"
+  },
+  {
+    "full_name": "Вероника Брызгалина",
+    "profession": "Psychologist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351912264294"
+  },
+  {
+    "full_name": "Вадим",
+    "profession": "Psychologist",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351919084350"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Psychologist",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351916899373"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Psychologist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351930501385"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Rehabilitation Specialist",
+    "direction": "Medicine",
+    "city": "Алгарве",
+    "contacts": "+351936110117"
+  },
+  {
+    "full_name": "Наталия",
+    "profession": "Holistic Healing",
+    "direction": "Esoterics",
+    "city": "Porto",
+    "contacts": "+351937092264"
+  },
+  {
+    "full_name": "Виктория",
+    "profession": "Pre-cooked Foods",
+    "direction": "Food & Catering",
+    "city": "Olhão",
+    "contacts": "+351960027927"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Pre-cooked Foods",
+    "direction": "Food & Catering",
+    "city": "Porto",
+    "contacts": "+351920321624"
+  },
+  {
+    "full_name": "Евдокия",
+    "profession": "Pre-cooked Foods",
+    "direction": "Food & Catering",
+    "city": "Almada",
+    "contacts": "+351967444273"
+  },
+  {
+    "full_name": "Оксана",
+    "profession": "Preserving",
+    "direction": "Food & Catering",
+    "city": "Lisboa",
+    "contacts": "+351963422348"
+  },
+  {
+    "full_name": "Катерина",
+    "profession": "Baking",
+    "direction": "Food & Catering",
+    "city": "Vila",
+    "contacts": "+351966122619"
+  },
+  {
+    "full_name": "Евгения",
+    "profession": "Catering",
+    "direction": "Food & Catering",
+    "city": "Lisboa",
+    "contacts": "+351913163461"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Smoked Foods",
+    "direction": "Food & Catering",
+    "city": "Sintra",
+    "contacts": "+351964021889"
+  },
+  {
+    "full_name": "Галина",
+    "profession": "Pre-cooked Foods",
+    "direction": "Food & Catering",
+    "city": "Cascais",
+    "contacts": "+351920041076"
+  },
+  {
+    "full_name": "Валентина",
+    "profession": "Pre-cooked Foods",
+    "direction": "Food & Catering",
+    "city": "Cascais",
+    "contacts": "+351968403978"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Lisboa",
+    "contacts": "+351920066714"
+  },
+  {
+    "full_name": "Лариса",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Porto",
+    "contacts": "+351911145528"
+  },
+  {
+    "full_name": "Анна",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Vila",
+    "contacts": "+351963488379"
+  },
+  {
+    "full_name": "Анжела",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Палмейра",
+    "contacts": "+351920105175"
+  },
+  {
+    "full_name": "Таня",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Lisboa",
+    "contacts": "+351962787670"
+  },
+  {
+    "full_name": "Наталия",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Lisboa",
+    "contacts": "+351936489640"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Алгарве",
+    "contacts": "+351920330778"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Portimao",
+    "contacts": "+351911918525"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Cascais",
+    "contacts": "+351968896175"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Olhao",
+    "contacts": "+351963476338"
+  },
+  {
+    "full_name": "Таня",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Lisboa",
+    "contacts": "+351919241967"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Porto",
+    "contacts": "+351912798492"
+  },
+  {
+    "full_name": "Наталия",
+    "profession": "Confectioner",
+    "direction": "Food & Catering",
+    "city": "Portimao",
+    "contacts": "+351911918525"
+  },
+  {
+    "full_name": "Натальязагуменных",
+    "profession": "Консалтинг",
+    "direction": "Consulting",
+    "city": "Lisboa",
+    "contacts": "+351935090822"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Клиницист",
+    "direction": "Medicine",
+    "city": "Авейру",
+    "contacts": "+351910625913"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Cosmetologist",
+    "direction": "Beauty",
+    "city": "Marinha",
+    "contacts": "+351926966629"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Хирург",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351964720315"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Хирург",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351962258018"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Pediatrician",
+    "direction": "Medicine",
+    "city": "Quarteira",
+    "contacts": "+351915792680"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Almada",
+    "contacts": "+351915170517"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351969607767"
+  },
+  {
+    "full_name": "Вячеслав",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351966396255"
+  },
+  {
+    "full_name": "Олеггулявский",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351932079456"
+  },
+  {
+    "full_name": "Ирина Белова",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351967401229"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351963637575"
+  },
+  {
+    "full_name": "Виктория",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351925072603"
+  },
+  {
+    "full_name": "Антон Нежурко",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351912192748"
+  },
+  {
+    "full_name": "Илона",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351930467137"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Dentist",
+    "direction": "Medicine",
+    "city": "В.Н.Гайа",
+    "contacts": "+351963847581"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Хирург",
+    "direction": "Medicine",
+    "city": "Porto",
+    "contacts": "+351962258018"
+  },
+  {
+    "full_name": "Максим Егоров",
+    "profession": "Psychologist",
+    "direction": "Medicine",
+    "city": "Lisboa",
+    "contacts": "+351935071057"
+  },
+  {
+    "full_name": "Инна",
+    "profession": "Ипотека",
+    "direction": "Real Estate",
+    "city": "Lisboa",
+    "contacts": "+351966310267"
+  },
+  {
+    "full_name": "Наталья Загуменных",
+    "profession": "Ипотека",
+    "direction": "Real Estate",
+    "city": "Lisboa",
+    "contacts": "+351935090822"
+  },
+  {
+    "full_name": "Инна",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Lisboa",
+    "contacts": "+351966310267"
+  },
+  {
+    "full_name": "Оксана Матеуш",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Lisboa",
+    "contacts": "+351919007111"
+  },
+  {
+    "full_name": "Игорь",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Lisboa",
+    "contacts": "+351912639972"
+  },
+  {
+    "full_name": "Галина",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Lisboa",
+    "contacts": "+351926995577"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Porto",
+    "contacts": "+351925881107"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Porto",
+    "contacts": "+351912351964"
+  },
+  {
+    "full_name": "Роман",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Porto",
+    "contacts": "+351938535010"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Авейру",
+    "contacts": "+351910713080"
+  },
+  {
+    "full_name": "Наталия",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Setubal",
+    "contacts": "+351914940585"
+  },
+  {
+    "full_name": "Я.Лоскутова",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Мадейра",
+    "contacts": "+351969476679"
+  },
+  {
+    "full_name": "Тамара",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Albufeira",
+    "contacts": "+351966055106"
+  },
+  {
+    "full_name": "Надежда",
+    "profession": "Риэлтор",
+    "direction": "Real Estate",
+    "city": "Portimao",
+    "contacts": "+351969152276"
+  },
+  {
+    "full_name": "Надежда",
+    "profession": "Английский Язык",
+    "direction": "Education",
+    "city": "Алгарве",
+    "contacts": "+351934468255"
+  },
+  {
+    "full_name": "Розалия",
+    "profession": "Английский Язык",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351968171746"
+  },
+  {
+    "full_name": "Евгения",
+    "profession": "Английский Язык",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351932087631"
+  },
+  {
+    "full_name": "Валерия",
+    "profession": "Английский Язык",
+    "direction": "Education",
+    "city": "Porto",
+    "contacts": "+351935114746"
+  },
+  {
+    "full_name": "Алина",
+    "profession": "Английский Язык",
+    "direction": "Education",
+    "city": "Вила",
+    "contacts": "+351920201956"
+  },
+  {
+    "full_name": "Алина",
+    "profession": "Французский Язык",
+    "direction": "Education",
+    "city": "Вила",
+    "contacts": "+351920201957"
+  },
+  {
+    "full_name": "Алина",
+    "profession": "Немецкий Язык",
+    "direction": "Education",
+    "city": "Вила",
+    "contacts": "+351920201958"
+  },
+  {
+    "full_name": "Катерина",
+    "profession": "Английский Язык",
+    "direction": "Education",
+    "city": "Пениш",
+    "contacts": "+351914226957"
+  },
+  {
+    "full_name": "Роман",
+    "profession": "Тренинг",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351927010995"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Бокс",
+    "direction": "Sport",
+    "city": "Lisboa",
+    "contacts": "+351968861968"
+  },
+  {
+    "full_name": "Иван",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Albufeira",
+    "contacts": "+351968936767"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Изо",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351910297316"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Изо",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351913469988"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Алгарве",
+    "contacts": "+351934024211"
+  },
+  {
+    "full_name": "Галина",
+    "profession": "Математика",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351926995577"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Математика",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351936053619"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Математика",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351968214387"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Математика",
+    "direction": "Education",
+    "city": "Porto",
+    "contacts": "+351964480567"
+  },
+  {
+    "full_name": "Олеся",
+    "profession": "Математика",
+    "direction": "Education",
+    "city": "Porto",
+    "contacts": "375291757885"
+  },
+  {
+    "full_name": "Оксана",
+    "profession": "Математика",
+    "direction": "Education",
+    "city": "Cascais",
+    "contacts": "+351939170979"
+  },
+  {
+    "full_name": "Галина",
+    "profession": "Математика",
+    "direction": "Education",
+    "city": "Povoa",
+    "contacts": "+351920128521"
+  },
+  {
+    "full_name": "Лидия",
+    "profession": "Португальский Язык",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351929124623"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Португальский Язык",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351929193924"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Португальский Язык",
+    "direction": "Education",
+    "city": "Фаро",
+    "contacts": "+351969471164"
+  },
+  {
+    "full_name": "Лиза",
+    "profession": "Изо",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351966209088"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Русский Язык",
+    "direction": "Education",
+    "city": "Майа",
+    "contacts": "+351960196457"
+  },
+  {
+    "full_name": "Екатерина",
+    "profession": "Русский Язык",
+    "direction": "Education",
+    "city": "Брага",
+    "contacts": "+351938517863"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Albufeira",
+    "contacts": "+351920159056"
+  },
+  {
+    "full_name": "Вадим",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Albufeira",
+    "contacts": "+351925130156"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Танцы",
+    "direction": "Education",
+    "city": "Porto",
+    "contacts": "+351910478491"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351966615192"
+  },
+  {
+    "full_name": "Катерина",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Portimao",
+    "contacts": "+351933684759"
+  },
+  {
+    "full_name": "Оксана",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Almada",
+    "contacts": "+351924092154"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Бенфика",
+    "contacts": "+351968851883"
+  },
+  {
+    "full_name": "Оксана",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Porto",
+    "contacts": "+351961139994"
+  },
+  {
+    "full_name": "Антонина",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Porto",
+    "contacts": "+351934386177"
+  },
+  {
+    "full_name": "Анна Беляева",
+    "profession": "Французский Язык",
+    "direction": "Education",
+    "city": "Porto",
+    "contacts": "+351932986186"
+  },
+  {
+    "full_name": "Туркан",
+    "profession": "Английский Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351920350266"
+  },
+  {
+    "full_name": "Туркан",
+    "profession": "Турецкий Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351920350266"
+  },
+  {
+    "full_name": "Константин",
+    "profession": "Английский Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351961612926"
+  },
+  {
+    "full_name": "Константин",
+    "profession": "Французский Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351961612926"
+  },
+  {
+    "full_name": "Константин",
+    "profession": "Португальский Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351961612926"
+  },
+  {
+    "full_name": "Константин",
+    "profession": "Украинский Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351961612926"
+  },
+  {
+    "full_name": "Ирина Николаевна",
+    "profession": "Португальский Язык",
+    "direction": "Translators",
+    "city": "Carcavelos",
+    "contacts": "+351962308997"
+  },
+  {
+    "full_name": "Василий",
+    "profession": "Английский Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351927982763"
+  },
+  {
+    "full_name": "Василий",
+    "profession": "Румынский Язык",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351927982763"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Английский Язык",
+    "direction": "Translators",
+    "city": "Porto",
+    "contacts": "+351913985090"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Чешский Язык",
+    "direction": "Translators",
+    "city": "Porto",
+    "contacts": "+351913985090"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Украинский Язык",
+    "direction": "Translators",
+    "city": "Porto",
+    "contacts": "+351913985090"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Португальский Язык",
+    "direction": "Translators",
+    "city": "Porto",
+    "contacts": "+351964764341"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Английский Язык",
+    "direction": "Translators",
+    "city": "Porto",
+    "contacts": "+351964764341"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Испанский Язык",
+    "direction": "Translators",
+    "city": "Porto",
+    "contacts": "+351964764341"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Португальский",
+    "direction": "Translators",
+    "city": "Porto",
+    "contacts": "+351965036442"
+  },
+  {
+    "full_name": "Тамара",
+    "profession": "Португальский",
+    "direction": "Translators",
+    "city": "Lisboa",
+    "contacts": "+351919862794"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Португальский",
+    "direction": "Translators",
+    "city": "Coimbra",
+    "contacts": "+351933729163"
+  },
+  {
+    "full_name": "Ирина Николаевна",
+    "profession": "Английский Язык",
+    "direction": "Translators",
+    "city": "Carcavelos",
+    "contacts": "+351962308997"
+  },
+  {
+    "full_name": "Николай",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Lisboa",
+    "contacts": "+351966000160"
+  },
+  {
+    "full_name": "Василий",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Lisboa",
+    "contacts": "+351927982763"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Корройош",
+    "contacts": "+351912290433"
+  },
+  {
+    "full_name": "Марк",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Lisboa",
+    "contacts": "+351932164581"
+  },
+  {
+    "full_name": "Николай",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Porto",
+    "contacts": "+351964101709"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Квартирные Переезды",
+    "direction": "Moving",
+    "city": "Алгарве",
+    "contacts": "+351918863953"
+  },
+  {
+    "full_name": "Николай",
+    "profession": "Квартирные Переезды",
+    "direction": "Moving",
+    "city": "Porto",
+    "contacts": "+351926678646"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Квартирные Переезды",
+    "direction": "Moving",
+    "city": "Porto",
+    "contacts": "+351932798739"
+  },
+  {
+    "full_name": "Валерий",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Алгарве",
+    "contacts": "+351969366350"
+  },
+  {
+    "full_name": "Константин",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Lisboa",
+    "contacts": "+351964819709"
+  },
+  {
+    "full_name": "Ліек-Тур",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Lisboa",
+    "contacts": "+351965679743"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Грузоперевозки",
+    "direction": "Moving",
+    "city": "Faro",
+    "contacts": "+351918870134"
+  },
+  {
+    "full_name": "Алексей",
+    "profession": "Оперативная Полиграфия Производство",
+    "direction": "Printing",
+    "city": "Lisboa",
+    "contacts": "+351916859020"
+  },
+  {
+    "full_name": "Вадим",
+    "profession": "Оперативная Полиграфия Производство",
+    "direction": "Printing",
+    "city": "Lisboa",
+    "contacts": "+351916485665"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Оперативная Полиграфия Производство",
+    "direction": "Printing",
+    "city": "Lisboa",
+    "contacts": "+351938847543"
+  },
+  {
+    "full_name": "Даниил",
+    "profession": "Широкоформатная Печать",
+    "direction": "Printing",
+    "city": "Lisboa",
+    "contacts": "231024048"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Домработница",
+    "direction": "Home Staff",
+    "city": "Массама",
+    "contacts": "+351964189871"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Домработница",
+    "direction": "Home Staff",
+    "city": "Albufeira",
+    "contacts": "+351961296950"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Lisboa",
+    "contacts": "+351938834794"
+  },
+  {
+    "full_name": "Мария",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Lisboa",
+    "contacts": "+351930643473"
+  },
+  {
+    "full_name": "Инна",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Lisboa",
+    "contacts": "+351962582705"
+  },
+  {
+    "full_name": "Виктория",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Olhão",
+    "contacts": "+351960027927"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Odivelas",
+    "contacts": "+351963772040"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Cascais",
+    "contacts": "+351968684691"
+  },
+  {
+    "full_name": "Александра",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Porto",
+    "contacts": "+351920105219"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Няня",
+    "direction": "Home Staff",
+    "city": "Porto",
+    "contacts": "+351925803104"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Ателье",
+    "direction": "Tailoring",
+    "city": "Lisboa",
+    "contacts": "+351936712521"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Вязание",
+    "direction": "Tailoring",
+    "city": "Cascais",
+    "contacts": "+351938849167"
+  },
+  {
+    "full_name": "Даниил",
+    "profession": "Модельер",
+    "direction": "Tailoring",
+    "city": "Lisboa",
+    "contacts": "231024048"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Модельер",
+    "direction": "Tailoring",
+    "city": "Lisboa",
+    "contacts": "+351915461835"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Модельер",
+    "direction": "Tailoring",
+    "city": "Lisboa",
+    "contacts": "+351967693459"
+  },
+  {
+    "full_name": "Жанна",
+    "profession": "Ателье",
+    "direction": "Tailoring",
+    "city": "Vila",
+    "contacts": "+351913700110"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Aveiro",
+    "contacts": "+351960112499"
+  },
+  {
+    "full_name": "Людмила",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Lisboa",
+    "contacts": "+351966916481"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Faro",
+    "contacts": "+351920334926"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Lisboa",
+    "contacts": "+351938834794"
+  },
+  {
+    "full_name": "Александра",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Lisboa",
+    "contacts": "+351925359327"
+  },
+  {
+    "full_name": "Наталия",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Portimao",
+    "contacts": "+351920380949"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Вила",
+    "contacts": "+351925467078"
+  },
+  {
+    "full_name": "Галина",
+    "profession": "Швея",
+    "direction": "Tailoring",
+    "city": "Vila",
+    "contacts": "+351920128521"
+  },
+  {
+    "full_name": "Лариса",
+    "profession": "Architect",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351927395494"
+  },
+  {
+    "full_name": "Лариса",
+    "profession": "Interior Designer",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351927395494"
+  },
+  {
+    "full_name": "Олег",
+    "profession": "Landscape Designer",
+    "direction": "Construction",
+    "city": "Фаро",
+    "contacts": "+351962226303"
+  },
+  {
+    "full_name": "Слава",
+    "profession": "Установка Ворот/Сигнализаций",
+    "direction": "Construction",
+    "city": "Лоуринья",
+    "contacts": "+351912038940"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Установка Ворот/Сигнализаций",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351920088699"
+  },
+  {
+    "full_name": "Иван",
+    "profession": "Установка Ворот/Сигнализаций",
+    "direction": "Construction",
+    "city": "Albufeira",
+    "contacts": "+351910965645"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Внутренняя Отделка",
+    "direction": "Construction",
+    "city": "Porto",
+    "contacts": "+351911557004"
+  },
+  {
+    "full_name": "Евгений",
+    "profession": "Каменщик",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351962440167"
+  },
+  {
+    "full_name": "Яна",
+    "profession": "Внутренняя Отделка",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351933277806"
+  },
+  {
+    "full_name": "Ивета",
+    "profession": "Landscape Designer",
+    "direction": "Construction",
+    "city": "Sintra",
+    "contacts": "+351912987417"
+  },
+  {
+    "full_name": "Виктор",
+    "profession": "Handyman",
+    "direction": "Construction",
+    "city": "Sesimbra",
+    "contacts": "+351962156172"
+  },
+  {
+    "full_name": "Виталий",
+    "profession": "Маляр-Штукатур Внутренняя Работа",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351968534555"
+  },
+  {
+    "full_name": "Анатолий",
+    "profession": "Маляр-Штукатур Внутренняя Работа",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351968851218"
+  },
+  {
+    "full_name": "Максим",
+    "profession": "Мебель",
+    "direction": "Manufacturing",
+    "city": "Porto",
+    "contacts": "+351916298331"
+  },
+  {
+    "full_name": "Дмитрий",
+    "profession": "Металлоконструкции",
+    "direction": "Manufacturing",
+    "city": "Lisboa",
+    "contacts": "+351912131771"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Натяжные Потолки",
+    "direction": "Manufacturing",
+    "city": "Авейро",
+    "contacts": "+351915344444"
+  },
+  {
+    "full_name": "Павел",
+    "profession": "Окна Пвх/Al",
+    "direction": "Manufacturing",
+    "city": "Porto",
+    "contacts": "+351933657593"
+  },
+  {
+    "full_name": "Владимир",
+    "profession": "Окна Пвх/Al",
+    "direction": "Manufacturing",
+    "city": "Север",
+    "contacts": "+351920560510"
+  },
+  {
+    "full_name": "Владимир",
+    "profession": "Окна Пвх/Al",
+    "direction": "Manufacturing",
+    "city": "Авейро",
+    "contacts": "+351915352828"
+  },
+  {
+    "full_name": "Анатолий",
+    "profession": "Окна Пвх/Al",
+    "direction": "Manufacturing",
+    "city": "Porto",
+    "contacts": "252067813"
+  },
+  {
+    "full_name": "Владимир",
+    "profession": "Окна Пвх/Al",
+    "direction": "Manufacturing",
+    "city": "Porto",
+    "contacts": "+351934030601"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Окна Пвх/Al",
+    "direction": "Manufacturing",
+    "city": "Lisboa",
+    "contacts": "+351961406017"
+  },
+  {
+    "full_name": "Антон",
+    "profession": "Отопление",
+    "direction": "Manufacturing",
+    "city": "Lisboa",
+    "contacts": "+351920091405"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351920302524"
+  },
+  {
+    "full_name": "Ярослав",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351963163876"
+  },
+  {
+    "full_name": "Дмитрий",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351935951644"
+  },
+  {
+    "full_name": "Григорий",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351920326758"
+  },
+  {
+    "full_name": "Вадим",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351966484762"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351969512408"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Porto",
+    "contacts": "+351913683693"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351935284159"
+  },
+  {
+    "full_name": "Виктор",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351920326758"
+  },
+  {
+    "full_name": "Вадим",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Albufeira",
+    "contacts": "+351965363300"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Сантехник",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351920302524"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Albufeira",
+    "contacts": "+351960485192"
+  },
+  {
+    "full_name": "Евгений",
+    "profession": "Сварочные Работы",
+    "direction": "Construction",
+    "city": "Алгарве",
+    "contacts": "+351966222291"
+  },
+  {
+    "full_name": "Карина",
+    "profession": "Сварочные Работы",
+    "direction": "Construction",
+    "city": "Sintra",
+    "contacts": "+351960454262"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351967725779"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Lagos",
+    "contacts": "+351961067849"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Бригада",
+    "direction": "Construction",
+    "city": "Faro",
+    "contacts": "+351920550066"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Плиточник",
+    "direction": "Construction",
+    "city": "Ladrilho",
+    "contacts": "+351963620868"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Маляр-Штукатур Внутренняя Работа",
+    "direction": "Construction",
+    "city": "Coimbra",
+    "contacts": "+351914886632"
+  },
+  {
+    "full_name": "Павел Стадник",
+    "profession": "Установка Окна/Двери",
+    "direction": "Construction",
+    "city": "Porto",
+    "contacts": "+351933657593"
+  },
+  {
+    "full_name": "Тарас",
+    "profession": "Установка Кондиционеров",
+    "direction": "Construction",
+    "city": "Лиссабона",
+    "contacts": "+351964446269"
+  },
+  {
+    "full_name": "Мария",
+    "profession": "Маляр-Штукатур Внутренняя Работа",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351920447279"
+  },
+  {
+    "full_name": "Дмитрий",
+    "profession": "Установка Ворот/Сигнализаций",
+    "direction": "Construction",
+    "city": "Porto",
+    "contacts": "+351965111557"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Электрик",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351967152782"
+  },
+  {
+    "full_name": "Иван",
+    "profession": "Электрик",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351914316535"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Электрик",
+    "direction": "Construction",
+    "city": "Lisboa",
+    "contacts": "+351966920072"
+  },
+  {
+    "full_name": "Виктор",
+    "profession": "Электрик",
+    "direction": "Construction",
+    "city": "Povoa",
+    "contacts": "+351920171644"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Бытовой Техники",
+    "direction": "Appliance Repair",
+    "city": "Lisboa",
+    "contacts": "+351965699959"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Бытовой Электроники, Проф Инструмента",
+    "direction": "Appliance Repair",
+    "city": "Lisboa",
+    "contacts": "+351920088699"
+  },
+  {
+    "full_name": "Михаил",
+    "profession": "Холодильники/Кондиционеры",
+    "direction": "Appliance Repair",
+    "city": "Porto",
+    "contacts": "+351916677707"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Страхование",
+    "direction": "Insurance",
+    "city": "Lisboa",
+    "contacts": "+351938494376"
+  },
+  {
+    "full_name": "Оксана Матеуш",
+    "profession": "Страхование",
+    "direction": "Insurance",
+    "city": "Lisboa",
+    "contacts": "+351919007111"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Страхования",
+    "direction": "Insurance",
+    "city": "Lisboa",
+    "contacts": "+351936368185"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Tv",
+    "direction": "Entertainment",
+    "city": "Porto",
+    "contacts": "+351964552419"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351912034747"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351927196859"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351918828839"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351965882619"
+  },
+  {
+    "full_name": "Лена",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351965049303"
+  },
+  {
+    "full_name": "Марина",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351927313256"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351916864728"
+  },
+  {
+    "full_name": "Елена Стригина",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351967776561"
+  },
+  {
+    "full_name": "Максим",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Cascais",
+    "contacts": "+351962145423"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Porto",
+    "contacts": "+351964480567"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Tour Guide",
+    "direction": "Entertainment",
+    "city": "Porto",
+    "contacts": "+351916128766"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Tour Operator",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351925019762"
+  },
+  {
+    "full_name": "Лидия",
+    "profession": "Tour Operator",
+    "direction": "Entertainment",
+    "city": "Алгарве",
+    "contacts": "+351929124623"
+  },
+  {
+    "full_name": "Олег",
+    "profession": "Tour Operator",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351966575966"
+  },
+  {
+    "full_name": "Мирослава",
+    "profession": "Флорист-Декоратор",
+    "direction": "Floristry",
+    "city": "Lisboa",
+    "contacts": "+351969066453"
+  },
+  {
+    "full_name": "Илона",
+    "profession": "Florist",
+    "direction": "Floristry",
+    "city": "Lisboa",
+    "contacts": "+351914455996"
+  },
+  {
+    "full_name": "Алла Стефаник",
+    "profession": "Флорист-Декоратор",
+    "direction": "Floristry",
+    "city": "Lisboa",
+    "contacts": "+351962289776"
+  },
+  {
+    "full_name": "Александра",
+    "profession": "Флорист-Декоратор",
+    "direction": "Floristry",
+    "city": "Lisboa",
+    "contacts": "+351927480483"
+  },
+  {
+    "full_name": "Лора",
+    "profession": "Landscape Designer",
+    "direction": "Construction",
+    "city": "Алгарве",
+    "contacts": "+351914222185"
+  },
+  {
+    "full_name": "Роман",
+    "profession": "Videographer",
+    "direction": "Photo & Video",
+    "city": "Porto",
+    "contacts": "+351925222215"
+  },
+  {
+    "full_name": "Евгений",
+    "profession": "Videographer",
+    "direction": "Photo & Video",
+    "city": "Lisboa",
+    "contacts": "+351919365073"
+  },
+  {
+    "full_name": "Александра",
+    "profession": "Videographer",
+    "direction": "Photo & Video",
+    "city": "Lisboa",
+    "contacts": "+351967555149"
+  },
+  {
+    "full_name": "Анна",
+    "profession": "Videographer",
+    "direction": "Photo & Video",
+    "city": "Albufeira",
+    "contacts": "+351932678914"
+  },
+  {
+    "full_name": "Лилия",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Lisboa",
+    "contacts": "+351925033114"
+  },
+  {
+    "full_name": "Ася",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Lisboa",
+    "contacts": "+351961037202"
+  },
+  {
+    "full_name": "Дмитрий",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Lisboa",
+    "contacts": "+351962038337"
+  },
+  {
+    "full_name": "Игорь",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Porto",
+    "contacts": "+351934085321"
+  },
+  {
+    "full_name": "Станислава",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Coimbra",
+    "contacts": "+351910578224"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Мадейра",
+    "contacts": "+351964479783"
+  },
+  {
+    "full_name": "Сергей",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Фаро",
+    "contacts": "+351914937311"
+  },
+  {
+    "full_name": "Анастасия",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Алгарве",
+    "contacts": "+351920476951"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Алгарве",
+    "contacts": "+351924017271"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Portimao",
+    "contacts": "+351966580546"
+  },
+  {
+    "full_name": "Катерина",
+    "profession": "Model",
+    "direction": "Photo & Video",
+    "city": "Porto",
+    "contacts": "+351933655957"
+  },
+  {
+    "full_name": "Наталия",
+    "profession": "Photographer",
+    "direction": "Photo & Video",
+    "city": "Portimao",
+    "contacts": "+351911918525"
+  },
+  {
+    "full_name": "Яна",
+    "profession": "Brow Master",
+    "direction": "Beauty",
+    "city": "Тавира",
+    "contacts": "+351912992427"
+  },
+  {
+    "full_name": "Валентина",
+    "profession": "Makeup Artist",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351919391747"
+  },
+  {
+    "full_name": "Полина",
+    "profession": "Makeup Artist",
+    "direction": "Beauty",
+    "city": "Алгарве",
+    "contacts": "358451413933"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Косметология",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351913665656"
+  },
+  {
+    "full_name": "Каролина",
+    "profession": "Makeup Artist",
+    "direction": "Beauty",
+    "city": "Cascais",
+    "contacts": "+351925288813"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Косметология",
+    "direction": "Beauty",
+    "city": "Portimao",
+    "contacts": "+351969113465"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Косметология",
+    "direction": "Beauty",
+    "city": "Квартейра",
+    "contacts": "+351966406198"
+  },
+  {
+    "full_name": "Анастасия",
+    "profession": "Beauty Salon",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351912948037"
+  },
+  {
+    "full_name": "Валерия",
+    "profession": "Makeup Artist",
+    "direction": "Beauty",
+    "city": "Seixal",
+    "contacts": "+351925223385"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Makeup Artist",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351911099434"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Portimao",
+    "contacts": "+351932080495"
+  },
+  {
+    "full_name": "Снежана.",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Santo",
+    "contacts": "+351929240495"
+  },
+  {
+    "full_name": "Оксана",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351927068628"
+  },
+  {
+    "full_name": "Оксана.",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351963916469"
+  },
+  {
+    "full_name": "Кристина",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351963356545"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351934763685"
+  },
+  {
+    "full_name": "Таня",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Faro",
+    "contacts": "+351937667636"
+  },
+  {
+    "full_name": "Анна",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Portalegre",
+    "contacts": "+351935911246"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Beauty Salon",
+    "direction": "Beauty",
+    "city": "Аламеда",
+    "contacts": "+351920492391"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Cascais",
+    "contacts": "+351925288813"
+  },
+  {
+    "full_name": "Карина",
+    "profession": "Beauty Salon",
+    "direction": "Beauty",
+    "city": "Condeixa",
+    "contacts": "+351927228066"
+  },
+  {
+    "full_name": "Олеся",
+    "profession": "Brow Master",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351920046598"
+  },
+  {
+    "full_name": "Виктория",
+    "profession": "Brow Master",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351963925190"
+  },
+  {
+    "full_name": "Аня",
+    "profession": "Brow Master",
+    "direction": "Beauty",
+    "city": "Odivelas",
+    "contacts": "+351926440210"
+  },
+  {
+    "full_name": "Руслана",
+    "profession": "Brow Master",
+    "direction": "Beauty",
+    "city": "Vila Nova De Gaia",
+    "contacts": "+351919722220"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Brow Master",
+    "direction": "Beauty",
+    "city": "Setubal",
+    "contacts": "+351934708873"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Ermesinde",
+    "contacts": "+351918094492"
+  },
+  {
+    "full_name": "Валерия",
+    "profession": "Manicurist",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351919676819"
+  },
+  {
+    "full_name": "Ячес",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351939109566"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351968829013"
+  },
+  {
+    "full_name": "Анастасия",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351920239670"
+  },
+  {
+    "full_name": "Марина",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351964890516"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Almada",
+    "contacts": "+351919491189"
+  },
+  {
+    "full_name": "Алёна",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "São Domingos de Rana",
+    "contacts": "+351936318005"
+  },
+  {
+    "full_name": "Игорь",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351930520600"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351916539539"
+  },
+  {
+    "full_name": "Наталья",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351963258272"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Odivelas",
+    "contacts": "+351925351993"
+  },
+  {
+    "full_name": "Алина",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Leca",
+    "contacts": "+351967934290"
+  },
+  {
+    "full_name": "Светлана",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Albufeira",
+    "contacts": "+351925462580"
+  },
+  {
+    "full_name": "Кристина",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Cascais",
+    "contacts": "+351960299035"
+  },
+  {
+    "full_name": "Раджеш",
+    "profession": "Hairdresser",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351920479031"
+  },
+  {
+    "full_name": "Marina",
+    "profession": "Beauty Salon",
+    "direction": "Beauty",
+    "city": "Albufeira",
+    "contacts": "+351927539491"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Permanent Makeup",
+    "direction": "Beauty",
+    "city": "Alges",
+    "contacts": "+351961406017"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Beauty Salon",
+    "direction": "Beauty",
+    "city": "Lisboa",
+    "contacts": "+351913418913"
+  },
+  {
+    "full_name": "Анастасия",
+    "profession": "Косметология",
+    "direction": "Beauty",
+    "city": "Porto",
+    "contacts": "+351912948037"
+  },
+  {
+    "full_name": "Евгений",
+    "profession": "Юрист",
+    "direction": "Legal Services",
+    "city": "Lisboa",
+    "contacts": "+351963554411"
+  },
+  {
+    "full_name": "Диана",
+    "profession": "Юрист",
+    "direction": "Legal Services",
+    "city": "Lisboa",
+    "contacts": "+351964257796"
+  },
+  {
+    "full_name": "Марина",
+    "profession": "Сэф",
+    "direction": "Legal Services",
+    "city": "Lisboa",
+    "contacts": "+351929181748"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Аниматор",
+    "direction": "Entertainment",
+    "city": "Lisboa",
+    "contacts": "+351920139795"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Rental",
+    "direction": "Real Estate",
+    "city": "Lisboa",
+    "contacts": "+351968387601"
+  },
+  {
+    "full_name": "Ольга",
+    "profession": "Дети",
+    "direction": "Entertainment",
+    "city": "Cascais",
+    "contacts": "+351935737505"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Interior Designer",
+    "direction": "Construction",
+    "city": "Faro",
+    "contacts": "+351918870134"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Фермерская Продукция",
+    "direction": "Farming",
+    "city": "Lisboa",
+    "contacts": "+351934894484"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Accompanist",
+    "direction": "Event Management",
+    "city": "Loule",
+    "contacts": "+351934024211"
+  },
+  {
+    "full_name": "Диана",
+    "profession": "Painter",
+    "direction": "Art",
+    "city": "Lisboa",
+    "contacts": "+351934651743"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Оперативная Полиграфия Производство",
+    "direction": "Printing",
+    "city": "Albufeira",
+    "contacts": "+351920221211"
+  },
+  {
+    "full_name": "Константин",
+    "profession": "Маркетинг",
+    "direction": "Business Services",
+    "city": "Lisboa",
+    "contacts": "+351920252513"
+  },
+  {
+    "full_name": "Юлия",
+    "profession": "Копирайтер",
+    "direction": "IT & Design",
+    "city": "Albufeira",
+    "contacts": "+351911540083"
+  },
+  {
+    "full_name": "Вадим",
+    "profession": "Наружная Реклама",
+    "direction": "Printing",
+    "city": "Albufeira",
+    "contacts": "+351925130156"
+  },
+  {
+    "full_name": "Иван",
+    "profession": "Наружная Реклама",
+    "direction": "Printing",
+    "city": "Алгарве",
+    "contacts": "+351964478202"
+  },
+  {
+    "full_name": "Юрий",
+    "profession": "Наружная Реклама",
+    "direction": "Printing",
+    "city": "Lisboa",
+    "contacts": "+351938847543"
+  },
+  {
+    "full_name": "Руслан",
+    "profession": "Wedding Planner",
+    "direction": "Event Management",
+    "city": "Lisboa",
+    "contacts": "+351964553823"
+  },
+  {
+    "full_name": "Анастасия",
+    "profession": "Wedding Planner",
+    "direction": "Event Management",
+    "city": "Porto",
+    "contacts": "+351915239646"
+  },
+  {
+    "full_name": "Максим",
+    "profession": "Wedding Planner",
+    "direction": "Event Management",
+    "city": "Lisboa",
+    "contacts": "+351927281688"
+  },
+  {
+    "full_name": "Александр",
+    "profession": "Оформление",
+    "direction": "Event Management",
+    "city": "Almada",
+    "contacts": "+351937367438"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Промоутер",
+    "direction": "Business Services",
+    "city": "Lisboa",
+    "contacts": "+351967455317"
+  },
+  {
+    "full_name": "Елена",
+    "profession": "Музыкальные Инструменты",
+    "direction": "Education",
+    "city": "Lisboa",
+    "contacts": "+351966615192"
+  },
+  {
+    "full_name": "Инна",
+    "profession": "Accompanist",
+    "direction": "Event Management",
+    "city": "Lisboa",
+    "contacts": "+351966310267"
+  },
+  {
+    "full_name": "Татьяна",
+    "profession": "Accompanist",
+    "direction": "Event Management",
+    "city": "Albufeira",
+    "contacts": "+351920159056"
+  },
+  {
+    "full_name": "Анна Беляева",
+    "profession": "Host",
+    "direction": "Event Management",
+    "city": "Porto",
+    "contacts": "+351932986186"
+  },
+  {
+    "full_name": "Руслан Шульц",
+    "profession": "DJ",
+    "direction": "Entertainment",
+    "city": "Porto",
+    "contacts": "+351932986186"
+  },
+  {
+    "full_name": "Ирина",
+    "profession": "Sales Agent",
+    "direction": "Business Services",
+    "city": "Moscavide",
+    "contacts": "+351967970963"
+  },
+  {
+    "full_name": "Алексей",
+    "profession": "Оперативная Полиграфия Производство",
+    "direction": "Printing",
+    "city": "Lisboa",
+    "contacts": "+351916859020"
+  },
+  {
+    "full_name": "Мария",
+    "profession": "Florist",
+    "direction": "Floristry",
+    "city": "Lisboa",
+    "contacts": "+351927548387"
+  },
+  {
+    "full_name": "Любовь",
+    "profession": "Florist",
+    "direction": "Floristry",
+    "city": "Porto",
+    "contacts": "+351920166104"
+  },
+  {
+    "full_name": "Мария",
+    "profession": "Painter",
+    "direction": "Art",
+    "city": "Lisboa",
+    "contacts": "+351920447279"
+  },
+  {
+    "full_name": "Андрей",
+    "profession": "Yachting",
+    "direction": "Sport",
+    "city": "Lisboa",
+    "contacts": "+351939932626"
+  }
+]
