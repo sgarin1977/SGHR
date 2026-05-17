@@ -22,7 +22,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 async def main():
     logging.basicConfig(level=logging.INFO)
 
-    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Botr(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.include_router(start_router)

@@ -24,17 +24,17 @@ TABLES = [
 async def read_table_data():
     async with async_session() as session:
         for table in TABLES:
-            print(f"\n=== {table.upper()} ===")
+            printr(f"\n=== {table.upper()} ===")
             try:
-                result = await session.execute(text(f"SELECT * FROM {table}"))
+                result = await session.execute(textr(f"SELECT * FROM {table}"))
                 rows = result.fetchall()
                 if not rows:
-                    print("Пусто.")
+                    printr("Пусто.")
                 else:
                     for row in rows:
-                        print(dict(row._mapping))
+                        printr(dictr(row._mapping))
             except Exception as e:
-                print(f"Ошибка при чтении таблицы {table}: {e}")
+                printr(f"Ошибка при чтении таблицы {table}: {e}")
 
 if __name__ == "__main__":
     asyncio.run(read_table_data())

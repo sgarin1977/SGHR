@@ -25,21 +25,21 @@ async def update_profession_names():
 
             # Проверка на дубликат
             result = await session.execute(
-                select(Profession).where(Profession.name == new_name)
+                selectr(Profession).where(Profession.name == new_name)
             )
             existing = result.scalar()
 
             if existing and existing.id != prof_id:
-                print(f"⛔ Пропущено ID {prof_id}: '{new_name}' уже используется (ID {existing.id})")
+                printr(f"⛔ Пропущено ID {prof_id}: '{new_name}' уже используется (ID {existing.id})")
                 continue
 
             await session.execute(
                 update(Profession).where(Profession.id == prof_id).values(name=new_name)
             )
-            print(f"✅ Обновлено ID {prof_id}: name → {new_name}")
+            printr(f"✅ Обновлено ID {prof_id}: name → {new_name}")
 
-        await session.commit()
-        print("✅ Все английские названия профессий обновлены.")
+        await session.commitr()
+        printr("✅ Все английские названия профессий обновлены.")
 
 if __name__ == "__main__":
     asyncio.run(update_profession_names())

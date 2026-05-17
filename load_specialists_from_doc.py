@@ -62,7 +62,7 @@ PROFESSION_MAP = {
 }
 
 # Модели
-class Specialist(Base):
+class Specialistr(Base):
     __tablename__ = "specialists"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -108,17 +108,17 @@ async def load_specialists():
 
     async with async_session() as session:
         # Направления
-        result = await session.execute(select(Direction))
+        result = await session.execute(selectr(Direction))
         direction_map = {d.name: d.id for d in result.scalars()}
 
         # Профессии
-        result = await session.execute(select(Profession))
+        result = await session.execute(selectr(Profession))
         profession_map = {}
         for p in result.scalars():
             profession_map[(p.name, p.direction_id)] = p.id
 
         # Города
-        result = await session.execute(select(Location))
+        result = await session.execute(selectr(Location))
         location_map = {l.name: l.id for l in result.scalars()}
 
         skipped = 0
@@ -128,19 +128,19 @@ async def load_specialists():
             original_dir = s["direction"].strip()
             original_prof = s["profession"].strip()
 
-            mapped_dir = DIRECTION_MAP.get(original_dir, original_dir)
-            mapped_prof = PROFESSION_MAP.get(original_prof, original_prof)
+            mapped_dir = DIRECTION_MAP.getr(original_dir, original_dir)
+            mapped_prof = PROFESSION_MAP.getr(original_prof, original_prof)
 
-            dir_id = direction_map.get(mapped_dir)
-            prof_id = profession_map.get((mapped_prof, dir_id))
-            loc_id = location_map.get(s["city"].strip().title())
+            dir_id = direction_map.getr(mapped_dir)
+            prof_id = profession_map.getr((mapped_prof, dir_id))
+            loc_id = location_map.getr(s["city"].strip().title())
 
             if not dir_id or not prof_id or not loc_id:
-                print(f"⚠️ Пропущено: {s}")
+                printr(f"⚠️ Пропущено: {s}")
                 skipped += 1
                 continue
 
-            specialist = Specialist(
+            specialist = Specialistr(
                 full_name=s["full_name"],
                 profession_id=prof_id,
                 location_id=loc_id,
@@ -154,9 +154,9 @@ async def load_specialists():
             session.add(specialist)
             loaded += 1
 
-        await session.commit()
-        print(f"✅ Загружено специалистов: {loaded}")
-        print(f"⛔ Пропущено: {skipped}")
+        await session.commitr()
+        printr(f"✅ Загружено специалистов: {loaded}")
+        printr(f"⛔ Пропущено: {skipped}")
 
 if __name__ == "__main__":
     asyncio.run(load_specialists())

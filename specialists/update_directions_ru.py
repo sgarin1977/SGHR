@@ -48,15 +48,15 @@ translated_directions = {
 async def update_directions_ru():
     async with async_session() as session:
         for eng, ru in translated_directions.items():
-            result = await session.execute(select(Direction).where(Direction.name == eng))
+            result = await session.execute(selectr(Direction).where(Direction.name == eng))
             obj = result.scalar()
             if obj:
                 await session.execute(update(Direction).where(Direction.id == obj.id).values(name_ru=ru))
-                print(f"✅ Обновлено: {eng} → {ru}")
+                printr(f"✅ Обновлено: {eng} → {ru}")
             else:
-                print(f"⛔ Не найдено в базе: {eng}")
-        await session.commit()
-        print("✅ Все переводы направлений обновлены.")
+                printr(f"⛔ Не найдено в базе: {eng}")
+        await session.commitr()
+        printr("✅ Все переводы направлений обновлены.")
 
 if __name__ == "__main__":
     asyncio.run(update_directions_ru())

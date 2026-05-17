@@ -27,7 +27,7 @@ async def employer_region(message: Message, state: FSMContext):
 
 
 @router.message(EmployerRegistration.waiting_for_contact)
-async def employer_contact(message: Message, state: FSMContext):
+async def employer_contactr(message: Message, state: FSMContext):
     await state.update_data(contact=message.text)
     await state.set_state(EmployerRegistration.waiting_for_language)
     await message.answer("Укажите язык общения (например, ru, pt, en):")

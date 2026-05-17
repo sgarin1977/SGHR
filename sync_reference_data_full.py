@@ -52,7 +52,7 @@ async def sync_reference_data():
     async with async_session() as session:
         # Справочники направлений
         for k, v in directions.items():
-            result = await session.execute(select(Direction).where(Direction.name == v["name"]))
+            result = await session.execute(selectr(Direction).where(Direction.name == v["name"]))
             obj = result.scalar()
             if obj:
                 await session.execute(update(Direction).where(Direction.id == obj.id).values(name_ru=v["name_ru"]))
@@ -61,7 +61,7 @@ async def sync_reference_data():
 
         # Справочники городов
         for k, v in locations.items():
-            result = await session.execute(select(Location).where(Location.name == v["name"]))
+            result = await session.execute(selectr(Location).where(Location.name == v["name"]))
             obj = result.scalar()
             if obj:
                 await session.execute(update(Location).where(Location.id == obj.id).values(name_ru=v["name_ru"]))
@@ -71,19 +71,19 @@ async def sync_reference_data():
         # Справочники профессий
         for k, v in professions.items():
             # ищем направление
-            result = await session.execute(select(Direction.id).where(Direction.name == v["direction"]))
+            result = await session.execute(selectr(Direction.id).where(Direction.name == v["direction"]))
             dir_id = result.scalar()
             if not dir_id:
                 continue
-            result = await session.execute(select(Profession).where(Profession.name == v["name"]))
+            result = await session.execute(selectr(Profession).where(Profession.name == v["name"]))
             obj = result.scalar()
             if obj:
                 await session.execute(update(Profession).where(Profession.id == obj.id).values(name_ru=v["name_ru"]))
             else:
                 session.add(Profession(name=v["name"], name_ru=v["name_ru"], direction_id=dir_id))
 
-        await session.commit()
-        print("✅ База успешно обновлена всеми справочниками.")
+        await session.commitr()
+        printr("✅ База успешно обновлена всеми справочниками.")
 
 if __name__ == "__main__":
     asyncio.run(sync_reference_data())

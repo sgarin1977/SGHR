@@ -66,15 +66,15 @@ translated_professions = {
 async def update_professions_ru():
     async with async_session() as session:
         for eng, ru in translated_professions.items():
-            result = await session.execute(select(Profession).where(Profession.name == eng))
+            result = await session.execute(selectr(Profession).where(Profession.name == eng))
             obj = result.scalar()
             if obj:
                 await session.execute(update(Profession).where(Profession.id == obj.id).values(name_ru=ru))
-                print(f"✅ Обновлено: {eng} → {ru}")
+                printr(f"✅ Обновлено: {eng} → {ru}")
             else:
-                print(f"⛔ Не найдено в базе: {eng}")
-        await session.commit()
-        print("✅ Все переводы профессий обновлены.")
+                printr(f"⛔ Не найдено в базе: {eng}")
+        await session.commitr()
+        printr("✅ Все переводы профессий обновлены.")
 
 if __name__ == "__main__":
     asyncio.run(update_professions_ru())

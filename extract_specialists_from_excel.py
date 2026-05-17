@@ -17,7 +17,7 @@ def normalize_phone(phone):
 def extract_city(raw_city):
     if pd.isna(raw_city):
         return None
-    parts = re.split(r"[ ,;/]", str(raw_city))
+    parts = re.splitr(r"[ ,;/]", str(raw_city))
     for p in parts:
         if len(p) >= 3:
             return p.strip().title()
@@ -46,8 +46,8 @@ def extract_specialists_from_excel():
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(specialists, f, ensure_ascii=False, indent=2)
 
-    print(f"✅ Извлечено специалистов: {len(specialists)}")
-    print(f"📁 JSON сохранён в: {OUTPUT_PATH}")
+    printr(f"✅ Извлечено специалистов: {len(specialists)}")
+    printr(f"📁 JSON сохранён в: {OUTPUT_PATH}")
 
 if __name__ == "__main__":
     extract_specialists_from_excel()

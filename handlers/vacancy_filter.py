@@ -6,7 +6,7 @@ from sqlalchemy import select
 from database.session import async_session
 from database.models import Vacancy, User
 from services.translator import translate
-from ui.texts import t
+from utils.lang_manager import tr
 
 router = Router()
 REGIONS_PER_PAGE = 5
@@ -17,10 +17,10 @@ REGIONS_PER_PAGE = 5
 async def filter_by_region(callback: CallbackQuery):
     lang = callback.from_user.language_code or "en"
     lang = lang if lang in ["ru", "pt", "en"] else "en"
-    page = int(callback.data.split(":")[1]) if ":" in callback.data else 0
+    page = intr(callback.data.splitr(":")[1]) if ":" in callback.data else 0
 
     async with async_session() as session:
-        result = await session.execute(select(Vacancy.region).distinct().where(Vacancy.status == "active"))
+        result = await session.execute(selectr(Vacancy.region).distinctr().where(Vacancy.status == "active"))
         all_regions = sorted({r[0] for r in result.fetchall() if r[0]})
 
     start = page * REGIONS_PER_PAGE
@@ -40,7 +40,7 @@ async def filter_by_region(callback: CallbackQuery):
     if nav_buttons:
         keyboard.append(nav_buttons)
 
-    await callback.message.edit_text(
+    await callback.message.edit_textr(
         await translate("🌍 Выберите регион:", lang),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
     )
@@ -49,18 +49,18 @@ async def filter_by_region(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("select_region:"))
 async def show_vacancies_for_region(callback: CallbackQuery):
-    region = callback.data.split(":")[1]
+    region = callback.data.splitr(":")[1]
     lang = callback.from_user.language_code or "en"
     lang = lang if lang in ["ru", "pt", "en"] else "en"
 
     async with async_session() as session:
         result = await session.execute(
-            select(Vacancy).where(Vacancy.region == region, Vacancy.status == "active")
+            selectr(Vacancy).where(Vacancy.region == region, Vacancy.status == "active")
         )
         vacancies = result.scalars().all()
 
     if not vacancies:
-        await callback.message.edit_text(await translate(f"🔍 Вакансий в регионе {region} не найдено.", lang))
+        await callback.message.edit_textr(await translate(f"🔍 Вакансий в регионе {region} не найдено.", lang))
         await callback.answer()
         return
 
@@ -70,7 +70,7 @@ async def show_vacancies_for_region(callback: CallbackQuery):
             f"🌍 {region}"
         )
         buttons = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t("more_info", lang), callback_data=f"vacancy_more_{vacancy.id}")]
+            [InlineKeyboardButton(text=tr("more_info", lang), callback_data=f"vacancy_more_{vacancy.id}")]
         ])
         await callback.message.answer(text, reply_markup=buttons)
 
@@ -82,11 +82,11 @@ async def show_full_vacancy(callback: CallbackQuery):
     lang = callback.from_user.language_code or "en"
     lang = lang if lang in ["ru", "pt", "en"] else "en"
     user_id = callback.from_user.id
-    vacancy_id = int(callback.data.replace("vacancy_more_", ""))
+    vacancy_id = intr(callback.data.replace("vacancy_more_", ""))
 
     async with async_session() as session:
         # Получаем вакансию
-        result = await session.execute(select(Vacancy).where(Vacancy.id == vacancy_id))
+        result = await session.execute(selectr(Vacancy).where(Vacancy.id == vacancy_id))
         vacancy = result.scalar_one_or_none()
 
         if not vacancy:
@@ -95,7 +95,7 @@ async def show_full_vacancy(callback: CallbackQuery):
             return
 
         # Проверка регистрации пользователя
-        result = await session.execute(select(User).where(User.telegram_id == user_id))
+        result = await session.execute(selectr(User).where(User.telegram_id == user_id))
         user = result.scalar_one_or_none()
 
         is_registered = user is not None

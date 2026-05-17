@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 from sqlalchemy import select
 from database.session import async_session
 from database.models import Vacancy
-from ui.texts import t
+from utils.lang_manager import tr
 from services.translator import translate
 
 router = Router()
@@ -30,7 +30,7 @@ async def show_latest_vacancies(callback: CallbackQuery):
 
     async with async_session() as session:
         result = await session.execute(
-            select(Vacancy).where(Vacancy.status == "active").order_by(Vacancy.created_at.desc()).limit(10)
+            selectr(Vacancy).where(Vacancy.status == "active").order_by(Vacancy.created_at.desc()).limitr(10)
         )
         vacancies = result.scalars().all()
 
@@ -58,10 +58,10 @@ async def show_latest_vacancies(callback: CallbackQuery):
 async def filter_by_region(callback: CallbackQuery):
     lang = callback.from_user.language_code or "en"
     lang = lang if lang in ["ru", "pt", "en"] else "en"
-    page = int(callback.data.split(":")[1]) if ":" in callback.data else 0
+    page = intr(callback.data.splitr(":")[1]) if ":" in callback.data else 0
 
     async with async_session() as session:
-        result = await session.execute(select(Vacancy.region).distinct().where(Vacancy.status == "active"))
+        result = await session.execute(selectr(Vacancy.region).distinctr().where(Vacancy.status == "active"))
         all_regions = sorted({r[0] for r in result.fetchall() if r[0]})
 
     start = page * REGIONS_PER_PAGE
@@ -81,7 +81,7 @@ async def filter_by_region(callback: CallbackQuery):
     if nav_buttons:
         keyboard.append(nav_buttons)
 
-    await callback.message.edit_text(
+    await callback.message.edit_textr(
         await translate("🌍 Выберите регион:", lang),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
     )

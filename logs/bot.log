@@ -1,0 +1,738 @@
+2025-05-20 18:51:57,563 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 00:28:07,535 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 00:29:20,152 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-21 00:29:29,987 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:29:29,996 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-21 00:29:30,001 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:29:30,006 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:29:30,012 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:32:49,540 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 00:32:58,967 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-21 00:32:58,971 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:32:58,974 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:32:58,976 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:32:58,980 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 00:33:58,546 [INFO] BOT: [FSM] Пользователь 483721727 начал регистрацию специалиста
+2025-05-21 00:33:58,546 [INFO] BOT: [FSM] Переход в состояние: SpecialistForm.choosing_direction
+2025-05-21 09:41:32,414 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 09:49:31,322 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 09:54:41,783 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 09:54:59,597 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 10:27:24,719 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 10:27:32,047 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 10:27:46,844 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 10:27:46,849 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 10:27:46,850 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 10:27:46,851 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 13:08:21,409 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 13:08:28,892 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 13:08:28,892 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 13:08:28,892 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 13:08:28,893 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 13:08:28,894 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 14:07:43,035 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 14:33:28,010 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 14:33:47,503 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 14:47:43,587 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 14:59:33,509 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 15:00:23,531 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 15:20:26,920 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 15:25:00,092 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 15:30:25,959 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 15:34:21,234 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 15:35:18,040 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 15:36:17,302 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: 'ClientSession' object has no attribute 'postr'
+2025-05-21 15:48:11,669 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 15:48:25,621 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 16:16:54,636 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 16:35:54,765 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 16:36:01,979 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 16:49:45,236 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 16:50:02,695 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 16:51:28,047 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 16:56:43,696 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 17:04:48,073 [ERROR] BOT: [GEO] Ошибка геолокации: 'ClientSession' object has no attribute 'getr'
+2025-05-21 17:05:55,813 [ERROR] BOT: [GEO] Ошибка геолокации: 'ClientSession' object has no attribute 'getr'
+2025-05-21 23:37:15,682 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-21 23:38:32,886 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-21 23:39:45,441 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-21 23:50:20,984 [ERROR] BOT: [GEO] Ошибка геолокации: 'ClientSession' object has no attribute 'getr'
+2025-05-22 00:09:46,106 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-22 00:10:21,772 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-22 00:21:03,647 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-22 00:52:58,135 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-22 00:53:27,034 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-22 01:06:50,058 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-27 09:46:00,668 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-27 09:48:00,003 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-27 09:49:19,286 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-27 14:19:17,176 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 14:20:44,576 [ERROR] BOT: [GEO] Ошибка геолокации: 'ClientSession' object has no attribute 'getr'
+2025-05-27 14:46:46,821 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 14:47:24,558 [ERROR] BOT: [GEO] Ошибка геолокации: 'ClientSession' object has no attribute 'getr'
+2025-05-27 14:57:50,184 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 14:58:20,772 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-27 15:07:07,097 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-27 17:07:17,544 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 17:16:42,850 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 17:22:55,925 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 18:02:52,341 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 18:39:45,276 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 18:55:43,514 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 19:45:35,257 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 19:45:39,063 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-27 20:40:03,846 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 20:40:33,325 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-27 21:12:47,894 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 21:12:56,177 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-27 22:35:52,311 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 22:36:03,680 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-27 22:45:14,956 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 22:56:00,947 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 23:11:31,519 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 23:12:00,106 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-27 23:33:02,960 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-27 23:33:17,209 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 00:11:49,625 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 00:27:39,366 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 00:45:04,179 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 00:45:27,216 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 00:50:02,582 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 00:54:47,184 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 00:59:06,401 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 01:02:13,986 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 01:04:15,116 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 01:04:48,436 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 01:38:26,724 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 09:54:36,989 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 10:08:49,111 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 16:32:38,576 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 16:37:47,905 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 16:38:43,622 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 104] Connection reset by peer
+2025-05-28 16:43:56,317 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 16:55:03,171 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 16:55:12,896 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 17:09:58,298 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 18:56:39,378 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 23:42:39,818 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 23:48:37,290 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 23:48:44,200 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 23:54:46,756 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 23:54:52,495 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 23:57:08,033 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-28 23:57:17,672 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-28 23:58:48,844 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 00:14:53,365 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 00:15:01,130 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-29 00:25:46,495 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 00:25:52,212 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-29 00:27:23,482 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 00:27:29,689 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: [Errno 32] Broken pipe
+2025-05-29 00:57:02,969 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 01:14:56,038 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 01:39:00,573 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 01:41:03,175 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 01:43:16,790 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 01:43:53,024 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: Connection timeout to host https://libretranslate.de/translate
+2025-05-29 01:44:36,023 [ERROR] BOT: [TRANSLATOR] Ошибка перевода: Connection timeout to host https://libretranslate.de/translate
+2025-05-29 01:50:20,138 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 01:54:20,111 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 01:57:11,804 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:00:48,907 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:02:34,773 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:13:04,486 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:18:04,057 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:28:44,579 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:31:15,584 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:36:57,158 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:42:22,500 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:43:42,681 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:50:06,013 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 02:53:35,339 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:01:45,219 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:13:07,875 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:19:16,525 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:23:36,941 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:28:16,750 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:31:22,722 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:37:46,691 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:41:22,584 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:42:46,852 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-05-29 03:46:11,645 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-03 23:12:57,579 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 00:12:34,614 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 00:12:35,655 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 00:12:35,749 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 00:12:35,887 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 00:12:35,888 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:12:35,890 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 00:12:42,718 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:12:42,719 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:13:36,603 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 00:25:49,697 [INFO] BOT: [TO_MAIN_MENU] Пользователь 483721727 запрашивает главное меню
+2025-06-04 00:25:49,759 [WARNING] BOT: [TO_MAIN_MENU] Пользователь 483721727 не зарегистрирован
+2025-06-04 00:25:49,760 [DEBUG] BOT: [MENU] Генерация меню незарегистрированного пользователя | lang=ru
+2025-06-04 00:26:03,421 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 00:26:03,485 [INFO] BOT: [START] Новый пользователь: 483721727 (Sergio Jovany) — добавляем в базу.
+2025-06-04 00:26:03,655 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 00:26:03,753 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 00:26:03,753 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:03,754 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 00:26:07,400 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:26:07,401 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:26:08,840 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:26:08,841 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:13,103 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:26:13,103 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:26:14,333 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:26:14,335 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:16,198 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:26:16,199 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:26:18,693 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-04 00:26:20,192 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:26:20,192 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:30,386 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:26:30,386 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:26:33,254 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-04 00:26:34,942 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:26:34,943 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:37,142 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:26:37,142 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:26:38,412 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 00:26:41,023 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:26:41,023 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:43,641 [INFO] BOT: [TO_MAIN_MENU] Пользователь 483721727 запрашивает главное меню
+2025-06-04 00:26:43,705 [INFO] BOT: [TO_MAIN_MENU] Показ главного меню для 483721727 на языке ru
+2025-06-04 00:26:43,705 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:45,692 [INFO] BOT: [SHOW_VACANCIES_MENU] User: 483721727, Lang: ru
+2025-06-04 00:26:45,693 [DEBUG] BOT: [MENU] Меню вакансий | lang=ru | role=None
+2025-06-04 00:26:46,977 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:26:46,978 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:49,551 [INFO] BOT: [SHOW_VACANCIES_MENU] User: 483721727, Lang: ru
+2025-06-04 00:26:49,551 [DEBUG] BOT: [MENU] Меню вакансий | lang=ru | role=None
+2025-06-04 00:26:53,172 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:26:53,172 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:26:55,068 [INFO] BOT: [TO_MAIN_MENU] Пользователь 483721727 запрашивает главное меню
+2025-06-04 00:26:55,139 [INFO] BOT: [TO_MAIN_MENU] Показ главного меню для 483721727 на языке ru
+2025-06-04 00:26:55,140 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:34:54,665 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 00:35:13,583 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:35:13,584 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:35:19,651 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 00:35:26,068 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 1
+2025-06-04 00:35:29,415 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 2
+2025-06-04 00:35:31,649 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 3
+2025-06-04 00:35:37,935 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 4
+2025-06-04 00:35:43,610 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 3
+2025-06-04 00:35:47,028 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 2
+2025-06-04 00:35:50,250 [INFO] BOT: [REG_SPEC] Выбран направление: 3 пользователем 483721727
+2025-06-04 00:35:58,464 [INFO] BOT: [REG_SPEC] Выбран профессия: 10
+2025-06-04 00:36:07,630 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 00:51:51,285 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 00:51:58,224 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:51:58,225 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:52:03,718 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 00:57:22,630 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 00:58:48,147 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-04 00:59:02,366 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 00:59:02,366 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:59:06,403 [INFO] BOT: [TO_MAIN_MENU] Пользователь 483721727 запрашивает главное меню
+2025-06-04 00:59:06,484 [INFO] BOT: [TO_MAIN_MENU] Показ главного меню для 483721727 на языке ru
+2025-06-04 00:59:06,485 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 00:59:09,394 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 00:59:09,395 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 00:59:12,889 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 00:59:15,332 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 1
+2025-06-04 00:59:17,847 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 2
+2025-06-04 00:59:19,907 [INFO] BOT: [REG_SPEC] Выбран направление: 3 пользователем 483721727
+2025-06-04 00:59:23,054 [INFO] BOT: [REG_SPEC] Выбран профессия: 10
+2025-06-04 00:59:27,490 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 01:10:05,105 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 01:10:36,380 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 01:10:36,381 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 01:10:39,711 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 01:10:39,712 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 01:10:41,822 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 01:16:39,608 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 01:17:32,962 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 01:17:34,143 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 01:17:35,859 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 1
+2025-06-04 01:17:35,968 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 1, всего элементов: 30
+2025-06-04 01:17:37,531 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 2
+2025-06-04 01:17:37,637 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 2, всего элементов: 30
+2025-06-04 01:17:39,209 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 3
+2025-06-04 01:17:39,317 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 3, всего элементов: 30
+2025-06-04 01:17:42,674 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 2
+2025-06-04 01:17:42,776 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 2, всего элементов: 30
+2025-06-04 01:17:44,815 [INFO] BOT: [REG_SPEC] Выбран направление: 3 пользователем 483721727
+2025-06-04 01:17:44,956 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 7
+2025-06-04 01:17:47,706 [INFO] BOT: [REG_SPEC] Выбран профессия: 10
+2025-06-04 01:17:50,212 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 01:26:02,519 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 01:27:12,439 [INFO] BOT: [TO_MAIN_MENU] Пользователь 483721727 запрашивает главное меню
+2025-06-04 01:27:13,514 [INFO] BOT: [TO_MAIN_MENU] Показ главного меню для 483721727 на языке ru
+2025-06-04 01:27:13,516 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 01:27:29,124 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 01:27:29,125 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 01:27:31,069 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 01:27:31,070 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 01:27:33,171 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 01:27:33,394 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 01:27:36,266 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 1
+2025-06-04 01:27:36,372 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 1, всего элементов: 30
+2025-06-04 01:27:38,342 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 2
+2025-06-04 01:27:38,446 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 2, всего элементов: 30
+2025-06-04 01:27:39,986 [INFO] BOT: [REG_SPEC] Выбран направление: 3 пользователем 483721727
+2025-06-04 01:27:40,130 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 7
+2025-06-04 01:27:41,572 [INFO] BOT: [REG_SPEC] Выбран профессия: 10
+2025-06-04 01:27:45,120 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 01:36:53,326 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 01:37:01,184 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 01:37:01,185 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 01:37:03,637 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 01:37:03,637 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 01:37:05,509 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 01:37:05,724 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 01:37:07,334 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 01:37:07,464 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 01:37:08,435 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-04 01:37:12,902 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 01:37:12,902 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 01:37:12,960 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 02:03:02,427 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 02:03:07,686 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 02:03:07,686 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 02:03:13,593 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 02:03:13,594 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 02:03:15,485 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 02:03:15,752 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 02:03:16,894 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 02:03:17,063 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 02:03:18,096 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-04 02:03:20,177 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 02:03:20,177 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 02:03:20,231 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 02:09:27,546 [INFO] BOT: [REG_SPEC] Введена страна: /sart
+2025-06-04 02:10:05,919 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 02:10:06,002 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 02:10:06,128 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 02:10:06,307 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 02:10:06,307 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 02:10:06,308 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 02:10:14,856 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 02:10:14,856 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 02:10:16,897 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 02:10:17,064 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 02:10:18,285 [INFO] BOT: [REG_SPEC] Выбран направление: 9 пользователем 483721727
+2025-06-04 02:10:18,407 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 10
+2025-06-04 02:10:19,373 [INFO] BOT: [REG_SPEC] Выбран профессия: 105
+2025-06-04 02:10:21,659 [INFO] BOT: [REG_SPEC] Пользователь выбрал отправку геолокации.
+2025-06-04 02:11:01,534 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 02:11:01,616 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 02:11:01,739 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 02:11:01,866 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 02:11:01,866 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 02:11:01,867 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 02:11:03,517 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 02:11:03,518 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 02:11:07,438 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 02:11:07,600 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 02:11:08,814 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 02:11:08,936 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 02:11:09,967 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-04 02:11:12,637 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 02:11:12,638 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 02:11:12,700 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 17:35:25,071 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 17:35:48,914 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 17:36:09,256 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 17:36:10,306 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 17:36:10,405 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 17:36:10,556 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 17:36:10,557 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 17:36:10,564 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 17:36:16,720 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 17:36:16,721 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 17:36:19,918 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 17:36:20,145 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 17:36:22,638 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 17:36:22,775 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 17:36:24,190 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-04 17:36:30,532 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 17:36:30,536 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 17:36:30,594 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 18:30:25,094 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 18:39:00,931 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 18:40:34,446 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 18:40:35,658 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 18:40:35,779 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 18:40:35,952 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 18:40:35,953 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 18:40:35,956 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 18:40:37,944 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 18:40:37,944 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 18:40:39,713 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 18:40:39,981 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 18:40:41,365 [INFO] BOT: [REG_SPEC] Пагинация направлений: страница 1
+2025-06-04 18:40:41,484 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 1, всего элементов: 30
+2025-06-04 18:40:43,216 [INFO] BOT: [REG_SPEC] Выбран направление: 7 пользователем 483721727
+2025-06-04 18:40:43,374 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 2
+2025-06-04 18:40:46,477 [INFO] BOT: [REG_SPEC] Выбран профессия: 26
+2025-06-04 18:40:49,230 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 18:40:49,230 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 18:40:49,370 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 19:47:00,008 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 19:47:27,643 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 19:47:28,551 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 19:47:28,646 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 19:47:28,779 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 19:47:28,779 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 19:47:28,780 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 19:47:30,767 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 19:47:30,767 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 19:47:32,931 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 19:47:33,132 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 19:47:34,862 [INFO] BOT: [REG_SPEC] Выбран направление: 21 пользователем 483721727
+2025-06-04 19:47:34,995 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 4
+2025-06-04 19:47:36,978 [INFO] BOT: [REG_SPEC] Выбран профессия: 148
+2025-06-04 19:47:42,635 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 19:47:42,635 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 19:47:42,696 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 19:48:56,996 [INFO] BOT: [GEO_LOCATION] User 483721727 sent location: 38.466702, -9.098647
+2025-06-04 19:48:57,126 [INFO] BOT: [SHOW_DIRECTIONS] User 483721727, 0 specialists found nearby.
+2025-06-04 19:49:09,654 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-04 19:49:09,654 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 19:49:11,777 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 19:49:11,777 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 19:49:31,989 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 19:49:32,114 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 19:49:33,886 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 19:49:33,980 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 19:49:36,004 [INFO] BOT: [REG_SPEC] Выбран профессия: 144
+2025-06-04 19:49:38,404 [INFO] BOT: [REG_SPEC] Пользователь выбрал отправку геолокации.
+2025-06-04 20:01:29,249 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 20:01:46,859 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 20:01:47,898 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 20:01:47,995 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 20:01:48,136 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 20:01:48,136 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 20:01:48,137 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 20:01:52,065 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 20:01:52,066 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 20:01:54,262 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 20:01:54,484 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 20:01:55,573 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 20:01:55,711 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 20:01:57,549 [INFO] BOT: [REG_SPEC] Выбран профессия: 144
+2025-06-04 20:01:58,698 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 20:01:58,698 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 20:01:58,699 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 20:03:21,553 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 20:03:21,617 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 20:03:21,712 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 20:03:21,813 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 20:03:21,814 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 20:03:21,814 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 20:03:44,682 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 20:03:44,683 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 20:03:46,169 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 20:03:46,296 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 20:03:47,510 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 20:03:47,606 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 20:03:48,640 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-04 20:03:50,866 [INFO] BOT: [REG_SPEC] Пользователь выбрал отправку геолокации.
+2025-06-04 20:03:50,866 [DEBUG] BOT: [FSM] AFTER geo_location → новое состояние: SpecialistForm:geo_location
+2025-06-04 20:13:31,620 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 20:13:35,975 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-04 20:13:37,177 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе.
+2025-06-04 20:13:37,297 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-04 20:13:37,466 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-04 20:13:37,467 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-04 20:13:37,469 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-04 20:13:40,837 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-04 20:13:40,838 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-04 20:13:46,742 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 20:13:47,001 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 20:13:48,403 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 20:13:48,566 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 20:13:50,152 [INFO] BOT: [REG_SPEC] Выбран профессия: 144
+2025-06-04 20:13:52,356 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 20:13:52,357 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 20:13:52,358 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 20:13:58,648 [INFO] BOT: [FSM-DEBUG] manual_country HANDLER CALLED
+2025-06-04 20:13:58,649 [INFO] BOT: [REG_SPEC] Введена страна: россия
+2025-06-04 20:14:06,355 [INFO] BOT: [FSM-DEBUG] manual_city HANDLER CALLED
+2025-06-04 20:14:06,356 [INFO] BOT: [FSM-DEBUG] ДО get_coords_by_city: country=россия city=москва
+2025-06-04 20:14:07,156 [INFO] BOT: [FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords=(55.625578, 37.6063916, 'Россия')
+2025-06-04 20:14:07,157 [INFO] BOT: [REG_SPEC] Введен город: москва, координаты: (55.625578, 37.6063916, 'Россия')
+2025-06-04 20:14:15,884 [INFO] BOT: [REG_SPEC] Имя: Сергей гарин
+2025-06-04 20:14:23,977 [INFO] BOT: [REG_SPEC] Описание: я крутой
+2025-06-04 20:14:31,609 [INFO] BOT: [REG_SPEC] Контакт: 967437555
+2025-06-04 23:32:59,348 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-04 23:40:07,218 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-04 23:40:07,452 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-04 23:40:09,153 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-04 23:40:09,302 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-04 23:40:10,504 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-04 23:40:13,421 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-04 23:40:13,422 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-04 23:40:13,422 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-04 23:40:20,162 [INFO] BOT: [FSM-DEBUG] manual_country HANDLER CALLED
+2025-06-04 23:40:20,163 [INFO] BOT: [REG_SPEC] Введена страна: росиия
+2025-06-04 23:40:25,540 [INFO] BOT: [FSM-DEBUG] manual_city HANDLER CALLED
+2025-06-04 23:40:25,540 [INFO] BOT: [FSM-DEBUG] ДО get_coords_by_city: country=росиия city=москва
+2025-06-04 23:40:25,743 [INFO] BOT: [FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords=(None, None, None)
+2025-06-04 23:40:25,744 [INFO] BOT: [REG_SPEC] Введен город: москва, координаты: (None, None, None)
+2025-06-04 23:40:31,286 [INFO] BOT: [REG_SPEC] Имя: ыукпшщ
+2025-06-04 23:40:35,215 [INFO] BOT: [REG_SPEC] Описание: рпаправаапв
+2025-06-04 23:40:38,777 [INFO] BOT: [REG_SPEC] Контакт: 1234546789
+2025-06-05 07:57:12,907 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-05 21:03:56,901 [INFO] BOT: [START] Получена команда /start от 5472020640 (搬运工 代发推广), язык: en
+2025-06-13 21:25:50,710 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-13 21:26:05,356 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-13 21:26:06,563 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-13 21:26:06,630 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-13 21:26:06,735 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-13 21:26:06,736 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-13 21:26:06,741 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-13 21:26:13,878 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-13 21:26:13,879 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-13 21:26:18,914 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-13 21:26:19,151 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-13 21:26:22,065 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-13 21:26:22,203 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-13 21:26:24,822 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-13 21:26:29,225 [INFO] BOT: [REG_SPEC] Пользователь выбрал отправку геолокации.
+2025-06-13 21:26:29,226 [DEBUG] BOT: [FSM] AFTER geo_location → новое состояние: SpecialistForm:geo_location
+2025-06-13 21:26:52,338 [INFO] BOT: [FSM-DEBUG] geo_location HANDLER CALLED
+2025-06-13 21:26:52,339 [INFO] BOT: [FSM-DEBUG] ДО get_location_by_coords: lat=38.466724 lon=-9.098651
+2025-06-13 21:26:52,645 [INFO] BOT: [FSM-DEBUG] ПОСЛЕ get_location_by_coords: country=Portugal, city=Sesimbra
+2025-06-13 21:26:52,646 [INFO] BOT: [REG_SPEC] Получена геолокация: Portugal, Sesimbra, (38.466724, -9.098651)
+2025-06-13 21:26:58,734 [INFO] BOT: [REG_SPEC] Имя: sergio
+2025-06-13 21:27:07,028 [INFO] BOT: [REG_SPEC] Описание: dfgghhhjjk
+2025-06-13 21:27:12,544 [INFO] BOT: [REG_SPEC] Контакт: 45567888
+2025-06-13 21:27:19,275 [INFO] BOT: [REG_SPEC] Успешно зарегистрирован: 483721727
+2025-06-13 21:28:14,476 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-13 21:28:14,610 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-13 21:28:14,678 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-13 21:28:14,781 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-13 21:28:14,782 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-13 21:28:14,783 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-13 21:28:17,369 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-13 21:28:17,369 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-13 21:28:20,320 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-13 21:28:20,458 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-13 21:28:23,203 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-13 21:28:23,303 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-13 21:28:25,954 [INFO] BOT: [REG_SPEC] Выбран профессия: 114
+2025-06-13 21:28:29,021 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-13 21:28:29,022 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-13 21:28:29,023 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-13 21:28:37,015 [INFO] BOT: [FSM-DEBUG] manual_country HANDLER CALLED
+2025-06-13 21:28:37,016 [INFO] BOT: [REG_SPEC] Введена страна: portugal
+2025-06-13 21:28:41,584 [INFO] BOT: [FSM-DEBUG] manual_city HANDLER CALLED
+2025-06-13 21:28:41,585 [INFO] BOT: [FSM-DEBUG] ДО get_coords_by_city: country=portugal city=lisboa
+2025-06-13 21:28:41,992 [INFO] BOT: [FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords=(38.7077507, -9.1365919, 'Portugal')
+2025-06-13 21:28:41,993 [INFO] BOT: [REG_SPEC] Введен город: lisboa, координаты: (38.7077507, -9.1365919, 'Portugal')
+2025-06-13 21:28:49,182 [INFO] BOT: [REG_SPEC] Имя: sergio
+2025-06-13 21:28:53,062 [INFO] BOT: [REG_SPEC] Описание: ddgghhjj
+2025-06-13 21:28:57,740 [INFO] BOT: [REG_SPEC] Контакт: 45677889
+2025-06-13 21:29:01,528 [INFO] BOT: [REG_SPEC] Успешно зарегистрирован: 483721727
+2025-06-13 23:35:30,366 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-13 23:36:50,423 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-13 23:36:51,664 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-13 23:36:51,739 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-13 23:36:51,852 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-13 23:36:51,853 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-13 23:36:51,855 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-13 23:36:53,961 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-13 23:36:53,962 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-13 23:36:56,370 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-13 23:36:56,615 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-13 23:36:58,374 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-13 23:36:58,525 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-13 23:37:00,403 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-13 23:37:02,990 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-13 23:37:02,991 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-13 23:37:02,992 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-13 23:37:10,359 [INFO] BOT: [FSM-DEBUG] manual_country HANDLER CALLED
+2025-06-13 23:37:10,359 [INFO] BOT: [REG_SPEC] Введена страна: russia
+2025-06-13 23:37:19,014 [INFO] BOT: [FSM-DEBUG] manual_city HANDLER CALLED
+2025-06-13 23:37:19,015 [INFO] BOT: [FSM-DEBUG] ДО get_coords_by_city: country=russia city=moscow
+2025-06-13 23:37:19,324 [INFO] BOT: [FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords=(55.625578, 37.6063916, 'Россия')
+2025-06-13 23:37:19,325 [INFO] BOT: [REG_SPEC] Введен город: moscow, координаты: (55.625578, 37.6063916, 'Россия')
+2025-06-13 23:37:23,707 [INFO] BOT: [REG_SPEC] Имя: sergio
+2025-06-13 23:37:28,123 [INFO] BOT: [REG_SPEC] Описание: qwedsfds
+2025-06-13 23:37:31,793 [INFO] BOT: [REG_SPEC] Контакт: 345354
+2025-06-13 23:37:35,977 [INFO] BOT: [REG_SPEC] Успешно зарегистрирован: 483721727
+2025-06-13 23:41:47,947 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-13 23:42:22,363 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-13 23:42:23,697 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-13 23:42:23,778 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-13 23:42:23,899 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-13 23:42:23,900 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-13 23:42:23,902 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-13 23:42:25,908 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-13 23:42:25,909 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-13 23:42:27,801 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-13 23:42:28,055 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-13 23:42:29,463 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-13 23:42:29,623 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-13 23:42:31,561 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-13 23:42:34,111 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-13 23:42:34,112 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-13 23:42:34,112 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-13 23:42:43,393 [INFO] BOT: [FSM-DEBUG] manual_country HANDLER CALLED
+2025-06-13 23:42:43,393 [INFO] BOT: [REG_SPEC] Введена страна: кгыышф
+2025-06-13 23:42:55,840 [INFO] BOT: [FSM-DEBUG] manual_city HANDLER CALLED
+2025-06-13 23:42:55,841 [INFO] BOT: [FSM-DEBUG] ДО get_coords_by_city: country=кгыышф city=москва
+2025-06-13 23:42:56,006 [INFO] BOT: [FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords=(None, None, None)
+2025-06-13 23:42:56,007 [INFO] BOT: [REG_SPEC] Введен город: москва, координаты: (None, None, None)
+2025-06-13 23:43:00,920 [INFO] BOT: [REG_SPEC] Имя: сергкй
+2025-06-13 23:43:04,974 [INFO] BOT: [REG_SPEC] Описание: рпро
+2025-06-13 23:43:07,987 [INFO] BOT: [REG_SPEC] Контакт: 767868
+2025-06-13 23:43:11,310 [INFO] BOT: [REG_SPEC] Успешно зарегистрирован: 483721727
+2025-06-13 23:43:11,408 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-13 23:47:55,218 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-13 23:47:55,219 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-13 23:47:58,460 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-13 23:47:58,621 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-13 23:48:18,463 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-13 23:48:18,581 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-13 23:48:38,619 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-13 23:48:43,360 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-13 23:48:43,361 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-13 23:48:43,362 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-14 00:02:56,206 [INFO] BOT: [FSM-DEBUG] manual_country HANDLER CALLED
+2025-06-14 00:02:56,208 [INFO] BOT: [REG_SPEC] Введена страна: /start
+2025-06-14 00:03:18,950 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-14 00:03:24,141 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-14 00:03:25,378 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-14 00:03:25,454 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-14 00:03:25,568 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-14 00:03:25,569 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-14 00:04:40,172 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-14 00:04:43,510 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-14 00:04:44,645 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-14 00:04:44,714 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-14 00:04:44,818 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-14 00:04:44,818 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-14 00:04:44,820 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-14 00:04:47,748 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-14 00:04:47,748 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-14 00:04:50,086 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727
+2025-06-14 00:04:50,306 [DEBUG] BOT: [REG_SPEC] Построена пагинация для direction, страница 0, всего элементов: 30
+2025-06-14 00:04:52,184 [INFO] BOT: [REG_SPEC] Выбран направление: 30 пользователем 483721727
+2025-06-14 00:04:52,321 [DEBUG] BOT: [REG_SPEC] Построена пагинация для profession, страница 0, всего элементов: 5
+2025-06-14 00:04:54,237 [INFO] BOT: [REG_SPEC] Выбран профессия: 142
+2025-06-14 00:07:45,826 [INFO] BOT: [REG_SPEC] Пользователь выбрал ручной ввод локации.
+2025-06-14 00:07:45,827 [DEBUG] BOT: [FSM] BEFORE manual_country → текущее состояние: SpecialistForm:choosing_location_mode
+2025-06-14 00:07:45,827 [DEBUG] BOT: [FSM] AFTER manual_country → новое состояние: SpecialistForm:manual_country
+2025-06-14 00:07:56,842 [INFO] BOT: [FSM-DEBUG] manual_country HANDLER CALLED
+2025-06-14 00:07:56,842 [INFO] BOT: [REG_SPEC] Введена страна: россия
+2025-06-14 00:08:13,896 [INFO] BOT: [FSM-DEBUG] manual_city HANDLER CALLED
+2025-06-14 00:08:13,897 [INFO] BOT: [FSM-DEBUG] ДО get_coords_by_city: country=россия city=санкт-петербург
+2025-06-14 00:08:14,274 [INFO] BOT: [FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords=(59.9606739, 30.1586551, 'Россия')
+2025-06-14 00:08:14,275 [INFO] BOT: [REG_SPEC] Введен город: санкт-петербург, координаты: (59.9606739, 30.1586551, 'Россия')
+2025-06-14 00:08:20,059 [INFO] BOT: [REG_SPEC] Имя: сергей
+2025-06-14 00:08:25,333 [INFO] BOT: [REG_SPEC] Описание: тест
+2025-06-14 00:08:28,686 [INFO] BOT: [REG_SPEC] Контакт: 6575
+2025-06-14 00:08:32,842 [INFO] BOT: [REG_SPEC] Успешно зарегистрирован: 483721727
+2025-06-14 00:08:32,910 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-14 00:08:39,443 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-14 00:08:39,444 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-14 00:08:42,493 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-14 00:09:06,585 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-14 00:09:10,043 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-14 00:09:10,045 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-14 00:09:12,518 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-14 00:09:12,518 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-14 00:09:15,203 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-14 00:09:23,909 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-14 00:09:24,077 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-14 00:09:24,146 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-14 00:09:24,248 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-14 00:09:24,248 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-14 00:09:24,249 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-14 00:09:29,603 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-14 00:09:29,604 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-14 00:09:32,419 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-14 00:10:45,283 [INFO] BOT: [ASK_COUNTRY] User 483721727 prompted for country.
+2025-06-14 00:10:54,547 [INFO] BOT: [COUNTRY_INPUT] User 483721727 entered: россия
+2025-06-14 00:11:15,095 [INFO] BOT: [CITY_INPUT] User 483721727 located at 59.9606739, 30.1586551
+2025-06-14 00:11:15,306 [INFO] BOT: [SHOW_DIRECTIONS] User 483721727, 1 specialists found nearby.
+2025-06-14 00:12:25,993 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-14 00:13:05,768 [INFO] BOT: [CHOOSE_PROFESSION] User 483721727 direction_id: 30
+2025-06-14 00:13:11,310 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-14 00:13:11,311 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-14 00:13:14,483 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-14 00:13:14,483 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-14 00:13:16,838 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-14 00:13:21,212 [INFO] BOT: [ASK_COUNTRY] User 483721727 prompted for country.
+2025-06-14 00:13:35,449 [INFO] BOT: [COUNTRY_INPUT] User 483721727 entered: россия
+2025-06-14 00:13:52,491 [INFO] BOT: [CITY_INPUT] User 483721727 located at 59.9606739, 30.1586551
+2025-06-14 00:13:52,695 [INFO] BOT: [SHOW_DIRECTIONS] User 483721727, 1 specialists found nearby.
+2025-06-14 00:14:00,447 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-14 00:14:00,447 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-14 00:19:04,341 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-14 00:19:04,342 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-14 00:19:07,829 [INFO] BOT: [FIND_SPECIALIST] User 483721727 started specialist search.
+2025-06-14 00:19:12,421 [INFO] BOT: [ASK_COUNTRY] User 483721727 prompted for country.
+2025-06-14 00:19:23,011 [INFO] BOT: [COUNTRY_INPUT] User 483721727 entered: россиия
+2025-06-14 00:19:39,550 [INFO] BOT: [CITY_INPUT] User 483721727 located at None, None
+2025-06-15 21:50:46,032 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-15 21:52:50,702 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-15 21:52:51,947 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-15 21:52:52,024 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-15 21:52:52,136 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-15 21:52:52,137 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 21:52:52,142 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-15 21:52:57,134 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-15 21:52:57,134 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-15 21:52:59,403 [INFO] BOT: [SPEC_SEARCH] Start for user 483721727
+2025-06-15 22:16:16,260 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-15 22:16:36,068 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-15 22:16:37,324 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-15 22:16:37,398 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-15 22:16:37,517 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-15 22:16:37,517 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 22:19:45,027 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-15 22:19:59,016 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-15 22:20:00,086 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-15 22:20:00,168 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-15 22:20:00,267 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-15 22:20:00,268 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 22:22:37,993 [INFO] BOT: 🤖 Бот успешно запущен.
+2025-06-15 22:22:44,909 [INFO] BOT: [START] Получена команда /start от 483721727 (Sergio Jovany), язык: ru
+2025-06-15 22:22:46,124 [INFO] BOT: [START] Пользователь 483721727 уже существует в базе, данные обновлены.
+2025-06-15 22:22:46,199 [INFO] BOT: [START] Обновляем дату последнего входа для 483721727.
+2025-06-15 22:22:46,315 [INFO] BOT: [START] FSM очищен для 483721727
+2025-06-15 22:22:46,316 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 22:22:46,317 [INFO] BOT: [START] Отправка главного меню пользователю 483721727
+2025-06-15 22:22:51,799 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-15 22:22:51,799 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-15 22:22:53,218 [INFO] BOT: [SPEC_SEARCH] Start for user 483721727
+2025-06-15 22:23:00,404 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-15 22:23:00,405 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 22:23:02,893 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-15 22:23:02,894 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-15 22:23:04,593 [INFO] BOT: [SPEC_SEARCH] Start for user 483721727
+2025-06-15 22:24:00,744 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-15 22:24:00,745 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 22:24:04,367 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-15 22:24:04,367 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-15 22:24:09,449 [INFO] BOT: [SPEC_SEARCH] Start for user 483721727
+2025-06-15 22:24:58,813 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-15 22:24:58,814 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 22:27:59,317 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-15 22:27:59,318 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2025-06-15 22:28:01,215 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2025-06-15 22:28:01,215 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2025-06-15 22:28:04,861 [INFO] BOT: [SPEC_SEARCH] Start for user 483721727
+2025-06-15 22:28:30,178 [INFO] BOT: [BACK_TO_MENU] User 483721727 returned to main menu.
+2025-06-15 22:28:30,185 [DEBUG] BOT: [MENU] Главное меню | lang=ru
+2026-01-29 14:34:45,270 [INFO] BOT: 🤖 Бот успешно запущен.
+2026-01-29 14:35:02,356 [INFO] BOT: [SHOW_SPECIALISTS_MENU] User: 483721727, Lang: ru
+2026-01-29 14:35:02,363 [DEBUG] BOT: [MENU] Меню специалистов | lang=ru | is_specialist=False
+2026-01-29 14:35:22,572 [INFO] BOT: [SPEC_SEARCH] Start for user 483721727
+2026-01-29 14:35:26,242 [INFO] BOT: [REG_SPEC] Начало регистрации специалиста: 483721727

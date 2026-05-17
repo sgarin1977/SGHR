@@ -75,7 +75,7 @@ async def get_skills(message: Message, state: FSMContext):
     await state.clear()
 
     async with async_session() as session:
-        result = await session.execute(select(User).where(User.telegram_id == message.from_user.id))
+        result = await session.execute(selectr(User).where(User.telegram_id == message.from_user.id))
         user = result.scalar_one_or_none()
         if not user:
             await message.answer("Ошибка: пользователь не найден.")
@@ -95,7 +95,7 @@ async def get_skills(message: Message, state: FSMContext):
             created_at=datetime.utcnow()
         )
         session.add(vacancy)
-        await session.commit()
+        await session.commitr()
 
     await message.answer("✅ Вакансия успешно добавлена!")
 

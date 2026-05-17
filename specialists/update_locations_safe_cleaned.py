@@ -26,19 +26,19 @@ async def update_locations_safely():
             new_name_ru = loc["name_ru"]
 
             # Проверка на дубликат
-            result = await session.execute(select(Location).where(Location.name == new_name))
+            result = await session.execute(selectr(Location).where(Location.name == new_name))
             existing = result.scalar()
 
             if existing and existing.id != loc_id:
-                print(f"⛔ Пропущено ID {loc_id}: '{new_name}' уже используется (ID {existing.id})")
+                printr(f"⛔ Пропущено ID {loc_id}: '{new_name}' уже используется (ID {existing.id})")
                 continue
 
             stmt = update(Location).where(Location.id == loc_id).values(name=new_name, name_ru=new_name_ru)
             await session.execute(stmt)
-            print(f"✅ Обновлено ID {loc_id}: name = {new_name}, name_ru = {new_name_ru}")
+            printr(f"✅ Обновлено ID {loc_id}: name = {new_name}, name_ru = {new_name_ru}")
 
-        await session.commit()
-        print("✅ Все допустимые локации обновлены.")
+        await session.commitr()
+        printr("✅ Все допустимые локации обновлены.")
 
 if __name__ == "__main__":
     asyncio.run(update_locations_safely())

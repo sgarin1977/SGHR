@@ -7,6 +7,7 @@ from aiogram.filters import Command
 from database.models import User, Seeker
 from database.session import async_session
 from services.user import get_user_by_telegram_id, create_or_update_user
+from logger import log
 
 router = Router()
 
@@ -53,17 +54,14 @@ async def process_status(message: Message, state: FSMContext):
     await state.clear()
 
     async with async_session() as session:
-        # 1. Создаём или обновляем пользователя
         user_data = {
             "full_name": data["full_name"],
-            "role": "seeker",
             "country": data["region"],
             "language": data["language"],
             "profile_complete": True
         }
         user = await create_or_update_user(session, message.from_user.id, user_data)
 
-        # 2. Создаём профиль соискателя
         seeker = Seeker(
             user_id=user.id,
             full_name=data["full_name"],
@@ -75,6 +73,9 @@ async def process_status(message: Message, state: FSMContext):
         )
         session.add(seeker)
         await session.commit()
+
+        # Только после успешной регистрации — проставляем роль
+        await create_or_update_user(session, message.from_user.id, {"role": "seeker"})
 
     await message.answer(
         f"✅ Спасибо! Вы зарегистрированы:\n\n"

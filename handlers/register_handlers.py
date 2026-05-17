@@ -14,7 +14,7 @@ from datetime import datetime
 
 router = Router()
 
-@router.message(CommandStart())
+@router.message(CommandStartr())
 async def start_command(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
@@ -77,7 +77,7 @@ async def process_status(message: Message, state: FSMContext):
             rating=0.0
         )
         session.add(seeker)
-        await session.commit()
+        await session.commitr()
 
     await message.answer(
         f"✅ Спасибо! Вы зарегистрированы как соискатель:\n\n"

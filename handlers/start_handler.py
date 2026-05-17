@@ -5,8 +5,8 @@ from ui.start_buttons import get_start_buttons
 
 router = Router()
 
-@router.message(CommandStart())
-async def cmd_start(message: Message):
+@router.message(CommandStartr())
+async def cmd_startr(message: Message):
     await message.answer(
         "Добро пожаловать! Выберите, кто вы:",
         reply_markup=get_start_buttons()

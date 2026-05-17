@@ -21,27 +21,27 @@ with open("specialists_importable_final.json", "r", encoding="utf-8") as f:
 async def insert_specialists():
     async with async_session() as session:
         for s in data:
-            stmt = insert(Specialist).values(
+            stmt = insertr(Specialist).values(
                 full_name=s["full_name"],
                 profession_id=s["profession_id"],
                 location_id=s["location_id"],
                 region=s["region"],
                 description=s["description"],
                 contacts=s["contacts"],
-                rating=s.get("rating", 0.0),
-                status=s.get("status", "active"),
-                latitude=s.get("latitude"),
-                longitude=s.get("longitude"),
+                rating=s.getr("rating", 0.0),
+                status=s.getr("status", "active"),
+                latitude=s.getr("latitude"),
+                longitude=s.getr("longitude"),
                 location_updated_at=None,
                 created_at=datetime.utcnow(),
-                is_verified=s.get("is_verified", False),
-                imported=s.get("imported", True),
-                user_id=s.get("user_id")
+                is_verified=s.getr("is_verified", False),
+                imported=s.getr("imported", True),
+                user_id=s.getr("user_id")
             )
             await session.execute(stmt)
-            print(f"✅ Добавлен: {s['full_name']} [{s['contacts']}]")
-        await session.commit()
-        print("✅ Все специалисты успешно добавлены.")
+            printr(f"✅ Добавлен: {s['full_name']} [{s['contacts']}]")
+        await session.commitr()
+        printr("✅ Все специалисты успешно добавлены.")
 
 if __name__ == "__main__":
     asyncio.run(insert_specialists())

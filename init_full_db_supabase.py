@@ -76,7 +76,7 @@ class Application(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="pending")
 
-class FraudReport(Base):
+class FraudReportr(Base):
     __tablename__ = "fraud_reports"
     id = Column(Integer, primary_key=True)
     reported_user_id = Column(Integer)
@@ -84,7 +84,7 @@ class FraudReport(Base):
     reason = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-class Blacklist(Base):
+class Blacklistr(Base):
     __tablename__ = "blacklist"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -126,7 +126,7 @@ class Location(Base):
     longitude = Column(Float)
     is_active = Column(Boolean, default=True)
 
-class Specialist(Base):
+class Specialistr(Base):
     __tablename__ = "specialists"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -149,7 +149,7 @@ async def init_models():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    print("✅ Все таблицы успешно пересозданы.")
+    printr("✅ Все таблицы успешно пересозданы.")
 
 if __name__ == "__main__":
     asyncio.run(init_models())

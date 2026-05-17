@@ -1,0 +1,196 @@
+.
+├── alembic
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions
+├── alembic.ini
+├── bot_main_aiogram3.py
+├── bot_main.py
+├── bot_main_v2.py
+├── bot.py
+├── config.py
+├── database
+│   ├── db.py
+│   ├── models.py
+│   └── session.py
+├── .env
+├── extract_specialists_from_excel.py
+├── fix_specialists_direction.py
+├── fsm
+│   ├── employer_form.py
+│   ├── register.py
+│   ├── seeker_form.py
+│   └── specialist_form.py
+├── full_app.db
+├── .gitignore
+├── handlers
+│   ├── auto_translate_utils.py
+│   ├── find_job.py
+│   ├── go_back.py
+│   ├── link_specialist.py
+│   ├── register_employer.py
+│   ├── register_handlers.py
+│   ├── role_selection.py
+│   ├── specialists
+│   │   ├── contact_reply.py
+│   │   ├── contact_specialist.py
+│   │   ├── search_filters.py
+│   │   ├── specialists_filter_city.py
+│   │   ├── specialists_filter_profession.py
+│   │   └── specialists_find_nearby.py
+│   ├── specialists_main.py
+│   ├── start_handler.py
+│   ├── start.py
+│   ├── switch_profile.py
+│   ├── unregistered_menu.py
+│   ├── vacancy_filter.py
+│   ├── vacancy_form.py
+│   └── view_vacancies.py
+├── init_full_db_supabase.py
+├── install_python310.sh
+├── joblast3
+│   ├── alembic.ini
+│   ├── bot_main_aiogram3.py
+│   ├── bot_main.py
+│   ├── bot_main_v2.py
+│   ├── bot.py
+│   ├── config.py
+│   ├── database
+│   │   ├── db.py
+│   │   ├── models.py
+│   │   └── session.py
+│   ├── .env
+│   ├── extract_specialists_from_excel.py
+│   ├── fix_specialists_direction.py
+│   ├── fsm
+│   │   ├── employer_form.py
+│   │   ├── register.py
+│   │   ├── seeker_form.py
+│   │   └── specialist_form.py
+│   ├── full_app.db
+│   ├── .gitignore
+│   ├── handlers
+│   │   ├── auto_translate_utils.py
+│   │   ├── find_job.py
+│   │   ├── go_back.py
+│   │   ├── link_specialist.py
+│   │   ├── register_employer.py
+│   │   ├── register_handlers.py
+│   │   ├── role_selection.py
+│   │   ├── specialists
+│   │   │   ├── contact_reply.py
+│   │   │   ├── contact_specialist.py
+│   │   │   ├── search_filters.py
+│   │   │   ├── specialists_filter_city.py
+│   │   │   ├── specialists_filter_profession.py
+│   │   │   └── specialists_find_nearby.py
+│   │   ├── specialists_main.py
+│   │   ├── start_handler.py
+│   │   ├── start.py
+│   │   ├── switch_profile.py
+│   │   ├── unregistered_menu.py
+│   │   ├── vacancy_filter.py
+│   │   ├── vacancy_form.py
+│   │   └── view_vacancies.py
+│   ├── init_full_db_supabase.py
+│   ├── install_python310.sh
+│   ├── load_initial_data.py
+│   ├── load_specialists_from_doc.py
+│   ├── locales
+│   │   ├── en.json
+│   │   ├── pt.json
+│   │   └── ru.json
+│   ├── logger.py
+│   ├── logs
+│   ├── project_structure.txt
+│   ├── read_db_content.py
+│   ├── reg.py
+│   ├── requirements.txt
+│   ├── services
+│   │   ├── translator.py
+│   │   └── user.py
+│   ├── specialists
+│   │   ├── insert_specialists.py
+│   │   ├── link_specialist.py
+│   │   ├── specialists_final_filtered.json
+│   │   ├── specialists_final_importable.json
+│   │   ├── specialists_importable_final.json
+│   │   ├── specialists.py
+│   │   ├── specialists_ready_clean.json
+│   │   ├── specialists_ready_to_import.json
+│   │   ├── update_directions_ru.py
+│   │   ├── update_locations_name_final_cleaned.json
+│   │   ├── update_locations_safe_cleaned.py
+│   │   ├── update_profession_en_exact.py
+│   │   └── update_professions_ru.py
+│   ├── specialists_final.json
+│   ├── sync_reference_data_full.py
+│   ├── sync_reference_data.py
+│   ├── test_translator.py
+│   ├── ui
+│   │   ├── buttons
+│   │   │   ├── common.py
+│   │   │   ├── employer.py
+│   │   │   ├── menu.py
+│   │   │   ├── paginator.py
+│   │   │   ├── seeker.py
+│   │   │   └── text_splitter.py
+│   │   ├── start_buttons.py
+│   │   ├── texts.py
+│   │   └── ui_buttons.py
+│   └── utils
+│       ├── geocode_utils.py
+│       └── translate_utils.py
+├── joblast3.zip
+├── joblast4.zip
+├── load_initial_data.py
+├── load_specialists_from_doc.py
+├── locales
+│   ├── en.json
+│   ├── pt.json
+│   └── ru.json
+├── logger.py
+├── logs
+├── project_structure.txt
+├── read_db_content.py
+├── reg.py
+├── requirements.txt
+├── services
+│   ├── translator.py
+│   └── user.py
+├── specialists
+│   ├── insert_specialists.py
+│   ├── link_specialist.py
+│   ├── specialists_final_filtered.json
+│   ├── specialists_final_importable.json
+│   ├── specialists_importable_final.json
+│   ├── specialists.py
+│   ├── specialists_ready_clean.json
+│   ├── specialists_ready_to_import.json
+│   ├── update_directions_ru.py
+│   ├── update_locations_name_final_cleaned.json
+│   ├── update_locations_safe_cleaned.py
+│   ├── update_profession_en_exact.py
+│   └── update_professions_ru.py
+├── specialists_final.json
+├── sync_reference_data_full.py
+├── sync_reference_data.py
+├── test_translator.py
+├── ui
+│   ├── buttons
+│   │   ├── common.py
+│   │   ├── employer.py
+│   │   ├── menu.py
+│   │   ├── paginator.py
+│   │   ├── seeker.py
+│   │   └── text_splitter.py
+│   ├── start_buttons.py
+│   ├── texts.py
+│   └── ui_buttons.py
+└── utils
+    ├── geocode_utils.py
+    ├── lang_manager.py
+    └── translate_utils.py
+
+25 directories, 168 files

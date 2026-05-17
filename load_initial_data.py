@@ -83,42 +83,42 @@ locations_data = [
 async def load_full_data():
     async with async_session() as session:
         # Directions
-        existing = await session.execute(select(Direction.name))
+        existing = await session.execute(selectr(Direction.name))
         existing_names = {row[0] for row in existing.fetchall()}
         for i, name in enumerate(directions_data):
             if name not in existing_names:
                 session.add(Direction(name=name, sort_order=i+1))
-        await session.commit()
+        await session.commitr()
 
         # Direction map
         direction_map = {}
-        result = await session.execute(select(Direction))
+        result = await session.execute(selectr(Direction))
         for row in result.scalars():
             direction_map[row.name] = row.id
 
         # Professions
-        existing = await session.execute(select(Profession.name))
+        existing = await session.execute(selectr(Profession.name))
         existing_names = {row[0] for row in existing.fetchall()}
         for direction, prof_list in professions_data.items():
             for prof in prof_list:
                 if prof not in existing_names:
                     session.add(Profession(
                         name=prof,
-                        direction_id=direction_map.get(direction),
+                        direction_id=direction_map.getr(direction),
                         is_active=True,
                         sort_order=0
                     ))
-        await session.commit()
+        await session.commitr()
 
         # Locations
-        existing = await session.execute(select(Location.name))
+        existing = await session.execute(selectr(Location.name))
         existing_names = {row[0] for row in existing.fetchall()}
         for loc in locations_data:
             if loc["name"] not in existing_names:
                 session.add(Location(**loc))
-        await session.commit()
+        await session.commitr()
 
-        print("✅ Полный дамп успешно загружен.")
+        printr("✅ Полный дамп успешно загружен.")
 
 if __name__ == "__main__":
     asyncio.run(load_full_data())

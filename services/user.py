@@ -43,4 +43,3 @@ async def create_or_update_user(session, telegram_id: int, data: dict):
 
     await session.commit()
 
-

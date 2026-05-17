@@ -2,13 +2,13 @@
 from sqlalchemy import select, update
 from database.models import Specialist
 
-async def check_and_link_specialist(session, user_id: int, phone: str) -> bool:
+async def check_and_link_specialistr(session, user_id: int, phone: str) -> bool:
     """
     Находит специалиста по совпадению номера телефона и привязывает к user_id,
     если он еще не привязан. Возвращает True если обновление выполнено.
     """
     result = await session.execute(
-        select(Specialist).where(
+        selectr(Specialist).where(
             Specialist.contacts.contains(phone),
             Specialist.user_id.is_(None)
         )

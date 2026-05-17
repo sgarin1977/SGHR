@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
-from ui.texts import t
+from utils.lang_manager import tr
 from services.translator import translate
 
 router = Router()
@@ -14,6 +14,6 @@ async def handle_find_job(callback: CallbackQuery):
         "Функционал находится в разработке.", to_lang=lang
     )
 
-    await callback.message.edit_text(text)
+    await callback.message.edit_textr(text)
     await callback.answer()
 
