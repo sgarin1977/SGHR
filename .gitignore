@@ -4,3 +4,5 @@ __pycache__/
 venv/
 *.sqlite3
 alembic/
+logs/
+*.log
