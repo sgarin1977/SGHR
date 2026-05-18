@@ -6,3 +6,4 @@ venv/
 alembic/
 logs/
 *.log
+github
