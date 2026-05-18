@@ -14,7 +14,7 @@ from datetime import datetime
 
 router = Router()
 
-@router.message(CommandStartr())
+@router.message(CommandStart())
 async def start_command(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(

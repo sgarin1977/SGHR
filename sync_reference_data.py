@@ -68,7 +68,7 @@ async def sync_reference_data():
     async with async_session() as session:
         # LOCATIONS
         for ru, pt in CITY_MAP.items():
-            result = await session.execute(selectr(Location).where(Location.name == pt))
+            result = await session.execute(select(Location).where(Location.name == pt))
             loc = result.scalar()
             if loc:
                 await session.execute(update(Location).where(Location.id == loc.id).values(name_ru=ru))
@@ -77,7 +77,7 @@ async def sync_reference_data():
 
         # DIRECTIONS
         for ru, en in DIRECTION_MAP.items():
-            result = await session.execute(selectr(Direction).where(Direction.name == en))
+            result = await session.execute(select(Direction).where(Direction.name == en))
             dir = result.scalar()
             if dir:
                 await session.execute(update(Direction).where(Direction.id == dir.id).values(name_ru=ru))
@@ -86,18 +86,18 @@ async def sync_reference_data():
 
         # PROFESSIONS
         for ru, en in PROFESSION_MAP.items():
-            result = await session.execute(selectr(Profession).where(Profession.name == en))
+            result = await session.execute(select(Profession).where(Profession.name == en))
             prof = result.scalar()
             if prof:
                 await session.execute(update(Profession).where(Profession.id == prof.id).values(name_ru=ru))
             else:
                 # Привяжем к Beauty по умолчанию
-                result = await session.execute(selectr(Direction.id).where(Direction.name == "Beauty"))
+                result = await session.execute(select(Direction.id).where(Direction.name == "Beauty"))
                 direction_id = result.scalar()
                 session.add(Profession(name=en, name_ru=ru, direction_id=direction_id))
 
         await session.commitr()
-        printr("✅ База обновлена: добавлены недостающие и подписаны русские названия.")
+        print("✅ База обновлена: добавлены недостающие и подписаны русские названия.")
 
 if __name__ == "__main__":
     asyncio.run(sync_reference_data())

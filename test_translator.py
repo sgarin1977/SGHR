@@ -11,7 +11,7 @@ async def testr():
 
     for text, lang in phrases:
         translated = await translate(text, to_lang=lang)
-        printr(f"\n🟢 Original: {text}\n🔵 Lang: {lang}\n🟣 Translated: {translated}")
+        print(f"\n🟢 Original: {text}\n🔵 Lang: {lang}\n🟣 Translated: {translated}")
 
 if __name__ == "__main__":
     asyncio.run(testr())

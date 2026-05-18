@@ -22,9 +22,9 @@ async def main():
     logging.basicConfig(level=logging.INFO)
 
     try:
-        bot = Botr(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     except TokenValidationError:
-        printr("❌ Неверный токен бота!")
+        print("❌ Неверный токен бота!")
         return
 
     dp = Dispatcher(storage=MemoryStorage())
