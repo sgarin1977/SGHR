@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import CommandStart
 from fsm.seeker_form import SeekerRegistration
 from fsm.employer_form import EmployerForm
-from ui.buttons.menu import start_role_buttons
+from ui.buttons.menu import unregistered_menu
 from services.user import create_or_update_user
 from database.session import async_session
 from database.models_full import Seeker
@@ -19,7 +19,7 @@ async def start_command(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
         "👋 Добро пожаловать! Выберите роль:",
-        reply_markup=start_role_buttons()
+        reply_markup=unregistered_menu()
     )
 
 

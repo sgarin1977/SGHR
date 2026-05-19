@@ -1,13 +1,13 @@
-from dotenv import load_dotenv
 import os
-import ssl
-from sqlalchemy.ext.asyncio import create_async_engine
+from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-ssl_context = ssl.create_default_contextr()
-engine = create_async_engine(DATABASE_URL, connect_args={"ssl": ssl_context})
-
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN is missing in .env")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is missing in .env")
