@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, ForeignKey, DateTime, Text, Integer, Boolean
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
+from sqlalchemy.dialects.postgresql import JSONB
 class Base(DeclarativeBase):
     pass
 
@@ -54,3 +54,34 @@ class UserRoleMapping(Base):
     status: Mapped[str] = mapped_column(Text, default="active") # active/suspended/revoked
     granted_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     granted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class LegalDocument(Base):
+    __tablename__ = "legal_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tenants.id"), nullable=True)
+    doc_type: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str] = mapped_column(String(10), nullable=False)
+    title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    content_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    content_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, default="active")
+    effective_from: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserConsent(Base):
+    __tablename__ = "user_consents"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tenants.id"), nullable=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    consent_type: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[str] = mapped_column(Text, nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    platform: Mapped[str] = mapped_column(Text, default="telegram")
+    ip_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
