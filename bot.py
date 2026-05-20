@@ -6,6 +6,7 @@ from config import BOT_TOKEN
 from handlers.start import start_router
 from handlers.legal import legal_router
 from fsm.specialist_form import specialist_form_router
+from handlers.search import search_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,6 +17,7 @@ async def main():
     dp.include_router(start_router)
     dp.include_router(legal_router)
     dp.include_router(specialist_form_router)
+    dp.include_router(search_router)
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
