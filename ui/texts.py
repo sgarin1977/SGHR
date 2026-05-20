@@ -1,4 +1,49 @@
 translations = {
+     "start_default_first_name": {
+        "ru": "друг",
+        "en": "friend",
+        "pt": "amigo",
+    },   
+    "start_welcome_existing": {
+        "ru": "Привет, {first_name}! 👋\n\nРады видеть тебя снова в SGHR Beta.",
+        "en": "Hi, {first_name}! 👋\n\nGlad to see you again in SGHR Beta.",
+        "pt": "Olá, {first_name}! 👋\n\nBom ver você novamente no SGHR Beta.",
+    },
+    "start_welcome_new": {
+        "ru": "🎉 Добро пожаловать в SGHR Beta, {first_name}!\n\nВы успешно зарегистрированы.\nВаша роль в системе: <b>{role_text}</b>",
+        "en": "🎉 Welcome to SGHR Beta, {first_name}!\n\nYou have been registered successfully.\nYour system role: <b>{role_text}</b>",
+        "pt": "🎉 Bem-vindo ao SGHR Beta, {first_name}!\n\nVocê foi registrado com sucesso.\nSua função no sistema: <b>{role_text}</b>",
+    },
+    "role_text_client": {
+        "ru": "Клиент 👤",
+        "en": "Client 👤",
+        "pt": "Cliente 👤",
+    },
+    "role_text_super_admin": {
+        "ru": "Супер-Администратор 👑",
+        "en": "Super Admin 👑",
+        "pt": "Super Admin 👑",
+    },
+    "menu_find_specialist": {
+        "ru": "🔎 Найти специалиста",
+        "en": "🔎 Find specialist",
+        "pt": "🔎 Encontrar especialista",
+    },
+    "menu_offer_services": {
+        "ru": "💼 Предложить услуги",
+        "en": "💼 Offer services",
+        "pt": "💼 Oferecer serviços",
+    },
+    "menu_my_cabinet": {
+        "ru": "▣ Мой кабинет",
+        "en": "▣ My cabinet",
+        "pt": "▣ Minha conta",
+    },
+    "menu_settings": {
+        "ru": "⚙️ Настройки",
+        "en": "⚙️ Settings",
+        "pt": "⚙️ Configurações",
+    },
     "accept_order": {
         "ru": "✅ Принять", "pt": "✅ Aceitar", "en": "✅ Accept"
     },
@@ -289,6 +334,7 @@ translations = {
     "new_vacancies": {
         "ru": "Новые вакансии", "pt": "Novas vagas", "en": "New vacancies"
     }
+    
 }
 
 def t(key: str, lang: str = "ru") -> str:

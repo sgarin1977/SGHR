@@ -3,8 +3,9 @@ import uuid
 
 from sqlalchemy import delete, select
 
-from database.models import User, UserAccount, UserRoleMapping
+from database.models import EventLog, User, UserAccount, UserRoleMapping
 from database.repositories.user import UserRepository
+from services.user import TelegramUserData, UserService
 
 
 async def cleanup_user_by_platform_id(session, platform_user_id: str):
@@ -24,6 +25,7 @@ async def cleanup_user_by_platform_id(session, platform_user_id: str):
 
     user_id = account.user_id
 
+    await session.execute(delete(EventLog).where(EventLog.user_id == user_id))
     await session.execute(delete(UserRoleMapping).where(UserRoleMapping.user_id == user_id))
     await session.execute(delete(UserAccount).where(UserAccount.user_id == user_id))
     await session.execute(delete(User).where(User.id == user_id))
@@ -170,5 +172,54 @@ async def test_get_by_platform_account_returns_existing_client(db_session):
         assert account.platform_user_id == platform_user_id
         assert account.username == "existing_client"
 
+    finally:
+        await cleanup_user_by_platform_id(db_session, platform_user_id)
+
+async def test_admin_bootstrap_from_env_creates_super_admin(db_session, monkeypatch):
+    platform_user_id = f"test-env-admin-{uuid.uuid4()}"
+    monkeypatch.setenv("ADMIN_TELEGRAM_IDS", platform_user_id)
+
+    try:
+        service = UserService(db_session)
+
+        result = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="env_admin",
+                first_name="Env",
+                last_name="Admin",
+                language_code="ru",
+            )
+        )
+
+        assert result.role == "super_admin"
+        assert result.is_new is True
+
+        user = await db_session.get(User, result.user_id)
+        assert user is not None
+        assert user.active_role == "super_admin"
+
+        role_result = await db_session.execute(
+            select(UserRoleMapping).where(UserRoleMapping.user_id == result.user_id)
+        )
+        role = role_result.scalar_one_or_none()
+
+        assert role is not None
+        assert role.role == "super_admin"
+        assert role.status == "active"
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == result.user_id,
+                EventLog.event_type == "user_started",
+            )
+        )
+        event = event_result.scalar_one_or_none()
+
+        assert event is not None
+        assert event.platform == "telegram"
+        assert event.entity_type == "user"
+        assert event.entity_id == result.user_id
+        assert event.payload["role"] == "super_admin"
+        assert event.payload["is_new"] is True
     finally:
         await cleanup_user_by_platform_id(db_session, platform_user_id)
