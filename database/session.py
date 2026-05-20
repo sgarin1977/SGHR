@@ -1,5 +1,4 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import declarative_base
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from pathlib import Path
@@ -12,14 +11,15 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # отладочный вывод (можно удалить позже)
 print("✅ DATABASE_URL =", DATABASE_URL)
 
-# создаём движок и сессию
-engine = create_async_engine(DATABASE_URL, echo=False)
+# создаём движок с отключенным кэшем стейтментов для PgBouncer
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=False,
+    connect_args={"statement_cache_size": 0}
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-Base = declarative_base()
 
 @asynccontextmanager
 async def get_session():
     async with async_session() as session:
         yield session
-

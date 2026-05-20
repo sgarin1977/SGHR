@@ -1,162 +1,56 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-
+import uuid
 from datetime import datetime
+from typing import Optional
+from sqlalchemy import String, ForeignKey, DateTime, Text, Integer, Boolean
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-Base = declarative_base()
-class Partner(Base):
-    __tablename__ = "partners"
+class Base(DeclarativeBase):
+    pass
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    direction_id = Column(Integer, ForeignKey("directions.id"), nullable=False)
-    city = Column(String, nullable=False)
-
-    user = relationship("User")
-    direction = relationship("Direction")
+# Оголошуємо модель tenants, щоб SQLAlchemy бачила зв'язок для ForeignKey
+class Tenant(Base):
+    __tablename__ = "tenants"
     
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+# 6.1. Таблиця users за ТЗ
 class User(Base):
     __tablename__ = "users"
+    
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tenants.id"), nullable=True)
+    active_role: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    language_code: Mapped[str] = mapped_column(String(10), default="ru")
+    profile_completion_score: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(Text, default="active") # active/blocked/deleted
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    id = Column(Integer, primary_key=True)
-    telegram_id = Column(Integer, unique=True, nullable=False)
-    full_name = Column(String)
-    role = Column(String)  # employer/seeker
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_login = Column(DateTime, default=datetime.utcnow)
-    rating = Column(Float, default=0.0)
-    profile_complete = Column(Boolean, default=False)
+# ... далі йдуть класи UserAccount та UserRoleMapping без змін
 
-    is_verified = Column(Boolean, default=False)
-    is_blocked = Column(Boolean, default=False)
-    reputation = Column(Integer, default=0)
-    warnings = Column(Integer, default=0)
+# 6.2. Таблиця user_accounts за ТЗ
+class UserAccount(Base):
+    __tablename__ = "user_accounts"
+    
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    platform: Mapped[str] = mapped_column(Text, default="telegram")
+    platform_user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    username: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    first_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    language = Column(String, default='auto')
-    country = Column(String, nullable=True)
-
-class Vacancy(Base):
-    __tablename__ = "vacancies"
-
-    id = Column(Integer, primary_key=True)
-    employer_id = Column(Integer, ForeignKey("users.id"))
-    title = Column(String)
-    description = Column(Text)
-    region = Column(String)
-    company_type = Column(String)
-    salary = Column(String)
-    status = Column(String)
-    contract_type = Column(String)
-    required_experience = Column(String)
-    required_skills = Column(Text)
-
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime)
-    published_at = Column(DateTime)
-
-    is_approved = Column(Boolean, default=False)
-    fraud_score = Column(Float, default=0.0)
-    complaints_count = Column(Integer, default=0)
-
-class Commentr(Base):
-    __tablename__ = "comments"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    related_to = Column(String)
-    related_id = Column(Integer)
-    comment = Column(Text)
-    rating = Column(Float)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class Seeker(Base):
-    __tablename__ = "seekers"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    full_name = Column(String)
-    profession = Column(String)
-    city = Column(String)
-    is_looking_for_job = Column(Boolean, default=True)
-    notifications_enabled = Column(Boolean, default=True)
-    rating = Column(Float, default=0.0)
-
-class Employer(Base):
-    __tablename__ = "employers"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    representative_name = Column(String)
-    company_name = Column(String)
-    company_type = Column(String)
-    region = Column(String)
-    email = Column(String)
-    phone = Column(String)
-    activity = Column(String)
-
-class Specialist(Base):
-    __tablename__ = "specialists"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    direction_id = Column(Integer, ForeignKey("directions.id"))
-    profession_id = Column(Integer, ForeignKey("professions.id"))
-    location_id = Column(Integer, ForeignKey("locations.id"))
-
-    full_name = Column(String)
-    country = Column(String)
-    city = Column(String)
-    region = Column(String)
-    description = Column(Text)
-    contacts = Column(Text)
-    rating = Column(Float, default=0.0)
-    status = Column(String(50), default="active")
-
-    latitude = Column(Float)
-    longitude = Column(Float)
-    location_updated_at = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    is_verified = Column(Boolean, default=False)
-    imported = Column(Boolean, default=True)
-
-class Location(Base):
-    __tablename__ = "locations"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    name_ru = Column(String)
-    country_code = Column(String(10))
-    region = Column(String(100))
-    latitude = Column(Float)
-    longitude = Column(Float)
-    is_active = Column(Boolean, default=True)
-
-class Profession(Base):
-    __tablename__ = "professions"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    name_ru = Column(String)
-    direction_id = Column(Integer, ForeignKey("directions.id"))
-    is_active = Column(Boolean, default=True)
-    sort_order = Column(Integer, default=0)
-
-class Direction(Base):
-    __tablename__ = "directions"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    name_ru = Column(String)
-    is_active = Column(Boolean, default=True)
-    sort_order = Column(Integer, default=0)
-
-class ContactHistory(Base):
-    __tablename__ = "contact_history"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))  # Кто написал
-    specialist_id = Column(Integer, ForeignKey("specialists.id"))  # Кому
-    message = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
+# 6.3. Таблиця user_roles за ТЗ
+class UserRoleMapping(Base):
+    __tablename__ = "user_roles"
+    
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tenants.id"), nullable=True)
+    role: Mapped[str] = mapped_column(Text, nullable=False) # specialist/client/admin/super_admin
+    status: Mapped[str] = mapped_column(Text, default="active") # active/suspended/revoked
+    granted_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    granted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
