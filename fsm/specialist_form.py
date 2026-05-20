@@ -1,281 +1,701 @@
-from aiogram import Router, F
+from uuid import UUID
+
+from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
-from sqlalchemy import select
-from database.session import async_session
-from database.models import Direction, Profession, Specialist, User
-from ui.buttons.menu import main_menu
-from ui.ui_buttons import back_button
-from utils.geocode_utils import get_location_by_coords, get_coords_by_city
-from utils.translate_utils import tr
-from logger import log
-from datetime import datetime
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+
+from database.models import User
+from database.repositories.legal import LegalRepository
+from database.repositories.specialist import SpecialistRepository
+from database.repositories.user import UserRepository
+from database.session import get_session
+from handlers.start import get_main_menu_keyboard
+from services.legal import LegalService, MissingLegalDocumentError
+from services.specialist import (
+    SpecialistRegistrationData,
+    SpecialistRegistrationError,
+    SpecialistService,
+)
+
 
 specialist_form_router = Router()
 
+PER_PAGE = 8
+LANGUAGE_OPTIONS = {
+    "ru": "Русский",
+    "en": "English",
+    "pt": "Portugues",
+}
+
+
 class SpecialistForm(StatesGroup):
-    choosing_direction = State()
+    choosing_category = State()
     choosing_profession = State()
     choosing_location_mode = State()
-    manual_country = State()
-    manual_city = State()
-    geo_location = State()
-    entering_name = State()
+    choosing_city = State()
+    waiting_geo = State()
+    entering_display_name = State()
     entering_description = State()
+    entering_price = State()
+    choosing_languages = State()
     entering_contact = State()
     confirming = State()
 
-PER_PAGE = 6
 
-def paginate_buttons(items, prefix, page, lang):
+def item_name(item, language: str = "ru") -> str:
+    localized = getattr(item, f"name_{language}", None)
+    return localized or getattr(item, "name_ru", None) or getattr(item, "name", None) or str(item.id)
+
+
+async def show_callback_message(
+    callback: CallbackQuery,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+):
+    try:
+        await callback.message.edit_text(text, reply_markup=reply_markup)
+    except TelegramBadRequest:
+        await callback.message.answer(text, reply_markup=reply_markup)
+
+
+def build_paged_keyboard(
+    *,
+    items,
+    prefix: str,
+    page_prefix: str,
+    page: int,
+    language: str,
+    back_callback: str = "M",
+) -> InlineKeyboardMarkup:
     start = page * PER_PAGE
     end = start + PER_PAGE
-    buttons = []
-    row = []
-    for i, item in enumerate(items[start:end], start=1):
-        row.append(InlineKeyboardButton(text=item.name_ru, callback_data=f"{prefix}:{item.id}"))
-        if i % 2 == 0:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
-    nav = []
-    if start > 0:
-        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"{prefix}_page:{page-1}"))
+
+    rows = []
+    for item in items[start:end]:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=item_name(item, language),
+                    callback_data=f"{prefix}:{item.id}",
+                )
+            ]
+        )
+
+    navigation = []
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(text="<", callback_data=f"{page_prefix}:{page - 1}")
+        )
     if end < len(items):
-        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"{prefix}_page:{page+1}"))
-    if nav:
-        buttons.append(nav)
-    buttons.append([back_button])
-    log.debug(f"[REG_SPEC] Построена пагинация для {prefix}, страница {page}, всего элементов: {len(items)}")
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+        navigation.append(
+            InlineKeyboardButton(text=">", callback_data=f"{page_prefix}:{page + 1}")
+        )
+    if navigation:
+        rows.append(navigation)
+
+    rows.append([InlineKeyboardButton(text="Назад", callback_data=back_callback)])
+    rows.append([InlineKeyboardButton(text="Отмена", callback_data="spec_cancel")])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def location_mode_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Выбрать город", callback_data="spec_location_city")],
+            [InlineKeyboardButton(text="Отправить геолокацию", callback_data="spec_location_geo")],
+            [InlineKeyboardButton(text="Назад", callback_data="spec_back_to_categories")],
+            [InlineKeyboardButton(text="Отмена", callback_data="spec_cancel")],
+        ]
+    )
+
+
+def language_keyboard(selected: list[str]) -> InlineKeyboardMarkup:
+    rows = []
+    for code, title in LANGUAGE_OPTIONS.items():
+        mark = "[x]" if code in selected else "[ ]"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{mark} {title}",
+                    callback_data=f"spec_lang_toggle:{code}",
+                )
+            ]
+        )
+
+    rows.append([InlineKeyboardButton(text="Готово", callback_data="spec_lang_done")])
+    rows.append([InlineKeyboardButton(text="Отмена", callback_data="spec_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Подтвердить", callback_data="spec_confirm")],
+            [InlineKeyboardButton(text="Заполнить заново", callback_data="register_specialist")],
+            [InlineKeyboardButton(text="Отмена", callback_data="spec_cancel")],
+        ]
+    )
+
+
+def parse_price(text: str) -> tuple[float | None, float | None]:
+    value = text.strip().replace(",", ".")
+    if not value or value in {"-", "0"}:
+        return None, None
+
+    if "-" in value:
+        left, right = value.split("-", 1)
+        price_from = float(left.strip()) if left.strip() else None
+        price_to = float(right.strip()) if right.strip() else None
+        return price_from, price_to
+
+    price = float(value)
+    return price, None
+
+
+async def get_current_user(session, telegram_id: int) -> User | None:
+    user_repo = UserRepository(session)
+    account = await user_repo.get_by_platform_account("telegram", str(telegram_id))
+
+    if not account:
+        return None
+
+    return await session.get(User, account.user_id)
+
+
+async def ensure_specialist_consents(session, user: User) -> bool:
+    legal_service = LegalService(LegalRepository(session))
+    missing = await legal_service.get_missing_specialist_consents(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        language=user.language_code or "ru",
+    )
+    return not missing
+
 
 @specialist_form_router.callback_query(F.data == "register_specialist")
-async def register_specialist(call: CallbackQuery, state: FSMContext):
-    lang = call.from_user.language_code or "ru"
-    log.info(f"[REG_SPEC] Начало регистрации специалиста: {call.from_user.id}")
+async def register_specialist(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    async with async_session() as session:
-        existing = await session.execute(select(Specialist).where(Specialist.user_id == call.from_user.id))
-        if existing.scalars().first():
-            log.info(f"[REG_SPEC] Уже зарегистрирован: {call.from_user.id}")
-            await call.message.edit_text(tr("already_registered", lang))
+
+    async with get_session() as session:
+        user = await get_current_user(session, callback.from_user.id)
+        if not user:
+            await callback.message.answer("Сначала нажмите /start.")
+            await callback.answer()
             return
-        directions = (await session.execute(select(Direction))).scalars().all()
-    await state.update_data(directions=[d.id for d in directions], direction_page=0)
-    keyboard = paginate_buttons(directions, "direction", 0, lang)
-    await call.message.edit_text(tr("choose_direction", lang), reply_markup=keyboard)
-    await state.set_state(SpecialistForm.choosing_direction)
 
-@specialist_form_router.callback_query(F.data.startswith("direction:"))
-async def choose_direction(call: CallbackQuery, state: FSMContext):
-    direction_id = int(call.data.split(":" )[1])
-    log.info(f"[REG_SPEC] Выбран направление: {direction_id} пользователем {call.from_user.id}")
-    lang = call.from_user.language_code or "ru"
-    await state.update_data(direction_id=direction_id)
-    async with async_session() as session:
-        professions = (await session.execute(select(Profession).where(Profession.direction_id == direction_id))).scalars().all()
-    await state.update_data(professions=[p.id for p in professions], profession_page=0)
-    keyboard = paginate_buttons(professions, "profession", 0, lang)
-    await call.message.edit_text(tr("choose_profession", lang), reply_markup=keyboard)
-    await state.set_state(SpecialistForm.choosing_profession)
+        try:
+            has_consents = await ensure_specialist_consents(session, user)
+        except MissingLegalDocumentError as exc:
+            await callback.message.answer(
+                "Юридические документы не настроены. Передайте администратору: "
+                f"{exc}"
+            )
+            await callback.answer()
+            return
 
-@specialist_form_router.callback_query(F.data.startswith("direction_page:"))
-async def paginate_directions(call: CallbackQuery, state: FSMContext):
-    page = int(call.data.split(":" )[1])
-    log.info(f"[REG_SPEC] Пагинация направлений: страница {page}")
-    lang = call.from_user.language_code or "ru"
-    async with async_session() as session:
-        directions = (await session.execute(select(Direction))).scalars().all()
-    keyboard = paginate_buttons(directions, "direction", page, lang)
-    await call.message.edit_text(tr("choose_direction", lang), reply_markup=keyboard)
+        if not has_consents:
+            await callback.message.answer(
+                "Перед регистрацией специалиста нужно принять юридические согласия.",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text="Перейти к согласиям",
+                                callback_data="SS_START",
+                            )
+                        ]
+                    ]
+                ),
+            )
+            await callback.answer()
+            return
 
-@specialist_form_router.callback_query(F.data.startswith("profession_page:"))
-async def paginate_professions(call: CallbackQuery, state: FSMContext):
-    page = int(call.data.split(":" )[1])
-    data = await state.get_data()
-    direction_id = data.get("direction_id")
-    log.info(f"[REG_SPEC] Пагинация профессий по направлению {direction_id}: страница {page}")
-    lang = call.from_user.language_code or "ru"
-    async with async_session() as session:
-        professions = (await session.execute(select(Profession).where(Profession.direction_id == direction_id))).scalars().all()
-    keyboard = paginate_buttons(professions, "profession", page, lang)
-    await call.message.edit_text(tr("choose_profession", lang), reply_markup=keyboard)
+        repository = SpecialistRepository(session)
+        existing = await repository.get_by_user_id(user.id)
+        if existing:
+            await callback.message.answer(
+                "Профиль специалиста уже создан и ожидает модерации."
+                if existing.status == "pending_moderation"
+                else "Профиль специалиста уже существует."
+            )
+            await callback.answer()
+            return
 
-@specialist_form_router.callback_query(F.data.startswith("profession:"))
-async def choose_profession(call: CallbackQuery, state: FSMContext):
-    profession_id = int(call.data.split(":" )[1])
-    log.info(f"[REG_SPEC] Выбран профессия: {profession_id}")
-    lang = call.from_user.language_code or "ru"
-    await state.update_data(profession_id=profession_id)
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=tr("send_location", lang), callback_data="geo_location")],
-        [InlineKeyboardButton(text=tr("enter_manually", lang), callback_data="manual_location")],
-        [InlineKeyboardButton(text=tr("back", lang), callback_data="register_specialist")]
-    ])
-    await call.message.edit_text(tr("choose_location_mode", lang), reply_markup=keyboard)
-    await state.set_state(SpecialistForm.choosing_location_mode)
+        categories = await repository.list_active_categories(limit=100)
 
-@specialist_form_router.callback_query(F.data == "manual_location")
-async def manual_location(call: CallbackQuery, state: FSMContext):
-    log.info(f"[REG_SPEC] Пользователь выбрал ручной ввод локации.")
-    lang = call.from_user.language_code or "ru"
-
-    current = await state.get_state()
-    log.debug(f"[FSM] BEFORE manual_country → текущее состояние: {current}")
-    await state.set_state(SpecialistForm.manual_country)
-    current = await state.get_state()
-    log.debug(f"[FSM] AFTER manual_country → новое состояние: {current}")
-    await call.message.edit_text(tr("enter_country", lang))
-    await call.answer()
-
-@specialist_form_router.callback_query(F.data == "geo_location")
-async def geo_location_prompt(call: CallbackQuery, state: FSMContext):
-    log.info(f"[REG_SPEC] Пользователь выбрал отправку геолокации.")
-    lang = call.from_user.language_code or "ru"
-    await state.set_state(SpecialistForm.geo_location)
-    current = await state.get_state()
-    log.debug(f"[FSM] AFTER geo_location → новое состояние: {current}")
-    await call.message.edit_text(tr("send_geo", lang))
-
-@specialist_form_router.message(SpecialistForm.manual_country)
-async def manual_country(msg: Message, state: FSMContext):
-    log.info(f"[FSM-DEBUG] manual_country HANDLER CALLED")
-    print("[FSM-DEBUG] manual_country HANDLER CALLED")
-    log.info(f"[REG_SPEC] Введена страна: {msg.text}")
-    await state.update_data(country=msg.text)
-    await msg.answer(tr("enter_city", msg.from_user.language_code))
-    await state.set_state(SpecialistForm.manual_city)
-
-@specialist_form_router.message(SpecialistForm.manual_city)
-async def manual_city(msg: Message, state: FSMContext):
-    data = await state.get_data()
-    log.info(f"[FSM-DEBUG] manual_city HANDLER CALLED")
-    print("[FSM-DEBUG] manual_city HANDLER CALLED")
-    log.info(f"[FSM-DEBUG] ДО get_coords_by_city: country={data.get('country')} city={msg.text}")
-    print(f"[FSM-DEBUG] ДО get_coords_by_city: country={data.get('country')} city={msg.text}")
-    try:
-        coords = await get_coords_by_city(data['country'], msg.text)
-        log.info(f"[FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords={coords}")
-        print(f"[FSM-DEBUG] ПОСЛЕ get_coords_by_city: coords={coords}")
-    except Exception as e:
-        log.error(f"[FSM-DEBUG] Ошибка при get_coords_by_city: {e}")
-        print(f"[FSM-DEBUG] Ошибка при get_coords_by_city: {e}")
-        coords = None
-    if coords:
-        log.info(f"[REG_SPEC] Введен город: {msg.text}, координаты: {coords}")
-        await state.update_data(city=msg.text, latitude=coords[0], longitude=coords[1])
-        await msg.answer(tr("enter_name", msg.from_user.language_code))
-        await state.set_state(SpecialistForm.entering_name)
-    else:
-        log.warning(f"[REG_SPEC] Город не найден: {msg.text}")
-        await msg.answer(tr("location_not_found", msg.from_user.language_code))
-
-@specialist_form_router.message(SpecialistForm.geo_location)
-async def geo_location(msg: Message, state: FSMContext):
-    log.info(f"[FSM-DEBUG] geo_location HANDLER CALLED")
-    print("[FSM-DEBUG] geo_location HANDLER CALLED")
-    if not msg.location:
-        await msg.answer(tr("send_geo", msg.from_user.language_code))
-        return
-    lat, lon = msg.location.latitude, msg.location.longitude
-    log.info(f"[FSM-DEBUG] ДО get_location_by_coords: lat={lat} lon={lon}")
-    print(f"[FSM-DEBUG] ДО get_location_by_coords: lat={lat} lon={lon}")
-    try:
-        country, city = await get_location_by_coords(lat, lon)
-        log.info(f"[FSM-DEBUG] ПОСЛЕ get_location_by_coords: country={country}, city={city}")
-        print(f"[FSM-DEBUG] ПОСЛЕ get_location_by_coords: country={country}, city={city}")
-    except Exception as e:
-        log.error(f"[FSM-DEBUG] Ошибка при get_location_by_coords: {e}")
-        print(f"[FSM-DEBUG] Ошибка при get_location_by_coords: {e}")
-        country, city = None, None
-    if country and city:
-        log.info(f"[REG_SPEC] Получена геолокация: {country}, {city}, ({lat}, {lon})")
-        await state.update_data(
-            country=country,
-            city=city,
-            latitude=lat,
-            longitude=lon
+    if not categories:
+        await callback.message.answer(
+            "Категории специалистов не настроены. Запустите seed beta data."
         )
-        await msg.answer(tr("enter_name", msg.from_user.language_code))
-        await state.set_state(SpecialistForm.entering_name)
-    else:
-        log.warning("[REG_SPEC] Геолокация не распознана.")
-        await msg.answer(tr("location_not_found", msg.from_user.language_code))
+        await callback.answer()
+        return
 
-@specialist_form_router.message(SpecialistForm.entering_name)
-async def enter_name(msg: Message, state: FSMContext):
-    log.info(f"[REG_SPEC] Имя: {msg.text}")
-    await state.update_data(full_name=msg.text)
-    await msg.answer(tr("enter_description", msg.from_user.language_code))
+    language = callback.from_user.language_code or "ru"
+    await state.update_data(
+        user_language=language,
+        categories=[str(item.id) for item in categories],
+    )
+
+    await show_callback_message(
+        callback,
+        "Выберите категорию услуг:",
+        build_paged_keyboard(
+            items=categories,
+            prefix="spec_category",
+            page_prefix="spec_categories_page",
+            page=0,
+            language=language,
+            back_callback="M",
+        ),
+    )
+    await state.set_state(SpecialistForm.choosing_category)
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_categories_page:"))
+async def paginate_categories(callback: CallbackQuery, state: FSMContext):
+    page = int(callback.data.split(":", 1)[1])
+    data = await state.get_data()
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        categories = await SpecialistRepository(session).list_active_categories(limit=100)
+
+    await show_callback_message(
+        callback,
+        "Выберите категорию услуг:",
+        build_paged_keyboard(
+            items=categories,
+            prefix="spec_category",
+            page_prefix="spec_categories_page",
+            page=page,
+            language=language,
+            back_callback="M",
+        ),
+    )
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_category:"))
+async def choose_category(callback: CallbackQuery, state: FSMContext):
+    category_id = UUID(callback.data.split(":", 1)[1])
+    language = callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        repository = SpecialistRepository(session)
+        category = await repository.get_active_category(category_id)
+        professions = await repository.list_active_professions_by_category(category_id, limit=100)
+
+    if not category:
+        await callback.message.answer("Категория не найдена или отключена.")
+        await callback.answer()
+        return
+
+    if not professions:
+        await callback.message.answer("Для этой категории пока нет активных профессий.")
+        await callback.answer()
+        return
+
+    await state.update_data(
+        category_id=str(category.id),
+        category_name=item_name(category, language),
+    )
+
+    await show_callback_message(
+        callback,
+        "Выберите профессию:",
+        build_paged_keyboard(
+            items=professions,
+            prefix="spec_profession",
+            page_prefix="spec_professions_page",
+            page=0,
+            language=language,
+            back_callback="spec_back_to_categories",
+        ),
+    )
+    await state.set_state(SpecialistForm.choosing_profession)
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data == "spec_back_to_categories")
+async def back_to_categories(callback: CallbackQuery, state: FSMContext):
+    language = callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        categories = await SpecialistRepository(session).list_active_categories(limit=100)
+
+    await show_callback_message(
+        callback,
+        "Выберите категорию услуг:",
+        build_paged_keyboard(
+            items=categories,
+            prefix="spec_category",
+            page_prefix="spec_categories_page",
+            page=0,
+            language=language,
+            back_callback="M",
+        ),
+    )
+    await state.set_state(SpecialistForm.choosing_category)
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_professions_page:"))
+async def paginate_professions(callback: CallbackQuery, state: FSMContext):
+    page = int(callback.data.split(":", 1)[1])
+    data = await state.get_data()
+    category_id = UUID(data["category_id"])
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        professions = await SpecialistRepository(session).list_active_professions_by_category(
+            category_id,
+            limit=100,
+        )
+
+    await show_callback_message(
+        callback,
+        "Выберите профессию:",
+        build_paged_keyboard(
+            items=professions,
+            prefix="spec_profession",
+            page_prefix="spec_professions_page",
+            page=page,
+            language=language,
+            back_callback="spec_back_to_categories",
+        ),
+    )
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_profession:"))
+async def choose_profession(callback: CallbackQuery, state: FSMContext):
+    profession_id = UUID(callback.data.split(":", 1)[1])
+    language = callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        profession = await SpecialistRepository(session).get_active_profession(profession_id)
+
+    if not profession:
+        await callback.message.answer("Профессия не найдена или отключена.")
+        await callback.answer()
+        return
+
+    await state.update_data(
+        profession_id=str(profession.id),
+        profession_name=item_name(profession, language),
+    )
+
+    await show_callback_message(
+        callback,
+        "Выберите город или отправьте геолокацию:",
+        location_mode_keyboard(),
+    )
+    await state.set_state(SpecialistForm.choosing_location_mode)
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data == "spec_location_city")
+async def choose_city_mode(callback: CallbackQuery, state: FSMContext):
+    language = callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        cities = await SpecialistRepository(session).list_active_cities(limit=100)
+
+    if not cities:
+        await callback.message.answer("Города не настроены. Запустите seed beta data.")
+        await callback.answer()
+        return
+
+    await show_callback_message(
+        callback,
+        "Выберите город:",
+        build_paged_keyboard(
+            items=cities,
+            prefix="spec_city",
+            page_prefix="spec_cities_page",
+            page=0,
+            language=language,
+            back_callback="spec_back_to_location_mode",
+        ),
+    )
+    await state.set_state(SpecialistForm.choosing_city)
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data == "spec_back_to_location_mode")
+async def back_to_location_mode(callback: CallbackQuery, state: FSMContext):
+    await show_callback_message(
+        callback,
+        "Выберите город или отправьте геолокацию:",
+        location_mode_keyboard(),
+    )
+    await state.set_state(SpecialistForm.choosing_location_mode)
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_cities_page:"))
+async def paginate_cities(callback: CallbackQuery, state: FSMContext):
+    page = int(callback.data.split(":", 1)[1])
+    data = await state.get_data()
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        cities = await SpecialistRepository(session).list_active_cities(limit=100)
+
+    await show_callback_message(
+        callback,
+        "Выберите город:",
+        build_paged_keyboard(
+            items=cities,
+            prefix="spec_city",
+            page_prefix="spec_cities_page",
+            page=page,
+            language=language,
+            back_callback="spec_back_to_location_mode",
+        ),
+    )
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_city:"))
+async def choose_city(callback: CallbackQuery, state: FSMContext):
+    city_id = UUID(callback.data.split(":", 1)[1])
+    language = callback.from_user.language_code or "ru"
+
+    async with get_session() as session:
+        city = await SpecialistRepository(session).get_active_city(city_id)
+
+    if not city:
+        await callback.message.answer("Город не найден или отключен.")
+        await callback.answer()
+        return
+
+    await state.update_data(
+        city_id=str(city.id),
+        country_id=str(city.country_id),
+        city_name=item_name(city, language),
+        latitude=float(city.latitude) if city.latitude is not None else None,
+        longitude=float(city.longitude) if city.longitude is not None else None,
+        service_radius_km=25,
+    )
+
+    await show_callback_message(callback, "Укажите имя или название профиля:")
+    await state.set_state(SpecialistForm.entering_display_name)
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data == "spec_location_geo")
+async def geo_location_prompt(callback: CallbackQuery, state: FSMContext):
+    await show_callback_message(
+        callback,
+        "Отправьте геолокацию Telegram. Если неудобно, вернитесь и выберите город.",
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Выбрать город", callback_data="spec_location_city")],
+                [InlineKeyboardButton(text="Отмена", callback_data="spec_cancel")],
+            ]
+        ),
+    )
+    await state.set_state(SpecialistForm.waiting_geo)
+    await callback.answer()
+
+
+@specialist_form_router.message(SpecialistForm.waiting_geo)
+async def receive_geo_location(message: Message, state: FSMContext):
+    if not message.location:
+        await message.answer("Пожалуйста, отправьте геолокацию Telegram или выберите город.")
+        return
+
+    await state.update_data(
+        city_id=None,
+        country_id=None,
+        city_name="Геолокация",
+        latitude=message.location.latitude,
+        longitude=message.location.longitude,
+        service_radius_km=25,
+    )
+
+    await message.answer("Укажите имя или название профиля:")
+    await state.set_state(SpecialistForm.entering_display_name)
+
+
+@specialist_form_router.message(SpecialistForm.entering_display_name)
+async def enter_display_name(message: Message, state: FSMContext):
+    display_name = (message.text or "").strip()
+    if len(display_name) < 2:
+        await message.answer("Название слишком короткое. Введите минимум 2 символа.")
+        return
+
+    await state.update_data(display_name=display_name)
+    await message.answer("Коротко опишите ваш опыт и услуги. Минимум 20 символов.")
     await state.set_state(SpecialistForm.entering_description)
 
+
 @specialist_form_router.message(SpecialistForm.entering_description)
-async def enter_description(msg: Message, state: FSMContext):
-    log.info(f"[REG_SPEC] Описание: {msg.text}")
-    await state.update_data(description=msg.text)
-    await msg.answer(tr("enter_contact", msg.from_user.language_code))
+async def enter_description(message: Message, state: FSMContext):
+    description = (message.text or "").strip()
+    if len(description) < 20:
+        await message.answer("Описание слишком короткое. Введите минимум 20 символов.")
+        return
+
+    await state.update_data(short_description=description)
+    await message.answer(
+        "Укажите цену в EUR. Можно одним числом: 50, или диапазоном: 50-100. "
+        "Если цену пока не хотите указывать, отправьте 0."
+    )
+    await state.set_state(SpecialistForm.entering_price)
+
+
+@specialist_form_router.message(SpecialistForm.entering_price)
+async def enter_price(message: Message, state: FSMContext):
+    try:
+        price_from, price_to = parse_price(message.text or "")
+    except ValueError:
+        await message.answer("Не удалось распознать цену. Пример: 50 или 50-100.")
+        return
+
+    await state.update_data(
+        price_from=price_from,
+        price_to=price_to,
+        currency="EUR",
+        price_unit="service",
+    )
+
+    await message.answer(
+        "Выберите языки, на которых можете общаться:",
+        reply_markup=language_keyboard(["ru"]),
+    )
+    await state.update_data(languages=["ru"])
+    await state.set_state(SpecialistForm.choosing_languages)
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_lang_toggle:"))
+async def toggle_language(callback: CallbackQuery, state: FSMContext):
+    language_code = callback.data.split(":", 1)[1]
+    data = await state.get_data()
+    selected = list(data.get("languages") or [])
+
+    if language_code in selected:
+        selected.remove(language_code)
+    else:
+        selected.append(language_code)
+
+    if not selected:
+        selected = ["ru"]
+
+    await state.update_data(languages=selected)
+    await show_callback_message(
+        callback,
+        "Выберите языки, на которых можете общаться:",
+        language_keyboard(selected),
+    )
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data == "spec_lang_done")
+async def finish_languages(callback: CallbackQuery, state: FSMContext):
+    await show_callback_message(
+        callback,
+        "Укажите контактную заметку для Beta. Например: связь внутри SGHR beta chat.",
+    )
     await state.set_state(SpecialistForm.entering_contact)
+    await callback.answer()
+
 
 @specialist_form_router.message(SpecialistForm.entering_contact)
-async def enter_contact(msg: Message, state: FSMContext):
-    log.info(f"[REG_SPEC] Контакт: {msg.text}")
-    await state.update_data(contacts=msg.text)
+async def enter_contact(message: Message, state: FSMContext):
+    contact_text = (message.text or "").strip()
+    if not contact_text:
+        await message.answer("Контактная заметка обязательна для Beta 0.4.")
+        return
+
+    await state.update_data(contact_text=contact_text)
     data = await state.get_data()
-    lang = msg.from_user.language_code or "ru"
+
+    price_text = "не указана"
+    if data.get("price_from") and data.get("price_to"):
+        price_text = f"{data['price_from']}-{data['price_to']} EUR"
+    elif data.get("price_from"):
+        price_text = f"{data['price_from']} EUR"
 
     summary = (
-        f"\U0001F464 <b>{data['full_name']}</b>\n"
-        f"\U0001F30D {data.get('country', '')}, {data.get('city', '')}\n"
-        f"\U0001F4DE {data['contacts']}\n"
-        f"\U0001F4DD {data['description']}"
+        "Проверьте профиль специалиста:\n\n"
+        f"Категория: {data.get('category_name')}\n"
+        f"Профессия: {data.get('profession_name')}\n"
+        f"Локация: {data.get('city_name')}\n"
+        f"Профиль: {data.get('display_name')}\n"
+        f"Описание: {data.get('short_description')}\n"
+        f"Цена: {price_text}\n"
+        f"Языки: {', '.join(data.get('languages') or ['ru'])}\n"
+        f"Контакт: {data.get('contact_text')}\n\n"
+        "После подтверждения профиль будет отправлен на модерацию."
     )
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=tr("confirm_data", lang), callback_data="confirm_specialist")],
-        [InlineKeyboardButton(text=tr("back", lang), callback_data="register_specialist")]
-    ])
-    await msg.answer(summary, reply_markup=keyboard)
+
+    await message.answer(summary, reply_markup=confirm_keyboard())
     await state.set_state(SpecialistForm.confirming)
 
-@specialist_form_router.callback_query(F.data == "confirm_specialist")
-async def confirm_specialist(call: CallbackQuery, state: FSMContext):
+
+@specialist_form_router.callback_query(F.data == "spec_confirm")
+async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    async with async_session() as session:
-        user_obj = await session.execute(select(User).where(User.telegram_id == call.from_user.id))
-        user = user_obj.scalar_one_or_none()
+
+    async with get_session() as session:
+        user = await get_current_user(session, callback.from_user.id)
         if not user:
-            user = User(
-                telegram_id=call.from_user.id,
-                full_name=call.from_user.full_name or "",
-                language=call.from_user.language_code or "ru",
-                last_login=datetime.utcnow()
+            await callback.message.answer("Сначала нажмите /start.")
+            await callback.answer()
+            return
+
+        service = SpecialistService(SpecialistRepository(session))
+
+        try:
+            specialist = await service.create_pending_profile(
+                SpecialistRegistrationData(
+                    tenant_id=user.tenant_id,
+                    user_id=user.id,
+                    category_id=UUID(data["category_id"]),
+                    profession_id=UUID(data["profession_id"]),
+                    country_id=UUID(data["country_id"]) if data.get("country_id") else None,
+                    city_id=UUID(data["city_id"]) if data.get("city_id") else None,
+                    display_name=data["display_name"],
+                    short_description=data["short_description"],
+                    full_description=data["short_description"],
+                    price_from=data.get("price_from"),
+                    price_to=data.get("price_to"),
+                    currency=data.get("currency") or "EUR",
+                    price_unit=data.get("price_unit") or "service",
+                    latitude=data.get("latitude"),
+                    longitude=data.get("longitude"),
+                    service_radius_km=data.get("service_radius_km") or 0,
+                    languages=data.get("languages") or ["ru"],
+                    service_title=data["display_name"],
+                    service_description=data["short_description"],
+                    contact_text=data["contact_text"],
+                )
             )
-            session.add(user)
-            await session.flush()
+        except SpecialistRegistrationError as exc:
+            await callback.message.answer(f"Не удалось создать профиль: {exc}")
+            await callback.answer()
+            return
 
-        specialist = Specialist(
-            user_id=user.id,
-            direction_id=data.get("direction_id"),
-            profession_id=data.get("profession_id"),
-            full_name=data.get("full_name"),
-            description=data.get("description"),
-            contacts=data.get("contacts"),
-            region=f"{data.get('country', '')}, {data.get('city', '')}",
-            latitude=data.get("latitude"),
-            longitude=data.get("longitude"),
-            location_updated_at=datetime.utcnow(),
-            status="active",
-            imported=False
-        )
-        session.add(specialist)
-        await session.commit()
-
-    log.info(f"[REG_SPEC] Успешно зарегистрирован: {call.from_user.id}")
-    lang = call.from_user.language_code or "ru"
-    await call.message.edit_text(tr("registration_success_specialist", lang))
     await state.clear()
-    # Показываем главное меню после регистрации
-    reply_markup = main_menu(lang)
-    await call.message.answer(tr("choose_section", lang), reply_markup=reply_markup)
+    await callback.message.answer(
+        "Профиль специалиста создан и отправлен на модерацию.\n"
+        f"ID профиля: {specialist.id}",
+        reply_markup=get_main_menu_keyboard(),
+    )
+    await callback.answer()
 
+
+@specialist_form_router.callback_query(F.data == "spec_cancel")
+async def cancel_specialist_registration(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.answer(
+        "Регистрация специалиста отменена.",
+        reply_markup=get_main_menu_keyboard(),
+    )
+    await callback.answer()
