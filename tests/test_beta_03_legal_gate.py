@@ -50,20 +50,24 @@ async def cleanup_user_by_platform_id(session, platform_user_id: str):
 async def cleanup_legal_documents(session, tenant_id):
     await session.rollback()
 
+    test_versions = [
+        LEGAL_TEST_VERSION,
+        f"{LEGAL_TEST_VERSION}-new",
+    ]
+
     await session.execute(
         delete(UserConsent).where(
             UserConsent.tenant_id == tenant_id,
-            UserConsent.version == LEGAL_TEST_VERSION,
+            UserConsent.version.in_(test_versions),
         )
     )
     await session.execute(
         delete(LegalDocument).where(
             LegalDocument.tenant_id == tenant_id,
-            LegalDocument.version == LEGAL_TEST_VERSION,
+            LegalDocument.version.in_(test_versions),
         )
     )
     await session.commit()
-
 
 async def create_test_user(session):
     platform_user_id = f"test-legal-{uuid.uuid4()}"

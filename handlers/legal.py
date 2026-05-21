@@ -15,6 +15,7 @@ CB_SPECIALIST_START = "SS_START"
 CB_LEGAL_ACCEPT_SPECIALIST = "LEGAL_ACCEPT_SPECIALIST"
 CB_MAIN_MENU = "M"
 CB_REGISTER_SPECIALIST = "register_specialist"
+CB_LEGAL_SHOW_DOCS = "LEGAL_SHOW_DOCS"
 
 
 def normalize_language(language_code: str | None) -> str:
@@ -35,13 +36,18 @@ def legal_gate_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text=t("legal_show_documents_btn", language),
+                    callback_data=CB_LEGAL_SHOW_DOCS,
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=t("legal_back_to_menu_btn", language),
                     callback_data=CB_MAIN_MENU,
                 )
             ],
         ]
     )
-
 
 def specialist_allowed_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -117,6 +123,56 @@ async def specialist_start_legal_gate(callback: CallbackQuery):
 
         await callback.message.answer(
             build_legal_gate_text(missing, language),
+            reply_markup=legal_gate_keyboard(language),
+        )
+        await callback.answer()
+
+@legal_router.callback_query(F.data == CB_LEGAL_SHOW_DOCS)
+async def show_specialist_legal_documents(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+
+    async with get_session() as session:
+        user_service = UserService(session)
+        user = await user_service.get_user_by_telegram_id(callback.from_user.id)
+
+        if not user:
+            await callback.message.answer(t("legal_start_required", language))
+            await callback.answer()
+            return
+
+        language = normalize_language(user.language_code)
+        legal_service = LegalService(LegalRepository(session))
+
+        try:
+            missing = await legal_service.get_missing_specialist_consents(
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                language=language,
+            )
+        except MissingLegalDocumentError as exc:
+            await callback.message.answer(
+                t("legal_documents_not_configured", language).format(error=exc)
+            )
+            await callback.answer()
+            return
+
+        documents_text = []
+
+        for doc in missing:
+            title = doc.title or doc.doc_type
+            content = doc.content_text or doc.content_url or ""
+            documents_text.append(f"{title} v{doc.version}\n\n{content}")
+
+        if not documents_text:
+            await callback.message.answer(
+                t("legal_already_accepted", language),
+                reply_markup=specialist_allowed_keyboard(language),
+            )
+            await callback.answer()
+            return
+
+        await callback.message.answer(
+            "\n\n---\n\n".join(documents_text),
             reply_markup=legal_gate_keyboard(language),
         )
         await callback.answer()

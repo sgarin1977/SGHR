@@ -59,6 +59,224 @@ translations = {
         "en": "SGHR Beta main menu.",
         "pt": "Menu principal SGHR Beta.",
     },
+
+    "spec_back_btn": {
+        "ru": "Назад",
+        "en": "Back",
+        "pt": "Voltar",
+    },
+    "spec_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "spec_done_btn": {
+        "ru": "Готово",
+        "en": "Done",
+        "pt": "Pronto",
+    },
+    "spec_confirm_btn": {
+        "ru": "Подтвердить",
+        "en": "Confirm",
+        "pt": "Confirmar",
+    },
+    "spec_restart_btn": {
+        "ru": "Заполнить заново",
+        "en": "Start again",
+        "pt": "Preencher novamente",
+    },
+    "spec_choose_city_btn": {
+        "ru": "Выбрать город",
+        "en": "Choose city",
+        "pt": "Escolher cidade",
+    },
+    "spec_send_geo_btn": {
+        "ru": "Отправить геолокацию",
+        "en": "Send geolocation",
+        "pt": "Enviar geolocalização",
+    },
+    "spec_go_to_consents_btn": {
+        "ru": "Перейти к согласиям",
+        "en": "Go to consents",
+        "pt": "Ir para consentimentos",
+    },
+
+    "spec_start_required": {
+        "ru": "Сначала нажмите /start.",
+        "en": "Please press /start first.",
+        "pt": "Pressione /start primeiro.",
+    },
+    "spec_legal_docs_missing": {
+        "ru": "Юридические документы не настроены. Передайте администратору: {error}",
+        "en": "Legal documents are not configured. Please forward this to the administrator: {error}",
+        "pt": "Os documentos legais não estão configurados. Encaminhe ao administrador: {error}",
+    },
+    "spec_legal_consents_required": {
+        "ru": "Перед регистрацией специалиста нужно принять юридические согласия.",
+        "en": "Before specialist registration, legal consents must be accepted.",
+        "pt": "Antes do registro de especialista, os consentimentos legais devem ser aceitos.",
+    },
+    "spec_profile_pending_exists": {
+        "ru": "Профиль специалиста уже создан и ожидает модерации.",
+        "en": "Specialist profile has already been created and is awaiting moderation.",
+        "pt": "O perfil de especialista já foi criado e aguarda moderação.",
+    },
+    "spec_profile_exists": {
+        "ru": "Профиль специалиста уже существует.",
+        "en": "Specialist profile already exists.",
+        "pt": "O perfil de especialista já existe.",
+    },
+    "spec_categories_missing": {
+        "ru": "Категории специалистов не настроены. Запустите seed beta data.",
+        "en": "Specialist categories are not configured. Run seed beta data.",
+        "pt": "Categorias de especialistas não configuradas. Execute seed beta data.",
+    },
+    "spec_category_prompt": {
+        "ru": "Выберите категорию услуг:",
+        "en": "Choose a service category:",
+        "pt": "Escolha uma categoria de serviço:",
+    },
+    "spec_category_not_found_restart": {
+        "ru": "Категория не найдена. Начните регистрацию заново.",
+        "en": "Category not found. Start registration again.",
+        "pt": "Categoria não encontrada. Inicie o registro novamente.",
+    },
+    "spec_category_not_found": {
+        "ru": "Категория не найдена или отключена.",
+        "en": "Category not found or inactive.",
+        "pt": "Categoria não encontrada ou inativa.",
+    },
+    "spec_professions_missing": {
+        "ru": "Для этой категории пока нет активных профессий.",
+        "en": "There are no active professions for this category yet.",
+        "pt": "Ainda não há profissões ativas para esta categoria.",
+    },
+    "spec_profession_prompt": {
+        "ru": "Выберите профессию:",
+        "en": "Choose a profession:",
+        "pt": "Escolha uma profissão:",
+    },
+    "spec_profession_not_found_back": {
+        "ru": "Профессия не найдена. Вернитесь к выбору категории.",
+        "en": "Profession not found. Go back to category selection.",
+        "pt": "Profissão não encontrada. Volte para a escolha da categoria.",
+    },
+    "spec_profession_not_found": {
+        "ru": "Профессия не найдена или отключена.",
+        "en": "Profession not found or inactive.",
+        "pt": "Profissão não encontrada ou inativa.",
+    },
+    "spec_location_prompt": {
+        "ru": "Выберите город или отправьте геолокацию:",
+        "en": "Choose a city or send geolocation:",
+        "pt": "Escolha uma cidade ou envie geolocalização:",
+    },
+    "spec_cities_missing": {
+        "ru": "Города не настроены. Запустите seed beta data.",
+        "en": "Cities are not configured. Run seed beta data.",
+        "pt": "Cidades não configuradas. Execute seed beta data.",
+    },
+    "spec_city_prompt": {
+        "ru": "Выберите город:",
+        "en": "Choose a city:",
+        "pt": "Escolha uma cidade:",
+    },
+    "spec_city_not_found_back": {
+        "ru": "Город не найден. Вернитесь к выбору города.",
+        "en": "City not found. Go back to city selection.",
+        "pt": "Cidade não encontrada. Volte para a escolha da cidade.",
+    },
+    "spec_city_not_found": {
+        "ru": "Город не найден или отключен.",
+        "en": "City not found or inactive.",
+        "pt": "Cidade não encontrada ou inativa.",
+    },
+    "spec_geo_prompt": {
+        "ru": "Отправьте геолокацию Telegram. Если неудобно, вернитесь и выберите город.",
+        "en": "Send Telegram geolocation. If inconvenient, go back and choose a city.",
+        "pt": "Envie a geolocalização do Telegram. Se preferir, volte e escolha uma cidade.",
+    },
+    "spec_geo_required": {
+        "ru": "Пожалуйста, отправьте геолокацию Telegram или выберите город.",
+        "en": "Please send Telegram geolocation or choose a city.",
+        "pt": "Envie a geolocalização do Telegram ou escolha uma cidade.",
+    },
+    "spec_geo_location_name": {
+        "ru": "Геолокация",
+        "en": "Geolocation",
+        "pt": "Geolocalização",
+    },
+    "spec_display_name_prompt": {
+        "ru": "Укажите имя или название профиля:",
+        "en": "Enter profile name or title:",
+        "pt": "Digite o nome ou título do perfil:",
+    },
+    "spec_display_name_too_short": {
+        "ru": "Название слишком короткое. Введите минимум 2 символа.",
+        "en": "Name is too short. Enter at least 2 characters.",
+        "pt": "O nome é muito curto. Digite pelo menos 2 caracteres.",
+    },
+    "spec_description_prompt": {
+        "ru": "Коротко опишите ваш опыт и услуги. Минимум 20 символов.",
+        "en": "Briefly describe your experience and services. Minimum 20 characters.",
+        "pt": "Descreva brevemente sua experiência e serviços. Mínimo de 20 caracteres.",
+    },
+    "spec_description_too_short": {
+        "ru": "Описание слишком короткое. Введите минимум 20 символов.",
+        "en": "Description is too short. Enter at least 20 characters.",
+        "pt": "A descrição é muito curta. Digite pelo menos 20 caracteres.",
+    },
+    "spec_price_prompt": {
+        "ru": "Укажите цену в EUR. Можно одним числом: 50, или диапазоном: 50-100. Если цену пока не хотите указывать, отправьте 0.",
+        "en": "Enter price in EUR. Use one number: 50, or a range: 50-100. Send 0 to skip price.",
+        "pt": "Digite o preço em EUR. Use um número: 50, ou um intervalo: 50-100. Envie 0 para pular.",
+    },
+    "spec_price_invalid": {
+        "ru": "Не удалось распознать цену. Пример: 50 или 50-100.",
+        "en": "Could not recognize price. Example: 50 or 50-100.",
+        "pt": "Não foi possível reconhecer o preço. Exemplo: 50 ou 50-100.",
+    },
+    "spec_languages_prompt": {
+        "ru": "Выберите языки, на которых можете общаться:",
+        "en": "Choose languages you can communicate in:",
+        "pt": "Escolha os idiomas em que você pode se comunicar:",
+    },
+    "spec_contact_prompt": {
+        "ru": "Укажите контактную заметку для Beta. Например: связь внутри SGHR beta chat.",
+        "en": "Enter a contact note for Beta. For example: contact inside SGHR beta chat.",
+        "pt": "Digite uma nota de contato para Beta. Por exemplo: contato dentro do SGHR beta chat.",
+    },
+    "spec_contact_required": {
+        "ru": "Контактная заметка обязательна для Beta 0.4.",
+        "en": "Contact note is required for Beta 0.4.",
+        "pt": "A nota de contato é obrigatória para Beta 0.4.",
+    },
+    "spec_price_not_set": {
+        "ru": "не указана",
+        "en": "not set",
+        "pt": "não definido",
+    },
+    "spec_summary": {
+        "ru": "Проверьте профиль специалиста:\n\nКатегория: {category}\nПрофессия: {profession}\nЛокация: {location}\nПрофиль: {display_name}\nОписание: {description}\nЦена: {price}\nЯзыки: {languages}\nКонтакт: {contact}\n\nПосле подтверждения профиль будет отправлен на модерацию.",
+        "en": "Check specialist profile:\n\nCategory: {category}\nProfession: {profession}\nLocation: {location}\nProfile: {display_name}\nDescription: {description}\nPrice: {price}\nLanguages: {languages}\nContact: {contact}\n\nAfter confirmation, the profile will be sent to moderation.",
+        "pt": "Verifique o perfil de especialista:\n\nCategoria: {category}\nProfissão: {profession}\nLocalização: {location}\nPerfil: {display_name}\nDescrição: {description}\nPreço: {price}\nIdiomas: {languages}\nContato: {contact}\n\nApós a confirmação, o perfil será enviado para moderação.",
+    },
+    "spec_create_failed": {
+        "ru": "Не удалось создать профиль: {error}",
+        "en": "Could not create profile: {error}",
+        "pt": "Não foi possível criar o perfil: {error}",
+    },
+    "spec_created": {
+        "ru": "Профиль специалиста создан и отправлен на модерацию.\nID профиля: {specialist_id}",
+        "en": "Specialist profile has been created and sent to moderation.\nProfile ID: {specialist_id}",
+        "pt": "O perfil de especialista foi criado e enviado para moderação.\nID do perfil: {specialist_id}",
+    },
+    "spec_cancelled": {
+        "ru": "Регистрация специалиста отменена.",
+        "en": "Specialist registration cancelled.",
+        "pt": "Registro de especialista cancelado.",
+    },
+
      "start_default_first_name": {
         "ru": "друг",
         "en": "friend",
@@ -393,7 +611,12 @@ translations = {
     },
     "new_vacancies": {
         "ru": "Новые вакансии", "pt": "Novas vagas", "en": "New vacancies"
-    }
+    },
+    "legal_show_documents_btn": {
+        "ru": "Показать документы",
+        "en": "Show documents",
+        "pt": "Mostrar documentos",
+    },
     
 }
 

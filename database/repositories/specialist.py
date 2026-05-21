@@ -7,12 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import (
     City,
     Country,
+    EventLog,
     Profession,
     Specialist,
     SpecialistCategory,
     SpecialistLanguage,
     SpecialistLocation,
     SpecialistService,
+    User,
+    UserRoleMapping,
 )
 
 
@@ -149,7 +152,7 @@ class SpecialistRepository:
         )
         self.session.add(specialist)
         await self.session.flush()
-
+        await self.ensure_specialist_role(tenant_id=tenant_id, user_id=user_id)
         if country_id or city_id or latitude or longitude:
             self.session.add(
                 SpecialistLocation(
@@ -189,5 +192,62 @@ class SpecialistRepository:
                 )
             )
 
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                event_type="specialist_profile_created",
+                entity_type="specialist",
+                entity_id=specialist.id,
+                payload={
+                    "status": "pending_moderation",
+                    "category_id": str(category_id),
+                    "profession_id": str(profession_id),
+                    "city_id": str(city_id) if city_id else None,
+                },
+                platform="telegram",
+            )
+        )
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                event_type="specialist_submitted",
+                entity_type="specialist",
+                entity_id=specialist.id,
+                payload={
+                    "status": "pending_moderation",
+                },
+                platform="telegram",
+            )
+        )
+
         await self.session.commit()
         return specialist
+
+    async def ensure_specialist_role(self, tenant_id: UUID, user_id: UUID) -> None:
+        role_result = await self.session.execute(
+            select(UserRoleMapping).where(
+                UserRoleMapping.tenant_id == tenant_id,
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.role == "specialist",
+            )
+        )
+        role = role_result.scalar_one_or_none()
+
+        if role:
+            if role.status != "active":
+                role.status = "active"
+        else:
+            self.session.add(
+                UserRoleMapping(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    role="specialist",
+                    status="active",
+                )
+            )
+
+        user = await self.session.get(User, user_id)
+        if user:
+            user.active_role = "specialist"

@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from database.repositories.legal import LegalRepository
 from database.repositories.specialist import SpecialistRepository
+from services.legal import LegalService, MissingLegalDocumentError
 
 
 class SpecialistRegistrationError(Exception):
@@ -30,13 +32,33 @@ class SpecialistRegistrationData:
     service_title: str | None = None
     service_description: str | None = None
     contact_text: str | None = None
+    language: str = "ru"
 
 
 class SpecialistService:
     def __init__(self, repository: SpecialistRepository):
         self.repository = repository
 
+    async def _require_specialist_consents(self, data: SpecialistRegistrationData) -> None:
+        legal_service = LegalService(LegalRepository(self.repository.session))
+
+        try:
+            has_consents = await legal_service.has_required_specialist_consents(
+                tenant_id=data.tenant_id,
+                user_id=data.user_id,
+                language=data.language or "ru",
+            )
+        except MissingLegalDocumentError as exc:
+            raise SpecialistRegistrationError(
+                f"Legal documents are not configured: {exc}"
+            ) from exc
+
+        if not has_consents:
+            raise SpecialistRegistrationError("Legal consents are required.")
+
     async def create_pending_profile(self, data: SpecialistRegistrationData):
+        await self._require_specialist_consents(data)
+
         existing = await self.repository.get_by_user_id(data.user_id)
         if existing:
             raise SpecialistRegistrationError("Specialist profile already exists for this user.")
@@ -71,6 +93,8 @@ class SpecialistService:
         service_title = data.service_title.strip() if data.service_title else None
         service_description = data.service_description.strip() if data.service_description else None
         contact_text = data.contact_text.strip() if data.contact_text else None
+        if service_title and len(service_title) < 3:
+            raise SpecialistRegistrationError("Service title is too short.")
 
         if len(display_name) < 2:
             raise SpecialistRegistrationError("Display name is too short.")

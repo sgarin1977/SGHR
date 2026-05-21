@@ -34,6 +34,7 @@ def test_legal_i18n_keys_exist():
     source = read("ui/texts.py")
 
     required_keys = [
+        "legal_show_documents_btn",
         "legal_accept_continue_btn",
         "legal_back_to_menu_btn",
         "legal_continue_specialist_registration_btn",
@@ -50,3 +51,11 @@ def test_legal_i18n_keys_exist():
 
     for key in required_keys:
         assert key in source
+
+def test_legal_gate_has_show_documents_callback():
+    source = read("handlers/legal.py")
+
+    assert "CB_LEGAL_SHOW_DOCS" in source
+    assert "LEGAL_SHOW_DOCS" in source
+    assert "legal_show_documents_btn" in source
+    assert "show_specialist_legal_documents" in source

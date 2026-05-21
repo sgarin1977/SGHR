@@ -31,6 +31,7 @@ class LegalRepository:
                 LegalDocument.doc_type,
                 LegalDocument.language,
                 desc(LegalDocument.effective_from),
+                desc(LegalDocument.version),
                 desc(LegalDocument.created_at),
             )
         )
