@@ -1,4 +1,64 @@
 translations = {
+    "legal_accept_continue_btn": {
+    "ru": "✅ Принять и продолжить",
+    "en": "✅ Accept and continue",
+    "pt": "✅ Aceitar e continuar",
+    },
+    "legal_back_to_menu_btn": {
+        "ru": "⬅️ Назад в меню",
+        "en": "⬅️ Back to menu",
+        "pt": "⬅️ Voltar ao menu",
+    },
+    "legal_continue_specialist_registration_btn": {
+        "ru": "Продолжить регистрацию специалиста",
+        "en": "Continue specialist registration",
+        "pt": "Continuar registro de especialista",
+    },
+    "legal_gate_intro": {
+        "ru": "Перед созданием профиля специалиста нужно принять обязательные юридические согласия SGHR Beta.",
+        "en": "Before creating a specialist profile, you need to accept the required SGHR Beta legal consents.",
+        "pt": "Antes de criar um perfil de especialista, você precisa aceitar os consentimentos legais obrigatórios do SGHR Beta.",
+    },
+    "legal_gate_required_docs": {
+        "ru": "Обязательные документы:",
+        "en": "Required documents:",
+        "pt": "Documentos obrigatórios:",
+    },
+    "legal_gate_confirmation": {
+        "ru": "Продолжая, вы подтверждаете согласие с правилами сервиса, обработкой данных, публикацией профиля специалиста, использованием города/геолокации для поиска и автоматическим переводом сообщений.",
+        "en": "By continuing, you confirm consent to the service rules, data processing, specialist profile publication, city/geolocation use for search, and automatic message translation.",
+        "pt": "Ao continuar, você confirma consentimento com as regras do serviço, processamento de dados, publicação do perfil de especialista, uso de cidade/geolocalização para busca e tradução automática de mensagens.",
+    },
+    "legal_start_required": {
+        "ru": "Сначала нажмите /start, чтобы зарегистрироваться в SGHR Beta.",
+        "en": "Please press /start first to register in SGHR Beta.",
+        "pt": "Pressione /start primeiro para se registrar no SGHR Beta.",
+    },
+    "legal_documents_not_configured": {
+        "ru": "Юридические документы для Beta 0.3 ещё не настроены. Передайте администратору: {error}",
+        "en": "Legal documents for Beta 0.3 are not configured yet. Please forward this to the administrator: {error}",
+        "pt": "Os documentos legais da Beta 0.3 ainda não estão configurados. Encaminhe ao administrador: {error}",
+    },
+    "legal_already_accepted": {
+        "ru": "Юридические согласия уже приняты. Можно продолжить регистрацию специалиста.",
+        "en": "Legal consents are already accepted. You can continue specialist registration.",
+        "pt": "Os consentimentos legais já foram aceitos. Você pode continuar o registro de especialista.",
+    },
+    "legal_accept_failed": {
+        "ru": "Не удалось принять согласия: юридические документы не настроены. Передайте администратору: {error}",
+        "en": "Could not accept consents: legal documents are not configured. Please forward this to the administrator: {error}",
+        "pt": "Não foi possível aceitar os consentimentos: documentos legais não configurados. Encaminhe ao administrador: {error}",
+    },
+    "legal_accepted": {
+        "ru": "Согласия приняты. Теперь можно продолжить регистрацию специалиста.",
+        "en": "Consents accepted. You can now continue specialist registration.",
+        "pt": "Consentimentos aceitos. Agora você pode continuar o registro de especialista.",
+    },
+    "legal_main_menu": {
+        "ru": "Главное меню SGHR Beta.",
+        "en": "SGHR Beta main menu.",
+        "pt": "Menu principal SGHR Beta.",
+    },
      "start_default_first_name": {
         "ru": "друг",
         "en": "friend",

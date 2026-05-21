@@ -223,3 +223,119 @@ async def test_admin_bootstrap_from_env_creates_super_admin(db_session, monkeypa
         assert event.payload["is_new"] is True
     finally:
         await cleanup_user_by_platform_id(db_session, platform_user_id)
+async def test_register_existing_user_logs_return_start_without_duplicates(db_session):
+    platform_user_id = f"test-repeat-start-{uuid.uuid4()}"
+
+    try:
+        service = UserService(db_session)
+
+        first = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="repeat_user",
+                first_name="Repeat",
+                last_name="User",
+                language_code="ru",
+            )
+        )
+
+        second = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="repeat_user",
+                first_name="Repeat",
+                last_name="User",
+                language_code="ru",
+            )
+        )
+
+        assert first.is_new is True
+        assert second.is_new is False
+        assert second.user_id == first.user_id
+
+        accounts_result = await db_session.execute(
+            select(UserAccount).where(
+                UserAccount.platform == "telegram",
+                UserAccount.platform_user_id == platform_user_id,
+            )
+        )
+        assert len(accounts_result.scalars().all()) == 1
+
+        roles_result = await db_session.execute(
+            select(UserRoleMapping).where(UserRoleMapping.user_id == first.user_id)
+        )
+        roles = roles_result.scalars().all()
+        assert len(roles) == 1
+        assert roles[0].role == "client"
+
+        events_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == first.user_id,
+                EventLog.event_type == "user_started",
+            )
+        )
+        events = events_result.scalars().all()
+        assert len(events) == 2
+        assert {event.payload["is_new"] for event in events} == {True, False}
+
+    finally:
+        await cleanup_user_by_platform_id(db_session, platform_user_id)
+
+async def test_existing_admin_user_keeps_same_account_and_logs_return_start(db_session, monkeypatch):
+    platform_user_id = f"test-existing-admin-{uuid.uuid4()}"
+    monkeypatch.setenv("ADMIN_TELEGRAM_IDS", platform_user_id)
+
+    try:
+        service = UserService(db_session)
+
+        first = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="existing_admin",
+                first_name="Existing",
+                last_name="Admin",
+                language_code="ru",
+            )
+        )
+
+        second = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="existing_admin",
+                first_name="Existing",
+                last_name="Admin",
+                language_code="ru",
+            )
+        )
+
+        assert first.is_new is True
+        assert second.is_new is False
+        assert second.user_id == first.user_id
+        assert second.role == "super_admin"
+
+        user = await db_session.get(User, first.user_id)
+        assert user is not None
+        assert user.active_role == "super_admin"
+
+        events_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == first.user_id,
+                EventLog.event_type == "user_started",
+            )
+        )
+        events = events_result.scalars().all()
+
+        assert len(events) == 2
+        assert {event.payload["is_new"] for event in events} == {True, False}
+        assert all(event.payload["role"] == "super_admin" for event in events)
+
+    finally:
+        await cleanup_user_by_platform_id(db_session, platform_user_id)
+
+
+async def test_get_user_by_telegram_id_returns_none_for_unknown_user(db_session):
+    service = UserService(db_session)
+
+    user = await service.get_user_by_telegram_id(f"unknown-{uuid.uuid4()}")
+
+    assert user is None

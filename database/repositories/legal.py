@@ -1,7 +1,7 @@
 from typing import Iterable
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import LegalDocument, UserConsent
@@ -20,11 +20,18 @@ class LegalRepository:
         languages = [language, "en", "ru"]
 
         result = await self.session.execute(
-            select(LegalDocument).where(
+            select(LegalDocument)
+            .where(
                 LegalDocument.tenant_id == tenant_id,
                 LegalDocument.doc_type.in_(list(doc_types)),
                 LegalDocument.language.in_(languages),
                 LegalDocument.status == "active",
+            )
+            .order_by(
+                LegalDocument.doc_type,
+                LegalDocument.language,
+                desc(LegalDocument.effective_from),
+                desc(LegalDocument.created_at),
             )
         )
         docs = result.scalars().all()
