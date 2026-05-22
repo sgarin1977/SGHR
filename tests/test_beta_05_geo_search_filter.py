@@ -802,17 +802,29 @@ def test_search_handler_passes_rating_filter_to_city_and_radius_search():
     assert "rating_min=rating_min" in city_branch
     assert "rating_min=rating_min" in geo_branch
 
-def test_specialist_card_has_future_action_callbacks_but_no_05_side_effects():
+def test_specialist_card_has_action_callbacks_without_uuid_payloads():
     source = open("handlers/search.py", encoding="utf-8").read()
 
-    assert "callback_data=\"search_contact_pending\"" in source
-    assert "callback_data=\"search_favorite_pending\"" in source
-    assert "callback_data=\"search_report_pending\"" in source
+    callback_literals = [
+        "search_contact_pending",
+        "search_favorite_pending",
+        "search_report_pending",
+    ]
 
-    assert "ContactRequestRepository" not in source
-    assert "contact_request_created" not in source
-    assert "saved_specialists" not in source
-    assert "Complaint" not in source
+    for callback_data in callback_literals:
+        assert f'callback_data="{callback_data}"' in source
+        assert len(callback_data.encode("utf-8")) <= 64
+
+    forbidden_fragments = [
+        'callback_data=f"search_contact_pending:{',
+        'callback_data=f"search_favorite_pending:{',
+        'callback_data=f"search_report_pending:{',
+        "UUID(callback.data.split",
+        "UUID(callback.data.rsplit",
+    ]
+
+    for fragment in forbidden_fragments:
+        assert fragment not in source
 
 def test_geo_distance_wrapper_keeps_haversine_default_api():
     from utils.geo import calculate_distance_km, get_geo_mode

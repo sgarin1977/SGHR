@@ -857,6 +857,142 @@ translations = {
         "en": "Reports will be available in Beta moderation.",
         "pt": "Denúncias estarão disponíveis na moderação Beta.",
     },
+    "contact_request_prompt": {
+        "ru": "Опишите задачу специалисту. Минимум 10 символов.",
+        "en": "Describe the task for the specialist. Minimum 10 characters.",
+        "pt": "Descreva a tarefa para o especialista. Mínimo de 10 caracteres.",
+    },
+    "contact_request_created": {
+        "ru": "Заявка отправлена специалисту. Диалог создан внутри SGHR Beta.",
+        "en": "Request sent to the specialist. The chat was created inside SGHR Beta.",
+        "pt": "Pedido enviado ao especialista. O chat foi criado dentro do SGHR Beta.",
+    },
+    "contact_request_error": {
+        "ru": "Не удалось отправить заявку: {error}",
+        "en": "Could not send request: {error}",
+        "pt": "Não foi possível enviar o pedido: {error}",
+    },
+    "search_contact_no_specialist": {
+        "ru": "Специалист не выбран. Вернитесь к результатам поиска.",
+        "en": "No specialist selected. Return to search results.",
+        "pt": "Nenhum especialista selecionado. Volte aos resultados da busca.",
+    },
+    "search_contact_user_not_found": {
+        "ru": "Не удалось определить пользователя. Нажмите /start и попробуйте снова.",
+        "en": "Could not identify the user. Press /start and try again.",
+        "pt": "Não foi possível identificar o usuário. Pressione /start e tente novamente.",
+    },
+    "contact_accept_btn": {
+        "ru": "Принять",
+        "en": "Accept",
+        "pt": "Aceitar",
+    },
+    "contact_reject_btn": {
+        "ru": "Отклонить",
+        "en": "Reject",
+        "pt": "Recusar",
+    },
+    "contact_request_specialist_notification": {
+        "ru": "Новая заявка от клиента:\n\n{message}",
+        "en": "New request from a client:\n\n{message}",
+        "pt": "Novo pedido de um cliente:\n\n{message}",
+    },
+    "contact_request_accepted_specialist": {
+        "ru": "Заявка принята. Диалог открыт внутри SGHR Beta.",
+        "en": "Request accepted. The chat is open inside SGHR Beta.",
+        "pt": "Pedido aceito. O chat está aberto dentro do SGHR Beta.",
+    },
+    "contact_request_rejected_specialist": {
+        "ru": "Заявка отклонена.",
+        "en": "Request rejected.",
+        "pt": "Pedido recusado.",
+    },
+    "contact_request_not_found": {
+        "ru": "Заявка не найдена или уже обработана.",
+        "en": "Request not found or already processed.",
+        "pt": "Pedido não encontrado ou já processado.",
+    },
+        "contact_reply_btn": {
+        "ru": "Ответить",
+        "en": "Reply",
+        "pt": "Responder",
+    },
+    "contact_show_original_btn": {
+        "ru": "Показать оригинал",
+        "en": "Show original",
+        "pt": "Mostrar original",
+    },
+    "contact_finish_btn": {
+        "ru": "Завершить",
+        "en": "Finish",
+        "pt": "Finalizar",
+    },
+    "contact_report_btn": {
+        "ru": "Пожаловаться",
+        "en": "Report",
+        "pt": "Denunciar",
+    },
+    "contact_reply_prompt": {
+        "ru": "Введите сообщение для диалога внутри SGHR Beta.",
+        "en": "Enter a message for the chat inside SGHR Beta.",
+        "pt": "Digite uma mensagem para o chat dentro do SGHR Beta.",
+    },
+    "contact_message_sent": {
+        "ru": "Сообщение отправлено внутри SGHR Beta.",
+        "en": "Message sent inside SGHR Beta.",
+        "pt": "Mensagem enviada dentro do SGHR Beta.",
+    },
+
+    "contact_thread_message_received": {
+        "ru": "Новое сообщение внутри SGHR Beta:\n\n{message}",
+        "en": "New message inside SGHR Beta:\n\n{message}",
+        "pt": "Nova mensagem dentro do SGHR Beta:\n\n{message}",
+    },
+
+
+    "contact_disclaimer_text": {
+        "ru": (
+            "SGHR передает вашу заявку специалисту и не гарантирует качество, "
+            "сроки или результат услуги. Используйте жалобу, если профиль или "
+            "переписка нарушают правила."
+        ),
+        "en": (
+            "SGHR forwards your request to the specialist and does not guarantee "
+            "the quality, timing, or result of the service. Use a report if the "
+            "profile or chat violates the rules."
+        ),
+        "pt": (
+            "A SGHR encaminha sua solicitação ao especialista e não garante "
+            "qualidade, prazo ou resultado do serviço. Use a denúncia se o perfil "
+            "ou a conversa violar as regras."
+        ),
+    },
+    "contact_disclaimer_continue": {
+        "ru": "Продолжить",
+        "en": "Continue",
+        "pt": "Continuar",
+    },
+    "contact_thread_not_found": {
+        "ru": "Диалог не найден. Вернитесь к заявке или начните новый поиск.",
+        "en": "Chat not found. Return to the request or start a new search.",
+        "pt": "Chat não encontrado. Volte ao pedido ou inicie uma nova busca.",
+    },
+    "contact_show_original_pending": {
+        "ru": "Показ оригинала будет подключен в Beta 0.7 вместе с переводом.",
+        "en": "Show original will be connected in Beta 0.7 with translation.",
+        "pt": "Mostrar original será conectado no Beta 0.7 com tradução.",
+    },
+    "contact_finish_pending": {
+        "ru": "Завершение диалога будет подключено в следующем шаге Beta 0.6.",
+        "en": "Finishing the chat will be connected in the next Beta 0.6 step.",
+        "pt": "Finalizar o chat será conectado no próximo passo do Beta 0.6.",
+    },
+    "contact_thread_completed": {
+        "ru": "Диалог завершен.",
+        "en": "Chat completed.",
+        "pt": "Chat finalizado.",
+    },
+
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
