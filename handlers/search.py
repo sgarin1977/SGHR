@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
@@ -14,12 +15,14 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 
-from database.models import User
+from database.models import User, UserAccount
+from database.repositories.contact import ContactChatRepository
 from database.repositories.search import SpecialistSearchRepository
 from database.repositories.specialist import SpecialistRepository
 from database.repositories.user import UserRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard
+from services.contact_chat import ContactChatError, ContactChatService
 from services.geo_search import GeoSearchService, SpecialistPublicCard
 from ui.texts import t
 
@@ -38,6 +41,8 @@ class SpecialistSearchFSM(StatesGroup):
     waiting_geo = State()
     choosing_filters = State()
     viewing_results = State()
+    entering_contact_message = State()
+    entering_thread_message = State()
 
     
 
@@ -212,6 +217,59 @@ def card_keyboard(language: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
+
+def contact_request_action_keyboard(contact_token: str, language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("contact_accept_btn", language),
+                    callback_data=f"contact_accept:{contact_token}",
+                ),
+                InlineKeyboardButton(
+                    text=t("contact_reject_btn", language),
+                    callback_data=f"contact_reject:{contact_token}",
+                ),
+            ]
+        ]
+    )
+
+def contact_thread_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("contact_reply_btn", language),
+                    callback_data="contact_reply",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("contact_show_original_btn", language),
+                    callback_data="contact_show_original_pending",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("contact_finish_btn", language),
+                    callback_data="contact_finish",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("contact_report_btn", language),
+                    callback_data="search_report_pending",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
+    )
+
 
 def filters_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
     radius = int(float(data.get("radius_km") or DEFAULT_RADIUS_KM))
@@ -1019,6 +1077,11 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
+    await state.update_data(
+        selected_specialist_id=specialist_ids[index],
+        selected_specialist_distance=distance_km,
+    )
+
     await show_callback_message(
         callback,
         format_public_card(card, language),
@@ -1027,15 +1090,298 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @search_router.callback_query(F.data == "search_contact_pending")
-async def contact_pending(callback: CallbackQuery, state: FSMContext):
+async def contact_start(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = normalize_language(data.get("user_language") or callback.from_user.language_code)
 
-    await callback.answer(
-        t("search_contact_placeholder", language),
-        show_alert=True,
+    if not data.get("selected_specialist_id"):
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    await show_callback_message(
+        callback,
+        t("contact_disclaimer_text", language),
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_disclaimer_continue", language),
+                        callback_data="contact_disclaimer_continue",
+                    )
+                ],
+                [InlineKeyboardButton(text=t("search_back", language), callback_data="search_results_page:0")],
+                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@search_router.callback_query(F.data == "contact_disclaimer_continue")
+async def contact_disclaimer_continue(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+
+    if not data.get("selected_specialist_id"):
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    await show_callback_message(
+        callback,
+        t("contact_request_prompt", language),
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=t("search_back", language), callback_data="search_results_page:0")],
+                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            ]
+        ),
+    )
+    await state.set_state(SpecialistSearchFSM.entering_contact_message)
+    await callback.answer()
+
+@search_router.message(SpecialistSearchFSM.entering_contact_message)
+async def receive_contact_message(message: Message, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    specialist_id = data.get("selected_specialist_id")
+
+    if not specialist_id:
+        await message.answer(t("search_contact_no_specialist", language))
+        await state.set_state(SpecialistSearchFSM.viewing_results)
+        return
+
+    requester_user_id, tenant_id = await get_requester_context(message.from_user.id)
+    if not requester_user_id or not tenant_id:
+        await message.answer(t("search_contact_user_not_found", language))
+        return
+
+    specialist_platform_user_id = None
+    specialist_language = language
+    result = None
+
+    try:
+        async with get_session() as session:
+            result = await ContactChatService(ContactChatRepository(session)).create_contact_request(
+                tenant_id=tenant_id,
+                from_user_id=requester_user_id,
+                specialist_id=UUID(specialist_id),
+                message=message.text or "",
+                original_language=language,
+            )
+
+            specialist_user = await session.get(User, result.specialist_user_id)
+            if specialist_user:
+                specialist_language = normalize_language(specialist_user.language_code)
+
+            specialist_account_result = await session.execute(
+                select(UserAccount).where(
+                    UserAccount.user_id == result.specialist_user_id,
+                    UserAccount.platform == "telegram",
+                )
+            )
+            specialist_account = specialist_account_result.scalar_one_or_none()
+            if specialist_account:
+                specialist_platform_user_id = specialist_account.platform_user_id
+
+    except ContactChatError as exc:
+        await message.answer(
+            t("contact_request_error", language).format(error=str(exc))
+        )
+        return
+
+    if specialist_platform_user_id and result.contact_token:
+        await message.bot.send_message(
+            chat_id=int(specialist_platform_user_id),
+            text=t("contact_request_specialist_notification", specialist_language).format(
+                message=(message.text or "").strip(),
+            ),
+            reply_markup=contact_request_action_keyboard(
+                result.contact_token,
+                specialist_language,
+            ),
+        )
+    await state.update_data(
+        active_contact_request_id=str(result.contact_request_id),
+        active_thread_id=str(result.thread_id),
+    )
+    await state.set_state(SpecialistSearchFSM.viewing_results)
+
+    await message.answer(
+        t("contact_request_created", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=t("search_new", language), callback_data="search_start")],
+                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            ]
+        ),
     )
 
+def callback_token(callback: CallbackQuery) -> str | None:
+    try:
+        return (callback.data or "").split(":", 1)[1]
+    except (IndexError, TypeError):
+        return None
+
+
+@search_router.callback_query(F.data.startswith("contact_accept:"))
+async def accept_contact_request(callback: CallbackQuery, state: FSMContext):
+    token = callback_token(callback)
+    language = normalize_language(callback.from_user.language_code)
+
+    if not token:
+        await callback.answer(t("contact_request_not_found", language), show_alert=True)
+        return
+
+    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not actor_user_id or not tenant_id:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ContactChatService(ContactChatRepository(session)).set_contact_request_status_by_token(
+                contact_token=token,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+                action="accept",
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            t("contact_request_error", language).format(error=str(exc)),
+            show_alert=True,
+        )
+        return
+    await state.update_data(active_thread_id=str(result.thread_id))
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        t("contact_request_accepted_specialist", language),
+        reply_markup=contact_thread_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data.startswith("contact_reject:"))
+async def reject_contact_request(callback: CallbackQuery, state: FSMContext):
+    token = callback_token(callback)
+    language = normalize_language(callback.from_user.language_code)
+
+    if not token:
+        await callback.answer(t("contact_request_not_found", language), show_alert=True)
+        return
+
+    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not actor_user_id or not tenant_id:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            await ContactChatService(ContactChatRepository(session)).set_contact_request_status_by_token(
+                contact_token=token,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+                action="reject",
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            t("contact_request_error", language).format(error=str(exc)),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(t("contact_request_rejected_specialist", language))
+    await callback.answer()
+
+@search_router.callback_query(F.data == "contact_reply")
+async def start_thread_reply(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+
+    if not data.get("active_thread_id"):
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    await show_callback_message(
+        callback,
+        t("contact_reply_prompt", language),
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="search_menu",
+                    )
+                ]
+            ]
+        ),
+    )
+    await state.set_state(SpecialistSearchFSM.entering_thread_message)
+    await callback.answer()
+
+@search_router.message(SpecialistSearchFSM.entering_thread_message)
+async def receive_thread_message(message: Message, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    thread_id = data.get("active_thread_id")
+
+    if not thread_id:
+        await message.answer(t("contact_thread_not_found", language))
+        await state.set_state(SpecialistSearchFSM.viewing_results)
+        return
+
+    sender_user_id, tenant_id = await get_requester_context(message.from_user.id)
+    if not sender_user_id or not tenant_id:
+        await message.answer(t("search_contact_user_not_found", language))
+        return
+
+    receiver_platform_user_id = None
+    receiver_language = language
+
+    try:
+        async with get_session() as session:
+            result = await ContactChatService(ContactChatRepository(session)).send_thread_message(
+                thread_id=UUID(thread_id),
+                sender_user_id=sender_user_id,
+                text=message.text or "",
+                original_language=language,
+            )
+
+            receiver_user = await session.get(User, result.receiver_user_id)
+            if receiver_user:
+                receiver_language = normalize_language(receiver_user.language_code)
+
+            receiver_account_result = await session.execute(
+                select(UserAccount).where(
+                    UserAccount.user_id == result.receiver_user_id,
+                    UserAccount.platform == "telegram",
+                )
+            )
+            receiver_account = receiver_account_result.scalar_one_or_none()
+            if receiver_account:
+                receiver_platform_user_id = receiver_account.platform_user_id
+
+    except ContactChatError as exc:
+        await message.answer(
+            t("contact_request_error", language).format(error=str(exc))
+        )
+        return
+
+    if receiver_platform_user_id:
+        await message.bot.send_message(
+            chat_id=int(receiver_platform_user_id),
+            text=t("contact_thread_message_received", receiver_language).format(
+                message=(message.text or "").strip(),
+            ),
+            reply_markup=contact_thread_keyboard(receiver_language),
+        )
+
+    await state.update_data(active_thread_id=str(result.thread_id))
+    await state.set_state(SpecialistSearchFSM.viewing_results)
+
+    await message.answer(
+        t("contact_message_sent", language),
+        reply_markup=contact_thread_keyboard(language),
+    )
 
 @search_router.callback_query(F.data == "search_favorite_pending")
 async def favorite_pending(callback: CallbackQuery, state: FSMContext):
@@ -1068,5 +1414,56 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         t("search_main_menu", language),
         reply_markup=get_main_menu_keyboard(),
+    )
+    await callback.answer()
+
+@search_router.callback_query(F.data == "contact_show_original_pending")
+async def show_original_pending(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+
+    await callback.answer(
+        t("contact_show_original_pending", language),
+        show_alert=True,
+    )
+
+
+@search_router.callback_query(F.data == "contact_finish")
+async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    thread_id = data.get("active_thread_id")
+
+    if not thread_id:
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not actor_user_id:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            await ContactChatService(ContactChatRepository(session)).complete_thread(
+                thread_id=UUID(thread_id),
+                actor_user_id=actor_user_id,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            t("contact_request_error", language).format(error=str(exc)),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(active_thread_id=None)
+    await callback.message.answer(
+        t("contact_thread_completed", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=t("search_new", language), callback_data="search_start")],
+                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            ]
+        ),
     )
     await callback.answer()
