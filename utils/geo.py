@@ -1,8 +1,15 @@
 import math
-
+import os
 
 EARTH_RADIUS_KM = 6371.0
+DEFAULT_GEO_MODE = "haversine"
 
+
+def get_geo_mode() -> str:
+    mode = os.getenv("GEO_MODE", DEFAULT_GEO_MODE).strip().lower()
+    if mode not in {"haversine", "postgis"}:
+        return DEFAULT_GEO_MODE
+    return mode
 
 def haversine_distance_km(
     lat1: float,
@@ -28,6 +35,21 @@ def haversine_distance_km(
 
     return EARTH_RADIUS_KM * c
 
+def calculate_distance_km(
+    lat1: float,
+    lon1: float,
+    lat2: float,
+    lon2: float,
+    *,
+    mode: str | None = None,
+) -> float:
+    geo_mode = (mode or get_geo_mode()).strip().lower()
+
+    if geo_mode == "postgis":
+        # Beta 0.5 keeps the service API stable. PostGIS can replace this later.
+        return haversine_distance_km(lat1, lon1, lat2, lon2)
+
+    return haversine_distance_km(lat1, lon1, lat2, lon2)
 
 def is_within_radius_km(
     *,

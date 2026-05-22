@@ -1,26 +1,42 @@
 import asyncio
+import os
 import sys
 import uuid
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+from database.models import Specialist
 from database.repositories.search import SpecialistSearchRepository
 from database.session import async_session
 from services.geo_search import GeoSearchService
 
 
-SPECIALIST_ID = "845bc218-5467-465c-b5cf-5a5a19952fea"
+def resolve_specialist_id() -> uuid.UUID:
+    raw_value = None
+
+    if len(sys.argv) > 1:
+        raw_value = sys.argv[1]
+
+    if not raw_value:
+        raw_value = os.getenv("SPECIALIST_ID")
+
+    if not raw_value:
+        raise SystemExit(
+            "FAIL: provide specialist id via SPECIALIST_ID env or first argument"
+        )
+
+    try:
+        return uuid.UUID(raw_value)
+    except ValueError as exc:
+        raise SystemExit(f"FAIL: invalid specialist id: {raw_value}") from exc
 
 
 async def main():
-    specialist_id = uuid.UUID(SPECIALIST_ID)
+    specialist_id = resolve_specialist_id()
 
     async with async_session() as session:
-        specialist = await session.get(
-            __import__("database.models", fromlist=["Specialist"]).Specialist,
-            specialist_id,
-        )
+        specialist = await session.get(Specialist, specialist_id)
 
         if not specialist:
             raise SystemExit(f"FAIL: specialist not found: {specialist_id}")
@@ -60,6 +76,24 @@ async def main():
         if specialist.id not in city_result_ids:
             raise SystemExit("FAIL: specialist was not found by city/category search")
 
+        filtered_results = await search_service.search_by_city(
+            city_id=specialist.city_id,
+            category_id=specialist.category_id,
+            price_min=None,
+            price_max=float(specialist.price_from) if specialist.price_from is not None else None,
+            language_code="en",
+            work_format=specialist.work_format,
+            limit=10,
+            offset=0,
+        )
+
+        filtered_result_ids = {item.specialist.id for item in filtered_results}
+
+        print(f"filtered_results_count={len(filtered_results)}")
+
+        if specialist.id not in filtered_result_ids:
+            raise SystemExit("FAIL: specialist was not found by language/price/work_format filters")
+
         if specialist.latitude is None or specialist.longitude is None:
             raise SystemExit("FAIL: specialist has no coordinates for radius search")
 
@@ -87,6 +121,31 @@ async def main():
 
         if distance is None or distance > 5:
             raise SystemExit(f"FAIL: expected distance <= 5 km, got {distance}")
+
+        card = await search_service.get_public_card(
+            specialist_id=specialist.id,
+            distance_km=distance,
+            log_event=False,
+        )
+
+        if not card:
+            raise SystemExit("FAIL: public specialist card was not returned")
+
+        card_data = card.__dict__
+        forbidden_public_fields = {
+            "contact_text",
+            "metadata",
+            "extra_metadata",
+            "latitude",
+            "longitude",
+            "email",
+            "phone",
+            "username",
+        }
+
+        leaked_fields = forbidden_public_fields.intersection(card_data)
+        if leaked_fields:
+            raise SystemExit(f"FAIL: public card leaks fields: {sorted(leaked_fields)}")
 
         print("OK: beta 0.5 geo search smoke passed")
 

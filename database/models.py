@@ -25,6 +25,7 @@ class User(Base):
     active_role: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     language_code: Mapped[str] = mapped_column(String(10), default="ru")
     profile_completion_score: Mapped[int] = mapped_column(Integer, default=0)
+    risk_score: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(Text, default="active") # active/blocked/deleted
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -193,6 +194,7 @@ class Specialist(Base):
     price_to: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     price_unit: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    work_format: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 7), nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 7), nullable=True)
     service_radius_km: Mapped[int] = mapped_column(Integer, default=0)

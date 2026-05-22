@@ -122,10 +122,12 @@ class SpecialistRepository:
         service_title: str | None,
         service_description: str | None,
         contact_text: str | None,
+        work_format: str | None,
     ) -> Specialist:
         price_unit = price_unit or "service"
         currency = currency or "EUR"
         service_radius_km = service_radius_km or 0
+        work_format = work_format or "mixed"
 
         specialist = Specialist(
             tenant_id=tenant_id,
@@ -141,6 +143,7 @@ class SpecialistRepository:
             price_to=price_to,
             currency=currency,
             price_unit=price_unit,
+            work_format=work_format,
             latitude=latitude,
             longitude=longitude,
             service_radius_km=service_radius_km,

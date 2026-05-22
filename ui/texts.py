@@ -617,9 +617,247 @@ translations = {
         "en": "Show documents",
         "pt": "Mostrar documentos",
     },
-    
-}
-
+    "search_back": {
+        "ru": "Назад",
+        "en": "Back",
+        "pt": "Voltar",
+    },
+    "search_menu": {
+        "ru": "В меню",
+        "en": "Menu",
+        "pt": "Menu",
+    },
+    "search_choose_city_btn": {
+        "ru": "Выбрать город",
+        "en": "Choose city",
+        "pt": "Escolher cidade",
+    },
+    "search_nearby_btn": {
+        "ru": "Найти рядом",
+        "en": "Find nearby",
+        "pt": "Encontrar perto",
+    },
+    "search_new": {
+        "ru": "Новый поиск",
+        "en": "New search",
+        "pt": "Nova busca",
+    },
+    "search_price_not_set": {
+        "ru": "цена не указана",
+        "en": "price not specified",
+        "pt": "preco nao informado",
+    },
+    "search_distance": {
+        "ru": "Расстояние",
+        "en": "Distance",
+        "pt": "Distancia",
+    },
+    "search_results_title": {
+        "ru": "Найденные специалисты",
+        "en": "Found specialists",
+        "pt": "Especialistas encontrados",
+    },
+    "search_no_results": {
+        "ru": "Специалисты не найдены. Попробуйте другую категорию, город или радиус.",
+        "en": "No specialists found. Try another category, city, or radius.",
+        "pt": "Nenhum especialista encontrado. Tente outra categoria, cidade ou raio.",
+    },
+    "search_categories_missing": {
+        "ru": "Категории специалистов не настроены.",
+        "en": "Specialist categories are not configured.",
+        "pt": "Categorias de especialistas nao configuradas.",
+    },
+    "search_choose_category": {
+        "ru": "Выберите категорию специалиста:",
+        "en": "Choose specialist category:",
+        "pt": "Escolha a categoria do especialista:",
+    },
+    "search_category_not_found": {
+        "ru": "Категория не найдена или отключена.",
+        "en": "Category not found or disabled.",
+        "pt": "Categoria nao encontrada ou desativada.",
+    },
+    "search_mode_prompt": {
+        "ru": "Как искать специалиста?",
+        "en": "How do you want to search?",
+        "pt": "Como deseja buscar?",
+    },
+    "search_cities_missing": {
+        "ru": "Города не настроены.",
+        "en": "Cities are not configured.",
+        "pt": "Cidades nao configuradas.",
+    },
+    "search_choose_city": {
+        "ru": "Выберите город:",
+        "en": "Choose city:",
+        "pt": "Escolha a cidade:",
+    },
+    "search_city_not_found": {
+        "ru": "Город не найден или отключен.",
+        "en": "City not found or disabled.",
+        "pt": "Cidade nao encontrada ou desativada.",
+    },
+    "search_geo_prompt": {
+        "ru": "Отправьте вашу геолокацию Telegram для поиска рядом.",
+        "en": "Send your Telegram geolocation to search nearby.",
+        "pt": "Envie sua geolocalizacao do Telegram para buscar por perto.",
+    },
+    "search_send_geo_btn": {
+        "ru": "Отправить геолокацию",
+        "en": "Send geolocation",
+        "pt": "Enviar geolocalizacao",
+    },
+    "search_geo_required": {
+        "ru": "Пожалуйста, отправьте геолокацию Telegram.",
+        "en": "Please send Telegram geolocation.",
+        "pt": "Envie a geolocalizacao do Telegram.",
+    },
+    "search_loading_nearby": {
+        "ru": "Ищу специалистов рядом...",
+        "en": "Searching nearby specialists...",
+        "pt": "Buscando especialistas por perto...",
+    },
+    "search_main_menu": {
+        "ru": "Главное меню SGHR Beta.",
+        "en": "SGHR Beta main menu.",
+        "pt": "Menu principal SGHR Beta.",
+    },
+    "search_rating": {
+        "ru": "Рейтинг",
+        "en": "Rating",
+        "pt": "Avaliacao",
+    },
+    "search_verified_label": {
+        "ru": "проверен",
+        "en": "verified",
+        "pt": "verificado",
+    },
+    "search_premium_label": {
+        "ru": "premium",
+        "en": "premium",
+        "pt": "premium",
+    },
+        "search_choose_profession": {
+        "ru": "Выберите профессию или все профессии категории:",
+        "en": "Choose profession or all professions in the category:",
+        "pt": "Escolha a profissao ou todas as profissoes da categoria:",
+    },
+    "search_all_professions": {
+        "ru": "Все профессии",
+        "en": "All professions",
+        "pt": "Todas as profissoes",
+    },
+    "search_professions_missing": {
+        "ru": "Профессии для категории не настроены.",
+        "en": "Professions are not configured for this category.",
+        "pt": "Profissoes nao configuradas para esta categoria.",
+    },
+    "search_profession_not_found": {
+        "ru": "Профессия не найдена или отключена.",
+        "en": "Profession not found or disabled.",
+        "pt": "Profissao nao encontrada ou desativada.",
+    },
+    "search_filters_prompt": {
+        "ru": "Настройте фильтры поиска:",
+        "en": "Set search filters:",
+        "pt": "Configure filtros de busca:",
+    },
+    "search_show_results": {
+        "ru": "Показать результаты",
+        "en": "Show results",
+        "pt": "Mostrar resultados",
+    },
+    "search_filter_language_any": {
+        "ru": "Любой язык",
+        "en": "Any language",
+        "pt": "Qualquer idioma",
+    },
+    "search_filter_verified_only": {
+        "ru": "Только проверенные",
+        "en": "Verified only",
+        "pt": "Somente verificados",
+    },
+    "search_filter_verified_all": {
+        "ru": "Все специалисты",
+        "en": "All specialists",
+        "pt": "Todos os especialistas",
+    },
+    "search_filter_price_any": {
+        "ru": "Любая цена",
+        "en": "Any price",
+        "pt": "Qualquer preco",
+    },
+    "search_filter_price_up_to_50": {
+        "ru": "До 50 EUR",
+        "en": "Up to 50 EUR",
+        "pt": "Ate 50 EUR",
+    },
+    "search_filter_price_50_100": {
+        "ru": "50-100 EUR",
+        "en": "50-100 EUR",
+        "pt": "50-100 EUR",
+    },
+    "search_filter_price_from_100": {
+        "ru": "От 100 EUR",
+        "en": "From 100 EUR",
+        "pt": "A partir de 100 EUR",
+    },
+    "search_filter_premium_only": {
+        "ru": "Только premium",
+        "en": "Premium only",
+        "pt": "Somente premium",
+    },
+    "search_filter_premium_all": {
+        "ru": "Все тарифы",
+        "en": "All tiers",
+        "pt": "Todos os planos",
+    },
+    "search_filter_work_any": {
+        "ru": "Любой формат",
+        "en": "Any format",
+        "pt": "Qualquer formato",
+    },
+    "search_filter_work_remote": {
+        "ru": "Удаленно",
+        "en": "Remote",
+        "pt": "Remoto",
+    },
+    "search_filter_work_onsite": {
+        "ru": "На месте",
+        "en": "On-site",
+        "pt": "Presencial",
+    },
+    "search_filter_work_mixed": {
+        "ru": "Смешанный",
+        "en": "Mixed",
+        "pt": "Misto",
+    },
+    "search_filter_rating_any": {
+        "ru": "Любой рейтинг",
+        "en": "Any rating",
+        "pt": "Qualquer avaliação",
+    },
+    "search_filter_rating_4": {
+        "ru": "Рейтинг от 4",
+        "en": "Rating from 4",
+        "pt": "Avaliação a partir de 4",
+    },
+    "search_contact_placeholder": {
+        "ru": "Связь со специалистом будет доступна в Beta 0.6.",
+        "en": "Contacting a specialist will be available in Beta 0.6.",
+        "pt": "O contato com o especialista estará disponível no Beta 0.6.",
+    },
+    "search_favorite_placeholder": {
+        "ru": "Избранное будет доступно в следующих версиях Beta.",
+        "en": "Favorites will be available in the next Beta versions.",
+        "pt": "Favoritos estarão disponíveis nas próximas versões Beta.",
+    },
+    "search_report_placeholder": {
+        "ru": "Жалобы будут доступны в модерации Beta.",
+        "en": "Reports will be available in Beta moderation.",
+        "pt": "Denúncias estarão disponíveis na moderação Beta.",
+    },
+    }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
 

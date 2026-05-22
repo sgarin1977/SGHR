@@ -33,6 +33,7 @@ class SpecialistRegistrationData:
     service_description: str | None = None
     contact_text: str | None = None
     language: str = "ru"
+    work_format: str = "mixed"
 
 
 class SpecialistService:
@@ -144,4 +145,5 @@ class SpecialistService:
             service_title=service_title,
             service_description=service_description,
             contact_text=contact_text,
+            work_format=data.work_format or "mixed",
         )
