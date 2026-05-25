@@ -419,6 +419,14 @@ def test_specialist_fsm_does_not_put_uuid_into_paged_callback_data():
     assert 'callback_data=f"{prefix}:{item.id}"' not in source
     assert "item_index = start + offset" in source
     assert 'callback_data=f"{prefix}:{item_index}"' in source
+    assert "geo_candidates" in source
+    assert 'callback_data=f"spec_geo_place:{index}"' in source
+    assert "GeoService(GeoRepository(session)).confirm_place" in source
+    assert "list_active_cities(limit=100)" not in source
+    assert "reverse_place" in source
+    assert "ReplyKeyboardMarkup" in source
+    assert "ReplyKeyboardRemove" in source
+    assert "request_location=True" in source
 
 
 def test_specialist_fsm_callback_literals_are_short():
@@ -435,6 +443,7 @@ def test_specialist_fsm_callback_literals_are_short():
         "register_specialist",
         "SS_START",
         "M",
+        "spec_geo_place:",
     ]
 
     for callback_data in callback_literals:
@@ -476,3 +485,49 @@ def test_specialist_fsm_uses_i18n_for_visible_texts():
 
     for fragment in forbidden_fragments:
         assert fragment not in source
+
+def test_specialist_fsm_uses_geo_provider_for_location_selection():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+
+    required_fragments = [
+        "entering_city_query",
+        "choosing_geo_place",
+        "GeoService",
+        "GeoRepository",
+        "search_places",
+        "reverse_place",
+        "confirm_place",
+        "geo_candidates",
+        "candidate.to_state()",
+        "callback_data=f\"spec_geo_place:{index}\"",
+        "ReplyKeyboardMarkup",
+        "ReplyKeyboardRemove",
+        "request_location=True",
+        "city_id=str(place.city_id)",
+        "country_id=str(place.country_id)",
+        "latitude=place.latitude",
+        "longitude=place.longitude",
+    ]
+
+    for fragment in required_fragments:
+        assert fragment in source
+
+    forbidden_fragments = [
+        "list_active_cities(limit=100)",
+        "callback_data=f\"spec_city:{item_index}\"",
+        "F.data.startswith(\"spec_city:\")",
+        "F.data.startswith(\"spec_cities_page:\")",
+    ]
+
+    for fragment in forbidden_fragments:
+        assert fragment not in source
+
+    callback_literals = [
+        "spec_location_city",
+        "spec_location_geo",
+        "spec_back_to_location_mode",
+        "spec_geo_place:",
+    ]
+
+    for callback_data in callback_literals:
+        assert len(callback_data.encode("utf-8")) <= 64

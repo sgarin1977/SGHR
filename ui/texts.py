@@ -181,6 +181,42 @@ translations = {
         "en": "Choose a city:",
         "pt": "Escolha uma cidade:",
     },
+    "spec_city_search_prompt": {
+        "ru": "Введите город, село или район. Мы найдем варианты через OpenStreetMap.",
+        "en": "Enter a city, village, or district. We will find options via OpenStreetMap.",
+        "pt": "Digite uma cidade, vila ou distrito. Vamos buscar opções via OpenStreetMap.",
+    },
+    "spec_city_query_too_short": {
+        "ru": "Введите минимум 2 символа для поиска места.",
+        "en": "Enter at least 2 characters to search for a place.",
+        "pt": "Digite pelo menos 2 caracteres para buscar um local.",
+    },
+    "spec_geo_candidates_prompt": {
+        "ru": "Выберите подходящее место:",
+        "en": "Choose the matching place:",
+        "pt": "Escolha o local correspondente:",
+    },
+    "spec_geo_reverse_confirm_prompt": {
+        "ru": "Мы определили место по вашей геолокации. Подтвердите вариант ниже.",
+        "en": "We detected a place from your geolocation. Confirm the option below.",
+        "pt": "Detectamos um local pela sua geolocalização. Confirme a opção abaixo.",
+    },
+    "spec_geo_candidates_not_found": {
+        "ru": "Место не найдено. Попробуйте другой запрос или отправьте геолокацию.",
+        "en": "Place not found. Try another query or send geolocation.",
+        "pt": "Local não encontrado. Tente outra busca ou envie geolocalização.",
+    },
+    "spec_geo_candidate_not_found": {
+        "ru": "Вариант места не найден. Повторите поиск.",
+        "en": "Place option not found. Please search again.",
+        "pt": "Opção de local não encontrada. Pesquise novamente.",
+    },
+    "spec_geo_provider_error": {
+        "ru": "Не удалось получить место из OpenStreetMap: {error}",
+        "en": "Could not get place from OpenStreetMap: {error}",
+        "pt": "Não foi possível obter o local do OpenStreetMap: {error}",
+    },
+
     "spec_city_not_found_back": {
         "ru": "Город не найден. Вернитесь к выбору города.",
         "en": "City not found. Go back to city selection.",
