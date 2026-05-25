@@ -18,7 +18,10 @@ from database.models import (
     UserConsent,
     EventLog,
 )
-from database.repositories.search import SpecialistSearchRepository
+from database.repositories.search import (
+    SpecialistSearchFilters,
+    SpecialistSearchRepository,
+)
 from database.repositories.specialist import SpecialistRepository
 from database.repositories.user import UserRepository
 from services.geo_search import GeoSearchService
@@ -315,16 +318,51 @@ async def test_search_specialists_by_radius(db_session):
         await cleanup_test_user(db_session, platform_user_id)
         await cleanup_legal_documents(db_session, tenant_id)       
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from uuid import UUID
 
-from database.models import Specialist
-from database.repositories.search import (
-    SpecialistSearchFilters,
-    SpecialistSearchRepository,
-)
-from utils.geo import haversine_distance_km
+async def test_search_by_radius_uses_current_specialist_location_coordinates(db_session):
+    platform_user_id, user_id, tenant_id, specialist, refs = (
+        await create_active_search_specialist(db_session)
+    )
+
+    try:
+        specialist.latitude = None
+        specialist.longitude = None
+
+        location_result = await db_session.execute(
+            select(SpecialistLocation).where(
+                SpecialistLocation.specialist_id == specialist.id,
+                SpecialistLocation.is_current.is_(True),
+            )
+        )
+        location = location_result.scalar_one()
+        location.latitude = refs["city_latitude"]
+        location.longitude = refs["city_longitude"]
+
+        await db_session.commit()
+
+        search_service = GeoSearchService(SpecialistSearchRepository(db_session))
+
+        results = await search_service.search_by_radius(
+            latitude=float(refs["city_latitude"]),
+            longitude=float(refs["city_longitude"]),
+            radius_km=5,
+            category_id=refs["category_id"],
+            limit=10,
+            offset=0,
+        )
+
+        result_by_id = {
+            item.specialist.id: item
+            for item in results
+        }
+
+        assert specialist.id in result_by_id
+        assert result_by_id[specialist.id].distance_km is not None
+        assert result_by_id[specialist.id].distance_km <= 5
+
+    finally:
+        await cleanup_test_user(db_session, platform_user_id)
+        await cleanup_legal_documents(db_session, tenant_id)
 
 async def test_search_performed_event_is_created(db_session):
     platform_user_id, user_id, tenant_id, specialist, refs = (

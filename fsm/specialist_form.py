@@ -4,16 +4,26 @@ from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 
 from database.models import User
 from database.repositories.event import EventRepository
+from database.repositories.geo_repository import GeoRepository
 from database.repositories.legal import LegalRepository
 from database.repositories.specialist import SpecialistRepository
 from database.repositories.user import UserRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard
 from services.legal import LegalService, MissingLegalDocumentError
+from services.geo_service import GeoService, GeoServiceError
 from services.specialist import (
     SpecialistRegistrationData,
     SpecialistRegistrationError,
@@ -35,7 +45,8 @@ class SpecialistForm(StatesGroup):
     choosing_category = State()
     choosing_profession = State()
     choosing_location_mode = State()
-    choosing_city = State()
+    entering_city_query = State()
+    choosing_geo_place = State()
     waiting_geo = State()
     entering_display_name = State()
     entering_description = State()
@@ -112,6 +123,41 @@ def location_mode_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
         ]
     )
 
+def geo_candidates_keyboard(
+    candidates: list[dict],
+    language: str = "ru",
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index, candidate in enumerate(candidates[:8]):
+        title = candidate.get("display_name") or candidate.get("name") or "-"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=title[:64],
+                    callback_data=f"spec_geo_place:{index}",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("spec_back_btn", language),
+                callback_data="spec_back_to_location_mode",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("spec_cancel_btn", language),
+                callback_data="spec_cancel",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def language_keyboard(selected: list[str], language: str = "ru") -> InlineKeyboardMarkup:
     rows = []
@@ -430,31 +476,30 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
 
 @specialist_form_router.callback_query(F.data == "spec_location_city")
 async def choose_city_mode(callback: CallbackQuery, state: FSMContext):
-    language = callback.from_user.language_code or "ru"
-
-    async with get_session() as session:
-        cities = await SpecialistRepository(session).list_active_cities(limit=100)
-
-    if not cities:
-        await callback.message.answer(t("spec_cities_missing", language))
-        await callback.answer()
-        return
-
-    await state.update_data(city_ids=[str(item.id) for item in cities])
+    data = await state.get_data()
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
 
     await show_callback_message(
         callback,
-        t("spec_city_prompt", language),
-        build_paged_keyboard(
-            items=cities,
-            prefix="spec_city",
-            page_prefix="spec_cities_page",
-            page=0,
-            language=language,
-            back_callback="spec_back_to_location_mode",
+        t("spec_city_search_prompt", language),
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("spec_back_btn", language),
+                        callback_data="spec_back_to_location_mode",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("spec_cancel_btn", language),
+                        callback_data="spec_cancel",
+                    )
+                ],
+            ]
         ),
     )
-    await state.set_state(SpecialistForm.choosing_city)
+    await state.set_state(SpecialistForm.entering_city_query)
     await callback.answer()
 
 @specialist_form_router.callback_query(F.data == "spec_back_to_location_mode")
@@ -470,90 +515,101 @@ async def back_to_location_mode(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@specialist_form_router.callback_query(F.data.startswith("spec_cities_page:"))
-async def paginate_cities(callback: CallbackQuery, state: FSMContext):
-    page = int(callback.data.split(":", 1)[1])
+@specialist_form_router.message(SpecialistForm.entering_city_query)
+async def search_city_query(message: Message, state: FSMContext):
     data = await state.get_data()
-    language = data.get("user_language") or callback.from_user.language_code or "ru"
+    language = data.get("user_language") or message.from_user.language_code or "ru"
+    query = (message.text or "").strip()
 
-    async with get_session() as session:
-        cities = await SpecialistRepository(session).list_active_cities(limit=100)
-
-    await state.update_data(city_ids=[str(item.id) for item in cities])
-
-    await show_callback_message(
-        callback,
-        t("spec_city_prompt", language),
-        build_paged_keyboard(
-            items=cities,
-            prefix="spec_city",
-            page_prefix="spec_cities_page",
-            page=page,
-            language=language,
-            back_callback="spec_back_to_location_mode",
-        ),
-    )
-    await callback.answer()
-
-
-@specialist_form_router.callback_query(F.data.startswith("spec_city:"))
-async def choose_city(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = data.get("user_language") or callback.from_user.language_code or "ru"
-    city_ids = data.get("city_ids") or []
+    if len(query) < 2:
+        await message.answer(t("spec_city_query_too_short", language))
+        return
 
     try:
-        item_index = int(callback.data.split(":", 1)[1])
-        city_id = UUID(city_ids[item_index])
-    except (ValueError, IndexError, KeyError):
-        await callback.message.answer(t("spec_city_not_found_back", language))
+        async with get_session() as session:
+            candidates = await GeoService(
+                GeoRepository(session)
+            ).search_places(
+                query=query,
+                language=language,
+                limit=8,
+            )
+    except GeoServiceError as exc:
+        await message.answer(
+            t("spec_geo_provider_error", language).format(error=exc)
+        )
+        return
+
+    if not candidates:
+        await message.answer(t("spec_geo_candidates_not_found", language))
+        return
+
+    candidate_state = [candidate.to_state() for candidate in candidates]
+    await state.update_data(geo_candidates=candidate_state)
+
+    await message.answer(
+        t("spec_geo_candidates_prompt", language),
+        reply_markup=geo_candidates_keyboard(candidate_state, language),
+    )
+    await state.set_state(SpecialistForm.choosing_geo_place)
+
+
+@specialist_form_router.callback_query(F.data.startswith("spec_geo_place:"))
+async def choose_geo_place(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
+    candidates = data.get("geo_candidates") or []
+
+    try:
+        item_index = int((callback.data or "").split(":", 1)[1])
+        candidate = candidates[item_index]
+    except (ValueError, IndexError, KeyError, TypeError):
+        await callback.message.answer(t("spec_geo_candidate_not_found", language))
         await callback.answer()
         return
 
-    async with get_session() as session:
-        city = await SpecialistRepository(session).get_active_city(city_id)
-
-    if not city:
-        await callback.message.answer(t("spec_city_not_found", language))
+    try:
+        async with get_session() as session:
+            place = await GeoService(GeoRepository(session)).confirm_place(candidate)
+    except GeoServiceError as exc:
+        await callback.message.answer(
+            t("spec_geo_provider_error", language).format(error=exc)
+        )
         await callback.answer()
         return
 
     await state.update_data(
-        city_id=str(city.id),
-        country_id=str(city.country_id),
-        city_name=item_name(city, language),
-        latitude=float(city.latitude) if city.latitude is not None else None,
-        longitude=float(city.longitude) if city.longitude is not None else None,
+        city_id=str(place.city_id),
+        country_id=str(place.country_id),
+        city_name=place.display_name or place.city_name,
+        latitude=place.latitude,
+        longitude=place.longitude,
         service_radius_km=25,
+        geo_candidates=[],
     )
 
     await show_callback_message(callback, t("spec_display_name_prompt", language))
     await state.set_state(SpecialistForm.entering_display_name)
     await callback.answer()
-
+    
 @specialist_form_router.callback_query(F.data == "spec_location_geo")
 async def geo_location_prompt(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = data.get("user_language") or callback.from_user.language_code or "ru"
 
-    await show_callback_message(
-        callback,
+    await callback.message.answer(
         t("spec_geo_prompt", language),
-        InlineKeyboardMarkup(
-            inline_keyboard=[
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
                 [
-                    InlineKeyboardButton(
-                        text=t("spec_choose_city_btn", language),
-                        callback_data="spec_location_city",
+                    KeyboardButton(
+                        text=t("spec_send_geo_btn", language),
+                        request_location=True,
                     )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("spec_cancel_btn", language),
-                        callback_data="spec_cancel",
-                    )
-                ],
-            ]
+                ]
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=True,
         ),
     )
     await state.set_state(SpecialistForm.waiting_geo)
@@ -563,21 +619,50 @@ async def geo_location_prompt(callback: CallbackQuery, state: FSMContext):
 async def receive_geo_location(message: Message, state: FSMContext):
     data = await state.get_data()
     language = data.get("user_language") or message.from_user.language_code or "ru"
+
     if not message.location:
         await message.answer(t("spec_geo_required", language))
         return
 
+    try:
+        async with get_session() as session:
+            candidate = await GeoService(
+                GeoRepository(session)
+            ).reverse_place(
+                latitude=message.location.latitude,
+                longitude=message.location.longitude,
+                language=language,
+            )
+    except GeoServiceError as exc:
+        await message.answer(
+            t("spec_geo_provider_error", language).format(error=exc),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return
+
+    if not candidate:
+        await message.answer(
+            t("spec_geo_candidates_not_found", language),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return
+
+    candidate_state = [candidate.to_state()]
     await state.update_data(
-        city_id=None,
-        country_id=None,
-        city_name=t("spec_geo_location_name", language),
-        latitude=message.location.latitude,
-        longitude=message.location.longitude,
-        service_radius_km=25,
+        geo_candidates=candidate_state,
+        raw_latitude=message.location.latitude,
+        raw_longitude=message.location.longitude,
     )
 
-    await message.answer(t("spec_display_name_prompt", language))
-    await state.set_state(SpecialistForm.entering_display_name)
+    await message.answer(
+        t("spec_geo_candidates_prompt", language),
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    await message.answer(
+        t("spec_geo_reverse_confirm_prompt", language),
+        reply_markup=geo_candidates_keyboard(candidate_state, language),
+    )
+    await state.set_state(SpecialistForm.choosing_geo_place)
 
 
 @specialist_form_router.message(SpecialistForm.entering_display_name)
