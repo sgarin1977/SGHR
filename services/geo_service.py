@@ -82,6 +82,33 @@ class GeoService:
         except GeoProviderError as exc:
             raise GeoServiceError(str(exc)) from exc
 
+    async def nearby_places(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        language: str = "ru",
+        limit: int = 4,
+    ) -> list[GeoPlaceCandidate]:
+        normalized_language = self._normalize_language(language)
+
+        if hasattr(self.provider, "search_nearby"):
+            candidates = await self.provider.search_nearby(
+                latitude=latitude,
+                longitude=longitude,
+                language=normalized_language,
+                limit=limit,
+            )
+            if candidates:
+                return candidates[:limit]
+
+        primary = await self.reverse_place(
+            latitude=latitude,
+            longitude=longitude,
+            language=normalized_language,
+        )
+        return [primary] if primary else []
+
     async def confirm_place(
         self,
         candidate: GeoPlaceCandidate | dict,

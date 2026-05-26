@@ -15,6 +15,9 @@ class SpecialistSearchResult:
     specialist: Specialist
     distance_km: float | None = None
     ranking_score: float = 0.0
+    city_name: str | None = None
+    profession_name: str | None = None
+    languages: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -28,6 +31,10 @@ class SpecialistPublicCard:
     currency: str
     price_unit: str | None
     city_name: str | None = None
+    category_name: str | None = None
+    profession_name: str | None = None
+    work_format: str | None = None
+    service_titles: list[str] = field(default_factory=list)
     languages: list[str] = field(default_factory=list)
     rating: float = 0.0
     reviews_count: int = 0
@@ -39,6 +46,26 @@ class SpecialistPublicCard:
 class GeoSearchService:
     def __init__(self, repository: SpecialistSearchRepository):
         self.repository = repository
+
+    async def _enrich_search_results(
+        self,
+        results: list[SpecialistSearchResult],
+        language: str = "ru",
+    ) -> list[SpecialistSearchResult]:
+        for result in results:
+            result.city_name = await self.repository.get_city_name(
+                result.specialist.city_id,
+                language,
+            )
+            result.profession_name = await self.repository.get_profession_name(
+                result.specialist.profession_id,
+                language,
+            )
+            result.languages = await self.repository.get_language_codes_for_specialist(
+                result.specialist.id,
+            )
+
+        return results
 
     def _calculate_ranking_score(
         self,
@@ -111,6 +138,19 @@ class GeoSearchService:
         languages = await self.repository.get_language_codes_for_specialist(specialist.id)
         city_name = await self.repository.get_city_name(specialist.city_id, language)
 
+        category_name = await self.repository.get_category_name(
+            specialist.category_id,
+            language,
+        )
+        profession_name = await self.repository.get_profession_name(
+            specialist.profession_id,
+            language,
+        )
+        service_titles = await self.repository.get_public_service_titles(
+            specialist.id,
+            limit=5,
+        )
+
         if log_event:
             await self.repository.log_specialist_viewed(
                 tenant_id=tenant_id,
@@ -130,6 +170,10 @@ class GeoSearchService:
             languages=languages,
             rating=float(specialist.rating or 0),
             reviews_count=specialist.reviews_count or 0,
+            category_name=category_name,
+            profession_name=profession_name,
+            work_format=specialist.work_format,
+            service_titles=service_titles,
             is_verified=bool(specialist.is_verified),
             is_premium=bool(specialist.is_premium),
             distance_km=distance_km,
@@ -140,6 +184,8 @@ class GeoSearchService:
         self,
         *,
         city_id: UUID,
+        country_id: UUID | None = None,
+        sort_by: str = "relevance",
         category_id: UUID | None = None,
         profession_id: UUID | None = None,
         price_min: float | None = None,
@@ -154,10 +200,12 @@ class GeoSearchService:
         requester_user_id: UUID | None = None,
         tenant_id: UUID | None = None,
         log_event: bool = False,
+        interface_language: str = "ru",
     ) -> list[SpecialistSearchResult]:
         filters = SpecialistSearchFilters(
             city_id=city_id,
             category_id=category_id,
+            country_id=country_id,
             profession_id=profession_id,
             price_min=price_min,
             price_max=price_max,
@@ -169,10 +217,12 @@ class GeoSearchService:
             status="active",
             limit=limit,
             offset=offset,
+            sort_by=sort_by,
         )
         candidate_filters = SpecialistSearchFilters(
             city_id=city_id,
             category_id=category_id,
+            country_id=country_id,
             profession_id=profession_id,
             price_min=price_min,
             price_max=price_max,
@@ -184,6 +234,7 @@ class GeoSearchService:
             status="active",
             limit=200,
             offset=0,
+            sort_by=sort_by,
         )
         specialists = await self.repository.search_specialists(candidate_filters)
         user_metrics = await self.repository.get_user_metrics_by_specialist_ids(
@@ -207,17 +258,31 @@ class GeoSearchService:
                 )
             )
 
-        results.sort(
-            key=lambda item: (
-                item.ranking_score,
-                float(item.specialist.rating or 0),
-            ),
-            reverse=True,
-        )
+        if filters.sort_by == "relevance":
+            results.sort(
+                key=lambda item: (
+                    item.ranking_score,
+                    float(item.specialist.rating or 0),
+                ),
+                reverse=True,
+            )
+        else:
+            results.sort(
+                key=lambda item: (
+                    float(item.specialist.rating or 0),
+                    item.ranking_score,
+                ),
+                reverse=True,
+            )
 
         paginated_results = results[
             filters.normalized_offset : filters.normalized_offset + filters.normalized_page_size
         ]
+
+        paginated_results = await self._enrich_search_results(
+            paginated_results,
+            interface_language,
+        )
 
         if log_event:
             await self.repository.log_search_performed(
@@ -233,8 +298,11 @@ class GeoSearchService:
         self,
         *,
         latitude: float,
+        sort_by: str = "distance",
         longitude: float,
         radius_km: float = 25,
+        country_id: UUID | None = None,
+        country_wide: bool = False,
         category_id: UUID | None = None,
         profession_id: UUID | None = None,
         price_min: float | None = None,
@@ -249,11 +317,13 @@ class GeoSearchService:
         requester_user_id: UUID | None = None,
         tenant_id: UUID | None = None,
         log_event: bool = False,
+        interface_language: str = "ru",
     ) -> list[SpecialistSearchResult]:
         filters = SpecialistSearchFilters(
             latitude=latitude,
             longitude=longitude,
             radius_km=radius_km,
+            country_id=country_id,
             category_id=category_id,
             profession_id=profession_id,
             price_min=price_min,
@@ -265,9 +335,15 @@ class GeoSearchService:
             rating_min=rating_min,
             limit=limit,
             offset=offset,
+            sort_by=sort_by,
         )
 
-        candidates = await self.repository.list_active_with_coordinates(
+        candidates = await self.repository.search_within_radius(
+            latitude=latitude,
+            longitude=longitude,
+            radius_km=filters.normalized_radius_km,
+            country_wide=country_wide,
+            country_id=country_id,
             category_id=category_id,
             profession_id=profession_id,
             price_min=price_min,
@@ -280,39 +356,14 @@ class GeoSearchService:
             limit=200,
         )
 
-        specialist_ids = [specialist.id for specialist in candidates]
-        locations = await self.repository.get_current_locations_by_specialist_ids(
-            specialist_ids
-        )
+        specialist_ids = [specialist.id for specialist, _distance in candidates]
         user_metrics = await self.repository.get_user_metrics_by_specialist_ids(
             specialist_ids
         )
 
         results: list[SpecialistSearchResult] = []
 
-        for specialist in candidates:
-            location = locations.get(specialist.id)
-
-            target_latitude = specialist.latitude
-            target_longitude = specialist.longitude
-
-            if location:
-                target_latitude = location.latitude
-                target_longitude = location.longitude
-
-            if target_latitude is None or target_longitude is None:
-                continue
-
-            distance = calculate_distance_km(
-                latitude,
-                longitude,
-                float(target_latitude),
-                float(target_longitude),
-            )
-
-            if distance > filters.normalized_radius_km:
-                continue
-
+        for specialist, distance in candidates:
             metrics = user_metrics.get(specialist.id, {})
             results.append(
                 SpecialistSearchResult(
@@ -328,18 +379,31 @@ class GeoSearchService:
                 )
             )
 
-        results.sort(
-            key=lambda item: (
-                item.ranking_score,
-                -(item.distance_km or 999999),
-                float(item.specialist.rating or 0),
-            ),
-            reverse=True,
-        )
-
+        if filters.sort_by == "distance":
+            results.sort(
+                key=lambda item: (
+                    item.distance_km if item.distance_km is not None else 999999,
+                    -item.ranking_score,
+                    -float(item.specialist.rating or 0),
+                )
+            )
+        else:
+            results.sort(
+                key=lambda item: (
+                    item.ranking_score,
+                    -(item.distance_km or 999999),
+                    float(item.specialist.rating or 0),
+                ),
+                reverse=True,
+            )
         paginated_results = results[
             filters.normalized_offset : filters.normalized_offset + filters.normalized_page_size
         ]
+
+        paginated_results = await self._enrich_search_results(
+            paginated_results,
+            interface_language,
+        )
 
         if log_event:
             await self.repository.log_search_performed(

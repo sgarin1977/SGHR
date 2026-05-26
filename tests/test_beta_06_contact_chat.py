@@ -1576,3 +1576,33 @@ async def test_thread_message_creates_pending_translation_job_when_languages_dif
         await cleanup_test_user(db_session, client_platform_id)
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
+
+def test_contact_request_flow_requires_message_confirmation_before_create():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "confirming_contact_message = State()" in source
+    assert "pending_contact_message" in source
+    assert "contact_message_confirm_keyboard" in source
+    assert "callback_data=\"contact_send_confirm\"" in source
+    assert "async def confirm_contact_message" in source
+
+    receive_handler = source.split(
+        "async def receive_contact_message",
+        1,
+    )[1].split(
+        "@search_router.callback_query(F.data == \"contact_send_confirm\")",
+        1,
+    )[0]
+
+    assert "pending_contact_message" in receive_handler
+    assert "create_contact_request" not in receive_handler
+
+    confirm_handler = source.split(
+        "async def confirm_contact_message",
+        1,
+    )[1].split(
+        "def callback_token",
+        1,
+    )[0]
+
+    assert "ContactChatService(ContactChatRepository(session)).create_contact_request" in confirm_handler

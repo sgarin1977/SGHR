@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import delete, select
+from pathlib import Path
 
 from database.models import (
     City,
@@ -424,7 +425,10 @@ async def test_public_specialist_card_masks_pii_and_logs_view(db_session):
         assert card.city_name
         assert card.distance_km == 1.2
         assert "en" in card.languages
-
+        assert card.category_name
+        assert card.profession_name
+        assert card.work_format == specialist.work_format
+        assert isinstance(card.service_titles, list)
         card_data = card.__dict__
 
         assert "contact_text" not in card_data
@@ -710,7 +714,7 @@ async def test_search_ranking_orders_verified_premium_rating_and_risk(db_session
         specialist.rating = 1
         specialist.is_verified = False
         specialist.is_premium = False
-
+        specialist.work_format = "at_specialist"
         user = await db_session.get(User, user_id)
         user.profile_completion_score = 20
         user.risk_score = 80
@@ -725,7 +729,7 @@ async def test_search_ranking_orders_verified_premium_rating_and_risk(db_session
         specialist_2.rating = 5
         specialist_2.is_verified = True
         specialist_2.is_premium = True
-
+        specialist_2.work_format = "at_specialist"
         user_2 = await db_session.get(User, user_id_2)
         user_2.profile_completion_score = 100
         user_2.risk_score = 0
@@ -739,9 +743,12 @@ async def test_search_ranking_orders_verified_premium_rating_and_risk(db_session
             longitude=float(refs["city_longitude"]),
             radius_km=5,
             category_id=refs["category_id"],
+            profession_id=refs["profession_id"],
+            sort_by="relevance",
             limit=10,
             offset=0,
-        )
+            work_format="at_specialist",
+)
 
         result_ids = [item.specialist.id for item in results]
 
@@ -764,18 +771,25 @@ async def test_search_ranking_orders_verified_premium_rating_and_risk(db_session
 def test_search_handler_passes_all_filters_to_city_search():
     source = open("handlers/search.py", encoding="utf-8").read()
 
-    city_branch = source.split('if mode == "city":', 1)[1].split(
-        'elif mode == "geo":',
+    city_branch = source.split("elif city_id:", 1)[1].split(
+        "else:",
         1,
     )[0]
 
     required_fragments = [
+        "search_by_city",
+        "city_id=city_id",
+        "category_id=category_id",
+        "profession_id=profession_id",
         "price_min=price_min",
         "price_max=price_max",
         "language_code=language_code",
         "verified_only=verified_only",
         "premium_only=premium_only",
         "work_format=work_format",
+        "rating_min=rating_min",
+        "limit=PER_PAGE + 1",
+        "offset=page * PER_PAGE",
     ]
 
     for fragment in required_fragments:
@@ -825,20 +839,18 @@ def test_search_handler_passes_rating_filter_to_city_and_radius_search():
     source = open("handlers/search.py", encoding="utf-8").read()
 
     assert "rating_min = data.get(\"rating_min\")" in source
-    assert "callback_data=\"search_rating:any\"" in source
-    assert "callback_data=\"search_rating:4\"" in source
 
-    city_branch = source.split('if mode == "city":', 1)[1].split(
-        'elif mode == "geo":',
+    radius_branch = source.split("if has_geo:", 1)[1].split(
+        "elif city_id:",
         1,
     )[0]
-    geo_branch = source.split('elif mode == "geo":', 1)[1].split(
+    city_branch = source.split("elif city_id:", 1)[1].split(
         "else:",
         1,
     )[0]
 
+    assert "rating_min=rating_min" in radius_branch
     assert "rating_min=rating_min" in city_branch
-    assert "rating_min=rating_min" in geo_branch
 
 def test_specialist_card_has_action_callbacks_without_uuid_payloads():
     source = open("handlers/search.py", encoding="utf-8").read()
@@ -977,12 +989,10 @@ def test_beta_05_tz_static_contract_is_covered():
         "SpecialistSearchFSM",
         "choosing_category",
         "choosing_profession",
-        "choosing_mode",
         "choosing_filters",
         "viewing_results",
         "category_ids",
         "profession_ids",
-        "city_ids",
         "result_specialist_ids",
         "search_contact_pending",
         "search_favorite_pending",
@@ -1021,3 +1031,487 @@ def test_beta_05_tz_static_contract_is_covered():
 
     for fragment in buttons_required:
         assert fragment in buttons
+
+def test_search_ux_uses_single_filter_dashboard_instead_of_wizard():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    required_fragments = [
+        "format_search_filters_summary",
+        "search_filters_keyboard",
+        "search_filter_category",
+        "search_filter_profession",
+        "search_filter_location",
+        "search_filter_radius",
+        "search_filter_work_format",
+        "search_filter_language",
+        "search_filter_price",
+        "search_filter_sort",
+        "search_reset_filters",
+        "search_show_results",
+        "search_menu",
+        "category_id",
+        "profession_id",
+        "country_id",
+        "city_id",
+        "latitude",
+        "longitude",
+        "radius_km",
+        "work_format",
+        "language_code",
+        "price_min",
+        "price_max",
+        "sort_by",
+        "page",
+    ]
+
+    for fragment in required_fragments:
+        assert fragment in source
+
+    forbidden_fragments = [
+        "search_mode_keyboard",
+        "search_mode_city",
+        "search_mode_geo",
+        "choosing_mode",
+        "search_choose_city_btn",
+        "search_nearby_btn",
+    ]
+
+    for fragment in forbidden_fragments:
+        assert fragment not in source
+
+def test_search_ux_has_flat_filter_actions_without_nested_mode_step():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    required_fragments = [
+        "format_search_filters_summary",
+        "search_filters_keyboard",
+        "search_filter_category",
+        "search_filter_profession",
+        "search_filter_location",
+        "search_filter_radius",
+        "search_filter_work_format",
+        "search_filter_language",
+        "search_filter_price",
+        "search_filter_sort",
+        "search_reset_filters",
+        "search_show_results",
+        "search_menu",
+        "await show_filters(callback, state)",
+    ]
+
+    for fragment in required_fragments:
+        assert fragment in source
+
+    forbidden_fragments = [
+        "search_mode_keyboard",
+        "search_mode_city",
+        "search_mode_geo",
+        "choosing_mode",
+        "search_choose_city_btn",
+        "search_nearby_btn",
+    ]
+
+    for fragment in forbidden_fragments:
+        assert fragment not in source
+
+
+def test_search_location_uses_geo_provider_candidates_with_confirmation():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    required_fragments = [
+    "GeoService",
+    "GeoRepository",
+    "search_location_city",
+    "search_location_geo",
+    "entering_location_query",
+    "choosing_geo_place",
+    "search_places",
+    "nearby_places",
+    "limit=4",
+    "confirm_place",
+    "search_geo_candidates",
+    "candidate.to_state()",
+    "callback_data=f\"search_geo_place:{index}\"",
+    "city_id=str(place.city_id)",
+    "country_id=str(place.country_id)",
+    "latitude=place.latitude",
+    "longitude=place.longitude",
+]
+
+    for fragment in required_fragments:
+        assert fragment in source
+
+    forbidden_fragments = [
+        "list_active_cities(limit=100)",
+        "callback_data=f\"search_city:{item.id}\"",
+        "F.data.startswith(\"search_city:\")",
+        "F.data.startswith(\"search_cities_page:\")",
+    ]
+
+    for fragment in forbidden_fragments:
+        assert fragment not in source
+
+
+def test_search_radius_work_language_price_sort_are_separate_quick_filters():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    required_fragments = [
+        "search_radius_keyboard",
+        "search_work_format_keyboard",
+        "search_language_keyboard",
+        "search_price_keyboard",
+        "search_sort_keyboard",
+        "callback_data=\"search_radius:5\"",
+        "callback_data=\"search_radius:10\"",
+        "callback_data=\"search_radius:25\"",
+        "callback_data=\"search_radius:50\"",
+        "callback_data=\"search_radius:100\"",
+        "callback_data=\"search_radius:country\"",
+        "callback_data=\"search_work:any\"",
+        "callback_data=\"search_work:at_client\"",
+        "callback_data=\"search_work:at_specialist\"",
+        "callback_data=\"search_work:remote\"",
+        "callback_data=\"search_work:mixed\"",
+        "callback_data=\"search_lang:any\"",
+        "callback_data=\"search_lang:ru\"",
+        "callback_data=\"search_lang:pt\"",
+        "callback_data=\"search_lang:en\"",
+        "callback_data=\"search_lang:uk\"",
+        "callback_data=\"search_price:any\"",
+        "callback_data=\"search_price:0_25\"",
+        "callback_data=\"search_price:0_50\"",
+        "callback_data=\"search_price:0_100\"",
+        "callback_data=\"search_sort:distance\"",
+        "callback_data=\"search_sort:relevance\"",
+    ]
+
+    for fragment in required_fragments:
+        assert fragment in source
+
+
+def test_search_empty_results_offer_recovery_actions():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    required_fragments = [
+        "empty_results_keyboard",
+        "search_empty_summary",
+        "search_empty_increase_radius",
+        "search_empty_reset_profession",
+        "search_empty_reset_all",
+        "search_back_to_filters",
+        "callback_data=\"search_empty_radius_25\"",
+        "callback_data=\"search_empty_reset_profession\"",
+        "callback_data=\"search_reset_filters\"",
+        "callback_data=\"search_filters\"",
+    ]
+
+    for fragment in required_fragments:
+        assert fragment in source
+
+
+def test_search_cards_are_readable_and_keep_contact_flow_separate():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    required_fragments = [
+        "format_specialist_result",
+        "format_public_card",
+        "search_back_to_filters",
+        "search_contact_pending",
+        "contact_disclaimer_text",
+        "contact_disclaimer_continue",
+        "ContactChatService(ContactChatRepository(session)).create_contact_request",
+    ]
+
+    for fragment in required_fragments:
+        assert fragment in source
+
+    forbidden_fragments = [
+        "city_id",
+        "specialist.id}",
+        "latitude",
+        "longitude",
+    ]
+
+    card_source = source.split("def format_public_card", 1)[1].split("async def show_filters", 1)[0]
+    for fragment in forbidden_fragments:
+        assert fragment not in card_source
+
+def test_search_handler_does_not_query_professions_directly():
+    handler_source = open("handlers/search.py", encoding="utf-8").read()
+    repo_source = open("database/repositories/specialist.py", encoding="utf-8").read()
+
+    assert "list_active_professions" in repo_source
+    assert "select(Profession)" not in handler_source
+    assert "from database.models import Profession" not in handler_source
+
+def test_search_sort_filter_is_passed_to_search_service():
+    handler_source = open("handlers/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
+    repo_source = open("database/repositories/search.py", encoding="utf-8").read()
+
+    assert "sort_by: str = \"distance\"" in repo_source
+    assert "sort_by = data.get(\"sort_by\") or \"distance\"" in handler_source
+    assert "sort_by=sort_by" in handler_source
+    assert "sort_by: str = \"distance\"" in service_source
+    assert "sort_by: str = \"relevance\"" in service_source
+    assert "filters.sort_by == \"distance\"" in service_source
+    assert "filters.sort_by == \"relevance\"" in service_source
+
+def test_specialist_card_back_button_returns_to_current_results_page():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "def card_keyboard(language: str, results_page: int = 0)" in source
+    assert 'callback_data=f"search_results_page:{results_page}"' in source
+    assert "results_page = int(data.get(\"results_page\") or 0)" in source
+    assert "card_keyboard(language, results_page)" in source
+    assert 'callback_data="search_results_page:0"' not in source
+
+def test_country_wide_radius_is_not_fake_100_km():
+    handler_source = open("handlers/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
+    repo_source = open("database/repositories/search.py", encoding="utf-8").read()
+
+    assert "country_id: UUID | None = None" in repo_source
+    assert "SpecialistLocation.country_id == filters.country_id" in repo_source
+    assert "country_wide: bool = False" in service_source
+    assert "search_within_radius" in service_source
+    assert "country_id=country_id" in service_source
+    assert "country_wide=country_wide" in service_source
+    assert "if not country_wide:" in repo_source
+    assert "distance_expr <= radius_km" in repo_source
+    assert "country_wide=False" in handler_source
+    assert "country_wide=True" in handler_source
+    assert "await state.update_data(country_wide=True, page=0)" in handler_source
+    assert "radius_km=100" not in handler_source
+
+def test_search_telegram_location_uses_nearby_candidates_not_single_reverse_result():
+    handler_source = open("handlers/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_service.py", encoding="utf-8").read()
+    provider_source = open("services/geo_provider.py", encoding="utf-8").read()
+
+    assert "async def search_nearby" in provider_source
+    assert "viewbox" in provider_source
+    assert "bounded" in provider_source
+    assert "distance_km" in provider_source
+    assert "async def nearby_places" in service_source
+    assert "search_nearby" in service_source
+    assert "nearby_places(" in handler_source
+    assert "limit=4" in handler_source
+    assert "candidate_state = dedupe_geo_candidate_states(" in handler_source
+    assert "[candidate.to_state() for candidate in candidates]" in handler_source
+    assert "search_geo_nearby_prompt" in handler_source
+
+    receive_geo_source = handler_source.split(
+        "async def receive_geo",
+        1,
+    )[1].split(
+        "@search_router.callback_query(F.data.startswith(\"search_geo_place:\"))",
+        1,
+    )[0]
+
+    assert ".reverse_place(" not in receive_geo_source
+    assert "candidate_state = [candidate.to_state()]" not in receive_geo_source
+def test_search_results_have_details_and_contact_actions_without_skipping_disclaimer():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "search_details_btn" in source
+    assert "callback_data=f\"search_result:{index}\"" in source
+    assert "callback_data=f\"search_result_contact:{index}\"" in source
+    assert "async def contact_from_result" in source
+    assert "await contact_start(callback, state)" in source
+
+    contact_from_result_source = source.split(
+        "async def contact_from_result",
+        1,
+    )[1].split(
+        "@search_router.callback_query(F.data.startswith(\"search_result:\"))",
+        1,
+    )[0]
+
+    assert "create_contact_request" not in contact_from_result_source
+    assert "contact_start(callback, state)" in contact_from_result_source
+
+
+def test_search_public_card_has_legal_warning_and_no_technical_fields():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "search_legal_warning" in source
+    assert "search_status_label" in source
+    assert "search_price_from" in source
+
+    card_source = source.split("def format_public_card", 1)[1].split(
+        "async def show_filters",
+        1,
+    )[0]
+
+    forbidden_fragments = [
+        "card.specialist_id",
+        "city_id",
+        "latitude",
+        "longitude",
+        "pending_moderation",
+    ]
+
+    for fragment in forbidden_fragments:
+        assert fragment not in card_source
+
+def test_radius_filtering_is_done_in_repository_not_python_service_loop():
+    repo_source = open("database/repositories/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
+
+    assert "def _distance_km_expression" in repo_source
+    assert "async def search_within_radius" in repo_source
+    assert "distance_expr <= radius_km" in repo_source
+    assert "func.radians" in repo_source
+    assert "func.asin" in repo_source
+    assert "search_within_radius" in service_source
+
+    radius_method_source = service_source.split(
+        "async def search_by_radius",
+        1,
+    )[1]
+
+    assert "calculate_distance_km(" not in radius_method_source
+    assert "if not country_wide and distance > filters.normalized_radius_km" not in radius_method_source
+    assert "get_current_locations_by_specialist_ids" not in radius_method_source
+
+def test_search_geo_candidates_are_deduplicated_before_display():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "def dedupe_geo_candidate_states" in source
+    assert "candidate_state = dedupe_geo_candidate_states(" in source
+    assert "human_key" in source
+    assert "display_name" in source
+
+def test_search_handler_does_not_query_user_accounts_directly():
+    source = open("handlers/search.py", encoding="utf-8").read()
+    user_repo_source = open("database/repositories/user.py", encoding="utf-8").read()
+
+    assert "select(UserAccount)" not in source
+    assert "UserAccount.user_id" not in source
+    assert "get_telegram_account_by_user_id" in source
+
+    assert "async def get_telegram_account_by_user_id" in user_repo_source
+    assert "select(UserAccount)" in user_repo_source
+    assert 'UserAccount.platform == "telegram"' in user_repo_source
+
+def test_search_show_results_requires_location_before_rendering_results():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "def search_location_keyboard" in source
+    assert "async def show_filtered_results" in source
+    assert "has_location = bool(data.get(\"city_id\"))" in source
+    assert "data.get(\"latitude\") is not None and data.get(\"longitude\") is not None" in source
+    assert "if not has_location:" in source
+    assert "if not city_id and not has_geo:" in source
+    assert "search_location_prompt" in source
+    assert "search_location_keyboard(language)" in source
+
+    render_results_block = source.split(
+    "async def render_results(",
+    1,
+)[1].split(
+    '@search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))',
+    1,
+)[0]
+
+    assert "has_geo = data.get(\"latitude\") is not None and data.get(\"longitude\") is not None" in render_results_block
+    assert render_results_block.index("has_geo = data.get(\"latitude\")") < render_results_block.index(
+    "if not city_id and not has_geo:"
+)
+
+    show_results_block = source.split(
+        '@search_router.callback_query(F.data == "search_show_results")',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data.startswith("search_results_page:"))',
+        1,
+    )[0]
+
+    assert "if not has_location:" in show_results_block
+    assert "await render_results(event=callback, state=state, page=0)" in show_results_block
+    assert show_results_block.index("if not has_location:") < show_results_block.index(
+        "await render_results(event=callback, state=state, page=0)"
+    )
+    
+def test_public_card_details_include_required_human_fields():
+    handler_source = open("handlers/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
+    repo_source = open("database/repositories/search.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "category_name: str | None = None" in service_source
+    assert "profession_name: str | None = None" in service_source
+    assert "work_format: str | None = None" in service_source
+    assert "service_titles: list[str]" in service_source
+
+    assert "get_category_name" in repo_source
+    assert "get_profession_name" in repo_source
+    assert "get_public_service_titles" in repo_source
+    assert "SpecialistService.status == \"active\"" in repo_source
+
+    card_source = handler_source.split("def format_public_card", 1)[1].split(
+        "async def show_filters",
+        1,
+    )[0]
+
+    assert "card.category_name" in card_source
+    assert "card.profession_name" in card_source
+    assert "work_format_label(card.work_format" in card_source
+    assert "card.service_titles" in card_source
+    assert "search_services_label" in card_source
+    assert "search_legal_warning" in card_source
+
+    assert "search_services_label" in texts_source
+
+def test_search_result_cards_include_profession_city_distance_languages_without_handler_sql():
+    handler_source = open("handlers/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
+
+    assert "city_name: str | None = None" in service_source
+    assert "profession_name: str | None = None" in service_source
+    assert "languages: list[str] = field(default_factory=list)" in service_source
+    assert "async def _enrich_search_results" in service_source
+    assert "get_city_name" in service_source
+    assert "get_profession_name" in service_source
+    assert "get_language_codes_for_specialist" in service_source
+    assert "interface_language: str = \"ru\"" in service_source
+
+    assert "interface_language=language" in handler_source
+
+    result_card_source = handler_source.split(
+        "def format_specialist_result",
+        1,
+    )[1].split(
+        "def format_public_card",
+        1,
+    )[0]
+
+    assert "result.city_name" in result_card_source
+    assert "result.profession_name" in result_card_source
+    assert "result.languages" in result_card_source
+    assert "location_parts" in result_card_source
+    assert "search_filter_language_label" in result_card_source
+
+    assert "session.execute" not in result_card_source
+    assert "select(" not in result_card_source
+
+def test_legacy_parallel_search_handlers_are_removed():
+    legacy_paths = [
+        "handlers/specialists/search_filters.py",
+        "handlers/specialists/specialists_find_nearby.py",
+        "handlers/specialists/specialists_filter_city.py",
+        "handlers/specialists/specialists_filter_profession.py",
+    ]
+
+    for path in legacy_paths:
+        assert not Path(path).exists()
+
+    active_sources = [
+        Path("handlers/search.py"),
+        Path("services/geo_search.py"),
+        Path("database/repositories/search.py"),
+    ]
+    combined_source = "\n".join(path.read_text(encoding="utf-8") for path in active_sources)
+
+    assert "user_search_state" not in combined_source

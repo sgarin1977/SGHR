@@ -48,6 +48,15 @@ class SpecialistRepository:
         )
         return list(result.scalars().all())
 
+    async def list_active_professions(self, limit: int = 50) -> list[Profession]:
+        result = await self.session.execute(
+            select(Profession)
+            .where(Profession.is_active.is_(True))
+            .order_by(Profession.name)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def list_active_cities(self, limit: int = 50) -> list[City]:
         result = await self.session.execute(
             select(City)

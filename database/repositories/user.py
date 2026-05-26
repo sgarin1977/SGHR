@@ -25,6 +25,17 @@ class UserRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_telegram_account_by_user_id(
+        self,
+        user_id: uuid.UUID,
+    ) -> Optional[UserAccount]:
+        stmt = select(UserAccount).where(
+            UserAccount.user_id == user_id,
+            UserAccount.platform == "telegram",
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def create_telegram_user_core(
         self,
         platform_user_id: str,

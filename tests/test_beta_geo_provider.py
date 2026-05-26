@@ -188,3 +188,59 @@ def test_geo_provider_contract_exists():
 
     for fragment in repo_required:
         assert fragment in repo_source
+
+async def test_geo_service_nearby_places_uses_provider_nearby_candidates(db_session):
+    class NearbyFakeProvider(FakeGeoProvider):
+        async def search_nearby(
+            self,
+            *,
+            latitude: float,
+            longitude: float,
+            language: str = "ru",
+            limit: int = 4,
+            radius_km: float = 25,
+        ):
+            return [
+    GeoPlaceCandidate(
+        name=FAKE_CITY_NAME,
+        country_name=FAKE_COUNTRY_NAME,
+        country_code=FAKE_COUNTRY_CODE,
+        latitude=41.1579,
+        longitude=-8.6291,
+        display_name=f"{FAKE_CITY_NAME}, {FAKE_COUNTRY_NAME}",
+        provider="fake",
+        place_id="fake-place",
+        osm_type="relation",
+        osm_id="fake-osm",
+        place_type="city",
+    ),
+    GeoPlaceCandidate(
+        name="SGHR Nearby Geo City",
+        country_name=FAKE_COUNTRY_NAME,
+        country_code=FAKE_COUNTRY_CODE,
+        latitude=41.2,
+        longitude=-8.7,
+        display_name="SGHR Nearby Geo City, SGHR Fake Geo Country",
+        provider="fake",
+        place_id="fake-nearby-place",
+        osm_type="relation",
+        osm_id="fake-nearby-osm",
+        place_type="town",
+    ),
+]
+
+    service = GeoService(
+        GeoRepository(db_session),
+        provider=NearbyFakeProvider(),
+    )
+
+    candidates = await service.nearby_places(
+        latitude=41.1579,
+        longitude=-8.6291,
+        language="en",
+        limit=4,
+    )
+
+    assert len(candidates) == 2
+    assert candidates[0].name == FAKE_CITY_NAME
+    assert candidates[1].name == "SGHR Nearby Geo City"

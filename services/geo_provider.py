@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from typing import Any
-
+from math import asin, cos, radians, sin, sqrt
 import httpx
 
 
@@ -38,6 +38,8 @@ class GeoPlaceCandidate:
             "place_type": self.place_type,
         }
 
+
+
     @classmethod
     def from_state(cls, data: "GeoPlaceCandidate | dict[str, Any]") -> "GeoPlaceCandidate":
         if isinstance(data, cls):
@@ -57,6 +59,27 @@ class GeoPlaceCandidate:
             place_type=str(data["place_type"]) if data.get("place_type") is not None else None,
         )
 
+def distance_km(
+    latitude_a: float,
+    longitude_a: float,
+    latitude_b: float,
+    longitude_b: float,
+) -> float:
+    earth_radius_km = 6371.0
+
+    lat_a = radians(latitude_a)
+    lon_a = radians(longitude_a)
+    lat_b = radians(latitude_b)
+    lon_b = radians(longitude_b)
+
+    delta_lat = lat_b - lat_a
+    delta_lon = lon_b - lon_a
+
+    haversine = (
+        sin(delta_lat / 2) ** 2
+        + cos(lat_a) * cos(lat_b) * sin(delta_lon / 2) ** 2
+    )
+    return 2 * earth_radius_km * asin(sqrt(haversine))
 
 class NominatimGeoProvider:
     def __init__(
@@ -116,7 +139,7 @@ class NominatimGeoProvider:
                 candidates.append(candidate)
 
         return candidates
-
+    
     async def reverse(
         self,
         *,
@@ -140,6 +163,91 @@ class NominatimGeoProvider:
             raise GeoProviderError("Unexpected Nominatim reverse response.")
 
         return self._candidate_from_payload(payload)
+
+    async def search_nearby(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        language: str = "ru",
+        limit: int = 4,
+        radius_km: float = 25,
+    ) -> list[GeoPlaceCandidate]:
+        lat_delta = radius_km / 111.0
+        lon_delta = radius_km / max(1.0, 111.0 * abs(cos(radians(latitude))))
+
+        left = longitude - lon_delta
+        right = longitude + lon_delta
+        top = latitude + lat_delta
+        bottom = latitude - lat_delta
+
+        payload = await self._get_json(
+            "/search",
+            params={
+                "format": "jsonv2",
+                "addressdetails": 1,
+                "limit": max(limit * 4, 12),
+                "accept-language": language,
+                "dedupe": 1,
+                "bounded": 1,
+                "viewbox": f"{left},{top},{right},{bottom}",
+                "q": "city OR town OR village OR hamlet OR suburb",
+            },
+        )
+        if not isinstance(payload, list):
+            raise GeoProviderError("Invalid nearby response from Nominatim.")
+
+        candidates: list[tuple[float, GeoPlaceCandidate]] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+
+            candidate = self._candidate_from_payload(item)
+            if not candidate:
+                continue
+
+            if candidate.place_type not in {
+                "city",
+                "town",
+                "village",
+                "hamlet",
+                "suburb",
+                "municipality",
+                "county",
+                "administrative",
+            }:
+                continue
+
+            distance = distance_km(
+                latitude,
+                longitude,
+                candidate.latitude,
+                candidate.longitude,
+            )
+            candidates.append((distance, candidate))
+
+        candidates.sort(key=lambda item: item[0])
+
+        unique_candidates: list[GeoPlaceCandidate] = []
+        seen: set[tuple[str | None, str | None, str, str]] = set()
+
+        for _, candidate in candidates:
+            key = (
+                candidate.osm_id,
+                candidate.place_id,
+                candidate.name.lower(),
+                candidate.country_code.upper(),
+            )
+            if key in seen:
+                continue
+
+            seen.add(key)
+            unique_candidates.append(candidate)
+
+            if len(unique_candidates) >= limit:
+                break
+
+        return unique_candidates
 
     async def _get_json(self, path: str, *, params: dict[str, Any]) -> Any:
         headers = {

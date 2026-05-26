@@ -1028,7 +1028,331 @@ translations = {
         "en": "Chat completed.",
         "pt": "Chat finalizado.",
     },
-
+    "search_filter_not_set": {
+        "ru": "не указано",
+        "en": "not set",
+        "pt": "nao definido",
+    },
+    "search_filter_any": {
+        "ru": "любой",
+        "en": "any",
+        "pt": "qualquer",
+    },
+    "search_filters_title": {
+        "ru": "Фильтры поиска специалистов:",
+        "en": "Specialist search filters:",
+        "pt": "Filtros de busca de especialistas:",
+    },
+    "search_filter_category_label": {
+        "ru": "Категория",
+        "en": "Category",
+        "pt": "Categoria",
+    },
+    "search_filter_profession_label": {
+        "ru": "Профессия",
+        "en": "Profession",
+        "pt": "Profissao",
+    },
+    "search_filter_location_label": {
+        "ru": "Локация",
+        "en": "Location",
+        "pt": "Localizacao",
+    },
+    "search_filter_radius_label": {
+        "ru": "Радиус",
+        "en": "Radius",
+        "pt": "Raio",
+    },
+    "search_filter_work_label": {
+        "ru": "Формат",
+        "en": "Work format",
+        "pt": "Formato",
+    },
+    "search_filter_language_label": {
+        "ru": "Язык",
+        "en": "Language",
+        "pt": "Idioma",
+    },
+    "search_filter_price_label": {
+        "ru": "Цена",
+        "en": "Price",
+        "pt": "Preco",
+    },
+    "search_filter_sort_label": {
+        "ru": "Сортировка",
+        "en": "Sort",
+        "pt": "Ordenacao",
+    },
+    "search_filter_category": {
+        "ru": "Категория",
+        "en": "Category",
+        "pt": "Categoria",
+    },
+    "search_filter_profession": {
+        "ru": "Профессия",
+        "en": "Profession",
+        "pt": "Profissao",
+    },
+    "search_filter_location": {
+        "ru": "Город / гео",
+        "en": "City / geo",
+        "pt": "Cidade / geo",
+    },
+    "search_filter_radius": {
+        "ru": "Радиус",
+        "en": "Radius",
+        "pt": "Raio",
+    },
+    "search_filter_work_format": {
+        "ru": "Формат работы",
+        "en": "Work format",
+        "pt": "Formato",
+    },
+    "search_filter_language": {
+        "ru": "Язык",
+        "en": "Language",
+        "pt": "Idioma",
+    },
+    "search_filter_price": {
+        "ru": "Цена",
+        "en": "Price",
+        "pt": "Preco",
+    },
+    "search_filter_sort": {
+        "ru": "Сортировка",
+        "en": "Sort",
+        "pt": "Ordenacao",
+    },
+    "search_reset_filters": {
+        "ru": "Сбросить фильтры",
+        "en": "Reset filters",
+        "pt": "Limpar filtros",
+    },
+    "search_back_to_filters": {
+        "ru": "Назад к фильтрам",
+        "en": "Back to filters",
+        "pt": "Voltar aos filtros",
+    },
+    "search_location_prompt": {
+        "ru": "Выберите способ указать локацию.",
+        "en": "Choose how to set location.",
+        "pt": "Escolha como definir a localizacao.",
+    },
+    "search_location_city": {
+        "ru": "Ввести город",
+        "en": "Enter city",
+        "pt": "Informar cidade",
+    },
+    "search_location_geo": {
+        "ru": "Отправить геолокацию",
+        "en": "Send location",
+        "pt": "Enviar localizacao",
+    },
+    "search_location_city_prompt": {
+        "ru": "Введите город, село или район. Мы найдем варианты через OpenStreetMap.",
+        "en": "Enter city, village, or district. We will find options via OpenStreetMap.",
+        "pt": "Informe cidade, vila ou distrito. Vamos buscar opcoes via OpenStreetMap.",
+    },
+    "search_location_query_too_short": {
+        "ru": "Введите минимум 2 символа.",
+        "en": "Enter at least 2 characters.",
+        "pt": "Digite pelo menos 2 caracteres.",
+    },
+    "search_geo_candidates_prompt": {
+        "ru": "Выберите населенный пункт:",
+        "en": "Choose a place:",
+        "pt": "Escolha um local:",
+    },
+    "search_geo_candidates_not_found": {
+        "ru": "Не удалось найти варианты. Попробуйте другой запрос.",
+        "en": "No options found. Try another query.",
+        "pt": "Nenhuma opcao encontrada. Tente outra busca.",
+    },
+    "search_geo_candidate_not_found": {
+        "ru": "Вариант не найден. Попробуйте еще раз.",
+        "en": "Option not found. Try again.",
+        "pt": "Opcao nao encontrada. Tente novamente.",
+    },
+    "search_geo_provider_error": {
+        "ru": "Не удалось получить геоданные: {error}",
+        "en": "Could not get geo data: {error}",
+        "pt": "Nao foi possivel obter dados geo: {error}",
+    },
+    "search_radius_prompt": {
+        "ru": "Выберите радиус поиска.",
+        "en": "Choose search radius.",
+        "pt": "Escolha o raio de busca.",
+    },
+    "search_radius_country": {
+        "ru": "Вся страна",
+        "en": "Whole country",
+        "pt": "Todo o pais",
+    },
+    "search_work_prompt": {
+        "ru": "Выберите формат работы.",
+        "en": "Choose work format.",
+        "pt": "Escolha o formato.",
+    },
+    "search_work_at_client": {
+        "ru": "У клиента",
+        "en": "At client",
+        "pt": "No cliente",
+    },
+    "search_work_at_specialist": {
+        "ru": "У специалиста",
+        "en": "At specialist",
+        "pt": "No especialista",
+    },
+    "search_work_remote": {
+        "ru": "Удаленно",
+        "en": "Remote",
+        "pt": "Remoto",
+    },
+    "search_work_mixed": {
+        "ru": "Смешанный формат",
+        "en": "Mixed",
+        "pt": "Misto",
+    },
+    "search_language_prompt": {
+        "ru": "Выберите язык специалиста.",
+        "en": "Choose specialist language.",
+        "pt": "Escolha o idioma do especialista.",
+    },
+    "search_language_ru": {
+        "ru": "Русский",
+        "en": "Russian",
+        "pt": "Russo",
+    },
+    "search_language_pt": {
+        "ru": "Португальский",
+        "en": "Portuguese",
+        "pt": "Portugues",
+    },
+    "search_language_en": {
+        "ru": "Английский",
+        "en": "English",
+        "pt": "Ingles",
+    },
+    "search_language_uk": {
+        "ru": "Украинский",
+        "en": "Ukrainian",
+        "pt": "Ucraniano",
+    },
+    "search_price_prompt": {
+        "ru": "Выберите ценовой фильтр.",
+        "en": "Choose price filter.",
+        "pt": "Escolha o filtro de preco.",
+    },
+    "search_filter_price_up_to": {
+        "ru": "до {amount}",
+        "en": "up to {amount}",
+        "pt": "ate {amount}",
+    },
+    "search_filter_price_from": {
+        "ru": "от {amount}",
+        "en": "from {amount}",
+        "pt": "desde {amount}",
+    },
+    "search_filter_price_up_to_25": {
+        "ru": "до 25 EUR",
+        "en": "up to 25 EUR",
+        "pt": "ate 25 EUR",
+    },
+    "search_filter_price_up_to_100": {
+        "ru": "до 100 EUR",
+        "en": "up to 100 EUR",
+        "pt": "ate 100 EUR",
+    },
+    "search_filter_price_manual_later": {
+        "ru": "указать вручную позже",
+        "en": "manual later",
+        "pt": "manual depois",
+    },
+    "search_sort_prompt": {
+        "ru": "Выберите сортировку.",
+        "en": "Choose sort.",
+        "pt": "Escolha ordenacao.",
+    },
+    "search_sort_distance": {
+        "ru": "по расстоянию",
+        "en": "by distance",
+        "pt": "por distancia",
+    },
+    "search_sort_relevance": {
+        "ru": "по релевантности",
+        "en": "by relevance",
+        "pt": "por relevancia",
+    },
+    "search_empty_summary": {
+        "ru": "По вашему запросу специалистов не найдено. Попробуйте изменить фильтры.",
+        "en": "No specialists found. Try changing filters.",
+        "pt": "Nenhum especialista encontrado. Tente alterar filtros.",
+    },
+    "search_empty_increase_radius": {
+        "ru": "Увеличить радиус до 25 км",
+        "en": "Increase radius to 25 km",
+        "pt": "Aumentar raio para 25 km",
+    },
+    "search_empty_reset_profession": {
+        "ru": "Сбросить профессию",
+        "en": "Reset profession",
+        "pt": "Limpar profissao",
+    },
+    "search_empty_reset_all": {
+        "ru": "Сбросить все фильтры",
+        "en": "Reset all filters",
+        "pt": "Limpar todos os filtros",
+    },
+    "contact_send_confirm": {
+        "ru": "Отправить заявку",
+        "en": "Send request",
+        "pt": "Enviar pedido",
+    },
+    "contact_message_confirm_prompt": {
+        "ru": "Отправить специалисту это сообщение?\n\n{message}",
+        "en": "Send this message to the specialist?\n\n{message}",
+        "pt": "Enviar esta mensagem ao especialista?\n\n{message}",
+    },
+    "contact_message_too_short": {
+        "ru": "Сообщение должно быть минимум 10 символов.",
+        "en": "Message must be at least 10 characters.",
+        "pt": "A mensagem deve ter pelo menos 10 caracteres.",
+    },
+    "search_geo_nearby_prompt": {
+        "ru": "Мы нашли рядом несколько вариантов. Выберите, что использовать для поиска.",
+        "en": "We found several nearby options. Choose what to use for search.",
+        "pt": "Encontramos algumas opcoes proximas. Escolha o que usar para busca.",
+    },
+    "search_details_btn": {
+        "ru": "Подробнее",
+        "en": "Details",
+        "pt": "Detalhes",
+    },
+    "search_price_from": {
+        "ru": "от",
+        "en": "from",
+        "pt": "desde",
+    },
+    "search_status_label": {
+        "ru": "Статус",
+        "en": "Status",
+        "pt": "Status",
+    },
+    "search_status_active": {
+        "ru": "активен",
+        "en": "active",
+        "pt": "ativo",
+    },
+    "search_legal_warning": {
+        "ru": "SGHR не является стороной договора услуги между клиентом и специалистом.",
+        "en": "SGHR is not a party to the service agreement between the client and the specialist.",
+        "pt": "A SGHR nao e parte do acordo de servico entre cliente e especialista.",
+    },
+    "search_services_label": {
+        "ru": "Услуги",
+        "en": "Services",
+        "pt": "Servicos",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

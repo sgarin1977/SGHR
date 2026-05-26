@@ -1,14 +1,17 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import exists, or_, select
+from sqlalchemy import case, exists, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
     EventLog,
     Specialist,
+    SpecialistCategory,
     SpecialistLanguage,
     SpecialistLocation,
+    SpecialistService,
+    Profession,
     User,
     City,
 )
@@ -19,6 +22,7 @@ class SpecialistSearchFilters:
     category_id: UUID | None = None
     profession_id: UUID | None = None
     city_id: UUID | None = None
+    country_id: UUID | None = None
     latitude: float | None = None
     longitude: float | None = None
     radius_km: float | None = 25
@@ -34,6 +38,7 @@ class SpecialistSearchFilters:
     page_size: int = 10
     limit: int | None = None
     offset: int | None = None
+    sort_by: str = "distance"
 
     @property
     def normalized_radius_km(self) -> float:
@@ -62,6 +67,39 @@ class SpecialistSearchFilters:
 class SpecialistSearchRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+    def _distance_km_expression(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+    ):
+        earth_radius_km = 6371.0
+
+        specialist_latitude = func.coalesce(
+            SpecialistLocation.latitude,
+            Specialist.latitude,
+        )
+        specialist_longitude = func.coalesce(
+            SpecialistLocation.longitude,
+            Specialist.longitude,
+        )
+
+        lat1 = func.radians(literal(latitude))
+        lon1 = func.radians(literal(longitude))
+        lat2 = func.radians(specialist_latitude)
+        lon2 = func.radians(specialist_longitude)
+
+        delta_lat = lat2 - lat1
+        delta_lon = lon2 - lon1
+
+        haversine = (
+            func.pow(func.sin(delta_lat / 2), 2)
+            + func.cos(lat1)
+            * func.cos(lat2)
+            * func.pow(func.sin(delta_lon / 2), 2)
+        )
+
+        return earth_radius_km * 2 * func.asin(func.sqrt(haversine))
 
     async def get_active_specialist_for_card(
         self,
@@ -92,6 +130,51 @@ class SpecialistSearchRepository:
 
         localized = getattr(city, f"name_{language}", None)
         return localized or city.name_ru or city.name
+
+    def _localized_name(self, item, language: str = "ru") -> str | None:
+        if not item:
+            return None
+
+        localized = getattr(item, f"name_{language}", None)
+        return localized or getattr(item, "name_ru", None) or getattr(item, "name", None)
+
+    async def get_category_name(
+        self,
+        category_id: UUID | None,
+        language: str = "ru",
+    ) -> str | None:
+        if not category_id:
+            return None
+
+        category = await self.session.get(SpecialistCategory, category_id)
+        return self._localized_name(category, language)
+
+    async def get_profession_name(
+        self,
+        profession_id: UUID | None,
+        language: str = "ru",
+    ) -> str | None:
+        if not profession_id:
+            return None
+
+        profession = await self.session.get(Profession, profession_id)
+        return self._localized_name(profession, language)
+
+    async def get_public_service_titles(
+        self,
+        specialist_id: UUID,
+        limit: int = 5,
+    ) -> list[str]:
+        result = await self.session.execute(
+            select(SpecialistService.title)
+            .where(
+                SpecialistService.specialist_id == specialist_id,
+                SpecialistService.status == "active",
+            )
+            .order_by(SpecialistService.created_at.desc())
+            .limit(max(1, int(limit)))
+        )
+        return [title for title in result.scalars().all() if title]
 
     async def get_language_codes_for_specialist(
         self,
@@ -192,6 +275,21 @@ class SpecialistSearchRepository:
                 )
             )
 
+        if filters.country_id:
+            current_location_in_country = exists(
+                select(SpecialistLocation.id).where(
+                    SpecialistLocation.specialist_id == Specialist.id,
+                    SpecialistLocation.is_current.is_(True),
+                    SpecialistLocation.country_id == filters.country_id,
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.country_id == filters.country_id,
+                    current_location_in_country,
+                )
+            )
+
         if filters.category_id:
             stmt = stmt.where(Specialist.category_id == filters.category_id)
 
@@ -253,6 +351,7 @@ class SpecialistSearchRepository:
         self,
         *,
         category_id: UUID | None = None,
+        country_id: UUID | None = None,
         profession_id: UUID | None = None,
         price_min: float | None = None,
         price_max: float | None = None,
@@ -282,6 +381,21 @@ class SpecialistSearchRepository:
                 ),
             )
         )
+
+        if country_id:
+            current_location_in_country = exists(
+                select(SpecialistLocation.id).where(
+                    SpecialistLocation.specialist_id == Specialist.id,
+                    SpecialistLocation.is_current.is_(True),
+                    SpecialistLocation.country_id == country_id,
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.country_id == country_id,
+                    current_location_in_country,
+                )
+            )
 
         if category_id:
             stmt = stmt.where(Specialist.category_id == category_id)
@@ -336,6 +450,111 @@ class SpecialistSearchRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
     
+    async def search_within_radius(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        radius_km: float,
+        country_wide: bool = False,
+        country_id: UUID | None = None,
+        category_id: UUID | None = None,
+        profession_id: UUID | None = None,
+        price_min: float | None = None,
+        price_max: float | None = None,
+        language_code: str | None = None,
+        verified_only: bool = False,
+        premium_only: bool = False,
+        rating_min: float | None = None,
+        work_format: str | None = None,
+        limit: int = 200,
+    ) -> list[tuple[Specialist, float]]:
+        distance_expr = self._distance_km_expression(
+            latitude=latitude,
+            longitude=longitude,
+        ).label("distance_km")
+
+        stmt = (
+            select(Specialist, distance_expr)
+            .join(User, User.id == Specialist.user_id)
+            .outerjoin(
+                SpecialistLocation,
+                (SpecialistLocation.specialist_id == Specialist.id)
+                & (SpecialistLocation.is_current.is_(True)),
+            )
+            .where(
+                Specialist.status == "active",
+                User.status.notin_(["blocked", "deleted"]),
+                or_(
+                    Specialist.latitude.isnot(None),
+                    SpecialistLocation.latitude.isnot(None),
+                ),
+                or_(
+                    Specialist.longitude.isnot(None),
+                    SpecialistLocation.longitude.isnot(None),
+                ),
+            )
+        )
+
+        if country_id:
+            stmt = stmt.where(
+                or_(
+                    Specialist.country_id == country_id,
+                    SpecialistLocation.country_id == country_id,
+                )
+            )
+
+        if category_id:
+            stmt = stmt.where(Specialist.category_id == category_id)
+
+        if profession_id:
+            stmt = stmt.where(Specialist.profession_id == profession_id)
+
+        if price_min is not None:
+            stmt = stmt.where(
+                or_(
+                    Specialist.price_to.is_(None),
+                    Specialist.price_to >= price_min,
+                )
+            )
+
+        if price_max is not None:
+            stmt = stmt.where(
+                or_(
+                    Specialist.price_from.is_(None),
+                    Specialist.price_from <= price_max,
+                )
+            )
+
+        if language_code:
+            language_exists = exists(
+                select(SpecialistLanguage.id).where(
+                    SpecialistLanguage.specialist_id == Specialist.id,
+                    SpecialistLanguage.language_code == language_code.lower(),
+                )
+            )
+            stmt = stmt.where(language_exists)
+
+        if verified_only:
+            stmt = stmt.where(Specialist.is_verified.is_(True))
+
+        if premium_only:
+            stmt = stmt.where(Specialist.is_premium.is_(True))
+
+        if rating_min is not None:
+            stmt = stmt.where(Specialist.rating >= rating_min)
+
+        if work_format:
+            stmt = stmt.where(Specialist.work_format == work_format)
+
+        if not country_wide:
+            stmt = stmt.where(distance_expr <= radius_km)
+
+        stmt = stmt.order_by(distance_expr.asc()).limit(max(1, int(limit)))
+
+        result = await self.session.execute(stmt)
+        return [(specialist, float(distance or 0)) for specialist, distance in result.all()]
+
     async def get_current_locations_by_specialist_ids(
         self,
         specialist_ids: list[UUID],
