@@ -615,6 +615,19 @@ async def geo_location_prompt(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SpecialistForm.waiting_geo)
     await callback.answer()
 
+async def reverse_location_candidate(
+    session,
+    *,
+    latitude: float,
+    longitude: float,
+    language: str,
+):
+    return await GeoService(GeoRepository(session)).reverse_place(
+        latitude=latitude,
+        longitude=longitude,
+        language=language,
+    )
+
 @specialist_form_router.message(SpecialistForm.waiting_geo)
 async def receive_geo_location(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -634,6 +647,15 @@ async def receive_geo_location(message: Message, state: FSMContext):
                 language=language,
                 limit=4,
             )
+
+            if not candidates:
+                fallback = await reverse_location_candidate(
+                    session,
+                    latitude=message.location.latitude,
+                    longitude=message.location.longitude,
+                    language=language,
+                )
+                candidates = [fallback] if fallback else []
     except GeoServiceError as exc:
         await message.answer(
             t("spec_geo_provider_error", language).format(error=exc),

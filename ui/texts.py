@@ -1456,6 +1456,194 @@ translations = {
         "en": "Search the whole country",
         "pt": "Pesquisar em todo o país",
     },
+
+    "admin_panel_title": {
+        "ru": "Панель администратора",
+        "en": "Admin panel",
+        "pt": "Painel do administrador",
+    },
+    "admin_pending_profiles": {
+        "ru": "Профили на модерации",
+        "en": "Pending profiles",
+        "pt": "Perfis pendentes",
+    },
+    "admin_open_complaints": {
+        "ru": "Жалобы",
+        "en": "Complaints",
+        "pt": "Denúncias",
+    },
+    "admin_access_denied": {
+        "ru": "Доступ запрещён.",
+        "en": "Access denied.",
+        "pt": "Acesso negado.",
+    },
+    "admin_no_pending_profiles": {
+        "ru": "Профилей на модерации нет.",
+        "en": "No pending profiles.",
+        "pt": "Não há perfis pendentes.",
+    },
+    "admin_no_open_complaints": {
+        "ru": "Открытых жалоб нет.",
+        "en": "No open complaints.",
+        "pt": "Não há denúncias abertas.",
+    },
+    "admin_pending_profile_title": {
+        "ru": "Профиль на модерации {index}/{total}",
+        "en": "Pending profile {index}/{total}",
+        "pt": "Perfil pendente {index}/{total}",
+    },
+    "admin_complaint_title": {
+        "ru": "Жалоба {index}/{total}",
+        "en": "Complaint {index}/{total}",
+        "pt": "Denúncia {index}/{total}",
+    },
+    "admin_status": {
+        "ru": "Статус",
+        "en": "Status",
+        "pt": "Status",
+    },
+    "admin_approve": {
+        "ru": "Одобрить",
+        "en": "Approve",
+        "pt": "Aprovar",
+    },
+    "admin_reject": {
+        "ru": "Отклонить",
+        "en": "Reject",
+        "pt": "Rejeitar",
+    },
+    "admin_prev": {
+        "ru": "Назад",
+        "en": "Previous",
+        "pt": "Anterior",
+    },
+    "admin_next": {
+        "ru": "Дальше",
+        "en": "Next",
+        "pt": "Próximo",
+    },
+    "admin_panel_back": {
+        "ru": "К админ-панели",
+        "en": "Admin panel",
+        "pt": "Painel admin",
+    },
+    "admin_reason_prompt": {
+        "ru": "Укажите причину действия. Минимум 3 символа.",
+        "en": "Enter the reason. Minimum 3 characters.",
+        "pt": "Informe o motivo. Mínimo de 3 caracteres.",
+    },
+    "admin_reason_too_short": {
+        "ru": "Причина слишком короткая.",
+        "en": "Reason is too short.",
+        "pt": "O motivo é muito curto.",
+    },
+    "admin_specialist_approved": {
+        "ru": "Профиль одобрен. Статус: {status}",
+        "en": "Profile approved. Status: {status}",
+        "pt": "Perfil aprovado. Status: {status}",
+    },
+    "admin_specialist_rejected": {
+        "ru": "Профиль отклонён. Статус: {status}",
+        "en": "Profile rejected. Status: {status}",
+        "pt": "Perfil rejeitado. Status: {status}",
+    },
+    "admin_item_not_found": {
+        "ru": "Элемент не найден. Обновите список.",
+        "en": "Item not found. Refresh the list.",
+        "pt": "Item não encontrado. Atualize a lista.",
+    },
+    "admin_complaint_target": {
+        "ru": "Цель",
+        "en": "Target",
+        "pt": "Alvo",
+    },
+    "admin_complaint_reason": {
+        "ru": "Причина",
+        "en": "Reason",
+        "pt": "Motivo",
+    },
+    "admin_complaint_comment": {
+        "ru": "Комментарий",
+        "en": "Comment",
+        "pt": "Comentário",
+    },
+    "admin_no_comment": {
+        "ru": "без комментария",
+        "en": "no comment",
+        "pt": "sem comentário",
+    },
+    "admin_resolve_complaint": {
+        "ru": "Закрыть жалобу",
+        "en": "Resolve complaint",
+        "pt": "Resolver denúncia",
+    },
+    "admin_reject_complaint": {
+        "ru": "Отклонить жалобу",
+        "en": "Reject complaint",
+        "pt": "Rejeitar denúncia",
+    },
+    "admin_block_user": {
+        "ru": "Заблокировать пользователя",
+        "en": "Block user",
+        "pt": "Bloquear usuário",
+    },
+    "admin_complaint_updated": {
+        "ru": "Жалоба обновлена. Статус: {status}",
+        "en": "Complaint updated. Status: {status}",
+        "pt": "Denúncia atualizada. Status: {status}",
+    },
+    "admin_block_target_not_found": {
+        "ru": "Не удалось определить пользователя для блокировки.",
+        "en": "Could not resolve user to block.",
+        "pt": "Não foi possível identificar o usuário para bloquear.",
+    },
+    "admin_user_blocked": {
+        "ru": "Пользователь заблокирован. Статус: {status}",
+        "en": "User blocked. Status: {status}",
+        "pt": "Usuário bloqueado. Status: {status}",
+    },
+
+    "complaint_reason_prompt": {
+        "ru": "Выберите причину жалобы:",
+        "en": "Choose a report reason:",
+        "pt": "Escolha o motivo da denúncia:",
+    },
+    "complaint_reason_fake": {
+        "ru": "Фейковый профиль",
+        "en": "Fake profile",
+        "pt": "Perfil falso",
+    },
+    "complaint_reason_contact": {
+        "ru": "Просит контакт вне SGHR",
+        "en": "Asks for contact outside SGHR",
+        "pt": "Pede contato fora da SGHR",
+    },
+    "complaint_reason_abuse": {
+        "ru": "Оскорбления или нарушение правил",
+        "en": "Abuse or rule violation",
+        "pt": "Abuso ou violação de regras",
+    },
+    "complaint_reason_other": {
+        "ru": "Другая причина",
+        "en": "Other reason",
+        "pt": "Outro motivo",
+    },
+    "complaint_comment_prompt": {
+        "ru": "Опишите жалобу. Минимум 3 символа.",
+        "en": "Describe the complaint. Minimum 3 characters.",
+        "pt": "Descreva a denúncia. Mínimo de 3 caracteres.",
+    },
+    "complaint_comment_too_short": {
+        "ru": "Описание слишком короткое.",
+        "en": "Description is too short.",
+        "pt": "A descrição é muito curta.",
+    },
+    "complaint_created": {
+        "ru": "Жалоба принята. Модератор проверит профиль.",
+        "en": "Report received. A moderator will review the profile.",
+        "pt": "Denúncia recebida. Um moderador analisará o perfil.",
+    },
+
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

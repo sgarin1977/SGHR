@@ -20,12 +20,14 @@ from database.repositories.geo_repository import GeoRepository
 from database.repositories.search import SpecialistSearchRepository
 from database.repositories.specialist import SpecialistRepository
 from database.repositories.user import UserRepository
+from database.repositories.moderation import ModerationRepository
 from database.repositories.translation import TranslationRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard
 from services.contact_chat import ContactChatError, ContactChatService
 from services.geo_search import GeoSearchService, SpecialistPublicCard
 from services.geo_service import GeoService, GeoServiceError
+from services.moderation import ModerationError, ModerationService
 from services.translation import TranslationError, TranslationService
 from ui.texts import t
 
@@ -47,7 +49,7 @@ class SpecialistSearchFSM(StatesGroup):
     entering_contact_message = State()
     confirming_contact_message = State()
     entering_thread_message = State()
-
+    entering_report_comment = State()
 
 def normalize_language(language: str | None) -> str:
     return language if language in {"ru", "en", "pt", "uk"} else "ru"
@@ -276,6 +278,47 @@ def card_keyboard(language: str, results_page: int = 0) -> InlineKeyboardMarkup:
         ]
     )
 
+def complaint_reason_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("complaint_reason_fake", language),
+                    callback_data="search_report_reason:fake",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("complaint_reason_contact", language),
+                    callback_data="search_report_reason:contact",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("complaint_reason_abuse", language),
+                    callback_data="search_report_reason:abuse",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("complaint_reason_other", language),
+                    callback_data="search_report_reason:other",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_back", language),
+                    callback_data="search_contact_cancel",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
+    )
 
 def contact_request_action_keyboard(contact_token: str, language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -1838,7 +1881,146 @@ async def favorite_pending(callback: CallbackQuery, state: FSMContext):
 async def report_pending(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = normalize_language(data.get("user_language") or callback.from_user.language_code)
-    await callback.answer(t("search_report_placeholder", language), show_alert=True)
+
+    if not data.get("selected_specialist_id"):
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    await show_callback_message(
+        callback,
+        t("complaint_reason_prompt", language),
+        complaint_reason_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data.startswith("search_report_reason:"))
+async def choose_report_reason(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    reason = callback.data.split(":", 1)[1]
+
+    if reason not in {"fake", "contact", "abuse", "other"}:
+        await callback.answer()
+        return
+
+    if not data.get("selected_specialist_id"):
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    await state.update_data(pending_report_reason=reason)
+
+    if reason == "other":
+        await state.set_state(SpecialistSearchFSM.entering_report_comment)
+        await callback.message.answer(t("complaint_comment_prompt", language))
+        await callback.answer()
+        return
+
+    await create_search_complaint(
+        event=callback,
+        state=state,
+        reason=reason,
+        comment=None,
+    )
+
+
+@search_router.message(SpecialistSearchFSM.entering_report_comment)
+async def receive_report_comment(message: Message, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    comment = (message.text or "").strip()
+
+    if len(comment) < 3:
+        await message.answer(t("complaint_comment_too_short", language))
+        return
+
+    reason = data.get("pending_report_reason") or "other"
+
+    await create_search_complaint(
+        event=message,
+        state=state,
+        reason=reason,
+        comment=comment,
+    )
+
+
+async def create_search_complaint(
+    *,
+    event: CallbackQuery | Message,
+    state: FSMContext,
+    reason: str,
+    comment: str | None,
+):
+    data = await state.get_data()
+    language = normalize_language(
+        data.get("user_language")
+        or event.from_user.language_code
+    )
+    specialist_id = data.get("selected_specialist_id")
+
+    if not specialist_id:
+        if isinstance(event, CallbackQuery):
+            await event.answer(t("search_contact_no_specialist", language), show_alert=True)
+        else:
+            await event.answer(t("search_contact_no_specialist", language))
+        return
+
+    reporter_user_id, tenant_id = await get_requester_context(event.from_user.id)
+    if not reporter_user_id or not tenant_id:
+        if isinstance(event, CallbackQuery):
+            await event.answer(t("search_contact_user_not_found", language), show_alert=True)
+        else:
+            await event.answer(t("search_contact_user_not_found", language))
+        return
+
+    try:
+        async with get_session() as session:
+            await ModerationService(
+                ModerationRepository(session)
+            ).create_complaint(
+                tenant_id=tenant_id,
+                reporter_user_id=reporter_user_id,
+                target_type="specialist",
+                target_id=UUID(specialist_id),
+                reason=reason,
+                comment=comment,
+            )
+    except ModerationError as exc:
+        if isinstance(event, CallbackQuery):
+            await event.answer(str(exc), show_alert=True)
+        else:
+            await event.answer(str(exc))
+        return
+
+    await state.update_data(
+        pending_report_reason=None,
+        page=data.get("page") or 0,
+    )
+    await state.set_state(SpecialistSearchFSM.viewing_results)
+
+    target_message = event.message if isinstance(event, CallbackQuery) else event
+    await target_message.answer(
+        t("complaint_created", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("search_back_to_filters", language),
+                        callback_data="search_filters",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="search_menu",
+                    )
+                ],
+            ]
+        ),
+    )
+
+    if isinstance(event, CallbackQuery):
+        await event.answer()
 
 
 @search_router.callback_query(F.data == "search_menu")
