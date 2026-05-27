@@ -626,12 +626,13 @@ async def receive_geo_location(message: Message, state: FSMContext):
 
     try:
         async with get_session() as session:
-            candidate = await GeoService(
+            candidates = await GeoService(
                 GeoRepository(session)
-            ).reverse_place(
+            ).nearby_places(
                 latitude=message.location.latitude,
                 longitude=message.location.longitude,
                 language=language,
+                limit=4,
             )
     except GeoServiceError as exc:
         await message.answer(
@@ -640,14 +641,14 @@ async def receive_geo_location(message: Message, state: FSMContext):
         )
         return
 
-    if not candidate:
+    if not candidates:
         await message.answer(
             t("spec_geo_candidates_not_found", language),
             reply_markup=ReplyKeyboardRemove(),
         )
         return
 
-    candidate_state = [candidate.to_state()]
+    candidate_state = [candidate.to_state() for candidate in candidates]
     await state.update_data(
         geo_candidates=candidate_state,
         raw_latitude=message.location.latitude,

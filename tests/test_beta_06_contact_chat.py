@@ -1087,7 +1087,7 @@ def test_contact_reply_flow_is_wired_in_search_handler():
         "ContactChatService(ContactChatRepository(session)).send_thread_message",
         "active_thread_id",
         "contact_message_sent",
-        "contact_show_original_pending",
+        "contact_show_original",
         "callback_data=\"contact_finish\"",
         "async def finish_contact_thread",
         "ContactChatService(ContactChatRepository(session)).complete_thread",
@@ -1113,10 +1113,10 @@ def test_contact_reply_flow_is_wired_in_search_handler():
         assert fragment not in source
 
     callback_literals = [
-        "contact_reply",
-        "contact_show_original_pending",
-        "contact_finish",
-    ]
+    "contact_reply",
+    "contact_show_original",
+    "contact_finish",
+]
 
     for callback_data in callback_literals:
         assert len(callback_data.encode("utf-8")) <= 64

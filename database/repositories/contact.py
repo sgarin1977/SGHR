@@ -15,7 +15,7 @@ from database.models import (
     User,
     TranslationJob,
 )
-
+from database.repositories.translation import TranslationRepository
 
 class ContactChatRepository:
     def __init__(self, session: AsyncSession):
@@ -32,14 +32,28 @@ class ContactChatRepository:
         source_language: str,
         receiver_user_id: UUID,
     ) -> TranslationJob | None:
-        receiver = await self.session.get(User, receiver_user_id)
-        target_language = self._normalize_translation_language(
-            receiver.language_code if receiver else None
+        translation_repository = TranslationRepository(self.session)
+
+        target_language = await translation_repository.get_user_message_language(
+            receiver_user_id
         )
         normalized_source_language = self._normalize_translation_language(source_language)
+        auto_translate_enabled = await translation_repository.is_auto_translate_enabled(
+            receiver_user_id
+        )
 
-        if target_language == normalized_source_language:
+        message = await self.session.get(Message, message_id)
+        if not message:
             return None
+
+        if not auto_translate_enabled or target_language == normalized_source_language:
+            message.translation_status = "not_needed"
+            message.translated_text = None
+            message.translated_language = None
+            await self.session.flush()
+            return None
+
+        message.translation_status = "pending"
 
         translation_job = TranslationJob(
             tenant_id=tenant_id,
@@ -54,7 +68,6 @@ class ContactChatRepository:
         await self.session.flush()
 
         return translation_job
-
     async def get_active_specialist(
         self,
         specialist_id: UUID,

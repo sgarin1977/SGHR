@@ -1194,12 +1194,16 @@ def test_search_empty_results_offer_recovery_actions():
 
     required_fragments = [
         "empty_results_keyboard",
+        "next_empty_radius_suggestion",
+        "search_empty_increase_radius_to",
+        "search_empty_increase_radius_country",
+        "await render_results(event=callback, state=state, page=0)",
         "search_empty_summary",
         "search_empty_increase_radius",
         "search_empty_reset_profession",
         "search_empty_reset_all",
         "search_back_to_filters",
-        "callback_data=\"search_empty_radius_25\"",
+        "callback_data=\"search_empty_increase_radius\"",
         "callback_data=\"search_empty_reset_profession\"",
         "callback_data=\"search_reset_filters\"",
         "callback_data=\"search_filters\"",
@@ -1515,3 +1519,14 @@ def test_legacy_parallel_search_handlers_are_removed():
     combined_source = "\n".join(path.read_text(encoding="utf-8") for path in active_sources)
 
     assert "user_search_state" not in combined_source
+def test_empty_results_increase_radius_is_dynamic_not_fixed_25():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "def next_empty_radius_suggestion" in source
+    assert 'callback_data="search_empty_increase_radius"' in source
+    assert 'F.data == "search_empty_increase_radius"' in source
+    assert "radius_km=25, page=0" not in source
+    assert "await render_results(event=callback, state=state, page=0)" in source
+    assert "country_wide=True" in source
+    assert "search_empty_increase_radius_to" in open("ui/texts.py", encoding="utf-8").read()
+    assert "search_empty_increase_radius_country" in open("ui/texts.py", encoding="utf-8").read()

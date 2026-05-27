@@ -1013,11 +1013,44 @@ translations = {
         "en": "Chat not found. Return to the request or start a new search.",
         "pt": "Chat não encontrado. Volte ao pedido ou inicie uma nova busca.",
     },
-    "contact_show_original_pending": {
-        "ru": "Показ оригинала будет подключен в Beta 0.7 вместе с переводом.",
-        "en": "Show original will be connected in Beta 0.7 with translation.",
-        "pt": "Mostrar original será conectado no Beta 0.7 com tradução.",
+    "contact_original_message": {
+        "ru": "Оригинал сообщения:\n\n{message}",
+        "en": "Original message:\n\n{message}",
+        "pt": "Mensagem original:\n\n{message}",
     },
+
+        "contact_show_original": {
+    "ru": "Показать оригинал",
+    "en": "Show original",
+    "pt": "Mostrar original",
+},
+"contact_translated_message_received": {
+    "ru": "Новое сообщение внутри SGHR Beta, переведено автоматически:\n\n{message}",
+    "en": "New message inside SGHR Beta, translated automatically:\n\n{message}",
+    "pt": "Nova mensagem dentro do SGHR Beta, traduzida automaticamente:\n\n{message}",
+},
+"contact_translation_failed_original_shown": {
+    "ru": "Перевод временно недоступен. Показан оригинал сообщения:\n\n{message}",
+    "en": "Translation is temporarily unavailable. Original message is shown:\n\n{message}",
+    "pt": "A tradução está temporariamente indisponível. A mensagem original é mostrada:\n\n{message}",
+},
+"translation_provider_error": {
+    "ru": "Сервис перевода временно недоступен.",
+    "en": "Translation service is temporarily unavailable.",
+    "pt": "O serviço de tradução está temporariamente indisponível.",
+},
+"translation_retry_later": {
+    "ru": "Мы попробуем перевести сообщение позже. Общение в чате не остановлено.",
+    "en": "We will try to translate the message later. The chat is not blocked.",
+    "pt": "Vamos tentar traduzir a mensagem mais tarde. O chat não está bloqueado.",
+},
+    
+    "contact_original_not_found": {
+        "ru": "Не удалось показать оригинал: {error}",
+        "en": "Could not show original: {error}",
+        "pt": "Nao foi possivel mostrar o original: {error}",
+    },
+
     "contact_finish_pending": {
         "ru": "Завершение диалога будет подключено в следующем шаге Beta 0.6.",
         "en": "Finishing the chat will be connected in the next Beta 0.6 step.",
@@ -1233,11 +1266,6 @@ translations = {
         "en": "English",
         "pt": "Ingles",
     },
-    "search_language_uk": {
-        "ru": "Украинский",
-        "en": "Ukrainian",
-        "pt": "Ucraniano",
-    },
     "search_price_prompt": {
         "ru": "Выберите ценовой фильтр.",
         "en": "Choose price filter.",
@@ -1352,6 +1380,81 @@ translations = {
         "ru": "Услуги",
         "en": "Services",
         "pt": "Servicos",
+    },
+    "settings_translation_title": {
+        "ru": (
+            "Настройки перевода:\n\n"
+            "Язык сообщений: {message_language}\n"
+            "Автоперевод: {auto_translate}\n"
+            "Кнопка оригинала: {show_original}"
+        ),
+        "en": (
+            "Translation settings:\n\n"
+            "Message language: {message_language}\n"
+            "Auto-translation: {auto_translate}\n"
+            "Show original button: {show_original}"
+        ),
+        "pt": (
+            "Configurações de tradução:\n\n"
+            "Idioma das mensagens: {message_language}\n"
+            "Tradução automática: {auto_translate}\n"
+            "Botão de original: {show_original}"
+        ),
+    },
+    "settings_message_language_ru": {
+        "ru": "Русский",
+        "en": "Russian",
+        "pt": "Russo",
+    },
+    "settings_message_language_en": {
+        "ru": "Английский",
+        "en": "English",
+        "pt": "Inglês",
+    },
+    "settings_message_language_pt": {
+        "ru": "Португальский",
+        "en": "Portuguese",
+        "pt": "Português",
+    },
+    "settings_auto_translate_on": {
+        "ru": "Автоперевод: включен",
+        "en": "Auto-translation: on",
+        "pt": "Tradução automática: ligada",
+    },
+    "settings_auto_translate_off": {
+        "ru": "Автоперевод: выключен",
+        "en": "Auto-translation: off",
+        "pt": "Tradução automática: desligada",
+    },
+    "settings_show_original_on": {
+        "ru": "Оригинал: показывать кнопку",
+        "en": "Original: show button",
+        "pt": "Original: mostrar botão",
+    },
+    "settings_show_original_off": {
+        "ru": "Оригинал: скрыть кнопку",
+        "en": "Original: hide button",
+        "pt": "Original: ocultar botão",
+    },
+    "settings_enabled": {
+        "ru": "включено",
+        "en": "enabled",
+        "pt": "ativado",
+    },
+    "settings_disabled": {
+        "ru": "выключено",
+        "en": "disabled",
+        "pt": "desativado",
+    },
+    "search_empty_increase_radius_to": {
+        "ru": "Увеличить радиус до {radius} км",
+        "en": "Increase radius to {radius} km",
+        "pt": "Aumentar raio para {radius} km",
+    },
+    "search_empty_increase_radius_country": {
+        "ru": "Искать по всей стране",
+        "en": "Search the whole country",
+        "pt": "Pesquisar em todo o país",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

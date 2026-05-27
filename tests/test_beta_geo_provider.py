@@ -244,3 +244,23 @@ async def test_geo_service_nearby_places_uses_provider_nearby_candidates(db_sess
     assert len(candidates) == 2
     assert candidates[0].name == FAKE_CITY_NAME
     assert candidates[1].name == "SGHR Nearby Geo City"
+
+def test_specialist_registration_telegram_location_uses_nearby_candidates():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+
+    waiting_geo_handler = source.split(
+        "async def receive_geo_location",
+        1,
+    )[1].split(
+        "@specialist_form_router.message(SpecialistForm.entering_display_name)",
+        1,
+    )[0]
+
+    assert "nearby_places(" in waiting_geo_handler
+    assert "limit=4" in waiting_geo_handler
+    assert "candidate_state = [candidate.to_state() for candidate in candidates]" in waiting_geo_handler
+    assert "geo_candidates=candidate_state" in waiting_geo_handler
+    assert "raw_latitude=message.location.latitude" in waiting_geo_handler
+    assert "raw_longitude=message.location.longitude" in waiting_geo_handler
+    assert "reverse_place(" not in waiting_geo_handler
+    assert "candidate_state = [candidate.to_state()]" not in waiting_geo_handler

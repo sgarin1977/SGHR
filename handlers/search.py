@@ -20,11 +20,13 @@ from database.repositories.geo_repository import GeoRepository
 from database.repositories.search import SpecialistSearchRepository
 from database.repositories.specialist import SpecialistRepository
 from database.repositories.user import UserRepository
+from database.repositories.translation import TranslationRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard
 from services.contact_chat import ContactChatError, ContactChatService
 from services.geo_search import GeoSearchService, SpecialistPublicCard
 from services.geo_service import GeoService, GeoServiceError
+from services.translation import TranslationError, TranslationService
 from ui.texts import t
 
 
@@ -296,7 +298,7 @@ def contact_thread_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=t("contact_reply_btn", language), callback_data="contact_reply")],
-            [InlineKeyboardButton(text=t("contact_show_original_btn", language), callback_data="contact_show_original_pending")],
+            [InlineKeyboardButton(text=t("contact_show_original_btn", language), callback_data="contact_show_original")],
             [InlineKeyboardButton(text=t("contact_finish_btn", language), callback_data="contact_finish")],
             [InlineKeyboardButton(text=t("contact_report_btn", language), callback_data="search_report_pending")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
@@ -311,6 +313,25 @@ def contact_message_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
+
+async def translate_message_for_notification(
+    *,
+    session,
+    message_id: UUID,
+    receiver_user_id: UUID,
+) -> tuple[str, bool, str]:
+    try:
+        translation_service = TranslationService(TranslationRepository(session))
+        translated = await translation_service.translate_message(message_id)
+        display = await translation_service.get_message_for_receiver(
+            message_id=message_id,
+            receiver_user_id=receiver_user_id,
+        )
+        return display.display_text, translated.used_translation, translated.translation_status
+    except TranslationError:
+        message = await TranslationRepository(session).get_message(message_id)
+        return (message.original_text if message else ""), False, "failed"
+
 
 def format_search_filters_summary(data: dict, language: str) -> str:
     category = data.get("category_name") or t("search_filter_not_set", language)
@@ -488,17 +509,60 @@ def search_geo_candidates_keyboard(candidates: list[dict], language: str) -> Inl
     rows.append([InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def next_empty_radius_suggestion(data: dict) -> tuple[int | None, bool]:
+    if data.get("country_wide"):
+        return None, True
+
+    radius = int(data.get("radius_km") or DEFAULT_RADIUS_KM)
+
+    if radius < 25:
+        return 25, False
+
+    if radius < 50:
+        return 50, False
+
+    if radius < 100:
+        return 100, False
+
+    return None, True
+
 
 def empty_results_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=t("search_empty_increase_radius", language), callback_data="search_empty_radius_25")],
+    next_radius, next_country_wide = next_empty_radius_suggestion(data)
+
+    rows = []
+
+    if next_radius is not None:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("search_empty_increase_radius_to", language).format(
+                        radius=next_radius,
+                    ),
+                    callback_data="search_empty_increase_radius",
+                )
+            ]
+        )
+    elif next_country_wide and not data.get("country_wide"):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("search_empty_increase_radius_country", language),
+                    callback_data="search_empty_increase_radius",
+                )
+            ]
+        )
+
+    rows.extend(
+        [
             [InlineKeyboardButton(text=t("search_empty_reset_profession", language), callback_data="search_empty_reset_profession")],
             [InlineKeyboardButton(text=t("search_empty_reset_all", language), callback_data="search_reset_filters")],
             [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def format_empty_results_text(data: dict, language: str) -> str:
@@ -1207,7 +1271,7 @@ async def choose_language_filter(callback: CallbackQuery, state: FSMContext):
     value = (callback.data or "").split(":", 1)[1]
     language_code = None if value == "any" else value
 
-    if language_code not in {None, "ru", "pt", "en", "uk"}:
+    if language_code not in {None, "ru", "pt", "en"}:
         await callback.answer()
         return
 
@@ -1295,10 +1359,27 @@ async def reset_search_filters(callback: CallbackQuery, state: FSMContext):
     await show_filters(callback, state)
 
 
-@search_router.callback_query(F.data == "search_empty_radius_25")
+@search_router.callback_query(F.data == "search_empty_increase_radius")
 async def empty_increase_radius(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(radius_km=25, page=0)
-    await show_filters(callback, state)
+    data = await state.get_data()
+    next_radius, next_country_wide = next_empty_radius_suggestion(data)
+
+    if next_radius is not None:
+        await state.update_data(
+            radius_km=next_radius,
+            country_wide=False,
+            page=0,
+        )
+    elif next_country_wide and not data.get("country_wide"):
+        await state.update_data(
+            country_wide=True,
+            page=0,
+        )
+    else:
+        await callback.answer()
+        return
+
+    await render_results(event=callback, state=state, page=0)
 
 
 @search_router.callback_query(F.data == "search_empty_reset_profession")
@@ -1491,6 +1572,9 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
 
     specialist_platform_user_id = None
     specialist_language = language
+    specialist_notification_message = message_text
+    specialist_used_translation = False
+    specialist_translation_status = "not_needed"
     result = None
 
     try:
@@ -1513,6 +1597,15 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
             if specialist_account:
                 specialist_platform_user_id = specialist_account.platform_user_id
 
+            (
+                specialist_notification_message,
+                specialist_used_translation,
+                specialist_translation_status,
+            ) = await translate_message_for_notification(
+                session=session,
+                message_id=result.first_message_id,
+                receiver_user_id=result.specialist_user_id,
+            )
     except ContactChatError as exc:
         await callback.message.answer(
             t("contact_request_error", language).format(error=str(exc))
@@ -1522,11 +1615,19 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
 
     specialist_chat_id = telegram_chat_id(specialist_platform_user_id)
 
+    specialist_notification_key = (
+        "contact_translated_message_received"
+        if specialist_used_translation
+        else "contact_request_specialist_notification"
+    )
+    if specialist_translation_status == "failed":
+        specialist_notification_key = "contact_translation_failed_original_shown"
+
     if specialist_chat_id and result.contact_token:
         await callback.message.bot.send_message(
             chat_id=specialist_chat_id,
-            text=t("contact_request_specialist_notification", specialist_language).format(
-                message=message_text,
+            text=t(specialist_notification_key, specialist_language).format(
+                message=specialist_notification_message,
             ),
             reply_markup=contact_request_action_keyboard(
                 result.contact_token,
@@ -1664,7 +1765,11 @@ async def receive_thread_message(message: Message, state: FSMContext):
         return
 
     receiver_platform_user_id = None
+    receiver_platform_user_id = None
     receiver_language = language
+    receiver_notification_message = (message.text or "").strip()
+    receiver_used_translation = False
+    receiver_translation_status = "not_needed"
 
     try:
         async with get_session() as session:
@@ -1685,21 +1790,34 @@ async def receive_thread_message(message: Message, state: FSMContext):
             if receiver_account:
                 receiver_platform_user_id = receiver_account.platform_user_id
 
+            receiver_notification_message, receiver_used_translation, receiver_translation_status = await translate_message_for_notification(
+                session=session,
+                message_id=result.message_id,
+                receiver_user_id=result.receiver_user_id,
+            )
+
     except ContactChatError as exc:
         await message.answer(t("contact_request_error", language).format(error=str(exc)))
         return
 
     receiver_chat_id = telegram_chat_id(receiver_platform_user_id)
 
+    receiver_notification_key = (
+        "contact_translated_message_received"
+        if receiver_used_translation
+        else "contact_thread_message_received"
+    )
+    if receiver_translation_status == "failed":
+        receiver_notification_key = "contact_translation_failed_original_shown"
+
     if receiver_chat_id:
         await message.bot.send_message(
-        chat_id=receiver_chat_id,
-        text=t("contact_thread_message_received", receiver_language).format(
-            message=(message.text or "").strip(),
-        ),
-        reply_markup=contact_thread_keyboard(receiver_language),
-    )
-
+            chat_id=receiver_chat_id,
+            text=t(receiver_notification_key, receiver_language).format(
+                message=receiver_notification_message,
+            ),
+            reply_markup=contact_thread_keyboard(receiver_language),
+        )
     await state.update_data(active_thread_id=str(result.thread_id))
     await state.set_state(SpecialistSearchFSM.viewing_results)
 
@@ -1736,12 +1854,49 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@search_router.callback_query(F.data == "contact_show_original_pending")
-async def show_original_pending(callback: CallbackQuery, state: FSMContext):
+@search_router.callback_query(F.data == "contact_show_original")
+async def show_original_message(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = normalize_language(data.get("user_language") or callback.from_user.language_code)
-    await callback.answer(t("contact_show_original_pending", language), show_alert=True)
+    thread_id = data.get("active_thread_id")
 
+    if not thread_id:
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    viewer_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not viewer_user_id:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            original = await TranslationService(
+                TranslationRepository(session)
+            ).get_original_message_for_thread(
+                thread_id=UUID(thread_id),
+                viewer_user_id=viewer_user_id,
+            )
+    except TranslationError as exc:
+        await callback.answer(
+            t("contact_original_not_found", language).format(error=str(exc)),
+            show_alert=True,
+        )
+        return
+
+    original_text_key = (
+        "contact_translation_failed_original_shown"
+        if original.translation_status == "failed"
+        else "contact_original_message"
+    )
+
+    await callback.message.answer(
+        t(original_text_key, language).format(
+            message=original.original_text,
+        ),
+        reply_markup=contact_thread_keyboard(language),
+    )
+    await callback.answer()
 
 @search_router.callback_query(F.data == "contact_finish")
 async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
