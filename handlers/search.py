@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from aiogram import F, Router
@@ -16,7 +17,9 @@ from aiogram.types import (
 
 from database.models import User
 from database.repositories.contact import ContactChatRepository
+from database.repositories.event import EventRepository
 from database.repositories.geo_repository import GeoRepository
+from database.repositories.rate_limit import RateLimitRepository
 from database.repositories.search import SpecialistSearchRepository
 from database.repositories.specialist import SpecialistRepository
 from database.repositories.user import UserRepository
@@ -28,11 +31,13 @@ from services.contact_chat import ContactChatError, ContactChatService
 from services.geo_search import GeoSearchService, SpecialistPublicCard
 from services.geo_service import GeoService, GeoServiceError
 from services.moderation import ModerationError, ModerationService
+from services.rate_limit import RateLimitError, RateLimitService
 from services.translation import TranslationError, TranslationService
 from ui.texts import t
-
+from database.repositories.favorites import FavoriteRepository
 
 search_router = Router()
+logger = logging.getLogger(__name__)
 
 PER_PAGE = 5
 DEFAULT_RADIUS_KM = 25
@@ -798,6 +803,18 @@ async def render_results(
         else:
             results = []
 
+    logger.info(
+        "search_results_rendered telegram_id=%s results=%s page=%s has_geo=%s city_id=%s category_id=%s profession_id=%s sort_by=%s",
+        platform_user_id,
+        len(results),
+        page,
+        has_geo,
+        city_id,
+        category_id,
+        profession_id,
+        sort_by,
+    )
+
     has_next = len(results) > PER_PAGE
     visible_results = results[:PER_PAGE]
 
@@ -1122,7 +1139,18 @@ async def receive_location_query(message: Message, state: FSMContext):
                 language=language,
                 limit=8,
             )
+
+        logger.info(
+            "search_geo_query_completed telegram_id=%s candidates=%s",
+            message.from_user.id,
+            len(candidates),
+        )
     except GeoServiceError as exc:
+        logger.warning(
+            "search_geo_query_failed telegram_id=%s error=%s",
+            message.from_user.id,
+            exc,
+        )
         await message.answer(t("search_geo_provider_error", language).format(error=str(exc)))
         return
 
@@ -1186,7 +1214,18 @@ async def receive_geo(message: Message, state: FSMContext):
                 language=language,
                 limit=4,
             )
+
+        logger.info(
+            "search_geo_nearby_completed telegram_id=%s candidates=%s",
+            message.from_user.id,
+            len(candidates),
+        )
     except GeoServiceError as exc:
+        logger.warning(
+            "search_geo_nearby_failed telegram_id=%s error=%s",
+            message.from_user.id,
+            exc,
+        )
         await message.answer(
             t("search_geo_provider_error", language).format(error=str(exc)),
             reply_markup=ReplyKeyboardRemove(),
@@ -1231,9 +1270,55 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
     candidate = candidates[index]
 
     try:
+        actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
         async with get_session() as session:
+            if actor_user_id and tenant_id:
+                await RateLimitService(
+                    RateLimitRepository(session)
+                ).ensure_geo_change_allowed(
+                    tenant_id=tenant_id,
+                    user_id=actor_user_id,
+                )
+
             place = await GeoService(GeoRepository(session)).confirm_place(candidate)
+
+            if actor_user_id and tenant_id:
+                await EventRepository(session).create_event(
+                    event_type="geo_change",
+                    tenant_id=tenant_id,
+                    user_id=actor_user_id,
+                    entity_type="city",
+                    entity_id=place.city_id,
+                    payload={
+                        "source": "search_filter",
+                        "country_id": str(place.country_id),
+                    },
+                    platform="telegram",
+                )
+                await session.commit()
+
+        logger.info(
+            "search_geo_place_confirmed telegram_id=%s city_id=%s country_id=%s",
+            callback.from_user.id,
+            place.city_id,
+            place.country_id,
+        )
+
+    except RateLimitError as exc:
+        logger.warning(
+            "search_geo_change_rate_limited telegram_id=%s error=%s",
+            callback.from_user.id,
+            exc,
+        )
+        await callback.answer(t("error_rate_limited", language), show_alert=True)
+        return
+    
     except GeoServiceError as exc:
+        logger.warning(
+            "search_geo_place_confirm_failed telegram_id=%s error=%s",
+            callback.from_user.id,
+            exc,
+        )
         await callback.answer(
             t("search_geo_provider_error", language).format(error=str(exc)),
             show_alert=True,
@@ -1567,6 +1652,27 @@ async def contact_disclaimer_continue(callback: CallbackQuery, state: FSMContext
     await state.set_state(SpecialistSearchFSM.entering_contact_message)
     await callback.answer()
 
+@search_router.callback_query(F.data == "search_contact_cancel")
+async def cancel_contact_flow(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    page = int(data.get("results_page") or 0)
+
+    await state.update_data(
+        pending_contact_message=None,
+        pending_report_reason=None,
+    )
+
+    logger.info(
+        "contact_flow_cancelled telegram_id=%s page=%s",
+        callback.from_user.id,
+        page,
+    )
+
+    await render_results(
+        event=callback,
+        state=state,
+        page=page,
+    )
 
 @search_router.message(SpecialistSearchFSM.entering_contact_message)
 async def receive_contact_message(message: Message, state: FSMContext):
@@ -1649,7 +1755,21 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
                 message_id=result.first_message_id,
                 receiver_user_id=result.specialist_user_id,
             )
+
+        logger.info(
+            "contact_request_created telegram_id=%s request_id=%s thread_id=%s specialist_id=%s",
+            callback.from_user.id,
+            result.contact_request_id,
+            result.thread_id,
+            specialist_id,
+        )
     except ContactChatError as exc:
+        logger.warning(
+            "contact_request_failed telegram_id=%s specialist_id=%s error=%s",
+            callback.from_user.id,
+            specialist_id,
+            exc,
+        )
         await callback.message.answer(
             t("contact_request_error", language).format(error=str(exc))
         )
@@ -1694,6 +1814,10 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
             ]
         ),
     )
+
+    if result.message_masked:
+        await callback.message.answer(t("contact_detection_warning", language))
+
     await callback.answer()
 
 def callback_token(callback: CallbackQuery) -> str | None:
@@ -1725,7 +1849,20 @@ async def accept_contact_request(callback: CallbackQuery, state: FSMContext):
                 tenant_id=tenant_id,
                 action="accept",
             )
+
+        logger.info(
+            "contact_request_accepted telegram_id=%s actor_user_id=%s thread_id=%s",
+            callback.from_user.id,
+            actor_user_id,
+            result.thread_id,
+        )
     except ContactChatError as exc:
+        logger.warning(
+            "contact_request_accept_failed telegram_id=%s actor_user_id=%s error=%s",
+            callback.from_user.id,
+            actor_user_id,
+            exc,
+        )
         await callback.answer(t("contact_request_error", language).format(error=str(exc)), show_alert=True)
         return
 
@@ -1760,7 +1897,19 @@ async def reject_contact_request(callback: CallbackQuery, state: FSMContext):
                 tenant_id=tenant_id,
                 action="reject",
             )
+
+        logger.info(
+            "contact_request_rejected telegram_id=%s actor_user_id=%s",
+            callback.from_user.id,
+            actor_user_id,
+        )
     except ContactChatError as exc:
+        logger.warning(
+            "contact_request_reject_failed telegram_id=%s actor_user_id=%s error=%s",
+            callback.from_user.id,
+            actor_user_id,
+            exc,
+        )
         await callback.answer(t("contact_request_error", language).format(error=str(exc)), show_alert=True)
         return
 
@@ -1839,7 +1988,21 @@ async def receive_thread_message(message: Message, state: FSMContext):
                 receiver_user_id=result.receiver_user_id,
             )
 
+        logger.info(
+            "contact_thread_message_sent telegram_id=%s thread_id=%s message_id=%s receiver_user_id=%s",
+            message.from_user.id,
+            result.thread_id,
+            result.message_id,
+            result.receiver_user_id,
+        )
+
     except ContactChatError as exc:
+        logger.warning(
+            "contact_thread_message_failed telegram_id=%s thread_id=%s error=%s",
+            message.from_user.id,
+            thread_id,
+            exc,
+        )
         await message.answer(t("contact_request_error", language).format(error=str(exc)))
         return
 
@@ -1868,13 +2031,51 @@ async def receive_thread_message(message: Message, state: FSMContext):
         t("contact_message_sent", language),
         reply_markup=contact_thread_keyboard(language),
     )
-
+    if result.message_masked:
+        await message.answer(t("contact_detection_warning", language))
 
 @search_router.callback_query(F.data == "search_favorite_pending")
 async def favorite_pending(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = normalize_language(data.get("user_language") or callback.from_user.language_code)
-    await callback.answer(t("search_favorite_placeholder", language), show_alert=True)
+    specialist_id = data.get("selected_specialist_id")
+
+    if not specialist_id:
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not user_id or not tenant_id:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            is_saved = await FavoriteRepository(session).toggle_specialist(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                specialist_id=UUID(specialist_id),
+            )
+    except ValueError as exc:
+        logger.warning(
+            "favorite_toggle_failed telegram_id=%s specialist_id=%s error=%s",
+            callback.from_user.id,
+            specialist_id,
+            exc,
+        )
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    logger.info(
+        "favorite_toggled telegram_id=%s user_id=%s specialist_id=%s is_saved=%s",
+        callback.from_user.id,
+        user_id,
+        specialist_id,
+        is_saved,
+    )
+
+    text_key = "favorite_saved" if is_saved else "favorite_removed"
+    await callback.answer(t(text_key, language), show_alert=True)
 
 
 @search_router.callback_query(F.data == "search_report_pending")
@@ -1985,7 +2186,22 @@ async def create_search_complaint(
                 reason=reason,
                 comment=comment,
             )
+
+        logger.info(
+            "complaint_created telegram_id=%s reporter_user_id=%s specialist_id=%s reason=%s",
+            event.from_user.id,
+            reporter_user_id,
+            specialist_id,
+            reason,
+        )
     except ModerationError as exc:
+        logger.warning(
+            "complaint_create_failed telegram_id=%s specialist_id=%s reason=%s error=%s",
+            event.from_user.id,
+            specialist_id,
+            reason,
+            exc,
+        )
         if isinstance(event, CallbackQuery):
             await event.answer(str(exc), show_alert=True)
         else:
@@ -2060,6 +2276,12 @@ async def show_original_message(callback: CallbackQuery, state: FSMContext):
                 viewer_user_id=viewer_user_id,
             )
     except TranslationError as exc:
+        logger.warning(
+            "contact_show_original_failed telegram_id=%s thread_id=%s error=%s",
+            callback.from_user.id,
+            thread_id,
+            exc,
+        )
         await callback.answer(
             t("contact_original_not_found", language).format(error=str(exc)),
             show_alert=True,
@@ -2101,7 +2323,20 @@ async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
                 thread_id=UUID(thread_id),
                 actor_user_id=actor_user_id,
             )
+
+        logger.info(
+            "contact_thread_completed telegram_id=%s thread_id=%s actor_user_id=%s",
+            callback.from_user.id,
+            thread_id,
+            actor_user_id,
+        )
     except ContactChatError as exc:
+        logger.warning(
+            "contact_thread_complete_failed telegram_id=%s thread_id=%s error=%s",
+            callback.from_user.id,
+            thread_id,
+            exc,
+        )
         await callback.answer(t("contact_request_error", language).format(error=str(exc)), show_alert=True)
         return
 

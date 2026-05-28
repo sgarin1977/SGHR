@@ -83,6 +83,41 @@ class ContactChatRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_active_contact_request_for_pair(
+        self,
+        *,
+        tenant_id: UUID,
+        from_user_id: UUID,
+        specialist_id: UUID,
+    ) -> ContactRequest | None:
+        result = await self.session.execute(
+            select(ContactRequest)
+            .join(
+                ConversationThread,
+                (ConversationThread.context_type == "contact_request")
+                & (ConversationThread.context_id == ContactRequest.id),
+            )
+            .where(
+                ContactRequest.tenant_id == tenant_id,
+                ContactRequest.from_user_id == from_user_id,
+                ContactRequest.specialist_id == specialist_id,
+                ContactRequest.status.in_(["new", "accepted"]),
+                ConversationThread.status.in_(
+                    [
+                        "waiting_specialist",
+                        "waiting_client",
+                        "open",
+                        "in_discussion",
+                        "restricted",
+                        "disputed",
+                    ]
+                ),
+            )
+            .order_by(ContactRequest.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def get_thread_by_contact_request_id(
         self,
         contact_request_id: UUID,

@@ -263,3 +263,94 @@ class SpecialistRepository:
         user = await self.session.get(User, user_id)
         if user:
             user.active_role = "specialist"
+
+    async def update_specialist_profile_fields(
+        self,
+        *,
+        specialist_id: UUID,
+        user_id: UUID,
+        display_name: str | None = None,
+        short_description: str | None = None,
+        contact_text: str | None = None,
+        category_id: UUID | None = None,
+        profession_id: UUID | None = None,
+        country_id: UUID | None = None,
+        city_id: UUID | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        service_radius_km: int | None = None,
+    ) -> Specialist:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            raise ValueError("Specialist profile not found.")
+
+        before_state = {
+            "display_name": specialist.display_name,
+            "short_description": specialist.short_description,
+            "contact_text": (specialist.extra_metadata or {}).get("contact_text"),
+            "category_id": str(specialist.category_id) if specialist.category_id else None,
+            "profession_id": str(specialist.profession_id) if specialist.profession_id else None,
+            "country_id": str(specialist.country_id) if specialist.country_id else None,
+            "city_id": str(specialist.city_id) if specialist.city_id else None,
+        }
+
+        if display_name is not None:
+            specialist.display_name = display_name
+
+        if short_description is not None:
+            specialist.short_description = short_description
+            specialist.full_description = short_description
+
+        if category_id is not None:
+            specialist.category_id = category_id
+
+        if profession_id is not None:
+            specialist.profession_id = profession_id
+
+        if country_id is not None:
+            specialist.country_id = country_id
+
+        if city_id is not None:
+            specialist.city_id = city_id
+
+        if latitude is not None:
+            specialist.latitude = latitude
+
+        if longitude is not None:
+            specialist.longitude = longitude
+
+        if service_radius_km is not None:
+            specialist.service_radius_km = service_radius_km
+
+        if contact_text is not None:
+            metadata = dict(specialist.extra_metadata or {})
+            metadata["contact_text"] = contact_text
+            specialist.extra_metadata = metadata
+
+        after_state = {
+            "display_name": specialist.display_name,
+            "short_description": specialist.short_description,
+            "contact_text": (specialist.extra_metadata or {}).get("contact_text"),
+            "category_id": str(specialist.category_id) if specialist.category_id else None,
+            "profession_id": str(specialist.profession_id) if specialist.profession_id else None,
+            "country_id": str(specialist.country_id) if specialist.country_id else None,
+            "city_id": str(specialist.city_id) if specialist.city_id else None,
+        }
+
+        self.session.add(
+            EventLog(
+                tenant_id=specialist.tenant_id,
+                user_id=user_id,
+                event_type="profile_edit",
+                entity_type="specialist",
+                entity_id=specialist.id,
+                payload={
+                    "before": before_state,
+                    "after": after_state,
+                },
+                platform="telegram",
+            )
+        )
+
+        await self.session.commit()
+        return specialist

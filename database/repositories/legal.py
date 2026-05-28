@@ -31,8 +31,8 @@ class LegalRepository:
                 LegalDocument.doc_type,
                 LegalDocument.language,
                 desc(LegalDocument.effective_from),
-                desc(LegalDocument.version),
                 desc(LegalDocument.created_at),
+                desc(LegalDocument.id),
             )
         )
         docs = result.scalars().all()
@@ -45,7 +45,7 @@ class LegalRepository:
             return (
                 doc.effective_from or doc.created_at,
                 doc.created_at,
-                doc.version,
+                str(doc.id),
             )
 
         selected = {}

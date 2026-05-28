@@ -3,7 +3,6 @@ __pycache__/
 .env
 venv/
 *.sqlite3
-alembic/
 logs/
 *.log
 github

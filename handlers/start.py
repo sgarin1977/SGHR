@@ -3,6 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from database.session import get_session
+from services.rate_limit import RateLimitError
 from services.user import TelegramUserData, UserService
 from ui.texts import t
 
@@ -55,18 +56,22 @@ async def cmd_start(message: Message):
     language = normalize_language(message.from_user.language_code)
     first_name = message.from_user.first_name or t("start_default_first_name", language)
 
-    async with get_session() as session:
-        service = UserService(session)
+    try:
+        async with get_session() as session:
+            service = UserService(session)
 
-        result = await service.register_telegram_user(
-            TelegramUserData(
-                platform_user_id=str(message.from_user.id),
-                username=message.from_user.username,
-                first_name=message.from_user.first_name,
-                last_name=message.from_user.last_name,
-                language_code=language,
+            result = await service.register_telegram_user(
+                TelegramUserData(
+                    platform_user_id=str(message.from_user.id),
+                    username=message.from_user.username,
+                    first_name=message.from_user.first_name,
+                    last_name=message.from_user.last_name,
+                    language_code=language,
+                )
             )
-        )
+    except RateLimitError:
+        await message.answer(t("error_rate_limited", language))
+        return
 
     if result.role == "super_admin":
         role_text = t("role_text_super_admin", language)

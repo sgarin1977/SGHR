@@ -1765,6 +1765,195 @@ translations = {
         "pt": "O valor está acima do limite. Solicitação de segunda aprovação criada.",
     },
 
+    "cabinet_specialist_profile": {
+        "ru": "Профиль специалиста",
+        "en": "Specialist profile",
+        "pt": "Perfil do especialista",
+    },
+    "cabinet_view_profile": {
+        "ru": "Просмотреть профиль",
+        "en": "View profile",
+        "pt": "Ver perfil",
+    },
+    "cabinet_edit_profile": {
+        "ru": "Редактировать профиль",
+        "en": "Edit profile",
+        "pt": "Editar perfil",
+    },
+    "cabinet_edit_name": {
+        "ru": "Имя",
+        "en": "Name",
+        "pt": "Nome",
+    },
+    "cabinet_edit_description": {
+        "ru": "Описание",
+        "en": "Description",
+        "pt": "Descrição",
+    },
+    "cabinet_edit_contacts": {
+        "ru": "Контакты",
+        "en": "Contacts",
+        "pt": "Contatos",
+    },
+    "cabinet_edit_direction": {
+        "ru": "Направление",
+        "en": "Direction",
+        "pt": "Direção",
+    },
+    "cabinet_edit_profession": {
+        "ru": "Профессия",
+        "en": "Profession",
+        "pt": "Profissão",
+    },
+    "cabinet_edit_location": {
+        "ru": "Локация",
+        "en": "Location",
+        "pt": "Localização",
+    },
+    "cabinet_profile_title": {
+        "ru": "Профиль специалиста",
+        "en": "Specialist profile",
+        "pt": "Perfil do especialista",
+    },
+    "cabinet_profile_not_found": {
+        "ru": "Профиль специалиста не найден. Сначала предложите услуги.",
+        "en": "Specialist profile not found. Offer services first.",
+        "pt": "Perfil do especialista não encontrado. Ofereça serviços primeiro.",
+    },
+    "cabinet_profile_name": {
+        "ru": "Имя",
+        "en": "Name",
+        "pt": "Nome",
+    },
+    "cabinet_profile_status": {
+        "ru": "Статус",
+        "en": "Status",
+        "pt": "Status",
+    },
+    "cabinet_profile_description": {
+        "ru": "Описание",
+        "en": "Description",
+        "pt": "Descrição",
+    },
+    "cabinet_profile_contacts": {
+        "ru": "Контакты",
+        "en": "Contacts",
+        "pt": "Contatos",
+    },
+    "cabinet_profile_price": {
+        "ru": "Цена",
+        "en": "Price",
+        "pt": "Preço",
+    },
+    "cabinet_profile_location": {
+        "ru": "Локация",
+        "en": "Location",
+        "pt": "Localização",
+    },
+    "cabinet_enter_name": {
+        "ru": "Введите новое имя специалиста. Минимум 2 символа.",
+        "en": "Enter the new specialist name. Minimum 2 characters.",
+        "pt": "Digite o novo nome do especialista. Mínimo de 2 caracteres.",
+    },
+    "cabinet_enter_description": {
+        "ru": "Введите новое описание. Минимум 20 символов.",
+        "en": "Enter the new description. Minimum 20 characters.",
+        "pt": "Digite a nova descrição. Mínimo de 20 caracteres.",
+    },
+    "cabinet_enter_contact": {
+        "ru": "Введите новые контакты. Минимум 3 символа.",
+        "en": "Enter new contacts. Minimum 3 characters.",
+        "pt": "Digite novos contatos. Mínimo de 3 caracteres.",
+    },
+    "cabinet_profile_updated": {
+        "ru": "Профиль обновлен.",
+        "en": "Profile updated.",
+        "pt": "Perfil atualizado.",
+    },
+    "cabinet_profile_update_failed": {
+        "ru": "Не удалось обновить профиль: {error}",
+        "en": "Could not update profile: {error}",
+        "pt": "Não foi possível atualizar o perfil: {error}",
+    },
+    "cabinet_choose_direction": {
+        "ru": "Выберите направление:",
+        "en": "Choose a direction:",
+        "pt": "Escolha uma direção:",
+    },
+    "cabinet_choose_profession": {
+        "ru": "Выберите профессию:",
+        "en": "Choose a profession:",
+        "pt": "Escolha uma profissão:",
+    },
+
+    "cabinet_location_prompt": {
+        "ru": "Выберите способ обновления локации:",
+        "en": "Choose how to update location:",
+        "pt": "Escolha como atualizar a localização:",
+    },
+    "cabinet_location_manual": {
+        "ru": "Ввести город",
+        "en": "Enter city",
+        "pt": "Inserir cidade",
+    },
+    "cabinet_location_geo": {
+        "ru": "Отправить гео",
+        "en": "Send location",
+        "pt": "Enviar localização",
+    },
+    "cabinet_location_query_prompt": {
+        "ru": "Введите город или район.",
+        "en": "Enter city or district.",
+        "pt": "Digite cidade ou região.",
+    },
+    "cabinet_send_geo_btn": {
+        "ru": "Отправить геолокацию",
+        "en": "Send location",
+        "pt": "Enviar localização",
+    },
+    "cabinet_geo_required": {
+        "ru": "Отправьте геолокацию кнопкой ниже.",
+        "en": "Send location using the button below.",
+        "pt": "Envie a localização pelo botão abaixo.",
+    },
+    "cabinet_geo_candidates_prompt": {
+        "ru": "Выберите подходящий вариант:",
+        "en": "Choose the matching place:",
+        "pt": "Escolha o local correspondente:",
+    },
+    "cabinet_geo_candidates_not_found": {
+        "ru": "Не удалось найти варианты локации.",
+        "en": "Could not find location candidates.",
+        "pt": "Não foi possível encontrar locais.",
+    },
+    "cabinet_geo_provider_error": {
+        "ru": "Ошибка геосервиса: {error}",
+        "en": "Geo provider error: {error}",
+        "pt": "Erro do provedor geo: {error}",
+    },
+    "cabinet_location_updated": {
+        "ru": "Локация профиля обновлена.",
+        "en": "Profile location updated.",
+        "pt": "Localização do perfil atualizada.",
+    },
+
+    "contact_detection_warning": {
+        "ru": "Сообщение содержит внешние контакты или оплату вне SGHR. Эти данные замаскированы, а событие отправлено на проверку.",
+        "en": "The message contains external contacts or off-platform payment details. These details were masked and the event was sent for review.",
+        "pt": "A mensagem contém contatos externos ou pagamento fora da SGHR. Esses dados foram mascarados e o evento foi enviado para revisão.",
+    },
+
+    "favorite_saved": {
+        "ru": "Специалист добавлен в избранное.",
+        "en": "Specialist added to favorites.",
+        "pt": "Especialista adicionado aos favoritos.",
+    },
+    "favorite_removed": {
+        "ru": "Специалист удален из избранного.",
+        "en": "Specialist removed from favorites.",
+        "pt": "Especialista removido dos favoritos.",
+    },
+
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

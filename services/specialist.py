@@ -2,8 +2,10 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from database.repositories.legal import LegalRepository
+from database.repositories.rate_limit import RateLimitRepository
 from database.repositories.specialist import SpecialistRepository
 from services.legal import LegalService, MissingLegalDocumentError
+from services.rate_limit import RateLimitError, RateLimitService
 
 
 class SpecialistRegistrationError(Exception):
@@ -35,10 +37,38 @@ class SpecialistRegistrationData:
     language: str = "ru"
     work_format: str = "mixed"
 
+@dataclass
+class SpecialistProfileUpdateData:
+    tenant_id: UUID
+    user_id: UUID
+    specialist_id: UUID
+    display_name: str | None = None
+    short_description: str | None = None
+    contact_text: str | None = None
+    category_id: UUID | None = None
+    profession_id: UUID | None = None
+    country_id: UUID | None = None
+    city_id: UUID | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    service_radius_km: int | None = None
+
 
 class SpecialistService:
-    def __init__(self, repository: SpecialistRepository):
+    def __init__(
+        self,
+        repository: SpecialistRepository,
+        rate_limit_service: RateLimitService | None = None,
+    ):
         self.repository = repository
+        if rate_limit_service is not None:
+            self.rate_limit_service = rate_limit_service
+        elif hasattr(repository, "session"):
+            self.rate_limit_service = RateLimitService(
+                RateLimitRepository(repository.session)
+            )
+        else:
+            self.rate_limit_service = None
 
     async def _require_specialist_consents(self, data: SpecialistRegistrationData) -> None:
         legal_service = LegalService(LegalRepository(self.repository.session))
@@ -146,4 +176,78 @@ class SpecialistService:
             service_description=service_description,
             contact_text=contact_text,
             work_format=data.work_format or "mixed",
+        )
+    
+    async def update_profile(self, data: SpecialistProfileUpdateData):
+        existing = await self.repository.get_by_user_id(data.user_id)
+        if not existing or existing.id != data.specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        if self.rate_limit_service is not None:
+            try:
+                await self.rate_limit_service.ensure_profile_edit_allowed(
+                    tenant_id=data.tenant_id,
+                    user_id=data.user_id,
+                )
+            except RateLimitError as exc:
+                raise SpecialistRegistrationError(str(exc)) from exc
+
+        display_name = data.display_name.strip() if data.display_name is not None else None
+        short_description = (
+            data.short_description.strip()
+            if data.short_description is not None
+            else None
+        )
+        contact_text = data.contact_text.strip() if data.contact_text is not None else None
+
+        if display_name is not None and len(display_name) < 2:
+            raise SpecialistRegistrationError("Display name is too short.")
+
+        if short_description is not None and len(short_description) < 20:
+            raise SpecialistRegistrationError("Short description must be at least 20 characters.")
+
+        if contact_text is not None and len(contact_text) < 3:
+            raise SpecialistRegistrationError("Contact is too short.")
+
+        if data.category_id is not None:
+            category = await self.repository.get_active_category(data.category_id)
+            if not category:
+                raise SpecialistRegistrationError("Category not found or inactive.")
+
+        if data.profession_id is not None:
+            profession = await self.repository.get_active_profession(data.profession_id)
+            if not profession:
+                raise SpecialistRegistrationError("Profession not found or inactive.")
+
+            category_id = data.category_id or existing.category_id
+            if profession.category_id != category_id:
+                raise SpecialistRegistrationError("Profession does not belong to selected category.")
+
+        if data.country_id:
+            country = await self.repository.get_active_country(data.country_id)
+            if not country:
+                raise SpecialistRegistrationError("Country not found or inactive.")
+
+        if data.city_id:
+            city = await self.repository.get_active_city(data.city_id)
+            if not city:
+                raise SpecialistRegistrationError("City not found or inactive.")
+
+            country_id = data.country_id or existing.country_id
+            if country_id and city.country_id != country_id:
+                raise SpecialistRegistrationError("City does not belong to selected country.")
+
+        return await self.repository.update_specialist_profile_fields(
+            specialist_id=data.specialist_id,
+            user_id=data.user_id,
+            display_name=display_name,
+            short_description=short_description,
+            contact_text=contact_text,
+            category_id=data.category_id,
+            profession_id=data.profession_id,
+            country_id=data.country_id,
+            city_id=data.city_id,
+            latitude=data.latitude,
+            longitude=data.longitude,
+            service_radius_km=data.service_radius_km,
         )

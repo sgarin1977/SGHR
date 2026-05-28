@@ -1,5 +1,5 @@
+import logging
 from uuid import UUID
-
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -18,6 +18,7 @@ from ui.texts import t
 
 
 admin_router = Router()
+logger = logging.getLogger(__name__)
 
 
 class AdminModerationFSM(StatesGroup):
@@ -399,15 +400,31 @@ async def approve_pending_specialist(callback: CallbackQuery, state: FSMContext)
         return
 
     try:
+        specialist_id = UUID(ids[index])
         async with get_session() as session:
             result = await ModerationService(
                 ModerationRepository(session)
             ).approve_specialist(
                 admin_user_id=admin_user_id,
-                specialist_id=UUID(ids[index]),
+                specialist_id=specialist_id,
                 reason="approved from Telegram admin panel",
             )
+
+        logger.info(
+            "admin_specialist_approved telegram_id=%s admin_user_id=%s specialist_id=%s status=%s",
+            callback.from_user.id,
+            admin_user_id,
+            specialist_id,
+            result.status,
+        )
     except ModerationError as exc:
+        logger.warning(
+            "admin_specialist_approve_failed telegram_id=%s admin_user_id=%s specialist_id=%s error=%s",
+            callback.from_user.id,
+            admin_user_id,
+            ids[index],
+            exc,
+        )
         await callback.answer(str(exc), show_alert=True)
         return
 
@@ -453,15 +470,31 @@ async def receive_reject_specialist_reason(message: Message, state: FSMContext):
         return
 
     try:
+        specialist_uuid = UUID(specialist_id)
         async with get_session() as session:
             result = await ModerationService(
                 ModerationRepository(session)
             ).reject_specialist(
                 admin_user_id=admin_user_id,
-                specialist_id=UUID(specialist_id),
+                specialist_id=specialist_uuid,
                 reason=reason,
             )
+
+        logger.info(
+            "admin_specialist_rejected telegram_id=%s admin_user_id=%s specialist_id=%s status=%s",
+            message.from_user.id,
+            admin_user_id,
+            specialist_uuid,
+            result.status,
+        )
     except ModerationError as exc:
+        logger.warning(
+            "admin_specialist_reject_failed telegram_id=%s admin_user_id=%s specialist_id=%s error=%s",
+            message.from_user.id,
+            admin_user_id,
+            specialist_id,
+            exc,
+        )
         await message.answer(str(exc))
         return
 
@@ -598,16 +631,33 @@ async def receive_complaint_resolution_reason(message: Message, state: FSMContex
         return
 
     try:
+        complaint_uuid = UUID(complaint_id)
         async with get_session() as session:
             result = await ModerationService(
                 ModerationRepository(session)
             ).resolve_complaint(
                 admin_user_id=admin_user_id,
-                complaint_id=UUID(complaint_id),
+                complaint_id=complaint_uuid,
                 status=status,
                 reason=reason,
             )
+
+        logger.info(
+            "admin_complaint_updated telegram_id=%s admin_user_id=%s complaint_id=%s status=%s",
+            message.from_user.id,
+            admin_user_id,
+            complaint_uuid,
+            result.status,
+        )
     except ModerationError as exc:
+        logger.warning(
+            "admin_complaint_update_failed telegram_id=%s admin_user_id=%s complaint_id=%s status=%s error=%s",
+            message.from_user.id,
+            admin_user_id,
+            complaint_id,
+            status,
+            exc,
+        )
         await message.answer(str(exc))
         return
 
@@ -673,15 +723,31 @@ async def receive_block_reason(message: Message, state: FSMContext):
         return
 
     try:
+        user_uuid = UUID(user_id)
         async with get_session() as session:
             result = await ModerationService(
                 ModerationRepository(session)
             ).block_user(
                 admin_user_id=admin_user_id,
-                user_id=UUID(user_id),
+                user_id=user_uuid,
                 reason=reason,
             )
+
+        logger.info(
+            "admin_user_blocked telegram_id=%s admin_user_id=%s user_id=%s status=%s",
+            message.from_user.id,
+            admin_user_id,
+            user_uuid,
+            result.status,
+        )
     except ModerationError as exc:
+        logger.warning(
+            "admin_user_block_failed telegram_id=%s admin_user_id=%s user_id=%s error=%s",
+            message.from_user.id,
+            admin_user_id,
+            user_id,
+            exc,
+        )
         await message.answer(str(exc))
         return
 
@@ -708,7 +774,20 @@ async def list_pending_payments(callback: CallbackQuery, state: FSMContext):
                 admin_user_id=admin_user_id,
                 limit=10,
             )
+
+        logger.info(
+            "admin_pending_payments_listed telegram_id=%s admin_user_id=%s count=%s",
+            callback.from_user.id,
+            admin_user_id,
+            len(payments),
+        )
     except BillingError as exc:
+        logger.warning(
+            "admin_pending_payments_list_failed telegram_id=%s admin_user_id=%s error=%s",
+            callback.from_user.id,
+            admin_user_id,
+            exc,
+        )
         await callback.answer(str(exc), show_alert=True)
         return
 
@@ -801,15 +880,32 @@ async def receive_mark_payment_paid_reason(message: Message, state: FSMContext):
         return
 
     try:
+        payment_uuid = UUID(payment_id)
         async with get_session() as session:
             result = await BillingService(
                 BillingRepository(session)
             ).mark_payment_paid(
                 admin_user_id=admin_user_id,
-                payment_id=UUID(payment_id),
+                payment_id=payment_uuid,
                 reason=reason,
             )
+
+        logger.info(
+            "admin_payment_mark_paid telegram_id=%s admin_user_id=%s payment_id=%s approval_required=%s payment_status=%s",
+            message.from_user.id,
+            admin_user_id,
+            payment_uuid,
+            result.approval_required,
+            result.payment.status,
+        )
     except BillingError as exc:
+        logger.warning(
+            "admin_payment_mark_paid_failed telegram_id=%s admin_user_id=%s payment_id=%s error=%s",
+            message.from_user.id,
+            admin_user_id,
+            payment_id,
+            exc,
+        )
         await message.answer(str(exc))
         return
 

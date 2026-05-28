@@ -1,5 +1,5 @@
 from uuid import UUID
-
+import logging
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
@@ -13,9 +13,10 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-
 from database.models import User
 from database.repositories.event import EventRepository
+from database.repositories.rate_limit import RateLimitRepository
+from services.rate_limit import RateLimitError, RateLimitService
 from database.repositories.geo_repository import GeoRepository
 from database.repositories.legal import LegalRepository
 from database.repositories.specialist import SpecialistRepository
@@ -32,7 +33,7 @@ from services.specialist import (
 from ui.texts import t
 
 specialist_form_router = Router()
-
+logger = logging.getLogger(__name__)
 PER_PAGE = 8
 LANGUAGE_OPTIONS = {
     "ru": "Русский",
@@ -226,6 +227,11 @@ async def register_specialist(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     language = callback.from_user.language_code or "ru"
 
+    logger.info(
+        "specialist_registration_started telegram_id=%s",
+        callback.from_user.id,
+    )
+
     async with get_session() as session:
         user = await get_current_user(session, callback.from_user.id)
         if not user:
@@ -238,6 +244,11 @@ async def register_specialist(callback: CallbackQuery, state: FSMContext):
         try:
             has_consents = await ensure_specialist_consents(session, user)
         except MissingLegalDocumentError as exc:
+            logger.warning(
+                "specialist_registration_legal_documents_missing telegram_id=%s error=%s",
+                callback.from_user.id,
+                exc,
+            )
             await callback.message.answer(
                 t("spec_legal_docs_missing", language).format(error=exc)
             )
@@ -534,11 +545,24 @@ async def search_city_query(message: Message, state: FSMContext):
                 language=language,
                 limit=8,
             )
+            logger.info(
+                "specialist_geo_search_completed telegram_id=%s query=%r candidates=%s",
+                message.from_user.id,
+                query,
+                len(candidates),
+            )
     except GeoServiceError as exc:
+        logger.warning(
+            "specialist_geo_search_failed telegram_id=%s error=%s",
+            message.from_user.id,
+            exc,
+        )
         await message.answer(
             t("spec_geo_provider_error", language).format(error=exc)
         )
         return
+
+    
 
     if not candidates:
         await message.answer(t("spec_geo_candidates_not_found", language))
@@ -570,8 +594,56 @@ async def choose_geo_place(callback: CallbackQuery, state: FSMContext):
 
     try:
         async with get_session() as session:
+            user = await UserRepository(session).get_by_platform_account(
+                platform="telegram",
+                platform_user_id=str(callback.from_user.id),
+            )
+            if user:
+                await RateLimitService(
+                    RateLimitRepository(session)
+                ).ensure_geo_change_allowed(
+                    tenant_id=UUID(data["tenant_id"]),
+                    user_id=user.user_id,
+                )
+
             place = await GeoService(GeoRepository(session)).confirm_place(candidate)
+
+            if user:
+                await EventRepository(session).create_event(
+                    event_type="geo_change",
+                    tenant_id=UUID(data["tenant_id"]),
+                    user_id=user.user_id,
+                    entity_type="city",
+                    entity_id=place.city_id,
+                    payload={
+                        "source": "specialist_registration",
+                        "country_id": str(place.country_id),
+                    },
+                    platform="telegram",
+                )
+                await session.commit()
+
+            logger.info(
+                "specialist_geo_place_confirmed telegram_id=%s city_id=%s country_id=%s",
+                callback.from_user.id,
+                place.city_id,
+                place.country_id,
+            )
+    except RateLimitError as exc:
+        logger.warning(
+            "specialist_geo_change_rate_limited telegram_id=%s error=%s",
+            callback.from_user.id,
+            exc,
+        )
+        await callback.message.answer(t("error_rate_limited", language))
+        await callback.answer()
+        return
     except GeoServiceError as exc:
+        logger.warning(
+            "specialist_geo_place_confirm_failed telegram_id=%s error=%s",
+            callback.from_user.id,
+            exc,
+        )
         await callback.message.answer(
             t("spec_geo_provider_error", language).format(error=exc)
         )
@@ -648,6 +720,12 @@ async def receive_geo_location(message: Message, state: FSMContext):
                 limit=4,
             )
 
+            logger.info(
+                "specialist_geo_nearby_completed telegram_id=%s candidates=%s",
+                message.from_user.id,
+                len(candidates),
+            )
+
             if not candidates:
                 fallback = await reverse_location_candidate(
                     session,
@@ -657,6 +735,11 @@ async def receive_geo_location(message: Message, state: FSMContext):
                 )
                 candidates = [fallback] if fallback else []
     except GeoServiceError as exc:
+        logger.warning(
+            "specialist_geo_nearby_failed telegram_id=%s error=%s",
+            message.from_user.id,
+            exc,
+        )
         await message.answer(
             t("spec_geo_provider_error", language).format(error=exc),
             reply_markup=ReplyKeyboardRemove(),
@@ -849,7 +932,17 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
                     contact_text=data["contact_text"],
                 )
             )
+            logger.info(
+            "specialist_registration_submitted telegram_id=%s specialist_id=%s",
+            callback.from_user.id,
+            specialist.id,
+)
         except SpecialistRegistrationError as exc:
+            logger.warning(
+                "specialist_registration_failed telegram_id=%s error=%s",
+                callback.from_user.id,
+                exc,
+            )
             await callback.message.answer(
             t("spec_create_failed", language).format(error=exc))
             await callback.answer()

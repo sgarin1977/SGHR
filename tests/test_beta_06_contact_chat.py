@@ -21,6 +21,10 @@ from database.models import (
     AbuseEvent,
     RateLimitRule,
     TranslationJob,
+    ContactDetectionEvent,
+    Message,
+    RiskFlag,
+    ThreadRestriction,
 )
 
 from database.repositories.contact import ContactChatRepository
@@ -1297,6 +1301,47 @@ def test_contact_finish_flow_is_real_not_placeholder():
 
     assert len("contact_finish".encode("utf-8")) <= 64
 
+async def test_contact_request_rejects_duplicate_active_request(db_session):
+    client_platform_id, client_user_id, client_tenant_id = await create_test_user(
+        db_session,
+        prefix="test-contact-client-duplicate",
+    )
+    specialist_platform_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    try:
+        service = ContactChatService(ContactChatRepository(db_session))
+        service.rate_limit_service = None
+
+        first = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, please help with this first beta service.",
+            original_language="en",
+        )
+
+        assert first.contact_request_id is not None
+
+        try:
+            await service.create_contact_request(
+                tenant_id=tenant_id,
+                from_user_id=client_user_id,
+                specialist_id=specialist.id,
+                message="Hello, please help with this second beta service.",
+                original_language="en",
+            )
+        except ContactChatError as exc:
+            assert "active contact request" in str(exc)
+        else:
+            raise AssertionError("Duplicate active contact request was not rejected")
+
+    finally:
+        await cleanup_test_user(db_session, client_platform_id)
+        await cleanup_test_user(db_session, specialist_platform_id)
+        await cleanup_legal_documents(db_session, tenant_id)
+
 async def test_contact_request_rate_limit_blocks_excess_requests_and_logs_abuse(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
@@ -1357,7 +1402,12 @@ async def test_contact_request_rate_limit_blocks_excess_requests_and_logs_abuse(
         )
 
         assert first.contact_request_id is not None
-
+        await service.set_contact_request_status(
+            contact_request_id=first.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="reject",
+        )
         try:
             await service.create_contact_request(
                 tenant_id=tenant_id,
@@ -1606,3 +1656,131 @@ def test_contact_request_flow_requires_message_confirmation_before_create():
     )[0]
 
     assert "ContactChatService(ContactChatRepository(session)).create_contact_request" in confirm_handler
+
+async def test_contact_request_masks_external_contacts_and_logs_detection(db_session):
+    client_platform_user_id, client_user_id, tenant_id = await create_test_user(
+        db_session,
+        prefix="test-contact-detection-client",
+    )
+    specialist_platform_user_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    try:
+        service = ContactChatService(ContactChatRepository(db_session))
+
+        result = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Please contact me by email test@example.com or Telegram @testuser123.",
+            original_language="en",
+        )
+
+        assert result.message_masked is True
+        assert "email" in result.detection_types
+        assert "telegram_username" in result.detection_types
+
+        message = await db_session.get(Message, result.first_message_id)
+        assert message is not None
+        assert message.is_masked is True
+        assert "test@example.com" not in message.original_text
+        assert "@testuser123" not in message.original_text
+        assert "[masked]" in message.original_text
+
+        detection_events = (
+            await db_session.execute(
+                select(ContactDetectionEvent).where(
+                    ContactDetectionEvent.message_id == result.first_message_id
+                )
+            )
+        ).scalars().all()
+        assert {event.detected_type for event in detection_events}.issuperset(
+            {"email", "telegram_username"}
+        )
+
+        risk_flag = (
+            await db_session.execute(
+                select(RiskFlag).where(
+                    RiskFlag.entity_type == "message",
+                    RiskFlag.entity_id == result.first_message_id,
+                    RiskFlag.flag_code == "off_platform_contact",
+                )
+            )
+        ).scalar_one_or_none()
+        assert risk_flag is not None
+        assert risk_flag.status == "open"
+    finally:
+        await cleanup_test_user(db_session, client_platform_user_id)
+        await cleanup_test_user(db_session, specialist_platform_user_id)
+
+
+async def test_thread_message_with_external_payment_restricts_thread(db_session):
+    client_platform_user_id, client_user_id, tenant_id = await create_test_user(
+        db_session,
+        prefix="test-payment-detection-client",
+    )
+    specialist_platform_user_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    try:
+        service = ContactChatService(ContactChatRepository(db_session))
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, I need a normal consultation inside SGHR.",
+            original_language="en",
+        )
+
+        await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        sent = await service.send_thread_message(
+            thread_id=created.thread_id,
+            sender_user_id=client_user_id,
+            text="I can pay directly by PayPal after the call.",
+            original_language="en",
+        )
+
+        assert sent.message_masked is True
+        assert "external_payment" in sent.detection_types
+        assert sent.thread_restricted is True
+
+        message = await db_session.get(Message, sent.message_id)
+        assert message is not None
+        assert message.is_masked is True
+        assert "PayPal" not in message.original_text
+        assert "[masked]" in message.original_text
+
+        restriction = (
+            await db_session.execute(
+                select(ThreadRestriction).where(
+                    ThreadRestriction.thread_id == created.thread_id,
+                    ThreadRestriction.status == "active",
+                    ThreadRestriction.reason == "off_platform_payment",
+                )
+            )
+        ).scalar_one_or_none()
+        assert restriction is not None
+
+        risk_flag = (
+            await db_session.execute(
+                select(RiskFlag).where(
+                    RiskFlag.entity_type == "message",
+                    RiskFlag.entity_id == sent.message_id,
+                    RiskFlag.flag_code == "off_platform_contact",
+                )
+            )
+        ).scalar_one_or_none()
+        assert risk_flag is not None
+        assert risk_flag.severity == "high"
+    finally:
+        await cleanup_test_user(db_session, client_platform_user_id)
+        await cleanup_test_user(db_session, specialist_platform_user_id)

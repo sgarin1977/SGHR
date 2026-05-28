@@ -7,7 +7,8 @@ from database.repositories.moderation import (
     ModerationNotFoundError,
     ModerationRepository,
 )
-
+from database.repositories.rate_limit import RateLimitRepository
+from services.rate_limit import RateLimitError, RateLimitService
 
 class ModerationError(Exception):
     pass
@@ -21,8 +22,20 @@ class ModerationActionResult:
 
 
 class ModerationService:
-    def __init__(self, repository: ModerationRepository):
+    def __init__(
+        self,
+        repository: ModerationRepository,
+        rate_limit_service: RateLimitService | None = None,
+    ):
         self.repository = repository
+        if rate_limit_service is not None:
+            self.rate_limit_service = rate_limit_service
+        elif hasattr(repository, "session"):
+            self.rate_limit_service = RateLimitService(
+                RateLimitRepository(repository.session)
+            )
+        else:
+            self.rate_limit_service = None
 
     async def get_admin_roles(self, user_id: UUID) -> set[str]:
         return await self.repository.get_admin_roles(user_id)
@@ -113,6 +126,15 @@ class ModerationService:
     ) -> Complaint:
         normalized_reason = self._require_reason(reason)
         normalized_target_type = self._normalize_target_type(target_type)
+
+        if self.rate_limit_service is not None:
+            try:
+                await self.rate_limit_service.ensure_complaint_allowed(
+                    tenant_id=tenant_id,
+                    user_id=reporter_user_id,
+                )
+            except RateLimitError as exc:
+                raise ModerationError(str(exc)) from exc
 
         try:
             complaint = await self.repository.create_complaint(

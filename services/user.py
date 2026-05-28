@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import User
 from database.repositories.user import UserRepository
 from database.repositories.event import EventRepository
+from database.repositories.rate_limit import RateLimitRepository
+from services.rate_limit import RateLimitService
 
 @dataclass(frozen=True)
 class TelegramUserData:
@@ -70,6 +72,14 @@ class UserService:
         if existing_account:
             user = await self.session.get(User, existing_account.user_id)
 
+            if user:
+                await RateLimitService(
+                    RateLimitRepository(self.session)
+                ).ensure_start_allowed(
+                    tenant_id=user.tenant_id,
+                    user_id=existing_account.user_id,
+                )
+
             await self.events.create_event(
                 event_type="user_started",
                 tenant_id=user.tenant_id if user else None,
@@ -101,6 +111,14 @@ class UserService:
         )
 
         user = await self.session.get(User, user_id)
+
+        if user:
+            await RateLimitService(
+                RateLimitRepository(self.session)
+            ).ensure_start_allowed(
+                tenant_id=user.tenant_id,
+                user_id=user_id,
+            )
 
         await self.events.create_event(
             event_type="user_started",

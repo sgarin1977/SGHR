@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from database.repositories.contact import ContactChatRepository
-
+from database.repositories.contact_detection import ContactDetectionRepository
+from services.contact_detection import ContactDetectionService
 from database.repositories.rate_limit import RateLimitRepository
 from services.rate_limit import RateLimitError, RateLimitService
 
@@ -18,7 +19,9 @@ class ContactRequestResult:
     notification_id: UUID
     specialist_user_id: UUID
     contact_token: str
-
+    message_masked: bool = False
+    detection_types: list[str] | None = None
+    thread_restricted: bool = False
 
 @dataclass
 class ContactRequestStatusResult:
@@ -35,6 +38,9 @@ class ContactThreadMessageResult:
     sender_user_id: UUID
     receiver_user_id: UUID
     thread_status: str
+    message_masked: bool = False
+    detection_types: list[str] | None = None
+    thread_restricted: bool = False
 
 @dataclass
 class ContactReadReceiptResult:
@@ -102,6 +108,16 @@ class ContactChatService:
         if specialist.user_id == from_user_id:
             raise ContactChatError("You cannot contact your own specialist profile.")
 
+        existing_contact_request = await self.repository.get_active_contact_request_for_pair(
+            tenant_id=tenant_id,
+            from_user_id=from_user_id,
+            specialist_id=specialist.id,
+        )
+        if existing_contact_request:
+            raise ContactChatError(
+                "You already have an active contact request with this specialist."
+            )
+
         contact_request, thread, first_message, notification = (
             await self.repository.create_contact_request_with_thread(
                 tenant_id=tenant_id,
@@ -114,7 +130,9 @@ class ContactChatService:
         )
 
         contact_token = (contact_request.extra_metadata or {}).get("contact_token", "")
-
+        detection_result = await ContactDetectionService(
+            ContactDetectionRepository(self.repository.session)
+        ).process_message(first_message.id)
         return ContactRequestResult(
             contact_request_id=contact_request.id,
             thread_id=thread.id,
@@ -122,6 +140,9 @@ class ContactChatService:
             notification_id=notification.id,
             specialist_user_id=specialist.user_id,
             contact_token=contact_token,
+            message_masked=detection_result.is_masked,
+            detection_types=detection_result.detected_types,
+            thread_restricted=detection_result.thread_restricted,
         )
 
     async def set_contact_request_status(
@@ -192,6 +213,22 @@ class ContactChatService:
     ) -> ContactThreadMessageResult:
         normalized_text = self._validate_contact_message(text)
 
+        if self.rate_limit_service is not None:
+            try:
+                thread = await self.repository.get_thread_for_user(
+                    thread_id=thread_id,
+                    user_id=sender_user_id,
+                )
+                if not thread:
+                    raise ContactChatError("Conversation thread not found.")
+
+                await self.rate_limit_service.ensure_chat_message_allowed(
+                    tenant_id=thread.tenant_id,
+                    user_id=sender_user_id,
+                )
+            except RateLimitError as exc:
+                raise ContactChatError(str(exc)) from exc
+
         try:
             thread, message, notification = await self.repository.create_thread_message(
                 thread_id=thread_id,
@@ -201,7 +238,9 @@ class ContactChatService:
             )
         except ValueError as exc:
             raise ContactChatError(str(exc)) from exc
-
+        detection_result = await ContactDetectionService(
+            ContactDetectionRepository(self.repository.session)
+        ).process_message(message.id)
         return ContactThreadMessageResult(
             thread_id=thread.id,
             message_id=message.id,
@@ -209,6 +248,9 @@ class ContactChatService:
             sender_user_id=message.sender_user_id,
             receiver_user_id=message.receiver_user_id,
             thread_status=thread.status,
+            message_masked=detection_result.is_masked,
+            detection_types=detection_result.detected_types,
+            thread_restricted=detection_result.thread_restricted,
         )
     
     async def mark_thread_message_read(
