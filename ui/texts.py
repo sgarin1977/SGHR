@@ -1644,6 +1644,127 @@ translations = {
         "pt": "Denúncia recebida. Um moderador analisará o perfil.",
     },
 
+    "billing_panel_title": {
+        "ru": "Монетизация профиля",
+        "en": "Profile monetization",
+        "pt": "Monetização do perfil",
+    },
+    "billing_promotions": {
+        "ru": "Продвижение профиля",
+        "en": "Profile promotion",
+        "pt": "Promoção do perfil",
+    },
+    "billing_features_title": {
+        "ru": "Выберите платное продвижение:",
+        "en": "Choose a paid promotion:",
+        "pt": "Escolha uma promoção paga:",
+    },
+    "billing_no_features": {
+        "ru": "Платные функции пока не настроены.",
+        "en": "Paid features are not configured yet.",
+        "pt": "Os recursos pagos ainda não estão configurados.",
+    },
+    "billing_price": {
+        "ru": "Цена",
+        "en": "Price",
+        "pt": "Preço",
+    },
+    "billing_period": {
+        "ru": "Период",
+        "en": "Period",
+        "pt": "Período",
+    },
+    "billing_period_days": {
+        "ru": "{days} дн.",
+        "en": "{days} days",
+        "pt": "{days} dias",
+    },
+    "billing_period_not_set": {
+        "ru": "не указан",
+        "en": "not set",
+        "pt": "não definido",
+    },
+    "billing_back": {
+        "ru": "Назад",
+        "en": "Back",
+        "pt": "Voltar",
+    },
+    "billing_i_paid": {
+        "ru": "Я оплатил",
+        "en": "I paid",
+        "pt": "Eu paguei",
+    },
+    "billing_start_required": {
+        "ru": "Сначала нажмите /start.",
+        "en": "Please press /start first.",
+        "pt": "Pressione /start primeiro.",
+    },
+    "billing_invoice_created": {
+        "ru": "Инвойс создан. Оплатите вручную по реквизитам ниже.",
+        "en": "Invoice created. Please pay manually using the instructions below.",
+        "pt": "Fatura criada. Pague manualmente usando as instruções abaixo.",
+    },
+    "billing_invoice_id": {
+        "ru": "Инвойс",
+        "en": "Invoice",
+        "pt": "Fatura",
+    },
+    "billing_amount": {
+        "ru": "Сумма",
+        "en": "Amount",
+        "pt": "Valor",
+    },
+    "billing_manual_instructions_title": {
+        "ru": "Реквизиты оплаты:",
+        "en": "Payment instructions:",
+        "pt": "Instruções de pagamento:",
+    },
+    "billing_payment_claimed": {
+        "ru": "Заявка об оплате отправлена. Статус: {status}",
+        "en": "Payment claim sent. Status: {status}",
+        "pt": "Solicitação de pagamento enviada. Status: {status}",
+    },
+    "billing_payment_method": {
+        "ru": "Метод оплаты",
+        "en": "Payment method",
+        "pt": "Método de pagamento",
+    },
+    "admin_pending_payments": {
+        "ru": "Оплаты на проверке",
+        "en": "Pending payments",
+        "pt": "Pagamentos pendentes",
+    },
+    "admin_no_pending_payments": {
+        "ru": "Нет оплат на проверке.",
+        "en": "No pending payments.",
+        "pt": "Não há pagamentos pendentes.",
+    },
+    "admin_pending_payment_title": {
+        "ru": "Оплата на проверке {index}/{total}",
+        "en": "Pending payment {index}/{total}",
+        "pt": "Pagamento pendente {index}/{total}",
+    },
+    "admin_mark_payment_paid": {
+        "ru": "Отметить оплату",
+        "en": "Mark paid",
+        "pt": "Marcar como pago",
+    },
+    "admin_invoice_status": {
+        "ru": "Статус инвойса",
+        "en": "Invoice status",
+        "pt": "Status da fatura",
+    },
+    "admin_payment_marked_paid": {
+        "ru": "Оплата подтверждена.\nИнвойс: {invoice_status}\nПлатёж: {payment_status}\nПродвижение: {promotion_status}",
+        "en": "Payment confirmed.\nInvoice: {invoice_status}\nPayment: {payment_status}\nPromotion: {promotion_status}",
+        "pt": "Pagamento confirmado.\nFatura: {invoice_status}\nPagamento: {payment_status}\nPromoção: {promotion_status}",
+    },
+    "admin_payment_approval_required": {
+        "ru": "Сумма выше порога. Создан запрос на второе подтверждение.",
+        "en": "Amount is above the threshold. Second approval request created.",
+        "pt": "O valor está acima do limite. Solicitação de segunda aprovação criada.",
+    },
+
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

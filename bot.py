@@ -9,6 +9,7 @@ from fsm.specialist_form import specialist_form_router
 from handlers.search import search_router
 from handlers.settings import settings_router
 from handlers.admin import admin_router
+from handlers.billing import billing_router
 logging.basicConfig(level=logging.INFO)
 
 async def main():
@@ -21,6 +22,7 @@ async def main():
     dp.include_router(search_router)
     dp.include_router(settings_router)
     dp.include_router(admin_router)
+    dp.include_router(billing_router)
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 

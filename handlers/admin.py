@@ -6,11 +6,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from database.models import Complaint, Specialist
+from database.models import Complaint, Invoice, Payment, Specialist
 from database.repositories.moderation import ModerationRepository
+from database.repositories.billing import BillingRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard, normalize_language
 from services.moderation import ModerationError, ModerationService
+from services.billing import BillingError, BillingService
 from services.user import UserService
 from ui.texts import t
 
@@ -22,6 +24,7 @@ class AdminModerationFSM(StatesGroup):
     entering_reject_reason = State()
     entering_complaint_resolution_reason = State()
     entering_block_reason = State()
+    entering_payment_paid_reason = State()
 
 
 async def get_admin_user_context(telegram_id: int | str):
@@ -48,6 +51,12 @@ def admin_panel_keyboard(language: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=t("admin_open_complaints", language),
                     callback_data="ADM_COMPLAINTS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_pending_payments", language),
+                    callback_data="ADM_PAYMENTS",
                 )
             ],
             [
@@ -173,6 +182,64 @@ def format_pending_specialist_card(
         f"{specialist.short_description}"
     )
 
+def pending_payment_keyboard(index: int, total: int, language: str) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_mark_payment_paid", language),
+                callback_data=f"ADM_PAY_PAID:{index}",
+            )
+        ],
+    ]
+
+    nav = []
+    if index > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_PAY_VIEW:{index - 1}",
+            )
+        )
+    if index + 1 < total:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_PAY_VIEW:{index + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_pending_payment_card(
+    payment: Payment,
+    invoice: Invoice | None,
+    *,
+    index: int,
+    total: int,
+    language: str,
+) -> str:
+    invoice_status = invoice.status if invoice else t("admin_item_not_found", language)
+    invoice_id = invoice.id if invoice else payment.invoice_id
+
+    return (
+        f"{t('admin_pending_payment_title', language).format(index=index + 1, total=total)}\n\n"
+        f"{t('billing_invoice_id', language)}: {invoice_id}\n"
+        f"{t('billing_amount', language)}: {payment.amount} {payment.currency}\n"
+        f"{t('admin_status', language)}: {payment.status}\n"
+        f"{t('admin_invoice_status', language)}: {invoice_status}\n"
+        f"{t('billing_payment_method', language)}: {payment.payment_method}"
+    )
 
 def format_complaint_card(
     complaint: Complaint,
@@ -621,5 +688,143 @@ async def receive_block_reason(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
         t("admin_user_blocked", language).format(status=result.status),
+        reply_markup=admin_panel_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_PAYMENTS")
+async def list_pending_payments(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+
+    if not admin_user_id or not roles:
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            payments = await BillingService(
+                BillingRepository(session)
+            ).list_pending_manual_payments(
+                admin_user_id=admin_user_id,
+                limit=10,
+            )
+    except BillingError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    if not payments:
+        await callback.message.answer(
+            t("admin_no_pending_payments", language),
+            reply_markup=admin_panel_keyboard(language),
+        )
+        await callback.answer()
+        return
+
+    await state.update_data(admin_payment_ids=[str(item.id) for item in payments])
+    await show_pending_payment(callback, state, index=0)
+
+
+async def show_pending_payment(callback: CallbackQuery, state: FSMContext, index: int):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    ids = data.get("admin_payment_ids") or []
+
+    if not ids:
+        await callback.message.answer(
+            t("admin_no_pending_payments", language),
+            reply_markup=admin_panel_keyboard(language),
+        )
+        await callback.answer()
+        return
+
+    index = max(0, min(int(index), len(ids) - 1))
+
+    async with get_session() as session:
+        payment = await session.get(Payment, UUID(ids[index]))
+        invoice = await session.get(Invoice, payment.invoice_id) if payment else None
+
+    if not payment:
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await callback.message.answer(
+        format_pending_payment_card(
+            payment,
+            invoice,
+            index=index,
+            total=len(ids),
+            language=language,
+        ),
+        reply_markup=pending_payment_keyboard(index, len(ids), language),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data.startswith("ADM_PAY_VIEW:"))
+async def view_pending_payment(callback: CallbackQuery, state: FSMContext):
+    index = int(callback.data.split(":", 1)[1])
+    await show_pending_payment(callback, state, index=index)
+
+
+@admin_router.callback_query(F.data.startswith("ADM_PAY_PAID:"))
+async def ask_mark_payment_paid_reason(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    index = int(callback.data.split(":", 1)[1])
+    ids = data.get("admin_payment_ids") or []
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(admin_payment_id=ids[index])
+    await state.set_state(AdminModerationFSM.entering_payment_paid_reason)
+    await callback.message.answer(t("admin_reason_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_payment_paid_reason)
+async def receive_mark_payment_paid_reason(message: Message, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(message.from_user.language_code)
+    reason = (message.text or "").strip()
+    payment_id = data.get("admin_payment_id")
+
+    if len(reason) < 3:
+        await message.answer(t("admin_reason_too_short", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
+    if not admin_user_id or not roles or not payment_id:
+        await message.answer(t("admin_access_denied", language))
+        await state.clear()
+        return
+
+    try:
+        async with get_session() as session:
+            result = await BillingService(
+                BillingRepository(session)
+            ).mark_payment_paid(
+                admin_user_id=admin_user_id,
+                payment_id=UUID(payment_id),
+                reason=reason,
+            )
+    except BillingError as exc:
+        await message.answer(str(exc))
+        return
+
+    await state.clear()
+
+    if result.approval_required:
+        text = t("admin_payment_approval_required", language)
+    else:
+        text = t("admin_payment_marked_paid", language).format(
+            invoice_status=result.invoice.status,
+            payment_status=result.payment.status,
+            promotion_status=result.promotion.status if result.promotion else "-",
+        )
+
+    await message.answer(
+        text,
         reply_markup=admin_panel_keyboard(language),
     )
