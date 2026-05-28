@@ -550,7 +550,11 @@ class SpecialistSearchRepository:
         if not country_wide:
             stmt = stmt.where(distance_expr <= radius_km)
 
-        stmt = stmt.order_by(distance_expr.asc()).limit(max(1, int(limit)))
+        stmt = stmt.order_by(
+            distance_expr.asc(),
+            Specialist.created_at.desc(),
+            Specialist.id.asc(),
+        ).limit(max(1, int(limit)))
 
         result = await self.session.execute(stmt)
         return [(specialist, float(distance or 0)) for specialist, distance in result.all()]

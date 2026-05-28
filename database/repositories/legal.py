@@ -38,16 +38,31 @@ class LegalRepository:
         docs = result.scalars().all()
 
         selected = {}
+        def language_rank(doc: LegalDocument) -> int:
+            return languages.index(doc.language) if doc.language in languages else 99
+
+        def freshness_key(doc: LegalDocument):
+            return (
+                doc.effective_from or doc.created_at,
+                doc.created_at,
+                doc.version,
+            )
+
+        selected = {}
         for doc in docs:
             current = selected.get(doc.doc_type)
             if current is None:
                 selected[doc.doc_type] = doc
                 continue
 
-            current_rank = languages.index(current.language) if current.language in languages else 99
-            doc_rank = languages.index(doc.language) if doc.language in languages else 99
+            current_rank = language_rank(current)
+            doc_rank = language_rank(doc)
 
             if doc_rank < current_rank:
+                selected[doc.doc_type] = doc
+                continue
+
+            if doc_rank == current_rank and freshness_key(doc) > freshness_key(current):
                 selected[doc.doc_type] = doc
 
         return selected

@@ -383,8 +383,10 @@ class GeoSearchService:
             results.sort(
                 key=lambda item: (
                     item.distance_km if item.distance_km is not None else 999999,
+                    -(item.specialist.created_at or datetime.min).timestamp(),
                     -item.ranking_score,
                     -float(item.specialist.rating or 0),
+                    str(item.specialist.id),
                 )
             )
         else:
