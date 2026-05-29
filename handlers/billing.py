@@ -1,7 +1,7 @@
 import logging
 import logging
 from uuid import UUID
-
+from services.geo_provider import GeoPlaceCandidate
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -271,11 +271,15 @@ def location_edit_keyboard(language: str) -> InlineKeyboardMarkup:
 
 def geo_candidates_keyboard(candidates: list[dict], language: str) -> InlineKeyboardMarkup:
     rows = []
+    country_rows = []
+    seen_countries = set()
 
     for index, candidate in enumerate(candidates):
         name = candidate.get("name") or candidate.get("display_name") or "-"
         country = candidate.get("country_name") or candidate.get("country_code") or "-"
+        country_code = str(candidate.get("country_code") or "").upper()
         place_type = candidate.get("place_type") or candidate.get("osm_type") or "place"
+
         rows.append(
             [
                 InlineKeyboardButton(
@@ -284,6 +288,20 @@ def geo_candidates_keyboard(candidates: list[dict], language: str) -> InlineKeyb
                 )
             ]
         )
+
+        country_key = country_code or country
+        if country_key and country_key not in seen_countries:
+            seen_countries.add(country_key)
+            country_rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"{t('cabinet_location_whole_country', language)}: {country}",
+                        callback_data=f"CAB_GEO_COUNTRY:{index}",
+                    )
+                ]
+            )
+
+    rows.extend(country_rows)
 
     rows.append(
         [
@@ -751,6 +769,94 @@ async def choose_specialist_location_update(callback: CallbackQuery, state: FSMC
         await callback.answer(t("error_rate_limited", language), show_alert=True)
         return
     except (GeoServiceError, SpecialistRegistrationError) as exc:
+        await callback.answer(
+            t("cabinet_profile_update_failed", language).format(error=str(exc)),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(None)
+    await callback.message.answer(
+        t("cabinet_location_updated", language),
+        reply_markup=specialist_profile_keyboard(language),
+    )
+    await callback.answer()
+
+@billing_router.callback_query(F.data.startswith("CAB_GEO_COUNTRY:"))
+async def choose_specialist_country_update(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    candidates = data.get("cabinet_geo_candidates") or []
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+        candidate = candidates[index]
+        place_candidate = GeoPlaceCandidate.from_state(candidate)
+    except (IndexError, TypeError, ValueError, KeyError):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    user_id = data.get("cabinet_user_id")
+    tenant_id = data.get("cabinet_tenant_id")
+    specialist_id = data.get("cabinet_specialist_id")
+
+    if not user_id or not tenant_id or not specialist_id:
+        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        await state.clear()
+        return
+
+    if not place_candidate.country_code or len(place_candidate.country_code) != 2:
+        await callback.answer(t("cabinet_geo_candidates_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            await RateLimitService(
+                RateLimitRepository(session)
+            ).ensure_geo_change_allowed(
+                tenant_id=UUID(tenant_id),
+                user_id=UUID(user_id),
+            )
+
+            country = await GeoRepository(session).ensure_country(place_candidate)
+
+            specialist = await SpecialistService(
+                SpecialistRepository(session)
+            ).update_profile(
+                SpecialistProfileUpdateData(
+                    tenant_id=UUID(tenant_id),
+                    user_id=UUID(user_id),
+                    specialist_id=UUID(specialist_id),
+                    country_id=country.id,
+                    city_id=None,
+                    latitude=None,
+                    longitude=None,
+                    service_radius_km=0,
+                    clear_city=True,
+                    clear_coordinates=True,
+                )
+            )
+
+            await EventRepository(session).create_event(
+                event_type="geo_change",
+                tenant_id=UUID(tenant_id),
+                user_id=UUID(user_id),
+                entity_type="country",
+                entity_id=country.id,
+                payload={
+                    "source": "specialist_profile_edit",
+                    "specialist_id": str(specialist.id),
+                    "country_id": str(country.id),
+                    "whole_country": True,
+                },
+                platform="telegram",
+            )
+            await session.commit()
+
+    except RateLimitError:
+        await callback.answer(t("error_rate_limited", language), show_alert=True)
+        return
+    except SpecialistRegistrationError as exc:
         await callback.answer(
             t("cabinet_profile_update_failed", language).format(error=str(exc)),
             show_alert=True,

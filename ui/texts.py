@@ -1958,6 +1958,11 @@ translations = {
         "en": "Too many actions in a short time. Please try again later.",
         "pt": "Muitas ações em pouco tempo. Tente novamente mais tarde.",
     },
+    "cabinet_location_whole_country": {
+        "ru": "Вся страна",
+        "en": "Whole country",
+        "pt": "Todo o país",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

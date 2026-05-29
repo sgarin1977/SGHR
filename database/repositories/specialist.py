@@ -278,6 +278,8 @@ class SpecialistRepository:
         city_id: UUID | None = None,
         latitude: float | None = None,
         longitude: float | None = None,
+        clear_city: bool = False,
+        clear_coordinates: bool = False,
         service_radius_km: int | None = None,
     ) -> Specialist:
         specialist = await self.session.get(Specialist, specialist_id)
@@ -310,14 +312,20 @@ class SpecialistRepository:
         if country_id is not None:
             specialist.country_id = country_id
 
-        if city_id is not None:
+        if clear_city:
+            specialist.city_id = None
+        elif city_id is not None:
             specialist.city_id = city_id
 
-        if latitude is not None:
-            specialist.latitude = latitude
+        if clear_coordinates:
+            specialist.latitude = None
+            specialist.longitude = None
+        else:
+            if latitude is not None:
+                specialist.latitude = latitude
 
-        if longitude is not None:
-            specialist.longitude = longitude
+            if longitude is not None:
+                specialist.longitude = longitude
 
         if service_radius_km is not None:
             specialist.service_radius_km = service_radius_km

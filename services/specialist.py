@@ -250,4 +250,24 @@ class SpecialistService:
             latitude=data.latitude,
             longitude=data.longitude,
             service_radius_km=data.service_radius_km,
+            clear_city=data.clear_city,
+            clear_coordinates=data.clear_coordinates,
         )
+    
+@dataclass
+class SpecialistProfileUpdateData:
+    tenant_id: UUID
+    user_id: UUID
+    specialist_id: UUID
+    display_name: str | None = None
+    short_description: str | None = None
+    contact_text: str | None = None
+    category_id: UUID | None = None
+    profession_id: UUID | None = None
+    country_id: UUID | None = None
+    city_id: UUID | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    service_radius_km: int | None = None
+    clear_city: bool = False
+    clear_coordinates: bool = False
