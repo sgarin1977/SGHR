@@ -45,6 +45,7 @@ class LegalRepository:
             return (
                 doc.effective_from or doc.created_at,
                 doc.created_at,
+                doc.version,
                 str(doc.id),
             )
 

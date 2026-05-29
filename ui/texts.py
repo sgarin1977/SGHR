@@ -1953,7 +1953,11 @@ translations = {
         "en": "Specialist removed from favorites.",
         "pt": "Especialista removido dos favoritos.",
     },
-
+    "error_rate_limited": {
+        "ru": "Слишком много действий за короткое время. Попробуйте позже.",
+        "en": "Too many actions in a short time. Please try again later.",
+        "pt": "Muitas ações em pouco tempo. Tente novamente mais tarde.",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

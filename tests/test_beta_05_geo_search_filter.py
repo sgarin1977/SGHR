@@ -1176,7 +1176,6 @@ def test_search_radius_work_language_price_sort_are_separate_quick_filters():
         "callback_data=\"search_lang:ru\"",
         "callback_data=\"search_lang:pt\"",
         "callback_data=\"search_lang:en\"",
-        "callback_data=\"search_lang:uk\"",
         "callback_data=\"search_price:any\"",
         "callback_data=\"search_price:0_25\"",
         "callback_data=\"search_price:0_50\"",

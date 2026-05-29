@@ -82,7 +82,6 @@ def language_filter_label(value: str | None, language: str) -> str:
         "ru": t("search_language_ru", language),
         "pt": t("search_language_pt", language),
         "en": t("search_language_en", language),
-        "uk": t("search_language_uk", language),
     }
     return labels.get(value, value or t("search_filter_any", language))
 
@@ -509,7 +508,6 @@ def search_language_keyboard(language: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text=t("search_language_pt", language), callback_data="search_lang:pt"),
                 InlineKeyboardButton(text=t("search_language_en", language), callback_data="search_lang:en"),
             ],
-            [InlineKeyboardButton(text=t("search_language_uk", language), callback_data="search_lang:uk")],
             [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
@@ -1787,15 +1785,37 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
         specialist_notification_key = "contact_translation_failed_original_shown"
 
     if specialist_chat_id and result.contact_token:
-        await callback.message.bot.send_message(
-            chat_id=specialist_chat_id,
-            text=t(specialist_notification_key, specialist_language).format(
-                message=specialist_notification_message,
-            ),
-            reply_markup=contact_request_action_keyboard(
-                result.contact_token,
-                specialist_language,
-            ),
+        try:
+            await callback.message.bot.send_message(
+                chat_id=specialist_chat_id,
+                text=t(specialist_notification_key, specialist_language).format(
+                    message=specialist_notification_message,
+                ),
+                reply_markup=contact_request_action_keyboard(
+                    result.contact_token,
+                    specialist_language,
+                ),
+            )
+            logger.info(
+                "contact_request_notification_sent request_id=%s specialist_chat_id=%s specialist_id=%s",
+                result.contact_request_id,
+                specialist_chat_id,
+                specialist_id,
+            )
+        except Exception:
+            logger.exception(
+                "contact_request_notification_failed request_id=%s specialist_chat_id=%s specialist_id=%s",
+                result.contact_request_id,
+                specialist_chat_id,
+                specialist_id,
+            )
+    else:
+        logger.warning(
+            "contact_request_notification_skipped request_id=%s specialist_chat_id=%s token_present=%s specialist_id=%s",
+            result.contact_request_id,
+            specialist_chat_id,
+            bool(result.contact_token),
+            specialist_id,
         )
 
     await state.update_data(

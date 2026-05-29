@@ -594,34 +594,34 @@ async def choose_geo_place(callback: CallbackQuery, state: FSMContext):
 
     try:
         async with get_session() as session:
-            user = await UserRepository(session).get_by_platform_account(
-                platform="telegram",
-                platform_user_id=str(callback.from_user.id),
+            user = await get_current_user(session, callback.from_user.id)
+            if not user:
+                await callback.message.answer(t("spec_start_required", language))
+                await callback.answer()
+                return
+
+            await RateLimitService(
+                RateLimitRepository(session)
+            ).ensure_geo_change_allowed(
+                tenant_id=user.tenant_id,
+                user_id=user.id,
             )
-            if user:
-                await RateLimitService(
-                    RateLimitRepository(session)
-                ).ensure_geo_change_allowed(
-                    tenant_id=UUID(data["tenant_id"]),
-                    user_id=user.user_id,
-                )
 
             place = await GeoService(GeoRepository(session)).confirm_place(candidate)
 
-            if user:
-                await EventRepository(session).create_event(
-                    event_type="geo_change",
-                    tenant_id=UUID(data["tenant_id"]),
-                    user_id=user.user_id,
-                    entity_type="city",
-                    entity_id=place.city_id,
-                    payload={
-                        "source": "specialist_registration",
-                        "country_id": str(place.country_id),
-                    },
-                    platform="telegram",
-                )
-                await session.commit()
+            await EventRepository(session).create_event(
+                event_type="geo_change",
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                entity_type="city",
+                entity_id=place.city_id,
+                payload={
+                    "source": "specialist_registration",
+                    "country_id": str(place.country_id),
+                },
+                platform="telegram",
+            )
+            await session.commit()
 
             logger.info(
                 "specialist_geo_place_confirmed telegram_id=%s city_id=%s country_id=%s",
