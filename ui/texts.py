@@ -293,9 +293,9 @@ translations = {
         "pt": "não definido",
     },
     "spec_summary": {
-        "ru": "Проверьте профиль специалиста:\n\nКатегория: {category}\nПрофессия: {profession}\nЛокация: {location}\nПрофиль: {display_name}\nОписание: {description}\nЦена: {price}\nЯзыки: {languages}\nКонтакт: {contact}\n\nПосле подтверждения профиль будет отправлен на модерацию.",
+        "ru": "Проверьте профиль специалиста:\n\nКатегория: {category}\nПрофессия: {profession}\nЛокация: {location}\nПрофиль: {display_name}\nОписание: {description}\nЦена: {price}\nФормат работы: {work_format}\nЯзыки: {languages}\nКонтакт: {contact}\n\nПосле подтверждения профиль будет отправлен на модерацию.",
         "en": "Check specialist profile:\n\nCategory: {category}\nProfession: {profession}\nLocation: {location}\nProfile: {display_name}\nDescription: {description}\nPrice: {price}\nLanguages: {languages}\nContact: {contact}\n\nAfter confirmation, the profile will be sent to moderation.",
-        "pt": "Verifique o perfil de especialista:\n\nCategoria: {category}\nProfissão: {profession}\nLocalização: {location}\nPerfil: {display_name}\nDescrição: {description}\nPreço: {price}\nIdiomas: {languages}\nContato: {contact}\n\nApós a confirmação, o perfil será enviado para moderação.",
+        "pt": "Verifique o perfil de especialista:\n\nCategoria: {category}\nProfissão: {profession}\nLocalização: {location}\nPerfil: {display_name}\nDescrição: {description}\nPreço: {price}\nFormato de trabalho: {work_format}\nIdiomas: {languages}\nContato: {contact}\n\nApós a confirmação, o perfil será enviado para moderação.",
     },
     "spec_create_failed": {
         "ru": "Не удалось создать профиль: {error}",
@@ -1801,9 +1801,9 @@ translations = {
         "pt": "Direção",
     },
     "cabinet_edit_profession": {
-        "ru": "Профессия",
-        "en": "Profession",
-        "pt": "Profissão",
+    "ru": "Специальности",
+    "en": "Specialties",
+    "pt": "Especialidades",
     },
     "cabinet_edit_location": {
         "ru": "Локация",
@@ -1962,6 +1962,253 @@ translations = {
         "ru": "Вся страна",
         "en": "Whole country",
         "pt": "Todo o país",
+    },
+
+"settings_translation_title": {
+    "ru": (
+        "Настройки перевода:\n\n"
+        "Язык интерфейса: {interface_language}\n"
+        "Язык сообщений: {message_language}\n"
+        "Автоперевод: {auto_translate}\n"
+        "Кнопка оригинала: {show_original}"
+    ),
+    "en": (
+        "Translation settings:\n\n"
+        "Interface language: {interface_language}\n"
+        "Message language: {message_language}\n"
+        "Auto-translation: {auto_translate}\n"
+        "Show original button: {show_original}"
+    ),
+    "pt": (
+        "Configurações de tradução:\n\n"
+        "Idioma da interface: {interface_language}\n"
+        "Idioma das mensagens: {message_language}\n"
+        "Tradução automática: {auto_translate}\n"
+        "Botão de original: {show_original}"
+    ),
+},
+"settings_interface_language_ru": {
+    "ru": "Интерфейс: Русский",
+    "en": "UI: Russian",
+    "pt": "Interface: Russo",
+},
+"settings_interface_language_en": {
+    "ru": "Интерфейс: Английский",
+    "en": "UI: English",
+    "pt": "Interface: Inglês",
+},
+"settings_interface_language_pt": {
+    "ru": "Интерфейс: Португальский",
+    "en": "UI: Portuguese",
+    "pt": "Interface: Português",
+},
+
+"privacy_settings_title": {
+    "ru": (
+        "Приватность и данные:\n\n"
+        "Здесь можно скрыть профиль, запросить экспорт данных, удалить геолокацию или запросить удаление профиля."
+    ),
+    "en": (
+        "Privacy and data:\n\n"
+        "Here you can hide your profile, request a data export, delete location data, or request profile deletion."
+    ),
+    "pt": (
+        "Privacidade e dados:\n\n"
+        "Aqui pode ocultar o perfil, pedir exportação de dados, apagar geolocalização ou pedir remoção do perfil."
+    ),
+},
+"privacy_open_btn": {
+    "ru": "Приватность и данные",
+    "en": "Privacy and data",
+    "pt": "Privacidade e dados",
+},
+"privacy_hide_profile_btn": {
+    "ru": "Скрыть профиль",
+    "en": "Hide profile",
+    "pt": "Ocultar perfil",
+},
+"privacy_delete_profile_btn": {
+    "ru": "Удалить профиль",
+    "en": "Delete profile",
+    "pt": "Eliminar perfil",
+},
+"privacy_my_data_btn": {
+    "ru": "Скачать мои данные",
+    "en": "Download my data",
+    "pt": "Descarregar os meus dados",
+},
+"privacy_delete_geo_btn": {
+    "ru": "Удалить геолокацию",
+    "en": "Delete location data",
+    "pt": "Apagar geolocalização",
+},
+"privacy_confirm_delete_profile": {
+    "ru": "Запрос на удаление профиля будет поставлен в очередь. Продолжить?",
+    "en": "Profile deletion will be scheduled. Continue?",
+    "pt": "A eliminação do perfil será agendada. Continuar?",
+},
+"privacy_confirm_delete_geo": {
+    "ru": "Геолокация будет удалена из профиля и истории локаций. Продолжить?",
+    "en": "Location data will be removed from your profile and location history. Continue?",
+    "pt": "A geolocalização será removida do perfil e do histórico. Continuar?",
+},
+"privacy_confirm_btn": {
+    "ru": "Подтвердить",
+    "en": "Confirm",
+    "pt": "Confirmar",
+},
+"privacy_cancel_btn": {
+    "ru": "Отмена",
+    "en": "Cancel",
+    "pt": "Cancelar",
+},
+"privacy_profile_hidden": {
+    "ru": "Профиль скрыт. Он больше не отображается в поиске.",
+    "en": "Profile hidden. It no longer appears in search.",
+    "pt": "Perfil ocultado. Já não aparece na pesquisa.",
+},
+"privacy_profile_not_found": {
+    "ru": "Профиль специалиста не найден.",
+    "en": "Specialist profile not found.",
+    "pt": "Perfil de especialista não encontrado.",
+},
+"privacy_deletion_scheduled": {
+    "ru": "Запрос на удаление профиля создан. Обработка будет выполнена отдельно с сохранением audit trail.",
+    "en": "Profile deletion request created. Processing will be handled separately with audit trail preserved.",
+    "pt": "Pedido de eliminação criado. O processamento será feito separadamente com auditoria preservada.",
+},
+"privacy_data_export_requested": {
+    "ru": "Запрос на выгрузку данных создан. Экспорт будет подготовлен вручную или автоматически.",
+    "en": "Data export request created. The export will be prepared manually or automatically.",
+    "pt": "Pedido de exportação criado. A exportação será preparada manualmente ou automaticamente.",
+},
+"privacy_geo_deleted": {
+    "ru": "Геолокация удалена.",
+    "en": "Location data deleted.",
+    "pt": "Geolocalização apagada.",
+},
+"privacy_back_to_settings": {
+    "ru": "Назад к настройкам",
+    "en": "Back to settings",
+    "pt": "Voltar às definições",
+},
+
+"settings_interface_language_label": {
+    "ru": "Язык интерфейса",
+    "en": "Interface language",
+    "pt": "Idioma da interface",
+},
+"settings_message_language_label": {
+    "ru": "Язык общения / перевода",
+    "en": "Message / translation language",
+    "pt": "Idioma das mensagens / tradução",
+},
+
+"spec_profession_done_btn": {
+    "ru": "Готово",
+    "en": "Done",
+    "pt": "Concluir",
+},
+"spec_profession_select_one": {
+    "ru": "Выберите хотя бы одну специальность.",
+    "en": "Select at least one profession.",
+    "pt": "Selecione pelo menos uma profissão.",
+},
+"spec_profession_multi_prompt": {
+    "ru": "Выберите одну или несколько специальностей. Первая выбранная будет основной.",
+    "en": "Select one or more professions. The first selected one will be primary.",
+    "pt": "Selecione uma ou mais especialidades. A primeira selecionada será a principal.",
+},
+"spec_work_format_prompt": {
+    "ru": "Выберите формат работы.",
+    "en": "Choose work format.",
+    "pt": "Escolha o formato de trabalho.",
+},
+"spec_work_format_invalid": {
+    "ru": "Неизвестный формат работы.",
+    "en": "Unknown work format.",
+    "pt": "Formato de trabalho desconhecido.",
+},
+
+"spec_selected_professions_title": {
+    "ru": "Уже выбрано:",
+    "en": "Selected:",
+    "pt": "Selecionado:",
+},
+"spec_selected_professions_empty": {
+    "ru": "Пока ничего не выбрано.",
+    "en": "Nothing selected yet.",
+    "pt": "Ainda nada selecionado.",
+},
+"spec_location_country_btn": {
+    "ru": "Вся страна",
+    "en": "Whole country",
+    "pt": "Todo o país",
+},
+"spec_country_search_prompt": {
+    "ru": "Введите страну, где вы готовы работать:",
+    "en": "Enter the country where you can work:",
+    "pt": "Digite o país onde você pode trabalhar:",
+},
+"spec_country_selected": {
+    "ru": "Выбрана вся страна: {country}",
+    "en": "Whole country selected: {country}",
+    "pt": "País inteiro selecionado: {country}",
+},
+"spec_country_not_found": {
+    "ru": "Страна не найдена. Попробуйте ввести название иначе.",
+    "en": "Country not found. Try another spelling.",
+    "pt": "País não encontrado. Tente escrever de outra forma.",
+},
+"spec_country_candidates_prompt": {
+    "ru": "Выберите страну:",
+    "en": "Choose a country:",
+    "pt": "Escolha um país:",
+},
+"spec_country_candidate_not_found": {
+    "ru": "Страна не найдена. Попробуйте снова.",
+    "en": "Country not found. Try again.",
+    "pt": "País não encontrado. Tente novamente.",
+},
+"spec_profession_continue_btn": {
+    "ru": "Продолжить",
+    "en": "Continue",
+    "pt": "Continuar",
+},
+"spec_profession_limit_categories": {
+    "ru": "Можно выбрать не более 2 разделов.",
+    "en": "You can select no more than 2 sections.",
+    "pt": "Você pode selecionar no máximo 2 seções.",
+},
+"spec_profession_limit_per_category": {
+    "ru": "В одном разделе можно выбрать не более 3 специальностей.",
+    "en": "You can select no more than 3 professions in one section.",
+    "pt": "Você pode selecionar no máximo 3 especialidades em uma seção.",
+},
+    "cabinet_favorites": {
+        "ru": "Избранные специалисты",
+        "en": "Favorite specialists",
+        "pt": "Especialistas favoritos",
+    },
+    "favorites_title": {
+        "ru": "Избранные специалисты:",
+        "en": "Favorite specialists:",
+        "pt": "Especialistas favoritos:",
+    },
+    "favorites_empty": {
+        "ru": "У вас пока нет избранных специалистов.",
+        "en": "You do not have favorite specialists yet.",
+        "pt": "Você ainda não tem especialistas favoritos.",
+    },
+    "favorite_remove_btn": {
+        "ru": "Удалить из избранного",
+        "en": "Remove from favorites",
+        "pt": "Remover dos favoritos",
+    },
+    "favorites_not_found": {
+        "ru": "Специалист не найден в избранном.",
+        "en": "Specialist was not found in favorites.",
+        "pt": "Especialista não encontrado nos favoritos.",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

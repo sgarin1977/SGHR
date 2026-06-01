@@ -1,7 +1,7 @@
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-
+from database.repositories.translation import TranslationRepository
 from database.session import get_session
 from services.rate_limit import RateLimitError
 from services.user import TelegramUserData, UserService
@@ -53,7 +53,8 @@ async def cmd_start(message: Message):
     if not message.from_user:
         return
 
-    language = normalize_language(message.from_user.language_code)
+    telegram_language = normalize_language(message.from_user.language_code)
+    language = telegram_language
     first_name = message.from_user.first_name or t("start_default_first_name", language)
 
     try:
@@ -66,9 +67,14 @@ async def cmd_start(message: Message):
                     username=message.from_user.username,
                     first_name=message.from_user.first_name,
                     last_name=message.from_user.last_name,
-                    language_code=language,
+                    language_code=telegram_language,
                 )
             )
+
+            user = await service.get_user_by_telegram_id(message.from_user.id)
+            if user:
+                settings = await TranslationRepository(session).get_language_settings(user.id)
+                language = normalize_language(settings.interface_language or user.language_code)
     except RateLimitError:
         await message.answer(t("error_rate_limited", language))
         return

@@ -10,6 +10,7 @@ from database.models import (
     SpecialistCategory,
     SpecialistLanguage,
     SpecialistLocation,
+    SpecialistProfession,
     SpecialistService,
     Profession,
     User,
@@ -291,10 +292,34 @@ class SpecialistSearchRepository:
             )
 
         if filters.category_id:
-            stmt = stmt.where(Specialist.category_id == filters.category_id)
+            category_exists = exists(
+                select(SpecialistProfession.id).where(
+                    SpecialistProfession.specialist_id == Specialist.id,
+                    SpecialistProfession.category_id == filters.category_id,
+                    SpecialistProfession.status == "active",
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.category_id == filters.category_id,
+                    category_exists,
+                )
+            )
 
         if filters.profession_id:
-            stmt = stmt.where(Specialist.profession_id == filters.profession_id)
+            profession_exists = exists(
+                select(SpecialistProfession.id).where(
+                    SpecialistProfession.specialist_id == Specialist.id,
+                    SpecialistProfession.profession_id == filters.profession_id,
+                    SpecialistProfession.status == "active",
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.profession_id == filters.profession_id,
+                    profession_exists,
+                )
+            )
 
         if filters.price_min is not None:
             stmt = stmt.where(
@@ -398,10 +423,34 @@ class SpecialistSearchRepository:
             )
 
         if category_id:
-            stmt = stmt.where(Specialist.category_id == category_id)
+            category_exists = exists(
+                select(SpecialistProfession.id).where(
+                    SpecialistProfession.specialist_id == Specialist.id,
+                    SpecialistProfession.category_id == category_id,
+                    SpecialistProfession.status == "active",
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.category_id == category_id,
+                    category_exists,
+                )
+            )
 
         if profession_id:
-            stmt = stmt.where(Specialist.profession_id == profession_id)
+            profession_exists = exists(
+                select(SpecialistProfession.id).where(
+                    SpecialistProfession.specialist_id == Specialist.id,
+                    SpecialistProfession.profession_id == profession_id,
+                    SpecialistProfession.status == "active",
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.profession_id == profession_id,
+                    profession_exists,
+                )
+            )
 
         if price_min is not None:
             stmt = stmt.where(
@@ -505,10 +554,34 @@ class SpecialistSearchRepository:
             )
 
         if category_id:
-            stmt = stmt.where(Specialist.category_id == category_id)
+            category_exists = exists(
+                select(SpecialistProfession.id).where(
+                    SpecialistProfession.specialist_id == Specialist.id,
+                    SpecialistProfession.category_id == category_id,
+                    SpecialistProfession.status == "active",
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.category_id == category_id,
+                    category_exists,
+                )
+            )
 
         if profession_id:
-            stmt = stmt.where(Specialist.profession_id == profession_id)
+            profession_exists = exists(
+                select(SpecialistProfession.id).where(
+                    SpecialistProfession.specialist_id == Specialist.id,
+                    SpecialistProfession.profession_id == profession_id,
+                    SpecialistProfession.status == "active",
+                )
+            )
+            stmt = stmt.where(
+                or_(
+                    Specialist.profession_id == profession_id,
+                    profession_exists,
+                )
+            )
 
         if price_min is not None:
             stmt = stmt.where(

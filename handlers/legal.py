@@ -1,6 +1,6 @@
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-
+from database.repositories.translation import TranslationRepository
 from database.repositories.legal import LegalRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard
@@ -72,7 +72,7 @@ def build_legal_gate_text(missing_documents, language: str = "ru") -> str:
     titles = []
     for doc in missing_documents:
         title = doc.title or doc.doc_type
-        titles.append(f"- {title} v{doc.version}")
+        titles.append(f"- {title}")
 
     docs_text = "\n".join(titles)
 
@@ -161,7 +161,7 @@ async def show_specialist_legal_documents(callback: CallbackQuery):
         for doc in missing:
             title = doc.title or doc.doc_type
             content = doc.content_text or doc.content_url or ""
-            documents_text.append(f"{title} v{doc.version}\n\n{content}")
+            documents_text.append(f"{title}\n\n{content}")
 
         if not documents_text:
             await callback.message.answer(
@@ -218,6 +218,13 @@ async def accept_specialist_legal_gate(callback: CallbackQuery):
 @legal_router.callback_query(F.data == CB_MAIN_MENU)
 async def back_to_main_menu(callback: CallbackQuery):
     language = normalize_language(callback.from_user.language_code)
+
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        if user:
+            settings = await TranslationRepository(session).get_language_settings(user.id)
+            language = normalize_language(settings.interface_language or user.language_code)
+            await session.commit()
 
     await callback.message.answer(
         t("legal_main_menu", language),

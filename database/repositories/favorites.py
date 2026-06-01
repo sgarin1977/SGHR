@@ -73,3 +73,49 @@ class FavoriteRepository:
         )
         await self.session.commit()
         return True
+    
+    async def list_saved_specialists(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        limit: int = 20,
+    ) -> list[Specialist]:
+        result = await self.session.execute(
+            select(Specialist)
+            .join(
+                SavedSpecialist,
+                SavedSpecialist.specialist_id == Specialist.id,
+            )
+            .where(
+                SavedSpecialist.tenant_id == tenant_id,
+                SavedSpecialist.user_id == user_id,
+                Specialist.tenant_id == tenant_id,
+                Specialist.status == "active",
+            )
+            .order_by(SavedSpecialist.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def remove_specialist(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+    ) -> bool:
+        saved = await self.get_saved_specialist(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            specialist_id=specialist_id,
+        )
+
+        if not saved:
+            return False
+
+        await self.session.execute(
+            delete(SavedSpecialist).where(SavedSpecialist.id == saved.id)
+        )
+        await self.session.commit()
+        return True

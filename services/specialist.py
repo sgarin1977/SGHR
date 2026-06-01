@@ -22,6 +22,7 @@ class SpecialistRegistrationData:
     city_id: UUID | None
     display_name: str
     short_description: str
+    profession_selections: list[dict] | None = None
     full_description: str | None = None
     price_from: float | None = None
     price_to: float | None = None
@@ -52,6 +53,8 @@ class SpecialistProfileUpdateData:
     latitude: float | None = None
     longitude: float | None = None
     service_radius_km: int | None = None
+    clear_city: bool = False
+    clear_coordinates: bool = False
 
 
 class SpecialistService:
@@ -159,6 +162,7 @@ class SpecialistService:
             user_id=data.user_id,
             category_id=data.category_id,
             profession_id=data.profession_id,
+            profession_selections=data.profession_selections,
             country_id=data.country_id,
             city_id=data.city_id,
             display_name=display_name,
@@ -254,20 +258,3 @@ class SpecialistService:
             clear_coordinates=data.clear_coordinates,
         )
     
-@dataclass
-class SpecialistProfileUpdateData:
-    tenant_id: UUID
-    user_id: UUID
-    specialist_id: UUID
-    display_name: str | None = None
-    short_description: str | None = None
-    contact_text: str | None = None
-    category_id: UUID | None = None
-    profession_id: UUID | None = None
-    country_id: UUID | None = None
-    city_id: UUID | None = None
-    latitude: float | None = None
-    longitude: float | None = None
-    service_radius_km: int | None = None
-    clear_city: bool = False
-    clear_coordinates: bool = False

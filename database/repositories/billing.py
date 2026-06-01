@@ -21,7 +21,7 @@ from database.models import (
 
 
 BILLING_ADMIN_ROLES = {"super_admin", "admin", "finance_admin"}
-DEFAULT_BETA_PAID_FEATURES =DEFAULT_BETA_PAID_FEATURES = [
+DEFAULT_BETA_PAID_FEATURES = [
     {
         "code": "specialist_premium",
         "name": "Specialist Premium",

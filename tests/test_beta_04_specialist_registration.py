@@ -83,13 +83,13 @@ async def cleanup_legal_documents(session, tenant_id):
     await session.execute(
         delete(UserConsent).where(
             UserConsent.tenant_id == tenant_id,
-            UserConsent.version == LEGAL_TEST_VERSION,
+            UserConsent.version.like("test-beta-%"),
         )
     )
     await session.execute(
         delete(LegalDocument).where(
             LegalDocument.tenant_id == tenant_id,
-            LegalDocument.version == LEGAL_TEST_VERSION,
+            LegalDocument.version.like("test-beta-%"),
         )
     )
     await session.commit()

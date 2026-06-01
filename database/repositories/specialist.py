@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from datetime import datetime
 from database.models import (
     City,
     Country,
@@ -13,16 +13,29 @@ from database.models import (
     SpecialistCategory,
     SpecialistLanguage,
     SpecialistLocation,
+    SpecialistProfession,
     SpecialistService,
     User,
     UserRoleMapping,
 )
-
+MAX_SPECIALIST_CATEGORIES = 2
+MAX_PROFESSIONS_PER_CATEGORY = 3
 
 class SpecialistRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+    def _validate_profession_limits(self, profession_selections: list[dict]) -> None:
+        categories: dict[str, int] = {}
 
+        for item in profession_selections:
+            category_id = str(item["category_id"])
+            categories[category_id] = categories.get(category_id, 0) + 1
+
+        if len(categories) > MAX_SPECIALIST_CATEGORIES:
+            raise ValueError("You can select no more than 2 sections.")
+
+        if any(count > MAX_PROFESSIONS_PER_CATEGORY for count in categories.values()):
+            raise ValueError("You can select no more than 3 professions in one section.")
     async def list_active_categories(self, limit: int = 50) -> list[SpecialistCategory]:
         result = await self.session.execute(
             select(SpecialistCategory)
@@ -108,6 +121,94 @@ class SpecialistRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_active_specialist_professions(
+        self,
+        specialist_id: UUID,
+    ):
+        result = await self.session.execute(
+            select(SpecialistProfession, SpecialistCategory, Profession)
+            .join(
+                SpecialistCategory,
+                SpecialistCategory.id == SpecialistProfession.category_id,
+            )
+            .join(
+                Profession,
+                Profession.id == SpecialistProfession.profession_id,
+            )
+            .where(
+                SpecialistProfession.specialist_id == specialist_id,
+                SpecialistProfession.status == "active",
+            )
+            .order_by(
+                SpecialistProfession.is_primary.desc(),
+                SpecialistProfession.created_at,
+            )
+        )
+        return result.all()
+
+    async def replace_specialist_professions(
+        self,
+        *,
+        specialist_id: UUID,
+        user_id: UUID,
+        profession_selections: list[dict],
+    ) -> Specialist:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            raise ValueError("Specialist profile not found.")
+
+        normalized_selections = []
+        seen_profession_ids = set()
+
+        for item in profession_selections:
+            category_id = UUID(str(item["category_id"]))
+            profession_id = UUID(str(item["profession_id"]))
+
+            if profession_id in seen_profession_ids:
+                continue
+
+            seen_profession_ids.add(profession_id)
+            normalized_selections.append(
+                {
+                    "category_id": category_id,
+                    "profession_id": profession_id,
+                }
+            )
+
+        if not normalized_selections:
+            raise ValueError("At least one profession is required.")
+        self._validate_profession_limits(normalized_selections)
+        result = await self.session.execute(
+            select(SpecialistProfession).where(
+                SpecialistProfession.specialist_id == specialist.id,
+                SpecialistProfession.status == "active",
+            )
+        )
+        existing_rows = list(result.scalars().all())
+
+        for row in existing_rows:
+            row.status = "deleted"
+            row.is_primary = False
+
+        primary = normalized_selections[0]
+        specialist.category_id = primary["category_id"]
+        specialist.profession_id = primary["profession_id"]
+
+        for index, item in enumerate(normalized_selections):
+            self.session.add(
+                SpecialistProfession(
+                    specialist_id=specialist.id,
+                    category_id=item["category_id"],
+                    profession_id=item["profession_id"],
+                    is_primary=index == 0,
+                    status="active",
+                )
+            )
+
+        specialist.updated_at = datetime.utcnow()
+        await self.session.commit()
+        return specialist
+
     async def create_specialist_profile(
         self,
         *,
@@ -115,6 +216,7 @@ class SpecialistRepository:
         user_id: UUID,
         category_id: UUID,
         profession_id: UUID,
+        profession_selections: list[dict] | None = None,
         country_id: UUID | None,
         city_id: UUID | None,
         display_name: str,
@@ -164,6 +266,44 @@ class SpecialistRepository:
         )
         self.session.add(specialist)
         await self.session.flush()
+
+        seen_profession_ids = set()
+        normalized_selections = []
+
+        for item in profession_selections or []:
+            item_category_id = UUID(str(item["category_id"]))
+            item_profession_id = UUID(str(item["profession_id"]))
+
+            if item_profession_id in seen_profession_ids:
+                continue
+
+            seen_profession_ids.add(item_profession_id)
+            normalized_selections.append(
+                {
+                    "category_id": item_category_id,
+                    "profession_id": item_profession_id,
+                }
+            )
+
+        if not normalized_selections:
+            normalized_selections.append(
+                {
+                    "category_id": category_id,
+                    "profession_id": profession_id,
+                }
+            )
+        self._validate_profession_limits(normalized_selections)
+        for index, item in enumerate(normalized_selections):
+            self.session.add(
+                SpecialistProfession(
+                    specialist_id=specialist.id,
+                    category_id=item["category_id"],
+                    profession_id=item["profession_id"],
+                    is_primary=index == 0,
+                    status="active",
+                )
+            )
+
         await self.ensure_specialist_role(tenant_id=tenant_id, user_id=user_id)
         if country_id or city_id or latitude or longitude:
             self.session.add(
@@ -308,6 +448,41 @@ class SpecialistRepository:
 
         if profession_id is not None:
             specialist.profession_id = profession_id
+
+        if profession_id is not None:
+            effective_category_id = category_id or specialist.category_id
+
+            result = await self.session.execute(
+                select(SpecialistProfession).where(
+                    SpecialistProfession.specialist_id == specialist.id,
+                    SpecialistProfession.status == "active",
+                )
+            )
+            active_professions = list(result.scalars().all())
+
+            matching_profession = None
+            for item in active_professions:
+                if item.profession_id == profession_id:
+                    matching_profession = item
+                    break
+
+            for item in active_professions:
+                item.is_primary = False
+
+            if matching_profession:
+                matching_profession.category_id = effective_category_id
+                matching_profession.is_primary = True
+                matching_profession.status = "active"
+            else:
+                self.session.add(
+                    SpecialistProfession(
+                        specialist_id=specialist.id,
+                        category_id=effective_category_id,
+                        profession_id=profession_id,
+                        is_primary=True,
+                        status="active",
+                    )
+                )
 
         if country_id is not None:
             specialist.country_id = country_id

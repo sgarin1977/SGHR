@@ -109,11 +109,15 @@ class TranslationRepository:
         self,
         *,
         user_id: UUID,
+        interface_language: str | None = None,
         message_language: str | None = None,
         auto_translate_enabled: bool | None = None,
         show_original_button: bool | None = None,
     ) -> UserLanguageSetting:
         settings = await self.get_language_settings(user_id)
+
+        if interface_language is not None:
+            settings.interface_language = normalize_translation_language(interface_language)
 
         if message_language is not None:
             settings.message_language = normalize_translation_language(message_language)
@@ -127,7 +131,7 @@ class TranslationRepository:
         settings.updated_at = datetime.utcnow()
         await self.session.flush()
         return settings
-
+    
     async def get_cached_translation(
         self,
         *,

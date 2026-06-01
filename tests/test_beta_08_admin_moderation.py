@@ -12,6 +12,7 @@ from database.models import (
     Specialist,
     User,
     UserAccount,
+    UserConsent,
     UserRoleMapping,
 )
 from database.repositories.legal import LegalRepository
@@ -26,6 +27,7 @@ from services.specialist import SpecialistService as SpecialistRegistrationServi
 from tests.test_beta_04_specialist_registration import (
     accept_specialist_consents,
     build_registration_data,
+    cleanup_legal_documents,
     cleanup_test_user,
     create_test_user,
     get_reference_data,
@@ -33,7 +35,22 @@ from tests.test_beta_04_specialist_registration import (
 
 
 pytestmark = pytest.mark.asyncio
+@pytest.fixture(autouse=True)
+async def cleanup_test_legal_documents_after_admin_tests(db_session):
+    yield
 
+    await db_session.rollback()
+    await db_session.execute(
+        delete(UserConsent).where(
+            UserConsent.version.like("test-beta-%"),
+        )
+    )
+    await db_session.execute(
+        delete(LegalDocument).where(
+            LegalDocument.version.like("test-beta-%"),
+        )
+    )
+    await db_session.commit()
 
 async def cleanup_user(session, platform_user_id: str):
     await session.rollback()
@@ -52,6 +69,8 @@ async def cleanup_user(session, platform_user_id: str):
         return
 
     user_id = account.user_id
+    user = await session.get(User, user_id)
+    tenant_id = user.tenant_id if user else None
     specialist_ids = list(
         (
             await session.execute(
@@ -94,7 +113,8 @@ async def cleanup_user(session, platform_user_id: str):
     await session.commit()
 
     await cleanup_test_user(session, platform_user_id)
-
+    if tenant_id:
+        await cleanup_legal_documents(session, tenant_id)
 
 async def create_user_with_accepted_consents(session):
     platform_user_id, user_id, tenant_id = await create_test_user(session)

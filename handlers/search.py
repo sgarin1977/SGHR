@@ -1,6 +1,5 @@
 import logging
 from uuid import UUID
-
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
@@ -14,7 +13,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-
+from services.user import UserService
 from database.models import User
 from database.repositories.contact import ContactChatRepository
 from database.repositories.event import EventRepository
@@ -59,6 +58,37 @@ class SpecialistSearchFSM(StatesGroup):
 def normalize_language(language: str | None) -> str:
     return language if language in {"ru", "en", "pt", "uk"} else "ru"
 
+async def get_interface_language(
+    telegram_id: int | str,
+    fallback_language: str | None,
+) -> str:
+    language = normalize_language(fallback_language)
+
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(telegram_id)
+        if not user:
+            return language
+
+        settings = await TranslationRepository(session).get_language_settings(user.id)
+        await session.commit()
+        return normalize_language(settings.interface_language or user.language_code)
+
+async def get_search_language(state: FSMContext, event: CallbackQuery | Message) -> str:
+    data = await state.get_data()
+    stored_language = data.get("user_language")
+
+    if stored_language in {"ru", "en", "pt"}:
+        return stored_language
+
+    fallback_language = event.from_user.language_code if event.from_user else None
+    telegram_id = event.from_user.id if event.from_user else None
+
+    if telegram_id is None:
+        return normalize_language(fallback_language)
+
+    language = await get_interface_language(telegram_id, fallback_language)
+    await state.update_data(user_language=language)
+    return language
 
 def item_name(item, language: str = "ru") -> str:
     localized = getattr(item, f"name_{language}", None)
@@ -455,7 +485,7 @@ def search_location_keyboard(language: str) -> InlineKeyboardMarkup:
 @search_router.callback_query(F.data == "search_filter_location")
 async def open_location_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     await show_callback_message(
         callback,
@@ -691,7 +721,7 @@ def format_public_card(card: SpecialistPublicCard, language: str) -> str:
     )
 async def show_filters(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     await show_callback_message(
         callback,
@@ -709,7 +739,7 @@ async def render_results(
     page: int,
 ):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language"))
+    language = await get_search_language(state, event)
 
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
     profession_id = UUID(data["profession_id"]) if data.get("profession_id") else None
@@ -850,7 +880,7 @@ async def render_results(
 @search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))
 async def start_search(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_interface_language(callback.from_user.id, callback.from_user.language_code)
 
     await state.update_data(
         user_language=language,
@@ -884,7 +914,7 @@ async def back_to_search_filters(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_category")
 async def open_category_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     async with get_session() as session:
         categories = await SpecialistRepository(session).list_active_categories(limit=100)
@@ -923,7 +953,7 @@ async def paginate_categories(callback: CallbackQuery, state: FSMContext):
         return
 
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     async with get_session() as session:
         categories = await SpecialistRepository(session).list_active_categories(limit=100)
@@ -949,7 +979,7 @@ async def paginate_categories(callback: CallbackQuery, state: FSMContext):
 async def choose_category(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     category_ids = data.get("category_ids") or []
 
     if index is None or index >= len(category_ids):
@@ -979,7 +1009,7 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_profession")
 async def open_profession_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
 
     async with get_session() as session:
@@ -1022,7 +1052,7 @@ async def paginate_professions(callback: CallbackQuery, state: FSMContext):
         return
 
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
 
     async with get_session() as session:
@@ -1061,7 +1091,7 @@ async def choose_all_professions(callback: CallbackQuery, state: FSMContext):
 async def choose_profession(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     profession_ids = data.get("profession_ids") or []
 
     if index is None or index >= len(profession_ids):
@@ -1089,7 +1119,7 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_location")
 async def open_location_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     await show_callback_message(
     callback,
@@ -1102,7 +1132,7 @@ async def open_location_filter(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_location_city")
 async def start_location_city_search(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     await show_callback_message(
         callback,
@@ -1121,7 +1151,7 @@ async def start_location_city_search(callback: CallbackQuery, state: FSMContext)
 @search_router.message(SpecialistSearchFSM.entering_location_query)
 async def receive_location_query(message: Message, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    language = await get_search_language(state, message)
     query = (message.text or "").strip()
 
     if len(query) < 2:
@@ -1172,7 +1202,7 @@ async def receive_location_query(message: Message, state: FSMContext):
 @search_router.callback_query(F.data == "search_location_geo")
 async def start_location_geo_search(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     await callback.message.answer(
         t("search_geo_prompt", language),
@@ -1196,7 +1226,7 @@ async def start_location_geo_search(callback: CallbackQuery, state: FSMContext):
 @search_router.message(SpecialistSearchFSM.waiting_geo)
 async def receive_geo(message: Message, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    language = await get_search_language(state, message)
 
     if not message.location:
         await message.answer(t("search_geo_required", language))
@@ -1258,7 +1288,7 @@ async def receive_geo(message: Message, state: FSMContext):
 async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     candidates = data.get("search_geo_candidates") or []
 
     if index is None or index >= len(candidates):
@@ -1339,7 +1369,7 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_radius")
 async def open_radius_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     await show_callback_message(callback, t("search_radius_prompt", language), search_radius_keyboard(language))
     await callback.answer()
 
@@ -1366,7 +1396,7 @@ async def choose_radius(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_work_format")
 async def open_work_format_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     await show_callback_message(callback, t("search_work_prompt", language), search_work_format_keyboard(language))
     await callback.answer()
 
@@ -1387,7 +1417,7 @@ async def choose_work_format_filter(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_language")
 async def open_language_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     await show_callback_message(callback, t("search_language_prompt", language), search_language_keyboard(language))
     await callback.answer()
 
@@ -1408,7 +1438,7 @@ async def choose_language_filter(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_price")
 async def open_price_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     await show_callback_message(callback, t("search_price_prompt", language), search_price_keyboard(language))
     await callback.answer()
 
@@ -1440,7 +1470,7 @@ async def choose_price_filter(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_filter_sort")
 async def open_sort_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     await show_callback_message(callback, t("search_sort_prompt", language), search_sort_keyboard(language))
     await callback.answer()
 
@@ -1460,7 +1490,7 @@ async def choose_sort_filter(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_reset_filters")
 async def reset_search_filters(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     await state.update_data(
         user_language=language,
@@ -1517,7 +1547,7 @@ async def empty_reset_profession(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_show_results")
 async def show_filtered_results(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     has_location = bool(data.get("city_id")) or (
         data.get("latitude") is not None and data.get("longitude") is not None
     )
@@ -1547,7 +1577,7 @@ async def paginate_results(callback: CallbackQuery, state: FSMContext):
 async def contact_from_result(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     specialist_ids = data.get("result_specialist_ids") or []
     distances = data.get("result_distances") or []
 
@@ -1568,7 +1598,7 @@ async def contact_from_result(callback: CallbackQuery, state: FSMContext):
 async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     specialist_ids = data.get("result_specialist_ids") or []
     distances = data.get("result_distances") or []
 
@@ -1608,7 +1638,7 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_contact_pending")
 async def contact_start(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     if not data.get("selected_specialist_id"):
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
@@ -1631,7 +1661,7 @@ async def contact_start(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "contact_disclaimer_continue")
 async def contact_disclaimer_continue(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     if not data.get("selected_specialist_id"):
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
@@ -1675,7 +1705,7 @@ async def cancel_contact_flow(callback: CallbackQuery, state: FSMContext):
 @search_router.message(SpecialistSearchFSM.entering_contact_message)
 async def receive_contact_message(message: Message, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    language = await get_search_language(state, message)
     text = (message.text or "").strip()
 
     if not data.get("selected_specialist_id"):
@@ -1698,7 +1728,7 @@ async def receive_contact_message(message: Message, state: FSMContext):
 @search_router.callback_query(F.data == "contact_send_confirm")
 async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     specialist_id = data.get("selected_specialist_id")
     message_text = (data.get("pending_contact_message") or "").strip()
 
@@ -1850,7 +1880,7 @@ def callback_token(callback: CallbackQuery) -> str | None:
 @search_router.callback_query(F.data.startswith("contact_accept:"))
 async def accept_contact_request(callback: CallbackQuery, state: FSMContext):
     token = callback_token(callback)
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_interface_language(callback.from_user.id, callback.from_user.language_code)
 
     if not token:
         await callback.answer(t("contact_request_not_found", language), show_alert=True)
@@ -1898,7 +1928,7 @@ async def accept_contact_request(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data.startswith("contact_reject:"))
 async def reject_contact_request(callback: CallbackQuery, state: FSMContext):
     token = callback_token(callback)
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_interface_language(callback.from_user.id, callback.from_user.language_code)
 
     if not token:
         await callback.answer(t("contact_request_not_found", language), show_alert=True)
@@ -1941,7 +1971,7 @@ async def reject_contact_request(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "contact_reply")
 async def start_thread_reply(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     if not data.get("active_thread_id"):
         await callback.answer(t("contact_thread_not_found", language), show_alert=True)
@@ -1963,7 +1993,7 @@ async def start_thread_reply(callback: CallbackQuery, state: FSMContext):
 @search_router.message(SpecialistSearchFSM.entering_thread_message)
 async def receive_thread_message(message: Message, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    language = await get_search_language(state, message)
     thread_id = data.get("active_thread_id")
 
     if not thread_id:
@@ -2057,7 +2087,7 @@ async def receive_thread_message(message: Message, state: FSMContext):
 @search_router.callback_query(F.data == "search_favorite_pending")
 async def favorite_pending(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     specialist_id = data.get("selected_specialist_id")
 
     if not specialist_id:
@@ -2101,7 +2131,7 @@ async def favorite_pending(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "search_report_pending")
 async def report_pending(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     if not data.get("selected_specialist_id"):
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
@@ -2118,7 +2148,7 @@ async def report_pending(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data.startswith("search_report_reason:"))
 async def choose_report_reason(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     reason = callback.data.split(":", 1)[1]
 
     if reason not in {"fake", "contact", "abuse", "other"}:
@@ -2148,7 +2178,7 @@ async def choose_report_reason(callback: CallbackQuery, state: FSMContext):
 @search_router.message(SpecialistSearchFSM.entering_report_comment)
 async def receive_report_comment(message: Message, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or message.from_user.language_code)
+    language = await get_search_language(state, message)
     comment = (message.text or "").strip()
 
     if len(comment) < 3:
@@ -2261,13 +2291,12 @@ async def create_search_complaint(
 
 @search_router.callback_query(F.data == "search_menu")
 async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
 
     await state.clear()
     await callback.message.answer(
         t("search_main_menu", language),
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(language),
     )
     await callback.answer()
 
@@ -2275,7 +2304,7 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "contact_show_original")
 async def show_original_message(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     thread_id = data.get("active_thread_id")
 
     if not thread_id:
@@ -2325,7 +2354,7 @@ async def show_original_message(callback: CallbackQuery, state: FSMContext):
 @search_router.callback_query(F.data == "contact_finish")
 async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = normalize_language(data.get("user_language") or callback.from_user.language_code)
+    language = await get_search_language(state, callback)
     thread_id = data.get("active_thread_id")
 
     if not thread_id:

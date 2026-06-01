@@ -15,6 +15,8 @@ from database.models import (
     Payment,
     Specialist,
     SpecialistPromotion,
+    LegalDocument,
+    UserConsent,
 )
 from database.repositories.billing import BillingRepository
 from services.billing import BillingError, BillingService
@@ -27,7 +29,22 @@ from tests.test_beta_08_admin_moderation import (
 
 
 pytestmark = pytest.mark.asyncio
+@pytest.fixture(autouse=True)
+async def cleanup_test_legal_documents_after_billing_tests(db_session):
+    yield
 
+    await db_session.rollback()
+    await db_session.execute(
+        delete(UserConsent).where(
+            UserConsent.version.like("test-beta-%"),
+        )
+    )
+    await db_session.execute(
+        delete(LegalDocument).where(
+            LegalDocument.version.like("test-beta-%"),
+        )
+    )
+    await db_session.commit()
 
 async def cleanup_billing_for_specialist(session, specialist_id):
     await session.rollback()

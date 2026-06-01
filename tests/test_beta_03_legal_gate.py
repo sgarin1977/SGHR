@@ -50,21 +50,16 @@ async def cleanup_user_by_platform_id(session, platform_user_id: str):
 async def cleanup_legal_documents(session, tenant_id):
     await session.rollback()
 
-    test_versions = [
-        LEGAL_TEST_VERSION,
-        f"{LEGAL_TEST_VERSION}-new",
-    ]
-
     await session.execute(
         delete(UserConsent).where(
             UserConsent.tenant_id == tenant_id,
-            UserConsent.version.in_(test_versions),
+            UserConsent.version.like("test-beta-%"),
         )
     )
     await session.execute(
         delete(LegalDocument).where(
             LegalDocument.tenant_id == tenant_id,
-            LegalDocument.version.in_(test_versions),
+            LegalDocument.version.like("test-beta-%"),
         )
     )
     await session.commit()

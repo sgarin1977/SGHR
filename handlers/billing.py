@@ -17,6 +17,7 @@ from aiogram.types import (
 from database.repositories.event import EventRepository
 from database.repositories.geo_repository import GeoRepository
 from database.repositories.rate_limit import RateLimitRepository
+from database.repositories.translation import TranslationRepository
 from database.models import City, Country, Invoice, PaidFeature, Specialist
 from database.repositories.billing import BillingRepository
 from database.repositories.specialist import SpecialistRepository
@@ -32,9 +33,14 @@ from services.user import UserService
 from ui.texts import t
 from services.geo_service import GeoService, GeoServiceError
 from services.rate_limit import RateLimitError, RateLimitService
+from database.repositories.favorites import FavoriteRepository
+from database.repositories.search import SpecialistSearchRepository
+from services.geo_search import GeoSearchService, SpecialistPublicCard
 
 billing_router = Router()
 logger = logging.getLogger(__name__)
+MAX_SPECIALIST_CATEGORIES = 2
+MAX_PROFESSIONS_PER_CATEGORY = 3
 
 
 class SpecialistCabinetFSM(StatesGroup):
@@ -62,6 +68,21 @@ async def get_current_specialist_for_telegram(telegram_id: int | str):
 
         specialist = await SpecialistRepository(session).get_by_user_id(user.id)
         return user, specialist, user.tenant_id
+
+async def get_billing_interface_language(
+    telegram_id: int | str,
+    fallback_language: str | None,
+) -> str:
+    language = normalize_language(fallback_language)
+
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(telegram_id)
+        if not user:
+            return language
+
+        settings = await TranslationRepository(session).get_language_settings(user.id)
+        await session.commit()
+        return normalize_language(settings.interface_language or user.language_code)
 
 def billing_menu_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -138,6 +159,12 @@ def cabinet_menu_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text=t("cabinet_favorites", language),
+                    callback_data="CAB_FAVORITES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=t("billing_promotions", language),
                     callback_data="BILL_PANEL",
                 )
@@ -151,6 +178,103 @@ def cabinet_menu_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
+def favorites_list_keyboard(
+    specialists: list[Specialist],
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index, specialist in enumerate(specialists):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=specialist.display_name,
+                    callback_data=f"CAB_FAV_VIEW:{index}",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("billing_back", language),
+                callback_data="M_CABINET",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def favorite_card_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("contact", language),
+                    callback_data="search_contact_pending",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("favorite_remove_btn", language),
+                    callback_data="CAB_FAV_REMOVE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("billing_back", language),
+                    callback_data="CAB_FAVORITES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
+    )
+
+
+def favorite_work_format_label(value: str | None, language: str) -> str:
+    labels = {
+        None: t("search_filter_any", language),
+        "at_client": t("search_work_at_client", language),
+        "at_specialist": t("search_work_at_specialist", language),
+        "remote": t("search_work_remote", language),
+        "mixed": t("search_work_mixed", language),
+    }
+    return labels.get(value, value or "-")
+
+
+def format_favorite_card(card: SpecialistPublicCard, language: str) -> str:
+    price = t("search_price_not_set", language)
+    if card.price_from and card.price_to:
+        price = f"{card.price_from}-{card.price_to} {card.currency}"
+    elif card.price_from:
+        price = f"{t('search_price_from', language)} {card.price_from} {card.currency}"
+
+    languages = ", ".join(card.languages) if card.languages else t("search_filter_not_set", language)
+    city = card.city_name or t("search_filter_not_set", language)
+    category = card.category_name or t("search_filter_not_set", language)
+    profession = card.profession_name or t("search_filter_not_set", language)
+    work_format = favorite_work_format_label(card.work_format, language)
+    services = ", ".join(card.service_titles) if card.service_titles else t("search_filter_not_set", language)
+
+    return (
+        f"{card.display_name}\n\n"
+        f"{t('search_filter_category_label', language)}: {category}\n"
+        f"{t('search_filter_profession_label', language)}: {profession}\n"
+        f"{t('search_filter_location_label', language)}: {city}\n"
+        f"{t('search_filter_work_label', language)}: {work_format}\n"
+        f"{t('search_services_label', language)}: {services}\n"
+        f"{t('search_filter_price_label', language)}: {price}\n"
+        f"{t('search_filter_language_label', language)}: {languages}\n"
+        f"{t('search_rating', language)}: {card.rating} ({card.reviews_count})\n\n"
+        f"{card.short_description}\n\n"
+        f"{t('search_legal_warning', language)}"
+    )
 
 def specialist_profile_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -202,12 +326,6 @@ def specialist_edit_keyboard(language: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=t("cabinet_edit_contacts", language),
                     callback_data="CAB_EDIT_CONTACT",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("cabinet_edit_direction", language),
-                    callback_data="CAB_EDIT_CATEGORY",
                 )
             ],
             [
@@ -346,6 +464,97 @@ def indexed_items_keyboard(
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def cabinet_selected_professions_text(
+    selected_professions: list[dict],
+    language: str,
+) -> str:
+    if not selected_professions:
+        return t("spec_selected_professions_empty", language)
+
+    rows = []
+    for item in selected_professions:
+        category_name = item.get("category_name") or "-"
+        profession_name = item.get("profession_name") or "-"
+        rows.append(f"- {category_name}: {profession_name}")
+
+    return "\n".join(rows)
+
+def cabinet_profession_limit_error_key(
+    selected_professions: list[dict],
+    category_id: str,
+) -> str | None:
+    category_ids = {
+        str(item.get("category_id"))
+        for item in selected_professions
+        if item.get("category_id")
+    }
+
+    if category_id not in category_ids and len(category_ids) >= MAX_SPECIALIST_CATEGORIES:
+        return "spec_profession_limit_categories"
+
+    professions_in_category = [
+        item
+        for item in selected_professions
+        if str(item.get("category_id")) == category_id
+    ]
+
+    if len(professions_in_category) >= MAX_PROFESSIONS_PER_CATEGORY:
+        return "spec_profession_limit_per_category"
+
+    return None
+
+def cabinet_profession_prompt_text(
+    selected_professions: list[dict],
+    language: str,
+) -> str:
+    return (
+        f"{t('cabinet_choose_profession', language)}\n\n"
+        f"{t('spec_selected_professions_title', language)}\n"
+        f"{cabinet_selected_professions_text(selected_professions, language)}"
+    )
+
+
+def cabinet_profession_multi_keyboard(
+    *,
+    items,
+    selected_ids: list[str],
+    language: str,
+) -> InlineKeyboardMarkup:
+    selected_set = set(selected_ids)
+    rows = []
+
+    for index, item in enumerate(items):
+        item_id = str(item.id)
+        marker = "✓ " if item_id in selected_set else ""
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{marker}{localized_name(item, language)}",
+                    callback_data=f"CAB_PROF:{index}",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("spec_profession_done_btn", language),
+                callback_data="CAB_PROF_DONE",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("billing_back", language),
+                callback_data="CAB_EDIT_PROFESSION",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 def localized_name(item, language: str) -> str:
     if not item:
         return "-"
@@ -460,7 +669,7 @@ def format_invoice_text(
 
 @billing_router.callback_query(F.data == "M_CABINET")
 async def show_cabinet(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
 
     await state.clear()
     await callback.message.answer(
@@ -469,9 +678,147 @@ async def show_cabinet(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
+@billing_router.callback_query(F.data == "CAB_FAVORITES")
+async def show_favorites(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
+
+    if not user_id or not tenant_id:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    async with get_session() as session:
+        specialists = await FavoriteRepository(session).list_saved_specialists(
+            tenant_id=tenant_id,
+            user_id=user_id,
+        )
+
+    await state.update_data(
+        user_language=language,
+        cabinet_favorite_ids=[str(item.id) for item in specialists],
+    )
+
+    if not specialists:
+        await callback.message.answer(
+            t("favorites_empty", language),
+            reply_markup=favorites_list_keyboard([], language),
+        )
+        await callback.answer()
+        return
+
+    await callback.message.answer(
+        t("favorites_title", language),
+        reply_markup=favorites_list_keyboard(specialists, language),
+    )
+    await callback.answer()
+
+
+@billing_router.callback_query(F.data.startswith("CAB_FAV_VIEW:"))
+async def show_favorite_card(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+    ids = data.get("cabinet_favorite_ids") or []
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
+    if not user_id or not tenant_id:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    specialist_id = ids[index]
+
+    async with get_session() as session:
+        card = await GeoSearchService(
+            SpecialistSearchRepository(session)
+        ).get_public_card(
+            specialist_id=UUID(specialist_id),
+            requester_user_id=user_id,
+            tenant_id=tenant_id,
+            distance_km=None,
+            log_event=True,
+            language=language,
+        )
+
+    if not card:
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(
+        selected_specialist_id=specialist_id,
+        selected_specialist_distance=None,
+        results_page=0,
+        user_language=language,
+    )
+
+    await callback.message.answer(
+        format_favorite_card(card, language),
+        reply_markup=favorite_card_keyboard(language),
+    )
+    await callback.answer()
+
+
+@billing_router.callback_query(F.data == "CAB_FAV_REMOVE")
+async def remove_favorite_from_cabinet(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+    specialist_id = data.get("selected_specialist_id")
+
+    if not specialist_id:
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
+    if not user_id or not tenant_id:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    async with get_session() as session:
+        removed = await FavoriteRepository(session).remove_specialist(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            specialist_id=UUID(specialist_id),
+        )
+
+    text_key = "favorite_removed" if removed else "favorites_not_found"
+    await callback.answer(t(text_key, language), show_alert=True)
+
+    async with get_session() as session:
+        specialists = await FavoriteRepository(session).list_saved_specialists(
+            tenant_id=tenant_id,
+            user_id=user_id,
+        )
+
+    await state.update_data(
+        cabinet_favorite_ids=[str(item.id) for item in specialists],
+        selected_specialist_id=None,
+    )
+
+    await callback.message.answer(
+        t("favorites_title", language) if specialists else t("favorites_empty", language),
+        reply_markup=favorites_list_keyboard(specialists, language),
+    )
+
 @billing_router.callback_query(F.data == "CAB_PROFILE")
 async def show_specialist_profile_menu(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
 
     if not user:
@@ -489,7 +836,7 @@ async def show_specialist_profile_menu(callback: CallbackQuery, state: FSMContex
 
 @billing_router.callback_query(F.data == "CAB_PROFILE_VIEW")
 async def view_specialist_profile(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
 
     if not user:
@@ -507,7 +854,7 @@ async def view_specialist_profile(callback: CallbackQuery, state: FSMContext):
 
 @billing_router.callback_query(F.data == "CAB_PROFILE_EDIT")
 async def edit_specialist_profile_menu(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
 
     if not user:
@@ -532,7 +879,7 @@ async def edit_specialist_profile_menu(callback: CallbackQuery, state: FSMContex
 
 @billing_router.callback_query(F.data == "CAB_EDIT_NAME")
 async def ask_edit_specialist_name(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     await callback.message.answer(
         t("cabinet_enter_name", language),
         reply_markup=profile_edit_back_keyboard(language),
@@ -543,7 +890,7 @@ async def ask_edit_specialist_name(callback: CallbackQuery, state: FSMContext):
 
 @billing_router.callback_query(F.data == "CAB_EDIT_DESCRIPTION")
 async def ask_edit_specialist_description(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     await callback.message.answer(
         t("cabinet_enter_description", language),
         reply_markup=profile_edit_back_keyboard(language),
@@ -554,7 +901,7 @@ async def ask_edit_specialist_description(callback: CallbackQuery, state: FSMCon
 
 @billing_router.callback_query(F.data == "CAB_EDIT_CONTACT")
 async def ask_edit_specialist_contact(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     await callback.message.answer(
         t("cabinet_enter_contact", language),
         reply_markup=profile_edit_back_keyboard(language),
@@ -564,7 +911,7 @@ async def ask_edit_specialist_contact(callback: CallbackQuery, state: FSMContext
 
 @billing_router.callback_query(F.data == "CAB_EDIT_LOCATION")
 async def ask_edit_specialist_location(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
 
     if not user:
@@ -589,7 +936,7 @@ async def ask_edit_specialist_location(callback: CallbackQuery, state: FSMContex
 
 @billing_router.callback_query(F.data == "CAB_LOC_MANUAL")
 async def ask_edit_specialist_location_manual(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     await callback.message.answer(
         t("cabinet_location_query_prompt", language),
         reply_markup=profile_edit_back_keyboard(language),
@@ -600,7 +947,7 @@ async def ask_edit_specialist_location_manual(callback: CallbackQuery, state: FS
 
 @billing_router.callback_query(F.data == "CAB_LOC_GEO")
 async def ask_edit_specialist_location_geo(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     await callback.message.answer(
         t("cabinet_geo_required", language),
         reply_markup=ReplyKeyboardMarkup(
@@ -621,7 +968,7 @@ async def ask_edit_specialist_location_geo(callback: CallbackQuery, state: FSMCo
 
 @billing_router.message(SpecialistCabinetFSM.entering_location_query)
 async def receive_specialist_location_query(message: Message, state: FSMContext):
-    language = normalize_language(message.from_user.language_code)
+    language = await get_billing_interface_language(message.from_user.id, message.from_user.language_code)
     query = (message.text or "").strip()
 
     if len(query) < 2:
@@ -659,7 +1006,7 @@ async def receive_specialist_location_query(message: Message, state: FSMContext)
 
 @billing_router.message(SpecialistCabinetFSM.waiting_geo)
 async def receive_specialist_location_geo(message: Message, state: FSMContext):
-    language = normalize_language(message.from_user.language_code)
+    language = await get_billing_interface_language(message.from_user.id, message.from_user.language_code)
 
     if not message.location:
         await message.answer(t("cabinet_geo_required", language))
@@ -704,7 +1051,7 @@ async def receive_specialist_location_geo(message: Message, state: FSMContext):
 
 @billing_router.callback_query(F.data.startswith("CAB_GEO_PLACE:"))
 async def choose_specialist_location_update(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     data = await state.get_data()
     candidates = data.get("cabinet_geo_candidates") or []
 
@@ -784,7 +1131,7 @@ async def choose_specialist_location_update(callback: CallbackQuery, state: FSMC
 
 @billing_router.callback_query(F.data.startswith("CAB_GEO_COUNTRY:"))
 async def choose_specialist_country_update(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     data = await state.get_data()
     candidates = data.get("cabinet_geo_candidates") or []
 
@@ -872,7 +1219,7 @@ async def choose_specialist_country_update(callback: CallbackQuery, state: FSMCo
 
 @billing_router.callback_query(F.data == "CAB_EDIT_CATEGORY")
 async def ask_edit_specialist_category(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
 
     if not user:
@@ -894,11 +1241,13 @@ async def ask_edit_specialist_category(callback: CallbackQuery, state: FSMContex
     )
     await state.set_state(SpecialistCabinetFSM.choosing_category)
 
+    selected_professions = (await state.get_data()).get("cabinet_selected_professions") or []
+
     await callback.message.answer(
-        t("cabinet_choose_direction", language),
-        reply_markup=indexed_items_keyboard(
-            categories,
-            prefix="CAB_CAT",
+        cabinet_category_prompt_text(selected_professions, language),
+        reply_markup=cabinet_category_keyboard(
+            items=categories,
+            selected_professions=selected_professions,
             language=language,
         ),
     )
@@ -907,7 +1256,7 @@ async def ask_edit_specialist_category(callback: CallbackQuery, state: FSMContex
 
 @billing_router.callback_query(F.data.startswith("CAB_CAT:"))
 async def choose_specialist_category_update(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     data = await state.get_data()
     category_ids = data.get("cabinet_category_ids") or []
 
@@ -919,31 +1268,36 @@ async def choose_specialist_category_update(callback: CallbackQuery, state: FSMC
         return
 
     async with get_session() as session:
-        professions = await SpecialistRepository(session).list_active_professions_by_category(
+        repository = SpecialistRepository(session)
+        category = await repository.get_active_category(UUID(category_id))
+        professions = await repository.list_active_professions_by_category(
             UUID(category_id),
             limit=50,
         )
 
+    selected_profession_ids = data.get("cabinet_selected_profession_ids") or []
+    selected_professions = data.get("cabinet_selected_professions") or []
+
     await state.update_data(
         cabinet_pending_category_id=category_id,
+        cabinet_pending_category_name=localized_name(category, language) if category else None,
         cabinet_profession_ids=[str(item.id) for item in professions],
     )
     await state.set_state(SpecialistCabinetFSM.choosing_profession)
 
     await callback.message.answer(
-        t("cabinet_choose_profession", language),
-        reply_markup=indexed_items_keyboard(
-            professions,
-            prefix="CAB_PROF",
+        cabinet_profession_prompt_text(selected_professions, language),
+        reply_markup=cabinet_profession_multi_keyboard(
+            items=professions,
+            selected_ids=selected_profession_ids,
             language=language,
         ),
     )
     await callback.answer()
 
-
 @billing_router.callback_query(F.data == "CAB_EDIT_PROFESSION")
 async def ask_edit_specialist_profession(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
 
     if not user:
@@ -955,37 +1309,55 @@ async def ask_edit_specialist_profession(callback: CallbackQuery, state: FSMCont
         return
 
     async with get_session() as session:
-        professions = await SpecialistRepository(session).list_active_professions_by_category(
-            specialist.category_id,
-            limit=50,
+        repository = SpecialistRepository(session)
+        categories = await repository.list_active_categories(limit=100)
+        active_profession_rows = await repository.list_active_specialist_professions(
+            specialist.id,
         )
+
+    selected_professions = [
+        {
+            "category_id": str(row.SpecialistProfession.category_id),
+            "category_name": localized_name(row.SpecialistCategory, language),
+            "profession_id": str(row.SpecialistProfession.profession_id),
+            "profession_name": localized_name(row.Profession, language),
+        }
+        for row in active_profession_rows
+    ]
+
+    selected_profession_ids = [
+        item["profession_id"] for item in selected_professions
+    ]
 
     await state.update_data(
         cabinet_specialist_id=str(specialist.id),
         cabinet_tenant_id=str(tenant_id),
         cabinet_user_id=str(user.id),
-        cabinet_pending_category_id=str(specialist.category_id),
-        cabinet_profession_ids=[str(item.id) for item in professions],
+        cabinet_category_ids=[str(item.id) for item in categories],
+        cabinet_selected_profession_ids=selected_profession_ids,
+        cabinet_selected_professions=selected_professions,
     )
-    await state.set_state(SpecialistCabinetFSM.choosing_profession)
+    await state.set_state(SpecialistCabinetFSM.choosing_category)
 
     await callback.message.answer(
-        t("cabinet_choose_profession", language),
-        reply_markup=indexed_items_keyboard(
-            professions,
-            prefix="CAB_PROF",
+        cabinet_category_prompt_text(selected_professions, language),
+        reply_markup=cabinet_category_keyboard(
+            items=categories,
+            selected_professions=selected_professions,
             language=language,
         ),
     )
     await callback.answer()
 
-
 @billing_router.callback_query(F.data.startswith("CAB_PROF:"))
 async def choose_specialist_profession_update(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     data = await state.get_data()
     profession_ids = data.get("cabinet_profession_ids") or []
     category_id = data.get("cabinet_pending_category_id")
+    category_name = data.get("cabinet_pending_category_name")
+    selected_profession_ids = data.get("cabinet_selected_profession_ids") or []
+    selected_professions = data.get("cabinet_selected_professions") or []
 
     try:
         index = int((callback.data or "").split(":", 1)[1])
@@ -994,13 +1366,146 @@ async def choose_specialist_profession_update(callback: CallbackQuery, state: FS
         await callback.answer(t("admin_item_not_found", language), show_alert=True)
         return
 
-    await save_specialist_profile_update(
-        message=callback.message,
-        state=state,
-        category_id=UUID(category_id) if category_id else None,
-        profession_id=UUID(profession_id),
+    async with get_session() as session:
+        repository = SpecialistRepository(session)
+        profession = await repository.get_active_profession(UUID(profession_id))
+        professions = await repository.list_active_professions_by_category(
+            UUID(category_id),
+            limit=50,
+        )
+
+    if not profession:
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    profession_id_text = str(profession.id)
+
+    if profession_id_text in selected_profession_ids:
+        selected_profession_ids = [
+            item for item in selected_profession_ids if item != profession_id_text
+        ]
+        selected_professions = [
+            item for item in selected_professions if item["profession_id"] != profession_id_text
+        ]
+    else:
+        limit_error_key = cabinet_profession_limit_error_key(
+            selected_professions,
+            str(profession.category_id),
+        )
+        if limit_error_key:
+            await callback.answer(t(limit_error_key, language), show_alert=True)
+            return
+
+        selected_profession_ids.append(profession_id_text)
+        selected_professions.append(
+            {
+                "category_id": str(profession.category_id),
+                "category_name": category_name,
+                "profession_id": profession_id_text,
+                "profession_name": localized_name(profession, language),
+            }
+        )
+
+    await state.update_data(
+        cabinet_selected_profession_ids=selected_profession_ids,
+        cabinet_selected_professions=selected_professions,
+    )
+
+    await callback.message.answer(
+        cabinet_profession_prompt_text(selected_professions, language),
+        reply_markup=cabinet_profession_multi_keyboard(
+            items=professions,
+            selected_ids=selected_profession_ids,
+            language=language,
+        ),
     )
     await callback.answer()
+
+@billing_router.callback_query(F.data == "CAB_PROF_DONE")
+async def save_specialist_professions_update(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
+    data = await state.get_data()
+
+    user_id = data.get("cabinet_user_id")
+    specialist_id = data.get("cabinet_specialist_id")
+    selected_professions = data.get("cabinet_selected_professions") or []
+
+    if not user_id or not specialist_id:
+        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        await state.clear()
+        return
+
+    if not selected_professions:
+        await callback.answer(t("spec_profession_select_one", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            specialist = await SpecialistRepository(session).replace_specialist_professions(
+                specialist_id=UUID(specialist_id),
+                user_id=UUID(user_id),
+                profession_selections=selected_professions,
+            )
+    except ValueError as exc:
+        await callback.message.answer(
+            t("cabinet_profile_update_failed", language).format(error=str(exc)),
+            reply_markup=specialist_edit_keyboard(language),
+        )
+        return
+
+    logger.info(
+        "cabinet_professions_updated telegram_id=%s specialist_id=%s",
+        callback.from_user.id,
+        specialist.id,
+    )
+
+    await state.clear()
+    await callback.message.answer(
+        t("cabinet_profile_updated", language),
+        reply_markup=specialist_profile_keyboard(language),
+    )
+    await callback.answer()
+
+def cabinet_category_prompt_text(
+    selected_professions: list[dict],
+    language: str,
+) -> str:
+    if not selected_professions:
+        return t("cabinet_choose_direction", language)
+
+    return (
+        f"{t('cabinet_choose_direction', language)}\n\n"
+        f"{t('spec_selected_professions_title', language)}\n"
+        f"{cabinet_selected_professions_text(selected_professions, language)}"
+    )
+
+
+def cabinet_category_keyboard(
+    *,
+    items,
+    selected_professions: list[dict],
+    language: str,
+) -> InlineKeyboardMarkup:
+    keyboard = indexed_items_keyboard(
+        items,
+        prefix="CAB_CAT",
+        language=language,
+    )
+
+    rows = list(keyboard.inline_keyboard)
+
+    if selected_professions:
+        rows.insert(
+            -1,
+            [
+                InlineKeyboardButton(
+                    text=t("spec_profession_done_btn", language),
+                    callback_data="CAB_PROF_DONE",
+                )
+            ],
+        )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 async def save_specialist_profile_update(
     *,
@@ -1013,7 +1518,7 @@ async def save_specialist_profile_update(
     profession_id: UUID | None = None,
 ):
     data = await state.get_data()
-    language = normalize_language(message.from_user.language_code)
+    language = await get_billing_interface_language(message.from_user.id, message.from_user.language_code)
 
     user_id = data.get("cabinet_user_id")
     tenant_id = data.get("cabinet_tenant_id")
@@ -1093,7 +1598,7 @@ async def receive_specialist_contact_update(message: Message, state: FSMContext)
 
 @billing_router.callback_query(F.data == "BILL_PANEL")
 async def show_billing_panel(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
 
     if not user_id or not tenant_id:
@@ -1110,7 +1615,7 @@ async def show_billing_panel(callback: CallbackQuery, state: FSMContext):
 
 @billing_router.callback_query(F.data == "BILL_MENU")
 async def billing_to_menu(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     await state.clear()
     await callback.message.answer(
         t("search_main_menu", language),
@@ -1121,7 +1626,7 @@ async def billing_to_menu(callback: CallbackQuery, state: FSMContext):
 
 @billing_router.callback_query(F.data == "BILL_FEATURES")
 async def list_billing_features(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
 
     if not user_id or not tenant_id:
@@ -1148,7 +1653,7 @@ async def list_billing_features(callback: CallbackQuery, state: FSMContext):
 
 @billing_router.callback_query(F.data.startswith("BILL_BUY:"))
 async def create_billing_invoice(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     data = await state.get_data()
     feature_codes = data.get("billing_feature_codes") or []
     index = int(callback.data.split(":", 1)[1])
@@ -1203,7 +1708,7 @@ async def create_billing_invoice(callback: CallbackQuery, state: FSMContext):
 
 @billing_router.callback_query(F.data == "BILL_CLAIM")
 async def claim_billing_payment(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     data = await state.get_data()
     invoice_id = data.get("billing_invoice_id")
 

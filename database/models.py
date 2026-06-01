@@ -139,6 +139,63 @@ class City(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+class UserLocation(Base):
+    __tablename__ = "user_locations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    country_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("countries.id"), nullable=True)
+    city_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("cities.id"), nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 7), nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 7), nullable=True)
+    accuracy_meters: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    location_source: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    visibility_level: Mapped[str] = mapped_column(Text, default="city")
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ProfileVisibilitySetting(Base):
+    __tablename__ = "profile_visibility_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    profile_type: Mapped[str] = mapped_column(Text, nullable=False)
+    visibility_level: Mapped[str] = mapped_column(Text, default="public")
+    visible_to_clients: Mapped[bool] = mapped_column(Boolean, default=True)
+    visible_to_employers: Mapped[bool] = mapped_column(Boolean, default=True)
+    visible_to_agencies: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_direct_messages: Mapped[bool] = mapped_column(Boolean, default=True)
+    allow_profile_export: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class DataSubjectRequest(Base):
+    __tablename__ = "data_subject_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    request_type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="requested")
+    requested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    result_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class DeletionJob(Base):
+    __tablename__ = "deletion_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(Text, default="scheduled")
+    anonymization_report: Mapped[dict] = mapped_column(JSONB, default=dict)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 class SpecialistCategory(Base):
     __tablename__ = "specialist_categories"
@@ -211,6 +268,26 @@ class Specialist(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+class SpecialistProfession(Base):
+    __tablename__ = "specialist_professions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialists.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialist_categories.id"),
+        nullable=False,
+    )
+    profession_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("professions.id"),
+        nullable=False,
+    )
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(Text, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class SpecialistLocation(Base):
     __tablename__ = "specialist_locations"
