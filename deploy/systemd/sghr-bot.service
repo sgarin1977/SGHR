@@ -1,0 +1,23 @@
+[Unit]
+Description=SGHR Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sghr
+Group=sghr
+WorkingDirectory=/opt/sghr
+EnvironmentFile=/opt/sghr/.env
+ExecStart=/opt/sghr/venv/bin/python /opt/sghr/bot.py
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
