@@ -196,6 +196,14 @@ def test_beta_08_admin_moderation_static_contract():
         "class ModerationRepository",
         "get_admin_roles",
         "require_admin_role",
+        "grant_admin_role",
+        "revoke_admin_role",
+        "ROLE_MANAGEMENT_ROLES",
+        "GRANTABLE_ADMIN_ROLES",
+        "list_recent_event_logs",
+        "list_recent_admin_actions",
+        "LOG_VIEW_ROLES",
+        "FULL_LOG_VIEW_ROLES",
         "list_pending_specialists",
         "approve_specialist",
         "reject_specialist",
@@ -206,9 +214,14 @@ def test_beta_08_admin_moderation_static_contract():
         "log_admin_action",
     ]:
         assert fragment in repository_source
+        assert fragment in repository_source
 
     for fragment in [
         "class ModerationService",
+        "grant_admin_role",
+        "revoke_admin_role",
+        "list_recent_event_logs",
+        "list_recent_admin_actions",
         "approve_specialist",
         "reject_specialist",
         "create_complaint",
@@ -216,18 +229,41 @@ def test_beta_08_admin_moderation_static_contract():
         "block_user",
     ]:
         assert fragment in service_source
+        assert fragment in service_source
 
     for fragment in [
         "admin_router = Router()",
         'Command("admin")',
+        "ADMIN_MODERATION_MENU_ROLES",
+        "ADMIN_PAYMENT_MENU_ROLES",
+        "ADMIN_ROLE_MENU_ROLES",
+        "ADMIN_LOG_MENU_ROLES",
+        "admin_no_available_actions",
         "ADM_PENDING",
         "ADM_COMPLAINTS",
+        "ADM_REVIEWS",
+        "ADM_RV_VIEW:",
+        "ADM_RV_APPROVE:",
+        "ADM_RV_REJECT:",
+        "ADM_RV_HIDE:",
+        "admin_review_ids",
+        "entering_review_reject_reason",
+        "entering_review_hide_reason",
+        "ADM_ROLES",
+        "ADM_ROLE_GRANT",
+        "ADM_ROLE_REVOKE",
+        "ADM_LOGS",
+        "format_logs_message",
+        "entering_role_grant",
+        "entering_role_revoke",
         "ADM_SP_APPROVE:",
         "ADM_SP_REJECT:",
         "ADM_CP_RESOLVE:",
         "ADM_CP_REJECT:",
         "ADM_CP_BLOCK:",
     ]:
+        assert fragment in admin_handler_source
+        assert fragment in admin_handler_source
         assert fragment in admin_handler_source
 
     assert "from handlers.admin import admin_router" in bot_source
@@ -251,6 +287,150 @@ async def test_admin_roles_are_read_from_active_user_roles(db_session):
     finally:
         await cleanup_user(db_session, admin_platform_user_id)
 
+async def test_super_admin_can_grant_and_revoke_admin_role(db_session):
+    super_admin_platform_user_id, super_admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="super_admin",
+    )
+    target_platform_user_id, target_user_id, target_tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        granted = await service.grant_admin_role(
+            admin_user_id=super_admin_user_id,
+            tenant_id=tenant_id,
+            target_platform_user_id=target_platform_user_id,
+            role="support",
+            reason="beta support access",
+        )
+
+        assert granted.entity_id == target_user_id
+        assert granted.status == "active"
+
+        roles = await ModerationRepository(db_session).get_admin_roles(target_user_id)
+        assert "support" in roles
+
+        revoked = await service.revoke_admin_role(
+            admin_user_id=super_admin_user_id,
+            tenant_id=tenant_id,
+            target_platform_user_id=target_platform_user_id,
+            role="support",
+            reason="beta support access removed",
+        )
+
+        assert revoked.entity_id == target_user_id
+        assert revoked.status == "revoked"
+
+        roles = await ModerationRepository(db_session).get_admin_roles(target_user_id)
+        assert "support" not in roles
+
+        grant_action = (
+            await db_session.execute(
+                select(AdminAction).where(
+                    AdminAction.admin_user_id == super_admin_user_id,
+                    AdminAction.target_id == target_user_id,
+                    AdminAction.action_type == "grant_admin_role",
+                )
+            )
+        ).scalar_one_or_none()
+        assert grant_action is not None
+
+        revoke_action = (
+            await db_session.execute(
+                select(AdminAction).where(
+                    AdminAction.admin_user_id == super_admin_user_id,
+                    AdminAction.target_id == target_user_id,
+                    AdminAction.action_type == "revoke_admin_role",
+                )
+            )
+        ).scalar_one_or_none()
+        assert revoke_action is not None
+
+    finally:
+        await cleanup_user(db_session, target_platform_user_id)
+        await cleanup_user(db_session, super_admin_platform_user_id)
+
+
+async def test_admin_cannot_grant_admin_role(db_session):
+    admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+    target_platform_user_id, target_user_id, target_tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        with pytest.raises(ModerationError):
+            await service.grant_admin_role(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_platform_user_id=target_platform_user_id,
+                role="support",
+                reason="not allowed",
+            )
+
+    finally:
+        await cleanup_user(db_session, target_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
+
+async def test_support_can_view_event_logs_but_not_admin_actions(db_session):
+    support_platform_user_id, support_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    try:
+        repository = ModerationRepository(db_session)
+
+        await repository.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="test_support_visible_event",
+            entity_type="user",
+            entity_id=support_user_id,
+            payload={"safe": True},
+        )
+        await repository.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type="test_admin_only_action",
+            target_type="user",
+            target_id=support_user_id,
+            before_state={},
+            after_state={},
+            reason="test action",
+        )
+        await db_session.commit()
+
+        service = ModerationService(ModerationRepository(db_session))
+
+        events = await service.list_recent_event_logs(
+            admin_user_id=support_user_id,
+            tenant_id=tenant_id,
+            limit=5,
+        )
+        assert any(item.event_type == "test_support_visible_event" for item in events)
+
+        with pytest.raises(ModerationError):
+            await service.list_recent_admin_actions(
+                admin_user_id=support_user_id,
+                tenant_id=tenant_id,
+                limit=5,
+            )
+
+    finally:
+        await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
 
 async def test_client_cannot_use_admin_repository(db_session):
     platform_user_id, user_id, tenant_id = await create_user_with_accepted_consents(
@@ -523,6 +703,10 @@ def test_admin_callbacks_are_compact_and_do_not_use_uuid_payloads():
         "ADM_CP_BLOCK:{complaint_id}",
         "UUID(callback.data.split",
         "UUID(callback.data.rsplit",
+        "ADM_RV_APPROVE:{review_id}",
+        "ADM_RV_REJECT:{review_id}",
+        "ADM_RV_HIDE:{review_id}",
+        "ADM_RV_VIEW:{review_id}",
     ]
 
     for fragment in forbidden_fragments:
@@ -533,6 +717,10 @@ def test_admin_callbacks_are_compact_and_do_not_use_uuid_payloads():
         "admin_complaint_ids",
         "callback_data=f\"ADM_SP_APPROVE:{index}\"",
         "callback_data=f\"ADM_CP_RESOLVE:{index}\"",
+        "admin_review_ids",
+        "callback_data=f\"ADM_RV_APPROVE:{index}\"",
+        "callback_data=f\"ADM_RV_REJECT:{index}\"",
+        "callback_data=f\"ADM_RV_HIDE:{index}\"",
     ]
 
     for fragment in required_fragments:

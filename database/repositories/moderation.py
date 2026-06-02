@@ -17,8 +17,26 @@ from database.models import (
 )
 
 
-ADMIN_ROLES = {"super_admin", "admin", "moderator"}
+ADMIN_ROLES = {
+    "super_admin",
+    "admin",
+    "moderator",
+    "support",
+    "finance_admin",
+    "content_manager",
+}
+MODERATION_ROLES = {"super_admin", "admin", "moderator"}
 BLOCK_USER_ROLES = {"super_admin", "admin"}
+ROLE_MANAGEMENT_ROLES = {"super_admin"}
+GRANTABLE_ADMIN_ROLES = {
+    "admin",
+    "moderator",
+    "support",
+    "finance_admin",
+    "content_manager",
+}
+LOG_VIEW_ROLES = {"super_admin", "admin", "support"}
+FULL_LOG_VIEW_ROLES = {"super_admin", "admin"}
 COMPLAINT_OPEN_STATUSES = {"new", "in_review"}
 
 
@@ -50,12 +68,203 @@ class ModerationRepository:
         allowed_roles: set[str] | None = None,
     ) -> set[str]:
         roles = await self.get_admin_roles(user_id)
-        allowed = allowed_roles or ADMIN_ROLES
+        allowed = allowed_roles or MODERATION_ROLES
 
         if not roles.intersection(allowed):
             raise ModerationAccessError("Admin access denied.")
 
         return roles
+
+    async def list_recent_event_logs(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID | None = None,
+        limit: int = 10,
+    ) -> list[EventLog]:
+        await self.require_admin_role(admin_user_id, LOG_VIEW_ROLES)
+
+        query = select(EventLog).order_by(EventLog.created_at.desc())
+
+        if tenant_id:
+            query = query.where(EventLog.tenant_id == tenant_id)
+
+        result = await self.session.execute(
+            query.limit(max(1, min(int(limit), 20)))
+        )
+        return list(result.scalars().all())
+
+    async def list_recent_admin_actions(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID | None = None,
+        limit: int = 10,
+    ) -> list[AdminAction]:
+        await self.require_admin_role(admin_user_id, FULL_LOG_VIEW_ROLES)
+
+        query = select(AdminAction).order_by(AdminAction.created_at.desc())
+
+        if tenant_id:
+            query = query.where(AdminAction.tenant_id == tenant_id)
+
+        result = await self.session.execute(
+            query.limit(max(1, min(int(limit), 20)))
+        )
+        return list(result.scalars().all())
+
+    async def get_user_by_telegram_id(self, platform_user_id: int | str) -> User | None:
+        result = await self.session.execute(
+            select(User)
+            .join(UserAccount, UserAccount.user_id == User.id)
+            .where(
+                UserAccount.platform == "telegram",
+                UserAccount.platform_user_id == str(platform_user_id),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def grant_admin_role(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_platform_user_id: int | str,
+        role: str,
+        reason: str,
+    ) -> UserRoleMapping:
+        await self.require_admin_role(admin_user_id, ROLE_MANAGEMENT_ROLES)
+
+        normalized_role = (role or "").strip().lower()
+        if normalized_role not in GRANTABLE_ADMIN_ROLES:
+            raise ValueError("Unsupported role for manual grant.")
+
+        target_user = await self.get_user_by_telegram_id(target_platform_user_id)
+        if not target_user:
+            raise ModerationNotFoundError("Target user not found.")
+
+        action_tenant_id = target_user.tenant_id or tenant_id
+
+        existing = (
+            await self.session.execute(
+                select(UserRoleMapping)
+                .where(
+                    UserRoleMapping.user_id == target_user.id,
+                    UserRoleMapping.role == normalized_role,
+                )
+                .order_by(UserRoleMapping.granted_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+        before_state = self._role_audit_state(existing)
+
+        if existing:
+            existing.status = "active"
+            existing.tenant_id = action_tenant_id
+            existing.granted_by = admin_user_id
+            existing.granted_at = datetime.utcnow()
+            role_mapping = existing
+        else:
+            role_mapping = UserRoleMapping(
+                user_id=target_user.id,
+                tenant_id=action_tenant_id,
+                role=normalized_role,
+                status="active",
+                granted_by=admin_user_id,
+            )
+            self.session.add(role_mapping)
+
+        await self.session.flush()
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=action_tenant_id,
+            action_type="grant_admin_role",
+            target_type="user",
+            target_id=target_user.id,
+            before_state=before_state,
+            after_state=self._role_audit_state(role_mapping),
+            reason=reason,
+        )
+        await self.log_event(
+            tenant_id=action_tenant_id,
+            user_id=admin_user_id,
+            event_type="admin_role_granted",
+            entity_type="user",
+            entity_id=target_user.id,
+            payload={
+                "role": normalized_role,
+                "target_platform_user_id": str(target_platform_user_id),
+                "reason": reason,
+            },
+        )
+        await self.session.flush()
+        return role_mapping
+
+    async def revoke_admin_role(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_platform_user_id: int | str,
+        role: str,
+        reason: str,
+    ) -> UserRoleMapping:
+        await self.require_admin_role(admin_user_id, ROLE_MANAGEMENT_ROLES)
+
+        normalized_role = (role or "").strip().lower()
+        if normalized_role not in GRANTABLE_ADMIN_ROLES:
+            raise ValueError("Unsupported role for manual revoke.")
+
+        target_user = await self.get_user_by_telegram_id(target_platform_user_id)
+        if not target_user:
+            raise ModerationNotFoundError("Target user not found.")
+
+        role_mapping = (
+            await self.session.execute(
+                select(UserRoleMapping).where(
+                    UserRoleMapping.user_id == target_user.id,
+                    UserRoleMapping.role == normalized_role,
+                    UserRoleMapping.status == "active",
+                )
+            )
+        ).scalar_one_or_none()
+
+        if not role_mapping:
+            raise ModerationNotFoundError("Active role not found.")
+
+        action_tenant_id = target_user.tenant_id or tenant_id
+        before_state = self._role_audit_state(role_mapping)
+
+        role_mapping.status = "revoked"
+
+        await self.session.flush()
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=action_tenant_id,
+            action_type="revoke_admin_role",
+            target_type="user",
+            target_id=target_user.id,
+            before_state=before_state,
+            after_state=self._role_audit_state(role_mapping),
+            reason=reason,
+        )
+        await self.log_event(
+            tenant_id=action_tenant_id,
+            user_id=admin_user_id,
+            event_type="admin_role_revoked",
+            entity_type="user",
+            entity_id=target_user.id,
+            payload={
+                "role": normalized_role,
+                "target_platform_user_id": str(target_platform_user_id),
+                "reason": reason,
+            },
+        )
+        await self.session.flush()
+        return role_mapping
 
     async def list_pending_specialists(
         self,
@@ -418,4 +627,17 @@ class ModerationRepository:
             "status": user.status,
             "active_role": user.active_role,
             "risk_score": user.risk_score,
+        }
+    
+    def _role_audit_state(self, role_mapping: UserRoleMapping | None) -> dict:
+        if not role_mapping:
+            return {"status": None}
+
+        return {
+            "id": str(role_mapping.id),
+            "user_id": str(role_mapping.user_id),
+            "tenant_id": str(role_mapping.tenant_id) if role_mapping.tenant_id else None,
+            "role": role_mapping.role,
+            "status": role_mapping.status,
+            "granted_by": str(role_mapping.granted_by) if role_mapping.granted_by else None,
         }

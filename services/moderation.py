@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from database.models import Complaint, Specialist, User
+from database.models import AdminAction, Complaint, EventLog, Specialist, User
 from database.repositories.moderation import (
     ModerationAccessError,
     ModerationNotFoundError,
@@ -45,6 +45,98 @@ class ModerationService:
             return await self.repository.require_admin_role(user_id)
         except ModerationAccessError as exc:
             raise ModerationError(str(exc)) from exc
+
+    async def list_recent_event_logs(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID | None = None,
+        limit: int = 10,
+    ) -> list[EventLog]:
+        try:
+            return await self.repository.list_recent_event_logs(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                limit=limit,
+            )
+        except ModerationAccessError as exc:
+            raise ModerationError(str(exc)) from exc
+
+    async def list_recent_admin_actions(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID | None = None,
+        limit: int = 10,
+    ) -> list[AdminAction]:
+        try:
+            return await self.repository.list_recent_admin_actions(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                limit=limit,
+            )
+        except ModerationAccessError as exc:
+            raise ModerationError(str(exc)) from exc
+
+    async def grant_admin_role(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_platform_user_id: int | str,
+        role: str,
+        reason: str,
+    ) -> ModerationActionResult:
+        normalized_reason = self._require_reason(reason)
+
+        try:
+            role_mapping = await self.repository.grant_admin_role(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_platform_user_id=target_platform_user_id,
+                role=role,
+                reason=normalized_reason,
+            )
+            await self.repository.session.commit()
+        except (ModerationAccessError, ModerationNotFoundError, ValueError) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return ModerationActionResult(
+            entity_id=role_mapping.user_id,
+            status=role_mapping.status,
+            message=f"Role {role_mapping.role} granted.",
+        )
+
+    async def revoke_admin_role(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_platform_user_id: int | str,
+        role: str,
+        reason: str,
+    ) -> ModerationActionResult:
+        normalized_reason = self._require_reason(reason)
+
+        try:
+            role_mapping = await self.repository.revoke_admin_role(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_platform_user_id=target_platform_user_id,
+                role=role,
+                reason=normalized_reason,
+            )
+            await self.repository.session.commit()
+        except (ModerationAccessError, ModerationNotFoundError, ValueError) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return ModerationActionResult(
+            entity_id=role_mapping.user_id,
+            status=role_mapping.status,
+            message=f"Role {role_mapping.role} revoked.",
+        )
 
     async def list_pending_specialists(
         self,

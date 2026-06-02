@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from datetime import datetime
 from database.models import (
     ContactRequest,
     ConversationThread,
@@ -472,7 +472,11 @@ class ContactChatRepository:
             raise ValueError("Conversation thread cannot be completed.")
 
         thread.status = "completed"
-
+        if thread.context_type == "contact_request" and thread.context_id:
+            contact_request = await self.session.get(ContactRequest, thread.context_id)
+            if contact_request and contact_request.status != "reviewed":
+                contact_request.status = "completed"
+                contact_request.updated_at = datetime.utcnow()
         self.session.add(
             EventLog(
                 tenant_id=thread.tenant_id,

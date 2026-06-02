@@ -528,6 +528,35 @@ class Complaint(Base):
     reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    reviewer_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    target_type: Mapped[str] = mapped_column(Text, nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    context_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    context_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    specialist_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, default="pending_moderation")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ReputationScore(Base):
+    __tablename__ = "reputation_scores"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    target_type: Mapped[str] = mapped_column(Text, nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    score: Mapped[float] = mapped_column(Numeric, default=0)
+    review_count: Mapped[int] = mapped_column(Integer, default=0)
+    complaint_count: Mapped[int] = mapped_column(Integer, default=0)
+    calculated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class Blacklist(Base):
     __tablename__ = "blacklist"

@@ -2210,6 +2210,165 @@ translations = {
         "en": "Specialist was not found in favorites.",
         "pt": "Especialista não encontrado nos favoritos.",
     },
+
+    "admin_roles": {
+        "ru": "Роли админов",
+        "en": "Admin roles",
+        "pt": "Funções admin",
+    },
+    "admin_roles_title": {
+        "ru": "Управление ролями админов.",
+        "en": "Admin role management.",
+        "pt": "Gestão de funções admin.",
+    },
+    "admin_role_grant": {
+        "ru": "Выдать роль",
+        "en": "Grant role",
+        "pt": "Conceder função",
+    },
+    "admin_role_revoke": {
+        "ru": "Отозвать роль",
+        "en": "Revoke role",
+        "pt": "Revogar função",
+    },
+    "admin_role_grant_prompt": {
+        "ru": "Отправьте: telegram_id role причина\nНапример: 123456789 moderator beta access",
+        "en": "Send: telegram_id role reason\nExample: 123456789 moderator beta access",
+        "pt": "Envie: telegram_id role motivo\nExemplo: 123456789 moderator beta access",
+    },
+    "admin_role_revoke_prompt": {
+        "ru": "Отправьте: telegram_id role причина\nНапример: 123456789 moderator removed from beta",
+        "en": "Send: telegram_id role reason\nExample: 123456789 moderator removed from beta",
+        "pt": "Envie: telegram_id role motivo\nExemplo: 123456789 moderator removed from beta",
+    },
+    "admin_role_bad_format": {
+        "ru": "Неверный формат. Нужно: telegram_id role причина",
+        "en": "Invalid format. Use: telegram_id role reason",
+        "pt": "Formato inválido. Use: telegram_id role motivo",
+    },
+    "admin_role_granted": {
+        "ru": "Роль выдана: {role}. Статус: {status}",
+        "en": "Role granted: {role}. Status: {status}",
+        "pt": "Função concedida: {role}. Status: {status}",
+    },
+    "admin_role_revoked": {
+        "ru": "Роль отозвана: {role}. Статус: {status}",
+        "en": "Role revoked: {role}. Status: {status}",
+        "pt": "Função revogada: {role}. Status: {status}",
+    },
+
+    "admin_no_available_actions": {
+        "ru": "Для вашей роли пока нет доступных действий в админ-панели.",
+        "en": "There are no available admin actions for your role yet.",
+        "pt": "Ainda não há ações administrativas disponíveis para sua função.",
+    },
+
+    "admin_logs": {
+        "ru": "Логи",
+        "en": "Logs",
+        "pt": "Logs",
+    },
+    "admin_logs_title": {
+        "ru": "Последние события",
+        "en": "Recent events",
+        "pt": "Eventos recentes",
+    },
+    "admin_logs_empty": {
+        "ru": "Логов пока нет.",
+        "en": "No logs yet.",
+        "pt": "Ainda não há logs.",
+    },
+    "admin_logs_full_section": {
+        "ru": "Админ-действия",
+        "en": "Admin actions",
+        "pt": "Ações admin",
+    },
+    "admin_logs_events_section": {
+        "ru": "События",
+        "en": "Events",
+        "pt": "Eventos",
+    },
+    "admin_pending_reviews": {
+        "ru": "Отзывы на модерации",
+        "en": "Pending reviews",
+        "pt": "Avaliações pendentes",
+    },
+    "admin_no_pending_reviews": {
+        "ru": "Отзывов на модерации нет.",
+        "en": "No pending reviews.",
+        "pt": "Não há avaliações pendentes.",
+    },
+    "admin_review_title": {
+        "ru": "Отзыв на модерации {index}/{total}",
+        "en": "Pending review {index}/{total}",
+        "pt": "Avaliação pendente {index}/{total}",
+    },
+    "admin_review_rating": {
+        "ru": "Оценка",
+        "en": "Rating",
+        "pt": "Avaliação",
+    },
+    "admin_review_target": {
+        "ru": "Цель",
+        "en": "Target",
+        "pt": "Alvo",
+    },
+    "admin_review_context": {
+        "ru": "Контекст",
+        "en": "Context",
+        "pt": "Contexto",
+    },
+    "admin_review_text": {
+        "ru": "Текст отзыва",
+        "en": "Review text",
+        "pt": "Texto da avaliação",
+    },
+    "admin_review_reply": {
+        "ru": "Ответ специалиста",
+        "en": "Specialist reply",
+        "pt": "Resposta do especialista",
+    },
+    "admin_hide_review": {
+        "ru": "Скрыть отзыв",
+        "en": "Hide review",
+        "pt": "Ocultar avaliação",
+    },
+    "admin_review_updated": {
+        "ru": "Отзыв обновлён. Статус: {status}",
+        "en": "Review updated. Status: {status}",
+        "pt": "Avaliação atualizada. Status: {status}",
+    },
+
+    "review_leave_btn": {
+        "ru": "Оставить отзыв",
+        "en": "Leave a review",
+        "pt": "Deixar avaliação",
+    },
+    "review_rating_prompt": {
+        "ru": "Оцените специалиста от 1 до 5.",
+        "en": "Rate the specialist from 1 to 5.",
+        "pt": "Avalie o especialista de 1 a 5.",
+    },
+    "review_text_prompt": {
+        "ru": "Напишите короткий отзыв или пропустите этот шаг.",
+        "en": "Write a short review or skip this step.",
+        "pt": "Escreva uma avaliação curta ou pule esta etapa.",
+    },
+    "review_skip_text_btn": {
+        "ru": "Пропустить текст",
+        "en": "Skip text",
+        "pt": "Pular texto",
+    },
+    "review_created": {
+        "ru": "Спасибо. Отзыв отправлен на модерацию.",
+        "en": "Thank you. The review was sent for moderation.",
+        "pt": "Obrigado. A avaliação foi enviada para moderação.",
+    },
+    "review_error": {
+        "ru": "Не удалось создать отзыв: {error}",
+        "en": "Could not create review: {error}",
+        "pt": "Não foi possível criar a avaliação: {error}",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

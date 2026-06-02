@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-
 import pytest
 from sqlalchemy import delete, or_, select
 
@@ -189,6 +188,8 @@ def test_beta_09_billing_static_contract():
         "entering_payment_paid_reason",
         "list_pending_manual_payments",
         "mark_payment_paid",
+        "ADMIN_PAYMENT_MENU_ROLES",
+        "finance_admin",
     ]:
         assert fragment in admin_source
 

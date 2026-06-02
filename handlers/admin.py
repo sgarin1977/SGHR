@@ -6,26 +6,33 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from database.models import Complaint, Invoice, Payment, Specialist
+from database.models import AdminAction, Complaint, EventLog, Invoice, Payment, Review, Specialist
 from database.repositories.moderation import ModerationRepository
 from database.repositories.billing import BillingRepository
+from database.repositories.reviews import ReviewRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard, normalize_language
 from services.moderation import ModerationError, ModerationService
 from services.billing import BillingError, BillingService
+from services.reviews import ReviewService, ReviewServiceError
 from services.user import UserService
 from ui.texts import t
 
-
 admin_router = Router()
 logger = logging.getLogger(__name__)
-
-
+ADMIN_MODERATION_MENU_ROLES = {"super_admin", "admin", "moderator"}
+ADMIN_PAYMENT_MENU_ROLES = {"super_admin", "admin", "finance_admin"}
+ADMIN_ROLE_MENU_ROLES = {"super_admin"}
+ADMIN_LOG_MENU_ROLES = {"super_admin", "admin", "support"}
 class AdminModerationFSM(StatesGroup):
     entering_reject_reason = State()
     entering_complaint_resolution_reason = State()
     entering_block_reason = State()
     entering_payment_paid_reason = State()
+    entering_role_grant = State()
+    entering_role_revoke = State()
+    entering_review_reject_reason = State()
+    entering_review_hide_reason = State()
 
 
 async def get_admin_user_context(telegram_id: int | str):
@@ -39,36 +46,165 @@ async def get_admin_user_context(telegram_id: int | str):
         return user.id, user.tenant_id, roles
 
 
-def admin_panel_keyboard(language: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+def admin_panel_keyboard(language: str, roles: set[str] | None = None) -> InlineKeyboardMarkup:
+    roles = roles or set()
+    rows = []
+
+    if roles.intersection(ADMIN_MODERATION_MENU_ROLES):
+        rows.append(
             [
                 InlineKeyboardButton(
                     text=t("admin_pending_profiles", language),
                     callback_data="ADM_PENDING",
                 )
-            ],
+            ]
+        )
+        rows.append(
             [
                 InlineKeyboardButton(
                     text=t("admin_open_complaints", language),
                     callback_data="ADM_COMPLAINTS",
                 )
-            ],
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_pending_reviews", language),
+                    callback_data="ADM_REVIEWS",
+                )
+            ]
+        )
+
+    if roles.intersection(ADMIN_PAYMENT_MENU_ROLES):
+        rows.append(
             [
                 InlineKeyboardButton(
                     text=t("admin_pending_payments", language),
                     callback_data="ADM_PAYMENTS",
                 )
+            ]
+        )
+
+    if roles.intersection(ADMIN_LOG_MENU_ROLES):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_logs", language),
+                    callback_data="ADM_LOGS",
+                )
+            ]
+        )
+
+    if roles.intersection(ADMIN_ROLE_MENU_ROLES):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_roles", language),
+                    callback_data="ADM_ROLES",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="ADM_MENU",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+
+def admin_roles_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_role_grant", language),
+                    callback_data="ADM_ROLE_GRANT",
+                )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_menu", language),
-                    callback_data="ADM_MENU",
+                    text=t("admin_role_revoke", language),
+                    callback_data="ADM_ROLE_REVOKE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_PANEL",
                 )
             ],
         ]
     )
 
+
+def parse_role_command(text: str | None) -> tuple[str, str, str] | None:
+    parts = (text or "").strip().split(maxsplit=2)
+    if len(parts) < 2:
+        return None
+
+    telegram_id = parts[0].strip()
+    role = parts[1].strip().lower()
+    reason = parts[2].strip() if len(parts) >= 3 else "manual role change from Telegram admin panel"
+
+    if not telegram_id or not role:
+        return None
+
+    return telegram_id, role, reason
+
+def short_uuid(value) -> str:
+    return str(value)[:8] if value else "-"
+
+
+def format_event_log_item(event: EventLog, *, language: str) -> str:
+    created_at = event.created_at.strftime("%Y-%m-%d %H:%M") if event.created_at else "-"
+    return (
+        f"{created_at}\n"
+        f"{event.event_type}\n"
+        f"{event.entity_type or '-'}:{short_uuid(event.entity_id)}\n"
+        f"trace: {event.trace_id or '-'}"
+    )
+
+
+def format_admin_action_item(action: AdminAction, *, language: str) -> str:
+    created_at = action.created_at.strftime("%Y-%m-%d %H:%M") if action.created_at else "-"
+    return (
+        f"{created_at}\n"
+        f"{action.action_type}\n"
+        f"{action.target_type}:{short_uuid(action.target_id)}\n"
+        f"{action.reason}"
+    )
+
+
+def format_logs_message(
+    *,
+    admin_actions: list[AdminAction],
+    events: list[EventLog],
+    include_admin_actions: bool,
+    language: str,
+) -> str:
+    parts = [t("admin_logs_title", language)]
+
+    if include_admin_actions:
+        parts.append(f"\n{t('admin_logs_full_section', language)}:")
+        if admin_actions:
+            parts.extend(format_admin_action_item(item, language=language) for item in admin_actions)
+        else:
+            parts.append(t("admin_logs_empty", language))
+
+    parts.append(f"\n{t('admin_logs_events_section', language)}:")
+    if events:
+        parts.extend(format_event_log_item(item, language=language) for item in events)
+    else:
+        parts.append(t("admin_logs_empty", language))
+
+    return "\n\n".join(parts)
 
 def pending_specialist_keyboard(index: int, total: int, language: str) -> InlineKeyboardMarkup:
     rows = [
@@ -161,6 +297,53 @@ def complaint_keyboard(index: int, total: int, language: str) -> InlineKeyboardM
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def review_keyboard(index: int, total: int, language: str) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_approve", language),
+                callback_data=f"ADM_RV_APPROVE:{index}",
+            ),
+            InlineKeyboardButton(
+                text=t("admin_reject", language),
+                callback_data=f"ADM_RV_REJECT:{index}",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_hide_review", language),
+                callback_data=f"ADM_RV_HIDE:{index}",
+            )
+        ],
+    ]
+
+    nav = []
+    if index > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_RV_VIEW:{index - 1}",
+            )
+        )
+    if index + 1 < total:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_RV_VIEW:{index + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def format_pending_specialist_card(
     specialist: Specialist,
@@ -258,6 +441,25 @@ def format_complaint_card(
         f"{t('admin_complaint_comment', language)}: {comment}"
     )
 
+def format_review_card(
+    review: Review,
+    *,
+    index: int,
+    total: int,
+    language: str,
+) -> str:
+    review_text = review.text or t("admin_no_comment", language)
+    reply_text = review.specialist_reply or t("admin_no_comment", language)
+
+    return (
+        f"{t('admin_review_title', language).format(index=index + 1, total=total)}\n\n"
+        f"{t('admin_status', language)}: {review.status}\n"
+        f"{t('admin_review_rating', language)}: {review.rating}/5\n"
+        f"{t('admin_review_target', language)}: {review.target_type}:{str(review.target_id)[:8]}\n"
+        f"{t('admin_review_context', language)}: {review.context_type or '-'}:{str(review.context_id)[:8] if review.context_id else '-'}\n\n"
+        f"{t('admin_review_text', language)}:\n{review_text}\n\n"
+        f"{t('admin_review_reply', language)}:\n{reply_text}"
+    )
 
 async def show_admin_panel(message_or_callback, state: FSMContext | None = None):
     user = message_or_callback.from_user
@@ -279,9 +481,18 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
         if isinstance(message_or_callback, CallbackQuery)
         else message_or_callback
     )
+    panel_text = t("admin_panel_title", language)
+    if not (
+        roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or roles.intersection(ADMIN_PAYMENT_MENU_ROLES)
+        or roles.intersection(ADMIN_ROLE_MENU_ROLES)
+        or roles.intersection(ADMIN_LOG_MENU_ROLES)
+    ):
+        panel_text = t("admin_no_available_actions", language)
+
     await target_message.answer(
-        t("admin_panel_title", language),
-        reply_markup=admin_panel_keyboard(language),
+        panel_text,
+        reply_markup=admin_panel_keyboard(language, roles),
     )
 
     if isinstance(message_or_callback, CallbackQuery):
@@ -297,6 +508,174 @@ async def admin_command(message: Message, state: FSMContext):
 async def admin_panel_callback(callback: CallbackQuery, state: FSMContext):
     await show_admin_panel(callback, state)
 
+@admin_router.callback_query(F.data == "ADM_ROLES")
+async def admin_roles_panel(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_ROLE_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    await state.clear()
+    await callback.message.answer(
+        t("admin_roles_title", language),
+        reply_markup=admin_roles_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_LOGS")
+async def admin_logs_panel(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+
+    if not admin_user_id or not roles.intersection(ADMIN_LOG_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    include_admin_actions = bool(roles.intersection({"super_admin", "admin"}))
+
+    try:
+        async with get_session() as session:
+            service = ModerationService(ModerationRepository(session))
+            events = await service.list_recent_event_logs(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                limit=5,
+            )
+            admin_actions = []
+            if include_admin_actions:
+                admin_actions = await service.list_recent_admin_actions(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    limit=5,
+                )
+    except ModerationError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await state.clear()
+    await callback.message.answer(
+        format_logs_message(
+            admin_actions=admin_actions,
+            events=events,
+            include_admin_actions=include_admin_actions,
+            language=language,
+        ),
+        reply_markup=admin_panel_keyboard(language, roles),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_ROLE_GRANT")
+async def ask_role_grant(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_ROLE_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    await state.set_state(AdminModerationFSM.entering_role_grant)
+    await callback.message.answer(t("admin_role_grant_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_role_grant)
+async def receive_role_grant(message: Message, state: FSMContext):
+    language = normalize_language(message.from_user.language_code)
+    parsed = parse_role_command(message.text)
+
+    if not parsed:
+        await message.answer(t("admin_role_bad_format", language))
+        return
+
+    target_platform_user_id, role, reason = parsed
+    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await message.answer(t("admin_access_denied", language))
+        await state.clear()
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).grant_admin_role(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_platform_user_id=target_platform_user_id,
+                role=role,
+                reason=reason,
+            )
+    except ModerationError as exc:
+        await message.answer(str(exc))
+        return
+
+    await state.clear()
+    await message.answer(
+        t("admin_role_granted", language).format(
+            role=role,
+            status=result.status,
+        ),
+        reply_markup=admin_roles_keyboard(language),
+    )
+
+
+@admin_router.callback_query(F.data == "ADM_ROLE_REVOKE")
+async def ask_role_revoke(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_ROLE_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    await state.set_state(AdminModerationFSM.entering_role_revoke)
+    await callback.message.answer(t("admin_role_revoke_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_role_revoke)
+async def receive_role_revoke(message: Message, state: FSMContext):
+    language = normalize_language(message.from_user.language_code)
+    parsed = parse_role_command(message.text)
+
+    if not parsed:
+        await message.answer(t("admin_role_bad_format", language))
+        return
+
+    target_platform_user_id, role, reason = parsed
+    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await message.answer(t("admin_access_denied", language))
+        await state.clear()
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).revoke_admin_role(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_platform_user_id=target_platform_user_id,
+                role=role,
+                reason=reason,
+            )
+    except ModerationError as exc:
+        await message.answer(str(exc))
+        return
+
+    await state.clear()
+    await message.answer(
+        t("admin_role_revoked", language).format(
+            role=role,
+            status=result.status,
+        ),
+        reply_markup=admin_roles_keyboard(language),
+    )
 
 @admin_router.callback_query(F.data == "ADM_MENU")
 async def admin_to_menu(callback: CallbackQuery, state: FSMContext):
@@ -314,10 +693,9 @@ async def list_pending_profiles(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
     admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
 
-    if not admin_user_id or not roles:
+    if not admin_user_id or not roles.intersection(ADMIN_MODERATION_MENU_ROLES):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
-
     try:
         async with get_session() as session:
             service = ModerationService(ModerationRepository(session))
@@ -510,7 +888,7 @@ async def list_open_complaints(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
     admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
 
-    if not admin_user_id or not roles:
+    if not admin_user_id or not roles.intersection(ADMIN_MODERATION_MENU_ROLES):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
 
@@ -571,6 +949,246 @@ async def show_complaint(callback: CallbackQuery, state: FSMContext, index: int)
     )
     await callback.answer()
 
+@admin_router.callback_query(F.data == "ADM_REVIEWS")
+async def list_pending_reviews(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+
+    if not admin_user_id or not roles.intersection(ADMIN_MODERATION_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            reviews = await ReviewService(
+                ReviewRepository(session)
+            ).list_pending_reviews(limit=10)
+    except ReviewServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    if not reviews:
+        await callback.message.answer(
+            t("admin_no_pending_reviews", language),
+            reply_markup=admin_panel_keyboard(language, roles),
+        )
+        await callback.answer()
+        return
+
+    await state.update_data(admin_review_ids=[str(item.id) for item in reviews])
+    await show_review(callback, state, index=0)
+
+
+async def show_review(callback: CallbackQuery, state: FSMContext, index: int):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    ids = data.get("admin_review_ids") or []
+
+    if not ids:
+        await callback.message.answer(
+            t("admin_no_pending_reviews", language),
+            reply_markup=admin_panel_keyboard(language, ADMIN_MODERATION_MENU_ROLES),
+        )
+        await callback.answer()
+        return
+
+    index = max(0, min(int(index), len(ids) - 1))
+
+    async with get_session() as session:
+        review = await session.get(Review, UUID(ids[index]))
+
+    if not review:
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await callback.message.answer(
+        format_review_card(
+            review,
+            index=index,
+            total=len(ids),
+            language=language,
+        ),
+        reply_markup=review_keyboard(index, len(ids), language),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data.startswith("ADM_RV_VIEW:"))
+async def view_pending_review(callback: CallbackQuery, state: FSMContext):
+    index = int(callback.data.split(":", 1)[1])
+    await show_review(callback, state, index=index)
+
+
+@admin_router.callback_query(F.data.startswith("ADM_RV_APPROVE:"))
+async def approve_pending_review(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    index = int(callback.data.split(":", 1)[1])
+    ids = data.get("admin_review_ids") or []
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_MODERATION_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    review_id = UUID(ids[index])
+    reason = "approved from Telegram admin panel"
+
+    try:
+        async with get_session() as session:
+            result = await ReviewService(
+                ReviewRepository(session)
+            ).moderate_review(
+                review_id=review_id,
+                status="published",
+                reason=reason,
+            )
+
+            await ModerationRepository(session).log_admin_action(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                action_type="publish_review",
+                target_type="review",
+                target_id=review_id,
+                before_state={},
+                after_state={"status": result.review.status},
+                reason=reason,
+            )
+            await ModerationRepository(session).log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="review_published",
+                entity_type="review",
+                entity_id=review_id,
+                payload={"reason": reason},
+            )
+            await session.commit()
+    except ReviewServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("admin_review_updated", language).format(status="published"),
+        reply_markup=admin_panel_keyboard(language, roles),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data.startswith("ADM_RV_REJECT:"))
+async def ask_reject_review_reason(callback: CallbackQuery, state: FSMContext):
+    await prepare_review_moderation_reason(
+        callback,
+        state,
+        status="rejected",
+        state_name=AdminModerationFSM.entering_review_reject_reason,
+    )
+
+
+@admin_router.callback_query(F.data.startswith("ADM_RV_HIDE:"))
+async def ask_hide_review_reason(callback: CallbackQuery, state: FSMContext):
+    await prepare_review_moderation_reason(
+        callback,
+        state,
+        status="hidden",
+        state_name=AdminModerationFSM.entering_review_hide_reason,
+    )
+
+
+async def prepare_review_moderation_reason(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    status: str,
+    state_name: State,
+):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    index = int(callback.data.split(":", 1)[1])
+    ids = data.get("admin_review_ids") or []
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(
+        admin_review_action_id=ids[index],
+        admin_review_action_status=status,
+    )
+    await state.set_state(state_name)
+    await callback.message.answer(t("admin_reason_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_review_reject_reason)
+@admin_router.message(AdminModerationFSM.entering_review_hide_reason)
+async def receive_review_moderation_reason(message: Message, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(message.from_user.language_code)
+    reason = (message.text or "").strip()
+    review_id = data.get("admin_review_action_id")
+    status = data.get("admin_review_action_status")
+
+    if len(reason) < 3:
+        await message.answer(t("admin_reason_too_short", language))
+        return
+
+    if status not in {"rejected", "hidden"} or not review_id:
+        await message.answer(t("admin_item_not_found", language))
+        await state.clear()
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_MODERATION_MENU_ROLES):
+        await message.answer(t("admin_access_denied", language))
+        await state.clear()
+        return
+
+    review_uuid = UUID(review_id)
+
+    try:
+        async with get_session() as session:
+            result = await ReviewService(
+                ReviewRepository(session)
+            ).moderate_review(
+                review_id=review_uuid,
+                status=status,
+                reason=reason,
+            )
+
+            action_type = "hide_review" if status == "hidden" else "reject_review"
+            event_type = "review_hidden" if status == "hidden" else "review_rejected"
+
+            await ModerationRepository(session).log_admin_action(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                action_type=action_type,
+                target_type="review",
+                target_id=review_uuid,
+                before_state={},
+                after_state={"status": result.review.status},
+                reason=reason,
+            )
+            await ModerationRepository(session).log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type=event_type,
+                entity_type="review",
+                entity_id=review_uuid,
+                payload={"reason": reason},
+            )
+            await session.commit()
+    except ReviewServiceError as exc:
+        await message.answer(str(exc))
+        return
+
+    await state.clear()
+    await message.answer(
+        t("admin_review_updated", language).format(status=status),
+        reply_markup=admin_panel_keyboard(language, roles),
+    )
 
 @admin_router.callback_query(F.data.startswith("ADM_CP_VIEW:"))
 async def view_complaint(callback: CallbackQuery, state: FSMContext):
@@ -762,7 +1380,7 @@ async def list_pending_payments(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
     admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
 
-    if not admin_user_id or not roles:
+    if not admin_user_id or not roles.intersection(ADMIN_PAYMENT_MENU_ROLES):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
 

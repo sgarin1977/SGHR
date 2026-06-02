@@ -35,6 +35,9 @@ from services.translation import TranslationError, TranslationService
 from ui.texts import t
 from database.repositories.favorites import FavoriteRepository
 
+from database.repositories.reviews import ReviewRepository
+from services.reviews import ReviewService, ReviewServiceError
+
 search_router = Router()
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,8 @@ class SpecialistSearchFSM(StatesGroup):
     confirming_contact_message = State()
     entering_thread_message = State()
     entering_report_comment = State()
+    choosing_review_rating = State()
+    entering_review_text = State()
 
 def normalize_language(language: str | None) -> str:
     return language if language in {"ru", "en", "pt", "uk"} else "ru"
@@ -379,6 +384,69 @@ def contact_thread_keyboard(language: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t("contact_finish_btn", language), callback_data="contact_finish")],
             [InlineKeyboardButton(text=t("contact_report_btn", language), callback_data="search_report_pending")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+        ]
+    )
+
+def contact_completed_keyboard(contact_request_id: str, language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("review_leave_btn", language),
+                    callback_data=f"review_start:{contact_request_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_back_to_filters", language),
+                    callback_data="search_filters",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
+    )
+
+
+def review_rating_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="1", callback_data="review_rating:1"),
+                InlineKeyboardButton(text="2", callback_data="review_rating:2"),
+                InlineKeyboardButton(text="3", callback_data="review_rating:3"),
+                InlineKeyboardButton(text="4", callback_data="review_rating:4"),
+                InlineKeyboardButton(text="5", callback_data="review_rating:5"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
+    )
+
+
+def review_skip_text_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("review_skip_text_btn", language),
+                    callback_data="review_text_skip",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
         ]
     )
 
@@ -2389,9 +2457,128 @@ async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("contact_request_error", language).format(error=str(exc)), show_alert=True)
         return
 
+    contact_request_id = data.get("active_contact_request_id")
+
     await state.update_data(active_thread_id=None)
     await callback.message.answer(
         t("contact_thread_completed", language),
+        reply_markup=(
+            contact_completed_keyboard(contact_request_id, language)
+            if contact_request_id
+            else InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+                    [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+                ]
+            )
+        ),
+    )
+    await callback.answer()
+@search_router.callback_query(F.data.startswith("review_start:"))
+async def start_contact_review(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+    contact_request_id = callback.data.split(":", 1)[1]
+
+    if not contact_request_id:
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(
+        review_contact_request_id=contact_request_id,
+        review_rating=None,
+        review_text=None,
+    )
+    await state.set_state(SpecialistSearchFSM.choosing_review_rating)
+
+    await callback.message.answer(
+        t("review_rating_prompt", language),
+        reply_markup=review_rating_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data.startswith("review_rating:"))
+async def choose_review_rating(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+
+    try:
+        rating = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError):
+        await callback.answer(t("review_error", language).format(error="invalid rating"), show_alert=True)
+        return
+
+    if rating < 1 or rating > 5:
+        await callback.answer(t("review_error", language).format(error="invalid rating"), show_alert=True)
+        return
+
+    await state.update_data(review_rating=rating)
+    await state.set_state(SpecialistSearchFSM.entering_review_text)
+
+    await callback.message.answer(
+        t("review_text_prompt", language),
+        reply_markup=review_skip_text_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data == "review_text_skip")
+async def skip_review_text(callback: CallbackQuery, state: FSMContext):
+    await create_review_from_state(callback, state, text=None)
+
+
+@search_router.message(SpecialistSearchFSM.entering_review_text)
+async def receive_review_text(message: Message, state: FSMContext):
+    text = (message.text or "").strip()
+    await create_review_from_state(message, state, text=text)
+
+
+async def create_review_from_state(event: CallbackQuery | Message, state: FSMContext, text: str | None):
+    data = await state.get_data()
+    language = await get_search_language(state, event)
+    contact_request_id = data.get("review_contact_request_id")
+    rating = data.get("review_rating")
+
+    if not contact_request_id or not rating:
+        target = event.message if isinstance(event, CallbackQuery) else event
+        await target.answer(t("review_error", language).format(error="missing review data"))
+        if isinstance(event, CallbackQuery):
+            await event.answer()
+        return
+
+    reviewer_user_id, tenant_id = await get_requester_context(event.from_user.id)
+    if not reviewer_user_id or not tenant_id:
+        target = event.message if isinstance(event, CallbackQuery) else event
+        await target.answer(t("search_contact_user_not_found", language))
+        if isinstance(event, CallbackQuery):
+            await event.answer()
+        return
+
+    try:
+        async with get_session() as session:
+            await ReviewService(ReviewRepository(session)).create_contact_review(
+                tenant_id=tenant_id,
+                reviewer_user_id=reviewer_user_id,
+                contact_request_id=UUID(contact_request_id),
+                rating=int(rating),
+                text=text,
+            )
+    except ReviewServiceError as exc:
+        target = event.message if isinstance(event, CallbackQuery) else event
+        await target.answer(t("review_error", language).format(error=str(exc)))
+        if isinstance(event, CallbackQuery):
+            await event.answer()
+        return
+
+    await state.update_data(
+        review_contact_request_id=None,
+        review_rating=None,
+        review_text=None,
+    )
+    await state.set_state(SpecialistSearchFSM.viewing_results)
+
+    target = event.message if isinstance(event, CallbackQuery) else event
+    await target.answer(
+        t("review_created", language),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
@@ -2399,4 +2586,6 @@ async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
             ]
         ),
     )
-    await callback.answer()
+
+    if isinstance(event, CallbackQuery):
+        await event.answer()
