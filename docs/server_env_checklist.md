@@ -33,6 +33,15 @@ Database:
 - SUPABASE_SERVICE_ROLE_KEY if used
 - SUPABASE_ANON_KEY if used
 
+Portfolio Storage:
+
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
+- SUPABASE_STORAGE_BUCKET=specialist-portfolio
+- SUPABASE_STORAGE_SIGNED_URL_TTL_SECONDS=900
+- specialist-portfolio bucket exists
+- specialist-portfolio bucket is private
+
 Tenant/bootstrap:
 
 - DEFAULT_TENANT_SLUG

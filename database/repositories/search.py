@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import case, exists, func, literal, or_, select
+from sqlalchemy import and_, case, exists, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
@@ -269,12 +269,35 @@ class SpecialistSearchRepository:
                     SpecialistLocation.city_id == filters.city_id,
                 )
             )
-            stmt = stmt.where(
-                or_(
-                    Specialist.city_id == filters.city_id,
-                    current_location_in_city,
+
+            location_conditions = [
+                Specialist.city_id == filters.city_id,
+                current_location_in_city,
+            ]
+
+            if filters.country_id:
+                specialist_serves_whole_country = and_(
+                    Specialist.country_id == filters.country_id,
+                    Specialist.city_id.is_(None),
                 )
-            )
+
+                current_location_serves_whole_country = exists(
+                    select(SpecialistLocation.id).where(
+                        SpecialistLocation.specialist_id == Specialist.id,
+                        SpecialistLocation.is_current.is_(True),
+                        SpecialistLocation.country_id == filters.country_id,
+                        SpecialistLocation.city_id.is_(None),
+                    )
+                )
+
+                location_conditions.extend(
+                    [
+                        specialist_serves_whole_country,
+                        current_location_serves_whole_country,
+                    ]
+                )
+
+            stmt = stmt.where(or_(*location_conditions))
 
         if filters.country_id:
             current_location_in_country = exists(
@@ -517,7 +540,7 @@ class SpecialistSearchRepository:
         rating_min: float | None = None,
         work_format: str | None = None,
         limit: int = 200,
-    ) -> list[tuple[Specialist, float]]:
+    ) -> list[tuple[Specialist, float | None]]:
         distance_expr = self._distance_km_expression(
             latitude=latitude,
             longitude=longitude,
@@ -534,15 +557,7 @@ class SpecialistSearchRepository:
             .where(
                 Specialist.status == "active",
                 User.status.notin_(["blocked", "deleted"]),
-                or_(
-                    Specialist.latitude.isnot(None),
-                    SpecialistLocation.latitude.isnot(None),
-                ),
-                or_(
-                    Specialist.longitude.isnot(None),
-                    SpecialistLocation.longitude.isnot(None),
-                ),
-            )
+)
         )
 
         if country_id:
@@ -621,16 +636,33 @@ class SpecialistSearchRepository:
             stmt = stmt.where(Specialist.work_format == work_format)
 
         if not country_wide:
-            stmt = stmt.where(distance_expr <= radius_km)
+            stmt = stmt.where(
+        or_(
+            Specialist.latitude.isnot(None),
+            SpecialistLocation.latitude.isnot(None),
+        ),
+        or_(
+            Specialist.longitude.isnot(None),
+            SpecialistLocation.longitude.isnot(None),
+        ),
+        distance_expr <= radius_km,
+    )
 
-        stmt = stmt.order_by(
-            distance_expr.asc(),
-            Specialist.created_at.desc(),
-            Specialist.id.asc(),
+            stmt = stmt.order_by(
+    distance_expr.asc().nulls_last(),
+    Specialist.created_at.desc(),
+    Specialist.id.asc(),
         ).limit(max(1, int(limit)))
 
         result = await self.session.execute(stmt)
-        return [(specialist, float(distance or 0)) for specialist, distance in result.all()]
+
+        return [
+    (
+        specialist,
+        float(distance) if distance is not None else None,
+    )
+    for specialist, distance in result.all()
+]
 
     async def get_current_locations_by_specialist_ids(
         self,

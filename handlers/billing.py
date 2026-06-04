@@ -33,9 +33,12 @@ from services.user import UserService
 from ui.texts import t
 from services.geo_service import GeoService, GeoServiceError
 from services.rate_limit import RateLimitError, RateLimitService
+from database.repositories.portfolio import PortfolioRepository
 from database.repositories.favorites import FavoriteRepository
 from database.repositories.search import SpecialistSearchRepository
 from services.geo_search import GeoSearchService, SpecialistPublicCard
+from services.portfolio import PortfolioService, PortfolioServiceError
+from io import BytesIO
 
 billing_router = Router()
 logger = logging.getLogger(__name__)
@@ -52,6 +55,7 @@ class SpecialistCabinetFSM(StatesGroup):
     entering_location_query = State()
     choosing_geo_place = State()
     waiting_geo = State()
+    waiting_portfolio_file = State()
 
 async def get_billing_user_context(telegram_id: int | str):
     async with get_session() as session:
@@ -293,6 +297,12 @@ def specialist_profile_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text=t("portfolio_button", language),
+                    callback_data="CAB_PORTFOLIO",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text=t("billing_promotions", language),
                     callback_data="BILL_PANEL",
                 )
@@ -306,6 +316,117 @@ def specialist_profile_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
+def portfolio_menu_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("portfolio_upload_button", language),
+                    callback_data="CAB_PORTFOLIO_UPLOAD",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("billing_back", language),
+                    callback_data="CAB_PROFILE",
+                )
+            ],
+        ]
+    )
+
+
+def portfolio_item_keyboard(
+    *,
+    item_id: UUID,
+    signed_url: str,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("portfolio_open_button", language),
+                    url=signed_url,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("portfolio_delete_button", language),
+                    callback_data=f"CAB_PORT_DEL:{item_id}",
+                )
+            ],
+        ]
+    )
+
+
+def portfolio_item_text(view, language: str) -> str:
+    status_key = (
+        f"portfolio_status_{view.item.status}"
+    )
+
+    file_label_key = (
+        "portfolio_photo_label"
+        if view.storage_object.file_type == "photo"
+        else "portfolio_pdf_label"
+    )
+
+    file_label = t(file_label_key, language)
+    title = view.item.title or file_label
+    status = t(status_key, language)
+
+    return f"{file_label}: {title}\n{status}"
+
+
+async def send_owner_portfolio(
+    message: Message,
+    *,
+    tenant_id: UUID,
+    owner_user_id: UUID,
+    language: str,
+) -> None:
+    async with get_session() as session:
+        service = PortfolioService(
+            PortfolioRepository(session)
+        )
+        items = await service.list_owner_items(
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+        )
+
+    if not items:
+        await message.answer(
+            (
+                f"{t('portfolio_title', language)}\n\n"
+                f"{t('portfolio_empty', language)}"
+            ),
+            reply_markup=portfolio_menu_keyboard(language),
+        )
+        return
+
+    await message.answer(
+        t("portfolio_title", language),
+        reply_markup=portfolio_menu_keyboard(language),
+    )
+
+    for view in items:
+        text = portfolio_item_text(view, language)
+        keyboard = portfolio_item_keyboard(
+            item_id=view.item.id,
+            signed_url=view.signed_url,
+            language=language,
+        )
+
+        if view.storage_object.file_type == "photo":
+            await message.answer_photo(
+                photo=view.signed_url,
+                caption=text,
+                reply_markup=keyboard,
+            )
+        else:
+            await message.answer(
+                text,
+                reply_markup=keyboard,
+            )
 
 def specialist_edit_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -833,6 +954,219 @@ async def show_specialist_profile_menu(callback: CallbackQuery, state: FSMContex
     )
     await callback.answer()
 
+@billing_router.callback_query(F.data == "CAB_PORTFOLIO")
+async def show_owner_portfolio(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    user_id, tenant_id = await get_billing_user_context(
+        callback.from_user.id
+    )
+
+    if not user_id or not tenant_id:
+        await callback.answer(
+            t("billing_start_required", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        await send_owner_portfolio(
+            callback.message,
+            tenant_id=tenant_id,
+            owner_user_id=user_id,
+            language=language,
+        )
+    except PortfolioServiceError as exc:
+        await callback.answer(
+            t("portfolio_error", language).format(error=str(exc)),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(None)
+    await callback.answer()
+
+
+@billing_router.callback_query(F.data == "CAB_PORTFOLIO_UPLOAD")
+async def ask_portfolio_upload(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    await callback.message.answer(
+        t("portfolio_upload_prompt", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("billing_back", language),
+                        callback_data="CAB_PORTFOLIO",
+                    )
+                ]
+            ]
+        ),
+    )
+
+    await state.set_state(
+        SpecialistCabinetFSM.waiting_portfolio_file
+    )
+    await callback.answer()
+
+
+@billing_router.message(
+    SpecialistCabinetFSM.waiting_portfolio_file,
+    F.photo | F.document,
+)
+async def receive_portfolio_file(
+    message: Message,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        message.from_user.id,
+        message.from_user.language_code,
+    )
+
+    user_id, tenant_id = await get_billing_user_context(
+        message.from_user.id
+    )
+
+    if not user_id or not tenant_id:
+        await message.answer(
+            t("billing_start_required", language)
+        )
+        return
+
+    buffer = BytesIO()
+
+    if message.document:
+        telegram_file = message.document
+        filename = (
+            telegram_file.file_name
+            or f"{telegram_file.file_unique_id}.bin"
+        )
+        mime_type = telegram_file.mime_type
+    else:
+        telegram_file = message.photo[-1]
+        filename = f"{telegram_file.file_unique_id}.jpg"
+        mime_type = "image/jpeg"
+
+    try:
+        await message.bot.download(
+            telegram_file,
+            destination=buffer,
+        )
+
+        async with get_session() as session:
+            service = PortfolioService(
+                PortfolioRepository(session)
+            )
+            await service.upload_item(
+                tenant_id=tenant_id,
+                owner_user_id=user_id,
+                filename=filename,
+                mime_type=mime_type,
+                content=buffer.getvalue(),
+                title=filename,
+            )
+
+        await state.set_state(None)
+
+        await message.answer(
+            t("portfolio_upload_success", language)
+        )
+
+        await send_owner_portfolio(
+            message,
+            tenant_id=tenant_id,
+            owner_user_id=user_id,
+            language=language,
+        )
+
+    except PortfolioServiceError as exc:
+        await message.answer(
+            t("portfolio_upload_error", language).format(
+                error=str(exc)
+            )
+        )
+
+
+@billing_router.message(
+    SpecialistCabinetFSM.waiting_portfolio_file,
+)
+async def reject_invalid_portfolio_message(
+    message: Message,
+):
+    language = await get_billing_interface_language(
+        message.from_user.id,
+        message.from_user.language_code,
+    )
+
+    await message.answer(
+        t("portfolio_invalid_file", language)
+    )
+
+
+@billing_router.callback_query(
+    F.data.startswith("CAB_PORT_DEL:")
+)
+async def delete_owner_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    user_id, tenant_id = await get_billing_user_context(
+        callback.from_user.id
+    )
+
+    if not user_id or not tenant_id:
+        await callback.answer(
+            t("billing_start_required", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        item_id = UUID(callback.data.split(":", 1)[1])
+
+        async with get_session() as session:
+            service = PortfolioService(
+                PortfolioRepository(session)
+            )
+            await service.delete_owner_item(
+                tenant_id=tenant_id,
+                owner_user_id=user_id,
+                item_id=item_id,
+            )
+
+    except (ValueError, PortfolioServiceError) as exc:
+        await callback.answer(
+            t("portfolio_error", language).format(error=str(exc)),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.edit_reply_markup(
+        reply_markup=None
+    )
+    await callback.answer(
+        t("portfolio_deleted", language),
+        show_alert=True,
+    )
+    await state.set_state(None)
 
 @billing_router.callback_query(F.data == "CAB_PROFILE_VIEW")
 async def view_specialist_profile(callback: CallbackQuery, state: FSMContext):

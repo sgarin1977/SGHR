@@ -319,6 +319,134 @@ async def test_search_specialists_by_radius(db_session):
         await cleanup_test_user(db_session, platform_user_id)
         await cleanup_legal_documents(db_session, tenant_id)       
 
+async def test_country_wide_search_includes_specialist_without_coordinates(db_session):
+    platform_user_id, user_id, tenant_id, specialist, refs = (
+        await create_active_search_specialist(db_session)
+    )
+
+    try:
+        # Імітуємо реєстрацію спеціаліста з локацією «Вся країна».
+        specialist.city_id = None
+        specialist.latitude = None
+        specialist.longitude = None
+        specialist.service_radius_km = 0
+
+        location_result = await db_session.execute(
+            select(SpecialistLocation).where(
+                SpecialistLocation.specialist_id == specialist.id,
+                SpecialistLocation.is_current.is_(True),
+            )
+        )
+
+        for location in location_result.scalars().all():
+            location.city_id = None
+            location.latitude = None
+            location.longitude = None
+
+        await db_session.commit()
+
+        repository = SpecialistSearchRepository(db_session)
+
+        country_results = await repository.search_within_radius(
+            latitude=float(refs["city_latitude"]),
+            longitude=float(refs["city_longitude"]),
+            radius_km=5,
+            country_wide=True,
+            country_id=refs["country_id"],
+            category_id=refs["category_id"],
+            limit=200,
+        )
+
+        radius_results = await repository.search_within_radius(
+            latitude=float(refs["city_latitude"]),
+            longitude=float(refs["city_longitude"]),
+            radius_km=5,
+            country_wide=False,
+            country_id=refs["country_id"],
+            category_id=refs["category_id"],
+            limit=200,
+        )
+
+        country_result_by_id = {
+            found_specialist.id: distance
+            for found_specialist, distance in country_results
+        }
+        radius_result_ids = {
+            found_specialist.id
+            for found_specialist, _distance in radius_results
+        }
+
+        assert specialist.id in country_result_by_id
+        assert country_result_by_id[specialist.id] is None
+        assert specialist.id not in radius_result_ids
+
+    finally:
+        await cleanup_test_user(db_session, platform_user_id)
+        await cleanup_legal_documents(db_session, tenant_id)
+
+async def test_profile_location_edit_replaces_current_specialist_location(db_session):
+    platform_user_id, user_id, tenant_id, specialist, refs = (
+        await create_active_search_specialist(db_session)
+    )
+
+    try:
+        repository = SpecialistRepository(db_session)
+
+        await repository.update_specialist_profile_fields(
+            specialist_id=specialist.id,
+            user_id=user_id,
+            country_id=refs["country_id"],
+            city_id=None,
+            latitude=None,
+            longitude=None,
+            clear_city=True,
+            clear_coordinates=True,
+            service_radius_km=0,
+        )
+
+        location_result = await db_session.execute(
+            select(SpecialistLocation)
+            .where(
+                SpecialistLocation.specialist_id == specialist.id,
+            )
+            .order_by(SpecialistLocation.created_at)
+        )
+        locations = list(location_result.scalars().all())
+
+        current_locations = [
+            location
+            for location in locations
+            if location.is_current
+        ]
+        old_locations = [
+            location
+            for location in locations
+            if not location.is_current
+        ]
+
+        await db_session.refresh(specialist)
+
+        assert len(locations) == 2
+        assert len(current_locations) == 1
+        assert len(old_locations) == 1
+
+        current_location = current_locations[0]
+
+        assert current_location.country_id == refs["country_id"]
+        assert current_location.city_id is None
+        assert current_location.latitude is None
+        assert current_location.longitude is None
+        assert current_location.location_source == "profile_edit"
+
+        assert specialist.country_id == refs["country_id"]
+        assert specialist.city_id is None
+        assert specialist.latitude is None
+        assert specialist.longitude is None
+        assert specialist.service_radius_km == 0
+
+    finally:
+        await cleanup_test_user(db_session, platform_user_id)
+        await cleanup_legal_documents(db_session, tenant_id)
 
 async def test_search_by_radius_uses_current_specialist_location_coordinates(db_session):
     platform_user_id, user_id, tenant_id, specialist, refs = (
@@ -1529,3 +1657,59 @@ def test_empty_results_increase_radius_is_dynamic_not_fixed_25():
     assert "country_wide=True" in source
     assert "search_empty_increase_radius_to" in open("ui/texts.py", encoding="utf-8").read()
     assert "search_empty_increase_radius_country" in open("ui/texts.py", encoding="utf-8").read()
+
+async def test_city_search_includes_whole_country_specialist(db_session):
+    platform_user_id, user_id, tenant_id, specialist, refs = (
+        await create_active_search_specialist(db_session)
+    )
+
+    try:
+        repository = SpecialistRepository(db_session)
+
+        await repository.update_specialist_profile_fields(
+            specialist_id=specialist.id,
+            user_id=user_id,
+            country_id=refs["country_id"],
+            city_id=None,
+            latitude=None,
+            longitude=None,
+            clear_city=True,
+            clear_coordinates=True,
+            service_radius_km=0,
+        )
+
+        search_service = GeoSearchService(
+            SpecialistSearchRepository(db_session)
+        )
+
+        matching_country_results = await search_service.search_by_city(
+            city_id=refs["city_id"],
+            country_id=refs["country_id"],
+            category_id=refs["category_id"],
+            limit=10,
+            offset=0,
+        )
+
+        city_only_results = await search_service.search_by_city(
+            city_id=refs["city_id"],
+            country_id=None,
+            category_id=refs["category_id"],
+            limit=10,
+            offset=0,
+        )
+
+        matching_country_ids = {
+            item.specialist.id
+            for item in matching_country_results
+        }
+        city_only_ids = {
+            item.specialist.id
+            for item in city_only_results
+        }
+
+        assert specialist.id in matching_country_ids
+        assert specialist.id not in city_only_ids
+
+    finally:
+        await cleanup_test_user(db_session, platform_user_id)
+        await cleanup_legal_documents(db_session, tenant_id)

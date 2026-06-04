@@ -1,0 +1,16 @@
+[Unit]
+Description=SGHR Portfolio Storage Cleanup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sghr
+Group=sghr
+WorkingDirectory=/opt/sghr
+EnvironmentFile=/opt/sghr/.env
+Environment=PYTHONPATH=/opt/sghr
+ExecStart=/opt/sghr/venv/bin/python /opt/sghr/scripts/cleanup_portfolio_storage.py
+
+NoNewPrivileges=true
+PrivateTmp=true

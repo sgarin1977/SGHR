@@ -157,6 +157,7 @@ class SpecialistRepository:
         if not specialist or specialist.user_id != user_id:
             raise ValueError("Specialist profile not found.")
 
+
         normalized_selections = []
         seen_profession_ids = set()
 
@@ -426,6 +427,17 @@ class SpecialistRepository:
         if not specialist or specialist.user_id != user_id:
             raise ValueError("Specialist profile not found.")
 
+        location_changed = any(
+            (
+                country_id is not None,
+                city_id is not None,
+                latitude is not None,
+                longitude is not None,
+                clear_city,
+                clear_coordinates,
+            )
+        )
+
         before_state = {
             "display_name": specialist.display_name,
             "short_description": specialist.short_description,
@@ -504,6 +516,31 @@ class SpecialistRepository:
 
         if service_radius_km is not None:
             specialist.service_radius_km = service_radius_km
+
+        if location_changed:
+            result = await self.session.execute(
+                select(SpecialistLocation).where(
+                    SpecialistLocation.specialist_id == specialist.id,
+                    SpecialistLocation.is_current.is_(True),
+                )
+            )
+
+            for current_location in result.scalars().all():
+                current_location.is_current = False
+
+            self.session.add(
+                SpecialistLocation(
+                    tenant_id=specialist.tenant_id,
+                    specialist_id=specialist.id,
+                    country_id=specialist.country_id,
+                    city_id=specialist.city_id,
+                    latitude=specialist.latitude,
+                    longitude=specialist.longitude,
+                    location_source="profile_edit",
+                    visibility_level="city",
+                    is_current=True,
+                )
+            )
 
         if contact_text is not None:
             metadata = dict(specialist.extra_metadata or {})

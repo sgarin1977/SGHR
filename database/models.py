@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import String, ForeignKey, DateTime, Text, Integer, Boolean, Numeric
 from sqlalchemy.dialects.postgresql import JSONB
@@ -725,3 +725,57 @@ class SpecialistPromotion(Base):
     invoice_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("invoices.id"), nullable=True)
     status: Mapped[str] = mapped_column(Text, default="pending_payment")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class FileStorageObject(Base):
+    __tablename__ = "file_storage_objects"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    owner_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+    entity_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    file_type: Mapped[str] = mapped_column(Text, nullable=False)
+    mime_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    storage_provider: Mapped[str] = mapped_column(Text, default="supabase")
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    public_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    visibility_scope: Mapped[str] = mapped_column(Text, default="private")
+    retention_until: Mapped[Optional[datetime]] = mapped_column(
+    DateTime(timezone=True),
+    nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class SpecialistPortfolioItem(Base):
+    __tablename__ = "specialist_portfolio_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialists.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    file_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    file_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=100)
+    status: Mapped[str] = mapped_column(Text, default="pending_moderation")
+    created_at: Mapped[datetime] = mapped_column(
+    DateTime(timezone=True),
+    default=lambda: datetime.now(timezone.utc),
+)

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SGHR Portfolio Storage Cleanup Daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=sghr-portfolio-cleanup.service
+
+[Install]
+WantedBy=timers.target

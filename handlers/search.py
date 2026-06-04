@@ -34,10 +34,10 @@ from services.rate_limit import RateLimitError, RateLimitService
 from services.translation import TranslationError, TranslationService
 from ui.texts import t
 from database.repositories.favorites import FavoriteRepository
-
+from database.repositories.portfolio import PortfolioRepository
 from database.repositories.reviews import ReviewRepository
 from services.reviews import ReviewService, ReviewServiceError
-
+from services.portfolio import PortfolioService, PortfolioServiceError
 search_router = Router()
 logger = logging.getLogger(__name__)
 
@@ -316,6 +316,91 @@ def card_keyboard(language: str, results_page: int = 0) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
+
+def public_portfolio_keyboard(
+    signed_url: str,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("portfolio_open_button", language),
+                    url=signed_url,
+                )
+            ]
+        ]
+    )
+
+
+async def send_public_portfolio(
+    message,
+    *,
+    tenant_id: UUID,
+    specialist_id: UUID,
+    language: str,
+) -> None:
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_active_items(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+    except PortfolioServiceError as exc:
+        logger.warning(
+            "public_portfolio_load_failed "
+            "specialist_id=%s error=%s",
+            specialist_id,
+            exc,
+        )
+        return
+
+    if not items:
+        return
+
+    await message.answer(t("portfolio_title", language))
+
+    for view in items:
+        is_photo = view.storage_object.file_type == "photo"
+
+        label = t(
+            (
+                "portfolio_photo_label"
+                if is_photo
+                else "portfolio_pdf_label"
+            ),
+            language,
+        )
+
+        title = view.item.title or label
+        text = f"{label}: {title}"
+
+        keyboard = public_portfolio_keyboard(
+            view.signed_url,
+            language,
+        )
+
+        if is_photo:
+            try:
+                await message.answer_photo(
+                    photo=view.signed_url,
+                    caption=text,
+                    reply_markup=keyboard,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "public_portfolio_photo_send_failed "
+                    "item_id=%s error=%s",
+                    view.item.id,
+                    exc,
+                )
+        else:
+            await message.answer(
+                text,
+                reply_markup=keyboard,
+            )
 
 def complaint_reason_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -1702,6 +1787,15 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
         format_public_card(card, language),
         card_keyboard(language, results_page),
     )
+
+    if tenant_id:
+        await send_public_portfolio(
+            callback.message,
+            tenant_id=tenant_id,
+            specialist_id=card.specialist_id,
+            language=language,
+        )
+
     await callback.answer()
 @search_router.callback_query(F.data == "search_contact_pending")
 async def contact_start(callback: CallbackQuery, state: FSMContext):

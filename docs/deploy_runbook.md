@@ -97,3 +97,44 @@ cd /opt/sghr
 sudo -u sghr git checkout main
 sudo -u sghr git pull origin main
 sudo systemctl restart sghr-bot
+
+## Portfolio Storage Cleanup
+
+Portfolio files use the private Supabase Storage bucket:
+
+- Bucket: specialist-portfolio
+- Deleted items are physically removed after 30 days
+- Rejected items are physically removed after 90 days
+
+### Local manual check
+
+Run from the project directory:
+
+PYTHONPATH=. python scripts/cleanup_portfolio_storage.py
+
+Expected output:
+
+portfolio_storage_cleanup_completed cleaned_count=0
+
+### Install production cleanup timer
+
+Commands:
+
+sudo cp /opt/sghr/deploy/systemd/sghr-portfolio-cleanup.service /etc/systemd/system/
+sudo cp /opt/sghr/deploy/systemd/sghr-portfolio-cleanup.timer /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now sghr-portfolio-cleanup.timer
+
+### Verify cleanup service
+
+Commands:
+
+sudo systemctl start sghr-portfolio-cleanup.service
+sudo systemctl status sghr-portfolio-cleanup.service --no-pager
+sudo systemctl list-timers sghr-portfolio-cleanup.timer --no-pager
+sudo journalctl -u sghr-portfolio-cleanup.service -n 50 --no-pager
+
+Expected log:
+
+portfolio_storage_cleanup_completed cleaned_count=0

@@ -10,12 +10,14 @@ from database.models import AdminAction, Complaint, EventLog, Invoice, Payment, 
 from database.repositories.moderation import ModerationRepository
 from database.repositories.billing import BillingRepository
 from database.repositories.reviews import ReviewRepository
+from database.repositories.portfolio import PortfolioRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard, normalize_language
 from services.moderation import ModerationError, ModerationService
 from services.billing import BillingError, BillingService
 from services.reviews import ReviewService, ReviewServiceError
 from services.user import UserService
+from services.portfolio import PortfolioService, PortfolioServiceError
 from ui.texts import t
 
 admin_router = Router()
@@ -72,6 +74,23 @@ def admin_panel_keyboard(language: str, roles: set[str] | None = None) -> Inline
                 InlineKeyboardButton(
                     text=t("admin_pending_reviews", language),
                     callback_data="ADM_REVIEWS",
+                )
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_pending_portfolio", language),
+                    callback_data="ADM_PORTFOLIO",
+                )
+            ]
+        )
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_rejected_portfolio", language),
+                    callback_data="ADM_PORTFOLIO_REJECTED",
                 )
             ]
         )
@@ -345,6 +364,118 @@ def review_keyboard(index: int, total: int, language: str) -> InlineKeyboardMark
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def portfolio_moderation_keyboard(
+    *,
+    index: int,
+    total: int,
+    signed_url: str,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("portfolio_open_button", language),
+                url=signed_url,
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_approve", language),
+                callback_data=f"ADM_PORT_APPROVE:{index}",
+            ),
+            InlineKeyboardButton(
+                text=t("admin_reject", language),
+                callback_data=f"ADM_PORT_REJECT:{index}",
+            ),
+        ],
+    ]
+
+    nav = []
+
+    if index > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_PORT_VIEW:{index - 1}",
+            )
+        )
+
+    if index + 1 < total:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_PORT_VIEW:{index + 1}",
+            )
+        )
+
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def rejected_portfolio_keyboard(
+    *,
+    index: int,
+    total: int,
+    signed_url: str,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("portfolio_open_button", language),
+                url=signed_url,
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_restore_portfolio", language),
+                callback_data=f"ADM_PORT_RESTORE:{index}",
+            )
+        ],
+    ]
+
+    navigation = []
+
+    if index > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_PORT_REJECTED_VIEW:{index - 1}",
+            )
+        )
+
+    if index + 1 < total:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_PORT_REJECTED_VIEW:{index + 1}",
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 def format_pending_specialist_card(
     specialist: Specialist,
     *,
@@ -459,6 +590,36 @@ def format_review_card(
         f"{t('admin_review_context', language)}: {review.context_type or '-'}:{str(review.context_id)[:8] if review.context_id else '-'}\n\n"
         f"{t('admin_review_text', language)}:\n{review_text}\n\n"
         f"{t('admin_review_reply', language)}:\n{reply_text}"
+    )
+
+def format_portfolio_moderation_card(
+    view,
+    *,
+    index: int,
+    total: int,
+    language: str,
+) -> str:
+    file_type = t(
+        (
+            "portfolio_photo_label"
+            if view.storage_object.file_type == "photo"
+            else "portfolio_pdf_label"
+        ),
+        language,
+    )
+
+    size_kb = round(
+        (view.storage_object.size_bytes or 0) / 1024,
+        1,
+    )
+
+    return (
+        f"{t('admin_portfolio_title', language).format(index=index + 1, total=total)}\n\n"
+        f"{t('admin_status', language)}: {view.item.status}\n"
+        f"{t('admin_portfolio_type', language)}: {file_type}\n"
+        f"{t('admin_portfolio_specialist', language)}: {str(view.item.specialist_id)[:8]}\n"
+        f"{t('admin_portfolio_size', language)}: {size_kb} KB\n"
+        f"{view.item.title or file_type}"
     )
 
 async def show_admin_panel(message_or_callback, state: FSMContext | None = None):
@@ -1541,4 +1702,580 @@ async def receive_mark_payment_paid_reason(message: Message, state: FSMContext):
     await message.answer(
         text,
         reply_markup=admin_panel_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_PORTFOLIO")
+async def list_pending_portfolio(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_pending_items(
+                tenant_id=tenant_id,
+                moderator_user_id=admin_user_id,
+                limit=50,
+            )
+    except PortfolioServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    if not items:
+        await callback.message.answer(
+            t("admin_no_pending_portfolio", language),
+            reply_markup=admin_panel_keyboard(language, roles),
+        )
+        await callback.answer()
+        return
+
+    await state.update_data(
+        admin_portfolio_ids=[
+            str(view.item.id)
+            for view in items
+        ]
+    )
+
+    await show_pending_portfolio_item(
+        callback,
+        state,
+        index=0,
+    )
+
+
+async def show_pending_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    index: int,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    ids = data.get("admin_portfolio_ids") or []
+
+    if not ids:
+        await callback.answer(
+            t("admin_no_pending_portfolio", language),
+            show_alert=True,
+        )
+        return
+
+    index = max(0, min(int(index), len(ids) - 1))
+    item_id = UUID(ids[index])
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_pending_items(
+                tenant_id=tenant_id,
+                moderator_user_id=admin_user_id,
+                limit=50,
+            )
+    except PortfolioServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    view = next(
+        (
+            candidate
+            for candidate in items
+            if candidate.item.id == item_id
+        ),
+        None,
+    )
+
+    if not view:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    text = format_portfolio_moderation_card(
+        view,
+        index=index,
+        total=len(ids),
+        language=language,
+    )
+
+    keyboard = portfolio_moderation_keyboard(
+        index=index,
+        total=len(ids),
+        signed_url=view.signed_url,
+        language=language,
+    )
+
+    if view.storage_object.file_type == "photo":
+        await callback.message.answer_photo(
+            photo=view.signed_url,
+            caption=text,
+            reply_markup=keyboard,
+        )
+    else:
+        await callback.message.answer(
+            text,
+            reply_markup=keyboard,
+        )
+
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_PORTFOLIO_REJECTED")
+async def list_rejected_portfolio(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_rejected_items(
+                tenant_id=tenant_id,
+                moderator_user_id=admin_user_id,
+                limit=50,
+            )
+    except PortfolioServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    if not items:
+        await callback.message.answer(
+            t("admin_no_rejected_portfolio", language),
+            reply_markup=admin_panel_keyboard(language, roles),
+        )
+        await callback.answer()
+        return
+
+    await state.update_data(
+        admin_rejected_portfolio_ids=[
+            str(view.item.id)
+            for view in items
+        ]
+    )
+
+    await show_rejected_portfolio_item(
+        callback,
+        state,
+        index=0,
+    )
+
+
+async def show_rejected_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    index: int,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    ids = data.get("admin_rejected_portfolio_ids") or []
+
+    if not ids:
+        await callback.answer(
+            t("admin_no_rejected_portfolio", language),
+            show_alert=True,
+        )
+        return
+
+    index = max(0, min(int(index), len(ids) - 1))
+    item_id = UUID(ids[index])
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_rejected_items(
+                tenant_id=tenant_id,
+                moderator_user_id=admin_user_id,
+                limit=50,
+            )
+    except PortfolioServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    view = next(
+        (
+            candidate
+            for candidate in items
+            if candidate.item.id == item_id
+        ),
+        None,
+    )
+
+    if not view:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    text = format_portfolio_moderation_card(
+        view,
+        index=index,
+        total=len(ids),
+        language=language,
+    )
+
+    keyboard = rejected_portfolio_keyboard(
+        index=index,
+        total=len(ids),
+        signed_url=view.signed_url,
+        language=language,
+    )
+
+    if view.storage_object.file_type == "photo":
+        await callback.message.answer_photo(
+            photo=view.signed_url,
+            caption=text,
+            reply_markup=keyboard,
+        )
+    else:
+        await callback.message.answer(
+            text,
+            reply_markup=keyboard,
+        )
+
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_PORT_REJECTED_VIEW:")
+)
+async def view_rejected_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                normalize_language(callback.from_user.language_code),
+            ),
+            show_alert=True,
+        )
+        return
+
+    await show_rejected_portfolio_item(
+        callback,
+        state,
+        index=index,
+    )
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_PORT_RESTORE:")
+)
+async def restore_rejected_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    ids = data.get("admin_rejected_portfolio_ids") or []
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    item_id = UUID(ids[index])
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            service = PortfolioService(
+                PortfolioRepository(session)
+            )
+
+            item = await service.approve_item(
+                tenant_id=tenant_id,
+                moderator_user_id=admin_user_id,
+                item_id=item_id,
+            )
+
+            moderation_repository = ModerationRepository(session)
+
+            await moderation_repository.log_admin_action(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                action_type="restore_portfolio_item",
+                target_type="specialist_portfolio_item",
+                target_id=item_id,
+                before_state={"status": "rejected"},
+                after_state={"status": item.status},
+                reason="portfolio restored after repeated review",
+            )
+
+            await moderation_repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="portfolio_item_restored",
+                entity_type="specialist_portfolio_item",
+                entity_id=item_id,
+                payload={
+                    "previous_status": "rejected",
+                    "status": item.status,
+                },
+            )
+
+            await session.commit()
+
+    except PortfolioServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    remaining_ids = [
+        stored_id
+        for stored_id in ids
+        if stored_id != str(item_id)
+    ]
+
+    await state.update_data(
+        admin_rejected_portfolio_ids=remaining_ids
+    )
+
+    await callback.message.answer(
+        t("admin_portfolio_updated", language).format(
+            status=item.status,
+        ),
+        reply_markup=admin_panel_keyboard(language, roles),
+    )
+
+    await callback.answer()
+
+@admin_router.callback_query(F.data.startswith("ADM_PORT_VIEW:"))
+async def view_pending_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    index = int(callback.data.split(":", 1)[1])
+
+    await show_pending_portfolio_item(
+        callback,
+        state,
+        index=index,
+    )
+
+
+async def moderate_pending_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    status: str,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    ids = data.get("admin_portfolio_ids") or []
+
+    index = int(callback.data.split(":", 1)[1])
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    item_id = UUID(ids[index])
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    reason = f"portfolio {status} from Telegram admin panel"
+
+    try:
+        async with get_session() as session:
+            service = PortfolioService(
+                PortfolioRepository(session)
+            )
+
+            if status == "active":
+                item = await service.approve_item(
+                    tenant_id=tenant_id,
+                    moderator_user_id=admin_user_id,
+                    item_id=item_id,
+                )
+            else:
+                item = await service.reject_item(
+                    tenant_id=tenant_id,
+                    moderator_user_id=admin_user_id,
+                    item_id=item_id,
+                )
+
+            moderation_repository = ModerationRepository(session)
+
+            await moderation_repository.log_admin_action(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                action_type=f"{status}_portfolio_item",
+                target_type="specialist_portfolio_item",
+                target_id=item_id,
+                before_state={"status": "pending_moderation"},
+                after_state={"status": item.status},
+                reason=reason,
+            )
+
+            await moderation_repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type=f"portfolio_item_{status}",
+                entity_type="specialist_portfolio_item",
+                entity_id=item_id,
+                payload={"reason": reason},
+            )
+
+            await session.commit()
+
+    except PortfolioServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    remaining_ids = [
+        stored_id
+        for stored_id in ids
+        if stored_id != str(item_id)
+    ]
+
+    await state.update_data(
+        admin_portfolio_ids=remaining_ids
+    )
+
+    await callback.message.answer(
+        t("admin_portfolio_updated", language).format(
+            status=status
+        ),
+        reply_markup=admin_panel_keyboard(language, roles),
+    )
+
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_PORT_APPROVE:")
+)
+async def approve_pending_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await moderate_pending_portfolio_item(
+        callback,
+        state,
+        status="active",
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_PORT_REJECT:")
+)
+async def reject_pending_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await moderate_pending_portfolio_item(
+        callback,
+        state,
+        status="rejected",
     )

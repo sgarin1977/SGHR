@@ -2369,6 +2369,114 @@ translations = {
         "en": "Could not create review: {error}",
         "pt": "Não foi possível criar a avaliação: {error}",
     },
+
+    "portfolio_button": {
+        "ru": "Портфолио",
+        "en": "Portfolio",
+        "pt": "Portfólio",
+    },
+    "portfolio_title": {
+        "ru": "Портфолио специалиста",
+        "en": "Specialist portfolio",
+        "pt": "Portfólio do especialista",
+    },
+    "portfolio_empty": {
+        "ru": "В портфолио пока нет файлов.",
+        "en": "The portfolio has no files yet.",
+        "pt": "O portfólio ainda não possui arquivos.",
+    },
+    "portfolio_upload_button": {
+        "ru": "Загрузить файл",
+        "en": "Upload file",
+        "pt": "Enviar arquivo",
+    },
+    "portfolio_upload_prompt": {
+        "ru": "Отправьте фото JPG, PNG, WEBP до 10 MB или PDF до 20 MB.",
+        "en": "Send a JPG, PNG or WEBP photo up to 10 MB, or a PDF up to 20 MB.",
+        "pt": "Envie uma foto JPG, PNG ou WEBP de até 10 MB, ou um PDF de até 20 MB.",
+    },
+    "portfolio_upload_success": {
+        "ru": "Файл загружен и отправлен на модерацию.",
+        "en": "The file was uploaded and sent for moderation.",
+        "pt": "O arquivo foi enviado para moderação.",
+    },
+    "portfolio_upload_error": {
+        "ru": "Не удалось загрузить файл: {error}",
+        "en": "Could not upload file: {error}",
+        "pt": "Não foi possível enviar o arquivo: {error}",
+    },
+    "portfolio_invalid_file": {
+        "ru": "Отправьте разрешённое фото или PDF.",
+        "en": "Send an allowed photo or PDF.",
+        "pt": "Envie uma foto permitida ou PDF.",
+    },
+    "portfolio_open_button": {
+        "ru": "Открыть",
+        "en": "Open",
+        "pt": "Abrir",
+    },
+    "portfolio_delete_button": {
+        "ru": "Удалить",
+        "en": "Delete",
+        "pt": "Excluir",
+    },
+    "portfolio_deleted": {
+        "ru": "Файл скрыт и запланирован на удаление.",
+        "en": "The file was hidden and scheduled for deletion.",
+        "pt": "O arquivo foi ocultado e agendado para exclusão.",
+    },
+    "portfolio_status_pending_moderation": {
+        "ru": "На модерации",
+        "en": "Pending moderation",
+        "pt": "Aguardando moderação",
+    },
+    "portfolio_status_active": {
+        "ru": "Опубликован",
+        "en": "Published",
+        "pt": "Publicado",
+    },
+    "portfolio_status_rejected": {
+        "ru": "Отклонён",
+        "en": "Rejected",
+        "pt": "Rejeitado",
+    },
+    "portfolio_photo_label": {
+        "ru": "Фото",
+        "en": "Photo",
+        "pt": "Foto",
+    },
+    "portfolio_pdf_label": {
+        "ru": "Сертификат",
+        "en": "Certificate",
+        "pt": "Certificado",
+    },
+    "portfolio_error": {
+        "ru": "Не удалось открыть портфолио: {error}",
+        "en": "Could not open portfolio: {error}",
+        "pt": "Não foi possível abrir o portfólio: {error}",
+    },
+
+    "admin_pending_portfolio": {
+        "ru": "Портфолио на модерации",
+        "en": "Pending portfolio",
+        "pt": "Portfólio pendente",
+    },
+
+    "admin_rejected_portfolio": {
+        "ru": "Отклонённые файлы",
+        "en": "Rejected portfolio",
+        "pt": "Portfólio rejeitado",
+    },
+    "admin_no_rejected_portfolio": {
+        "ru": "Отклонённых файлов нет.",
+        "en": "There are no rejected portfolio files.",
+        "pt": "Não existem arquivos de portfólio rejeitados.",
+    },
+    "admin_restore_portfolio": {
+        "ru": "Одобрить повторно",
+        "en": "Approve again",
+        "pt": "Aprovar novamente",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
