@@ -943,6 +943,22 @@ async def search_city_query(message: Message, state: FSMContext):
         )
         return
 
+    if not candidates:
+        await message.answer(t("spec_geo_candidates_not_found", language))
+        return
+
+    candidate_state = [candidate.to_state() for candidate in candidates]
+    await state.update_data(
+        geo_candidates=candidate_state,
+        country_candidates=[],
+    )
+
+    await message.answer(
+        t("spec_geo_candidates_prompt", language),
+        reply_markup=geo_candidates_keyboard(candidate_state, language),
+    )
+    await state.set_state(SpecialistForm.choosing_geo_place)
+
 @specialist_form_router.message(SpecialistForm.entering_country_query)
 async def search_country_query(message: Message, state: FSMContext):
     data = await state.get_data()
