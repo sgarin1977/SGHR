@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SGHR Translation Retry Worker
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+RandomizedDelaySec=30s
+Unit=sghr-translation-worker.service
+
+[Install]
+WantedBy=timers.target

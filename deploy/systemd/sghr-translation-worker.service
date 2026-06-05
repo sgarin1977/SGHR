@@ -1,0 +1,17 @@
+[Unit]
+Description=SGHR Translation Retry Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sghr
+Group=sghr
+WorkingDirectory=/opt/sghr
+EnvironmentFile=/opt/sghr/.env
+Environment=PYTHONPATH=/opt/sghr
+ExecStart=/opt/sghr/venv/bin/python /opt/sghr/scripts/process_translation_jobs.py --limit 20
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
