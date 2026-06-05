@@ -224,3 +224,52 @@ If LibreTranslate is unavailable:
 - translation job is stored as retry
 - after max retries job becomes dead_letter
 - translation failure is logged in translation_logs
+## Privacy DSR Jobs
+
+Privacy jobs process GDPR/DSR requests from Settings:
+
+- data export requests from data_subject_requests
+- scheduled profile deletion/anonymization jobs from deletion_jobs
+
+The worker does not create new database tables. It uses existing SGHR Beta tables.
+
+Generated data export files are stored on the server in:
+
+/opt/sghr/exports/data_subject_requests
+
+The directory must not be public. It is for admin/manual delivery only during Beta.
+
+### Manual privacy jobs run
+
+Commands:
+
+cd /opt/sghr
+sudo -u sghr mkdir -p /opt/sghr/exports/data_subject_requests
+sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/process_privacy_jobs.py --limit 20 --export-dir /opt/sghr/exports/data_subject_requests
+
+Expected log:
+
+privacy_jobs_processed exports=PrivacyJobResult(...) deletions=PrivacyJobResult(...)
+
+### Install privacy jobs timer
+
+Commands:
+
+sudo cp /opt/sghr/deploy/systemd/sghr-privacy-jobs.service /etc/systemd/system/
+sudo cp /opt/sghr/deploy/systemd/sghr-privacy-jobs.timer /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now sghr-privacy-jobs.timer
+
+### Verify privacy jobs timer
+
+Commands:
+
+sudo systemctl list-timers sghr-privacy-jobs.timer --no-pager
+sudo systemctl start sghr-privacy-jobs.service
+sudo systemctl status sghr-privacy-jobs.service --no-pager
+sudo journalctl -u sghr-privacy-jobs.service -n 50 --no-pager
+
+Expected log:
+
+privacy_jobs_processed exports=PrivacyJobResult(...) deletions=PrivacyJobResult(...)

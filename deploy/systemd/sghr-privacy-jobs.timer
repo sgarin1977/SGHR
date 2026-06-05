@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SGHR Privacy DSR Jobs
+
+[Timer]
+OnCalendar=*:0/10
+Persistent=true
+RandomizedDelaySec=60s
+Unit=sghr-privacy-jobs.service
+
+[Install]
+WantedBy=timers.target

@@ -24,9 +24,15 @@ class User(Base):
     tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tenants.id"), nullable=True)
     active_role: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     language_code: Mapped[str] = mapped_column(String(10), default="ru")
+    timezone: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    country_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("countries.id"), nullable=True)
+    city_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("cities.id"), nullable=True)
     profile_completion_score: Mapped[int] = mapped_column(Integer, default=0)
+    trust_score: Mapped[int] = mapped_column(Integer, default=0)
     risk_score: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(Text, default="active") # active/blocked/deleted
+    status: Mapped[str] = mapped_column(Text, default="active")
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -43,7 +49,16 @@ class UserAccount(Base):
     username: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     first_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    language_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    campaign_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    referral_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_profile: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 # 6.3. Таблиця user_roles за ТЗ
 class UserRoleMapping(Base):
