@@ -2477,6 +2477,238 @@ translations = {
         "en": "Approve again",
         "pt": "Aprovar novamente",
     },
+
+    "support_open_btn": {
+        "ru": "Поддержка",
+        "en": "Support",
+        "pt": "Suporte",
+    },
+    "support_title": {
+        "ru": "Поддержка SGHR Beta.\n\nЗдесь можно создать обращение по аккаунту, профилю, оплате, переводу, жалобе или технической проблеме.",
+        "en": "SGHR Beta support.\n\nHere you can create a ticket about your account, profile, payment, translation, complaint, or technical issue.",
+        "pt": "Suporte SGHR Beta.\n\nAqui você pode criar um chamado sobre conta, perfil, pagamento, tradução, reclamação ou problema técnico.",
+    },
+    "support_create_btn": {
+        "ru": "Создать обращение",
+        "en": "Create ticket",
+        "pt": "Criar chamado",
+    },
+    "support_my_tickets_btn": {
+        "ru": "Мои обращения",
+        "en": "My tickets",
+        "pt": "Meus chamados",
+    },
+    "support_back_to_settings_btn": {
+        "ru": "Назад к настройкам",
+        "en": "Back to settings",
+        "pt": "Voltar às configurações",
+    },
+    "support_category_prompt": {
+        "ru": "Выберите категорию обращения:",
+        "en": "Choose ticket category:",
+        "pt": "Escolha a categoria do chamado:",
+    },
+    "support_category_account": {
+        "ru": "Аккаунт",
+        "en": "Account",
+        "pt": "Conta",
+    },
+    "support_category_specialist_profile": {
+        "ru": "Профиль специалиста",
+        "en": "Specialist profile",
+        "pt": "Perfil de especialista",
+    },
+    "support_category_payment": {
+        "ru": "Оплата",
+        "en": "Payment",
+        "pt": "Pagamento",
+    },
+    "support_category_translation": {
+        "ru": "Перевод",
+        "en": "Translation",
+        "pt": "Tradução",
+    },
+    "support_category_complaint": {
+        "ru": "Жалоба",
+        "en": "Complaint",
+        "pt": "Reclamação",
+    },
+    "support_category_technical": {
+        "ru": "Техническая проблема",
+        "en": "Technical issue",
+        "pt": "Problema técnico",
+    },
+    "support_category_other": {
+        "ru": "Другое",
+        "en": "Other",
+        "pt": "Outro",
+    },
+    "support_priority_prompt": {
+        "ru": "Выберите приоритет обращения:",
+        "en": "Choose ticket priority:",
+        "pt": "Escolha a prioridade do chamado:",
+    },
+    "support_priority_p1": {
+        "ru": "P1: сервис недоступен / данные / оплата",
+        "en": "P1: service down / data / payment",
+        "pt": "P1: serviço indisponível / dados / pagamento",
+    },
+    "support_priority_p2": {
+        "ru": "P2: платный пользователь заблокирован / перевод сломан",
+        "en": "P2: paid user blocked / translation broken",
+        "pt": "P2: usuário pago bloqueado / tradução quebrada",
+    },
+    "support_priority_p3": {
+        "ru": "P3: проблема с профилем",
+        "en": "P3: profile issue",
+        "pt": "P3: problema de perfil",
+    },
+    "support_priority_p4": {
+        "ru": "P4: вопрос или обратная связь",
+        "en": "P4: question or feedback",
+        "pt": "P4: pergunta ou feedback",
+    },
+    "support_message_prompt": {
+        "ru": "Опишите проблему одним сообщением. Не отправляйте пароли, коды доступа или лишние персональные данные.",
+        "en": "Describe the issue in one message. Do not send passwords, access codes, or unnecessary personal data.",
+        "pt": "Descreva o problema em uma mensagem. Não envie senhas, códigos de acesso ou dados pessoais desnecessários.",
+    },
+    "support_ticket_created": {
+        "ru": "Обращение создано. Номер: {ticket_id}\nПоддержка ответит в этом чате.",
+        "en": "Ticket created. Number: {ticket_id}\nSupport will reply in this chat.",
+        "pt": "Chamado criado. Número: {ticket_id}\nO suporte responderá neste chat.",
+    },
+    "support_no_tickets": {
+        "ru": "У вас пока нет обращений.",
+        "en": "You do not have support tickets yet.",
+        "pt": "Você ainda não tem chamados.",
+    },
+    "support_tickets_title": {
+        "ru": "Ваши обращения:",
+        "en": "Your support tickets:",
+        "pt": "Seus chamados:",
+    },
+    "support_ticket_line": {
+        "ru": "#{ticket_id} | {status} | {priority} | {category}",
+        "en": "#{ticket_id} | {status} | {priority} | {category}",
+        "pt": "#{ticket_id} | {status} | {priority} | {category}",
+    },
+    "support_error": {
+        "ru": "Не удалось выполнить действие поддержки: {error}",
+        "en": "Could not complete support action: {error}",
+        "pt": "Não foi possível concluir a ação de suporte: {error}",
+    },
+
+    "admin_support_tickets": {
+        "ru": "Обращения в поддержку",
+        "en": "Support tickets",
+        "pt": "Chamados de suporte",
+    },
+    "admin_no_support_tickets": {
+        "ru": "Открытых обращений в поддержку нет.",
+        "en": "There are no open support tickets.",
+        "pt": "Não há chamados de suporte abertos.",
+    },
+    "admin_support_ticket_title": {
+        "ru": "Обращение в поддержку {index}/{total}",
+        "en": "Support ticket {index}/{total}",
+        "pt": "Chamado de suporte {index}/{total}",
+    },
+    "admin_support_priority": {
+        "ru": "Приоритет",
+        "en": "Priority",
+        "pt": "Prioridade",
+    },
+    "admin_support_category": {
+        "ru": "Категория",
+        "en": "Category",
+        "pt": "Categoria",
+    },
+    "admin_support_user": {
+        "ru": "Пользователь",
+        "en": "User",
+        "pt": "Usuário",
+    },
+    "admin_support_ticket_id": {
+        "ru": "Ticket",
+        "en": "Ticket",
+        "pt": "Chamado",
+    },
+    "admin_support_messages": {
+        "ru": "Последние сообщения:",
+        "en": "Latest messages:",
+        "pt": "Últimas mensagens:",
+    },
+    "admin_support_reply": {
+        "ru": "Ответить",
+        "en": "Reply",
+        "pt": "Responder",
+    },
+    "admin_support_resolve": {
+        "ru": "Решено",
+        "en": "Resolve",
+        "pt": "Resolver",
+    },
+    "admin_support_close": {
+        "ru": "Закрыть",
+        "en": "Close",
+        "pt": "Fechar",
+    },
+    "admin_support_reply_prompt": {
+        "ru": "Введите ответ пользователю по обращению.",
+        "en": "Enter your reply to the user.",
+        "pt": "Digite sua resposta ao usuário.",
+    },
+    "admin_support_reply_sent": {
+        "ru": "Ответ отправлен пользователю.",
+        "en": "Reply sent to user.",
+        "pt": "Resposta enviada ao usuário.",
+    },
+    "admin_support_back_hint": {
+        "ru": "Вернитесь в /admin, чтобы продолжить работу с обращениями.",
+        "en": "Return to /admin to continue working with tickets.",
+        "pt": "Volte para /admin para continuar trabalhando com chamados.",
+    },
+    "admin_support_status_updated": {
+        "ru": "Статус обращения изменён: {status}",
+        "en": "Support ticket status updated: {status}",
+        "pt": "Status do chamado atualizado: {status}",
+    },
+    "support_staff_reply_received": {
+        "ru": "Ответ поддержки по обращению #{ticket_id}:\n\n{message}",
+        "en": "Support reply for ticket #{ticket_id}:\n\n{message}",
+        "pt": "Resposta do suporte para o chamado #{ticket_id}:\n\n{message}",
+    },
+    "support_ticket_button": {
+        "ru": "#{ticket_id} | {status} | {priority}",
+        "en": "#{ticket_id} | {status} | {priority}",
+        "pt": "#{ticket_id} | {status} | {priority}",
+    },
+    "support_ticket_view_title": {
+        "ru": "Обращение #{ticket_id}",
+        "en": "Ticket #{ticket_id}",
+        "pt": "Chamado #{ticket_id}",
+    },
+    "support_message_line": {
+        "ru": "{sender_role}: {message}",
+        "en": "{sender_role}: {message}",
+        "pt": "{sender_role}: {message}",
+    },
+    "support_reply_btn": {
+        "ru": "Ответить в обращение",
+        "en": "Reply to ticket",
+        "pt": "Responder ao chamado",
+    },
+    "support_reply_prompt": {
+        "ru": "Введите сообщение для поддержки.",
+        "en": "Enter your message for support.",
+        "pt": "Digite sua mensagem para o suporte.",
+    },
+    "support_reply_sent": {
+        "ru": "Сообщение добавлено в обращение.",
+        "en": "Message added to the ticket.",
+        "pt": "Mensagem adicionada ao chamado.",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

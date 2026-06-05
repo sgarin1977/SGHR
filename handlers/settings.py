@@ -76,6 +76,13 @@ def translation_settings_keyboard(
 
             [
                 InlineKeyboardButton(
+                    text=t("support_open_btn", language),
+                    callback_data="SUPPORT_MENU",
+                )
+            ],
+
+            [
+                InlineKeyboardButton(
                     text=t("search_menu", language),
                     callback_data="SET_MAIN_MENU",
                 )

@@ -12,6 +12,7 @@ from handlers.search import search_router
 from handlers.settings import settings_router
 from handlers.admin import admin_router
 from handlers.billing import billing_router
+from handlers.support import support_router
 
 configure_logging(LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ async def main():
     dp.include_router(specialist_form_router)
     dp.include_router(search_router)
     dp.include_router(settings_router)
+    dp.include_router(support_router)
     dp.include_router(admin_router)
     dp.include_router(billing_router)
 
