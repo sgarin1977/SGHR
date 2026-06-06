@@ -531,3 +531,4 @@ def test_specialist_fsm_uses_geo_provider_for_location_selection():
 
     for callback_data in callback_literals:
         assert len(callback_data.encode("utf-8")) <= 64
+

@@ -41,7 +41,7 @@ sudo -u sghr PYTHONPATH=. ./venv/bin/alembic upgrade head
 Commands:
 
 cd /opt/sghr
-sudo -u sghr PYTHONPATH=. ./venv/bin/python -m py_compile bot.py config.py database/models.py handlers/search.py handlers/billing.py handlers/settings.py fsm/specialist_form.py services/specialist.py services/privacy.py services/translation.py scripts/process_translation_jobs.py
+sudo -u sghr PYTHONPATH=. ./venv/bin/python -m py_compile bot.py config.py database/models.py handlers/search.py handlers/billing.py handlers/settings.py handlers/admin.py handlers/support.py fsm/specialist_form.py services/specialist.py services/privacy.py services/translation.py services/reviews.py services/support.py services/portfolio.py services/portfolio_storage.py database/repositories/reviews.py database/repositories/support.py database/repositories/portfolio.py scripts/process_translation_jobs.py scripts/process_privacy_jobs.py scripts/cleanup_portfolio_storage.py scripts/monitor_failed_jobs.py
 sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/smoke_test_db.py
 sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/smoke_test_geo.py
 sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/smoke_test_translation.py
@@ -273,3 +273,81 @@ sudo journalctl -u sghr-privacy-jobs.service -n 50 --no-pager
 Expected log:
 
 privacy_jobs_processed exports=PrivacyJobResult(...) deletions=PrivacyJobResult(...)
+
+## Observability and Failed Jobs Monitoring
+
+SGHR Beta uses:
+
+- file logs / journald logs
+- event_logs table
+- fatal bot crash Telegram alert
+- failed jobs monitor for DB checks, translation retry/failed jobs, deletion jobs, data export failures
+
+### Manual monitor check
+
+Commands:
+
+cd /opt/sghr
+sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/monitor_failed_jobs.py --no-alert
+
+Expected log:
+
+monitor_failed_jobs_completed db_ok=True
+
+### Test Telegram alert manually
+
+This intentionally sends an alert to ADMIN_TELEGRAM_IDS:
+
+cd /opt/sghr
+sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/monitor_failed_jobs.py --failed-jobs-threshold 0 --translation-fail-threshold 0
+
+Expected Telegram message:
+
+SGHR monitoring alert
+
+### Install failed jobs monitor timer
+
+Commands:
+
+sudo cp /opt/sghr/deploy/systemd/sghr-monitor-failed-jobs.service /etc/systemd/system/
+sudo cp /opt/sghr/deploy/systemd/sghr-monitor-failed-jobs.timer /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now sghr-monitor-failed-jobs.timer
+
+### Verify failed jobs monitor timer
+
+Commands:
+
+sudo systemctl list-timers sghr-monitor-failed-jobs.timer --no-pager
+sudo systemctl start sghr-monitor-failed-jobs.service
+sudo systemctl status sghr-monitor-failed-jobs.service --no-pager
+sudo journalctl -u sghr-monitor-failed-jobs.service -n 50 --no-pager
+
+### Incident checklist
+
+DB fail alert:
+
+1. Check DATABASE_URL in /opt/sghr/.env.
+2. Check Supabase/PostgreSQL status.
+3. Run: sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/smoke_test_db.py
+4. Check: sudo journalctl -u sghr-bot -n 200 --no-pager
+
+Translation fail spike:
+
+1. Check LibreTranslate health: curl -sS "$TRANSLATION_BASE_URL/languages"
+2. Check worker: sudo journalctl -u sghr-translation-worker.service -n 100 --no-pager
+3. Run retry worker manually: sudo -u sghr PYTHONPATH=. ./venv/bin/python scripts/process_translation_jobs.py --limit 20
+
+Failed jobs count threshold:
+
+1. Run monitor manually with --no-alert.
+2. Inspect translation_jobs, deletion_jobs, data_subject_requests.
+3. Process relevant worker manually.
+4. Re-run monitor and verify failed_jobs_count decreases.
+
+Bot crash alert:
+
+1. Check bot status: sudo systemctl status sghr-bot --no-pager
+2. Check logs: sudo journalctl -u sghr-bot -n 200 --no-pager
+3. Restart only after checking error: sudo systemctl restart sghr-bot

@@ -29,7 +29,7 @@ class EventRepository:
             entity_id=entity_id,
             payload=payload or {},
             platform=platform,
-            trace_id=trace_id,
+            trace_id=trace_id or f"evt_{uuid.uuid4().hex}",
         )
 
         self.session.add(event)

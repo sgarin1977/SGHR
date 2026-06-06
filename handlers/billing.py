@@ -53,7 +53,9 @@ class SpecialistCabinetFSM(StatesGroup):
     choosing_category = State()
     choosing_profession = State()
     entering_location_query = State()
+    entering_country_query = State()
     choosing_geo_place = State()
+    choosing_country_place = State()
     waiting_geo = State()
     waiting_portfolio_file = State()
 
@@ -485,11 +487,17 @@ def profile_edit_back_keyboard(language: str) -> InlineKeyboardMarkup:
 
 def location_edit_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[
+                inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text=t("cabinet_location_manual", language),
                     callback_data="CAB_LOC_MANUAL",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("cabinet_location_whole_country", language),
+                    callback_data="CAB_LOC_COUNTRY",
                 )
             ],
             [
@@ -506,41 +514,44 @@ def location_edit_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
         ]
     )
+def format_geo_candidates_text(candidates: list[dict], language: str) -> str:
+    lines = []
 
+    for index, candidate in enumerate(candidates[:8]):
+        name = candidate.get("name") or "-"
+        country = candidate.get("country_name") or candidate.get("country_code") or "-"
+        place_type = candidate.get("place_type") or candidate.get("osm_type") or "place"
+        display_name = candidate.get("display_name") or ""
+
+        line = f"{index + 1}. {name}"
+        if place_type:
+            line += f" ({place_type})"
+        if country:
+            line += f", {country}"
+
+        if display_name and display_name != name:
+            line += f"\n   {display_name[:120]}"
+
+        lines.append(line)
+
+    return "\n\n".join(lines)
 
 def geo_candidates_keyboard(candidates: list[dict], language: str) -> InlineKeyboardMarkup:
     rows = []
-    country_rows = []
-    seen_countries = set()
 
     for index, candidate in enumerate(candidates):
         name = candidate.get("name") or candidate.get("display_name") or "-"
         country = candidate.get("country_name") or candidate.get("country_code") or "-"
-        country_code = str(candidate.get("country_code") or "").upper()
         place_type = candidate.get("place_type") or candidate.get("osm_type") or "place"
 
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"{index + 1}. {name}, {country} - {place_type}",
+                    text=f"{index + 1}. {name}"[:64],
                     callback_data=f"CAB_GEO_PLACE:{index}",
                 )
             ]
         )
-
-        country_key = country_code or country
-        if country_key and country_key not in seen_countries:
-            seen_countries.add(country_key)
-            country_rows.append(
-                [
-                    InlineKeyboardButton(
-                        text=f"{t('cabinet_location_whole_country', language)}: {country}",
-                        callback_data=f"CAB_GEO_COUNTRY:{index}",
-                    )
-                ]
-            )
-
-    rows.extend(country_rows)
 
     rows.append(
         [
@@ -550,6 +561,44 @@ def geo_candidates_keyboard(candidates: list[dict], language: str) -> InlineKeyb
             )
         ]
     )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def country_candidates_keyboard(candidates: list[dict], language: str) -> InlineKeyboardMarkup:
+    rows = []
+    seen = set()
+
+    for index, candidate in enumerate(candidates[:8]):
+        country_name = candidate.get("country_name") or candidate.get("display_name") or "-"
+        country_code = candidate.get("country_code") or ""
+        key = (country_name, country_code)
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+
+        title = country_name
+        if country_code:
+            title = f"{country_name} ({country_code})"
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=title[:64],
+                    callback_data=f"CAB_COUNTRY_PLACE:{index}",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("billing_back", language),
+                callback_data="CAB_EDIT_LOCATION",
+            )
+        ]
+    )
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def indexed_items_keyboard(
@@ -1278,6 +1327,28 @@ async def ask_edit_specialist_location_manual(callback: CallbackQuery, state: FS
     await state.set_state(SpecialistCabinetFSM.entering_location_query)
     await callback.answer()
 
+@billing_router.callback_query(F.data == "CAB_LOC_COUNTRY")
+async def ask_edit_specialist_location_country(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    await callback.message.answer(
+        t("spec_country_search_prompt", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("billing_back", language),
+                        callback_data="CAB_EDIT_LOCATION",
+                    )
+                ]
+            ]
+        ),
+    )
+    await state.set_state(SpecialistCabinetFSM.entering_country_query)
+    await callback.answer()
 
 @billing_router.callback_query(F.data == "CAB_LOC_GEO")
 async def ask_edit_specialist_location_geo(callback: CallbackQuery, state: FSMContext):
@@ -1329,7 +1400,10 @@ async def receive_specialist_location_query(message: Message, state: FSMContext)
         return
 
     candidate_state = [candidate.to_state() for candidate in candidates]
-    await state.update_data(cabinet_geo_candidates=candidate_state)
+    await state.update_data(
+        cabinet_geo_candidates=candidate_state,
+        cabinet_country_candidates=[],
+    )
 
     await message.answer(
         t("cabinet_geo_candidates_prompt", language),
@@ -1337,6 +1411,45 @@ async def receive_specialist_location_query(message: Message, state: FSMContext)
     )
     await state.set_state(SpecialistCabinetFSM.choosing_geo_place)
 
+@billing_router.message(SpecialistCabinetFSM.entering_country_query)
+async def receive_specialist_country_query(message: Message, state: FSMContext):
+    language = await get_billing_interface_language(message.from_user.id, message.from_user.language_code)
+    query = (message.text or "").strip()
+
+    if len(query) < 2:
+        await message.answer(t("search_location_query_too_short", language))
+        return
+
+    try:
+        async with get_session() as session:
+            candidates = await GeoService(
+                GeoRepository(session)
+            ).search_places(
+                query=query,
+                language=language,
+                limit=8,
+            )
+    except GeoServiceError as exc:
+        await message.answer(
+            t("cabinet_geo_provider_error", language).format(error=str(exc))
+        )
+        return
+
+    if not candidates:
+        await message.answer(t("spec_country_not_found", language))
+        return
+
+    candidate_state = [candidate.to_state() for candidate in candidates]
+    await state.update_data(
+        cabinet_country_candidates=candidate_state,
+        cabinet_geo_candidates=[],
+    )
+
+    await message.answer(
+        t("spec_country_candidates_prompt", language),
+        reply_markup=country_candidates_keyboard(candidate_state, language),
+    )
+    await state.set_state(SpecialistCabinetFSM.choosing_country_place)
 
 @billing_router.message(SpecialistCabinetFSM.waiting_geo)
 async def receive_specialist_location_geo(message: Message, state: FSMContext):
@@ -1371,14 +1484,17 @@ async def receive_specialist_location_geo(message: Message, state: FSMContext):
         return
 
     candidate_state = [candidate.to_state() for candidate in candidates]
-    await state.update_data(cabinet_geo_candidates=candidate_state)
+    await state.update_data(
+        cabinet_geo_candidates=candidate_state,
+        cabinet_country_candidates=[],
+    )
 
     await message.answer(
         t("cabinet_geo_candidates_prompt", language),
         reply_markup=ReplyKeyboardRemove(),
     )
     await message.answer(
-        t("cabinet_geo_candidates_prompt", language),
+        format_geo_candidates_text(candidate_state, language),
         reply_markup=geo_candidates_keyboard(candidate_state, language),
     )
     await state.set_state(SpecialistCabinetFSM.choosing_geo_place)
@@ -1459,15 +1575,20 @@ async def choose_specialist_location_update(callback: CallbackQuery, state: FSMC
     await state.set_state(None)
     await callback.message.answer(
         t("cabinet_location_updated", language),
-        reply_markup=specialist_profile_keyboard(language),
+        reply_markup=specialist_edit_keyboard(language),
     )
     await callback.answer()
 
 @billing_router.callback_query(F.data.startswith("CAB_GEO_COUNTRY:"))
+@billing_router.callback_query(F.data.startswith("CAB_COUNTRY_PLACE:"))
 async def choose_specialist_country_update(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     data = await state.get_data()
-    candidates = data.get("cabinet_geo_candidates") or []
+
+    if (callback.data or "").startswith("CAB_COUNTRY_PLACE:"):
+        candidates = data.get("cabinet_country_candidates") or []
+    else:
+        candidates = data.get("cabinet_geo_candidates") or []
 
     try:
         index = int((callback.data or "").split(":", 1)[1])
@@ -1547,7 +1668,7 @@ async def choose_specialist_country_update(callback: CallbackQuery, state: FSMCo
     await state.set_state(None)
     await callback.message.answer(
         t("cabinet_location_updated", language),
-        reply_markup=specialist_profile_keyboard(language),
+        reply_markup=specialist_edit_keyboard(language),
     )
     await callback.answer()
 
@@ -1793,10 +1914,10 @@ async def save_specialist_professions_update(callback: CallbackQuery, state: FSM
         specialist.id,
     )
 
-    await state.clear()
+    await state.set_state(None)
     await callback.message.answer(
         t("cabinet_profile_updated", language),
-        reply_markup=specialist_profile_keyboard(language),
+        reply_markup=specialist_edit_keyboard(language),
     )
     await callback.answer()
 
@@ -1901,7 +2022,7 @@ async def save_specialist_profile_update(
     await state.set_state(None)
     await message.answer(
         t("cabinet_profile_updated", language),
-        reply_markup=specialist_profile_keyboard(language),
+        reply_markup=specialist_edit_keyboard(language),
     )
 
 @billing_router.message(SpecialistCabinetFSM.entering_display_name)

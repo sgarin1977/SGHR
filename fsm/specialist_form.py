@@ -356,11 +356,11 @@ def geo_candidates_keyboard(
     rows = []
 
     for index, candidate in enumerate(candidates[:8]):
-        title = candidate.get("display_name") or candidate.get("name") or "-"
+        title = candidate.get("name") or candidate.get("display_name") or "-"
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=title[:64],
+                    text=f"{index + 1}. {title}"[:64],
                     callback_data=f"spec_geo_place:{index}",
                 )
             ]
@@ -384,6 +384,28 @@ def geo_candidates_keyboard(
     )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def format_spec_geo_candidates_text(candidates: list[dict]) -> str:
+    lines = []
+
+    for index, candidate in enumerate(candidates[:8]):
+        name = candidate.get("name") or candidate.get("display_name") or "-"
+        country = candidate.get("country_name") or candidate.get("country_code") or "-"
+        place_type = candidate.get("place_type") or candidate.get("osm_type") or "place"
+        display_name = candidate.get("display_name") or ""
+
+        line = f"{index + 1}. {name}"
+        if place_type:
+            line += f" ({place_type})"
+        if country:
+            line += f", {country}"
+
+        if display_name and display_name != name:
+            line += f"\n   {display_name[:120]}"
+
+        lines.append(line)
+
+    return "\n\n".join(lines)
 
 def country_candidates_keyboard(
     candidates: list[dict],
@@ -1242,7 +1264,7 @@ async def receive_geo_location(message: Message, state: FSMContext):
         reply_markup=ReplyKeyboardRemove(),
     )
     await message.answer(
-        t("spec_geo_reverse_confirm_prompt", language),
+        format_spec_geo_candidates_text(candidate_state),
         reply_markup=geo_candidates_keyboard(candidate_state, language),
     )
     await state.set_state(SpecialistForm.choosing_geo_place)

@@ -1,0 +1,17 @@
+[Unit]
+Description=SGHR Failed Jobs Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sghr
+Group=sghr
+WorkingDirectory=/opt/sghr
+EnvironmentFile=/opt/sghr/.env
+Environment=PYTHONPATH=/opt/sghr
+ExecStart=/opt/sghr/venv/bin/python /opt/sghr/scripts/monitor_failed_jobs.py --failed-jobs-threshold 5 --translation-fail-threshold 3
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true

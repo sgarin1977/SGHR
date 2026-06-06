@@ -725,3 +725,55 @@ def test_admin_callbacks_are_compact_and_do_not_use_uuid_payloads():
 
     for fragment in required_fragments:
         assert fragment in source
+
+def test_admin_rbac_full_beta_contract_is_covered():
+    moderation_repo = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    moderation_service = open(
+        "services/moderation.py",
+        encoding="utf-8",
+    ).read()
+    admin_handler = open(
+        "handlers/admin.py",
+        encoding="utf-8",
+    ).read()
+    billing_repo = open(
+        "database/repositories/billing.py",
+        encoding="utf-8",
+    ).read()
+
+    for role in [
+        "super_admin",
+        "admin",
+        "moderator",
+        "support",
+        "finance_admin",
+        "content_manager",
+    ]:
+        assert role in moderation_repo
+
+    assert 'ROLE_MANAGEMENT_ROLES = {"super_admin"}' in moderation_repo
+    assert "GRANTABLE_ADMIN_ROLES" in moderation_repo
+    assert "grant_admin_role" in moderation_repo
+    assert "revoke_admin_role" in moderation_repo
+    assert 'action_type="grant_admin_role"' in moderation_repo
+    assert 'action_type="revoke_admin_role"' in moderation_repo
+    assert 'event_type="admin_role_granted"' in moderation_repo
+    assert 'event_type="admin_role_revoked"' in moderation_repo
+
+    assert "grant_admin_role" in moderation_service
+    assert "revoke_admin_role" in moderation_service
+    assert "_require_reason" in moderation_service
+
+    assert 'ADMIN_ROLE_MENU_ROLES = {"super_admin"}' in admin_handler
+    assert 'callback_data="ADM_ROLES"' in admin_handler
+    assert 'F.data == "ADM_ROLE_GRANT"' in admin_handler
+    assert 'F.data == "ADM_ROLE_REVOKE"' in admin_handler
+    assert "AdminModerationFSM.entering_role_grant" in admin_handler
+    assert "AdminModerationFSM.entering_role_revoke" in admin_handler
+    assert '"super_admin" not in roles' in admin_handler
+
+    assert "ApprovalRequest" in billing_repo
+   

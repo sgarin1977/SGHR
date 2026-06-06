@@ -635,18 +635,6 @@ def search_location_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-@search_router.callback_query(F.data == "search_filter_location")
-async def open_location_filter(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-
-    await show_callback_message(
-        callback,
-        t("search_location_prompt", language),
-        search_location_keyboard(language),
-    )
-    await callback.answer()
-
 def search_radius_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
