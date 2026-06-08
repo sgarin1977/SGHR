@@ -113,10 +113,10 @@ def admin_panel_keyboard(language: str, roles: set[str] | None = None) -> Inline
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("admin_pending_payments", language),
-                    callback_data="ADM_PAYMENTS",
+                    text=t("feature_disabled_beta", language),
+                    callback_data="ADMIN_BETA_DISABLED:finance",
                 )
-            ]
+            ],
         )
 
     if roles.intersection(ADMIN_LOG_MENU_ROLES):
@@ -1904,48 +1904,7 @@ async def receive_block_reason(message: Message, state: FSMContext):
 @admin_router.callback_query(F.data == "ADM_PAYMENTS")
 async def list_pending_payments(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
-    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
-
-    if not admin_user_id or not roles.intersection(ADMIN_PAYMENT_MENU_ROLES):
-        await callback.answer(t("admin_access_denied", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            payments = await BillingService(
-                BillingRepository(session)
-            ).list_pending_manual_payments(
-                admin_user_id=admin_user_id,
-                limit=10,
-            )
-
-        logger.info(
-            "admin_pending_payments_listed telegram_id=%s admin_user_id=%s count=%s",
-            callback.from_user.id,
-            admin_user_id,
-            len(payments),
-        )
-    except BillingError as exc:
-        logger.warning(
-            "admin_pending_payments_list_failed telegram_id=%s admin_user_id=%s error=%s",
-            callback.from_user.id,
-            admin_user_id,
-            exc,
-        )
-        await callback.answer(str(exc), show_alert=True)
-        return
-
-    if not payments:
-        await callback.message.answer(
-            t("admin_no_pending_payments", language),
-            reply_markup=admin_panel_keyboard(language),
-        )
-        await callback.answer()
-        return
-
-    await state.update_data(admin_payment_ids=[str(item.id) for item in payments])
-    await show_pending_payment(callback, state, index=0)
-
+    await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)
 
 async def show_pending_payment(callback: CallbackQuery, state: FSMContext, index: int):
     data = await state.get_data()
@@ -1988,6 +1947,10 @@ async def view_pending_payment(callback: CallbackQuery, state: FSMContext):
     index = int(callback.data.split(":", 1)[1])
     await show_pending_payment(callback, state, index=index)
 
+@admin_router.callback_query(F.data.startswith("ADMIN_BETA_DISABLED:"))
+async def show_admin_beta_disabled_feature(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+    await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)
 
 @admin_router.callback_query(F.data.startswith("ADM_PAY_PAID:"))
 async def ask_mark_payment_paid_reason(callback: CallbackQuery, state: FSMContext):

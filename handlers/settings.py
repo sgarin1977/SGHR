@@ -19,11 +19,6 @@ def translation_settings_keyboard(
     auto_translate_enabled: bool,
     show_original_button: bool,
 ) -> InlineKeyboardMarkup:
-    auto_text = (
-        t("settings_auto_translate_on", language)
-        if auto_translate_enabled
-        else t("settings_auto_translate_off", language)
-    )
     original_text = (
         t("settings_show_original_on", language)
         if show_original_button
@@ -31,7 +26,7 @@ def translation_settings_keyboard(
     )
 
     return InlineKeyboardMarkup(
-                inline_keyboard=[
+        inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text=t("settings_interface_language_label", language),
@@ -43,22 +38,16 @@ def translation_settings_keyboard(
                 InlineKeyboardButton(text="EN", callback_data="SET_UI_LANG:en"),
                 InlineKeyboardButton(text="PT", callback_data="SET_UI_LANG:pt"),
             ],
-[
+            [
                 InlineKeyboardButton(
-                text=t("settings_message_language_label", language),
-                 callback_data="SET_NOOP",
-         )
-                ],
+                    text=t("settings_message_language_label", language),
+                    callback_data="SET_NOOP",
+                )
+            ],
             [
                 InlineKeyboardButton(text="RU", callback_data="SET_MSG_LANG:ru"),
                 InlineKeyboardButton(text="EN", callback_data="SET_MSG_LANG:en"),
                 InlineKeyboardButton(text="PT", callback_data="SET_MSG_LANG:pt"),
-    ],
-            [
-                InlineKeyboardButton(
-                    text=auto_text,
-                    callback_data="SET_AUTO_TRANSLATE",
-                )
             ],
             [
                 InlineKeyboardButton(
@@ -66,21 +55,18 @@ def translation_settings_keyboard(
                     callback_data="SET_SHOW_ORIGINAL",
                 )
             ],
-
             [
                 InlineKeyboardButton(
                     text=t("privacy_open_btn", language),
                     callback_data="PRIVACY_MENU",
                 )
             ],
-
             [
                 InlineKeyboardButton(
                     text=t("support_open_btn", language),
                     callback_data="SUPPORT_MENU",
                 )
             ],
-
             [
                 InlineKeyboardButton(
                     text=t("search_menu", language),
@@ -89,8 +75,6 @@ def translation_settings_keyboard(
             ],
         ]
     )
-
-
 async def show_translation_settings(callback: CallbackQuery):
     language = normalize_language(callback.from_user.language_code)
 
@@ -249,26 +233,8 @@ async def set_message_language(callback: CallbackQuery):
 
 @settings_router.callback_query(F.data == "SET_AUTO_TRANSLATE")
 async def toggle_auto_translate(callback: CallbackQuery):
-    fallback_language = normalize_language(callback.from_user.language_code)
-
-    async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not user:
-            await callback.answer(t("search_contact_user_not_found", fallback_language), show_alert=True)
-            return
-
-        repository = TranslationRepository(session)
-        settings = await repository.get_language_settings(user.id)
-        language = normalize_language(settings.interface_language or user.language_code)
-
-        await repository.update_language_settings(
-            user_id=user.id,
-            auto_translate_enabled=not settings.auto_translate_enabled,
-        )
-        await session.commit()
-
-    await show_translation_settings(callback)
-
+    language = normalize_language(callback.from_user.language_code)
+    await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)
 
 @settings_router.callback_query(F.data == "SET_SHOW_ORIGINAL")
 async def toggle_show_original(callback: CallbackQuery):

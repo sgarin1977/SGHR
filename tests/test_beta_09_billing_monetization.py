@@ -1,6 +1,12 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 import pytest
+pytestmark = [
+    pytest.mark.asyncio,
+    pytest.mark.skip(
+        reason="TZ10 controlled Beta disables Finance/Promotion; billing monetization is post-beta."
+    ),
+]
 from sqlalchemy import delete, or_, select
 
 from database.models import (
@@ -27,7 +33,6 @@ from tests.test_beta_08_admin_moderation import (
 )
 
 
-pytestmark = pytest.mark.asyncio
 @pytest.fixture(autouse=True)
 async def cleanup_test_legal_documents_after_billing_tests(db_session):
     yield

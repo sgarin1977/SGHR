@@ -25,6 +25,7 @@ from database.models import (
     Message,
     RiskFlag,
     ThreadRestriction,
+    ConversationParticipant,
 )
 
 from database.repositories.contact import ContactChatRepository
@@ -102,8 +103,6 @@ def test_beta_06_contact_repository_contract_exists():
         "mark_thread_message_read",
         "Only message receiver can mark it as read",
         "_create_translation_job_if_needed",
-        "TranslationJob(",
-        'status="pending"',
     ]
 
     for fragment in required_fragments:
@@ -440,7 +439,9 @@ async def test_create_contact_request_thread_message_notification_and_events(db_
         assert first_message.receiver_user_id == specialist_user_id
         assert first_message.original_text == "Hello, I need help with a beta service."
         assert first_message.original_language == "en"
-        assert first_message.translation_status == "pending"
+        assert first_message.translation_status == "not_needed"
+        assert first_message.translated_text is None
+        assert first_message.translated_language is None
 
         assert notification is not None
         assert notification.user_id == specialist_user_id
@@ -831,7 +832,9 @@ async def test_thread_message_creates_message_notification_and_event(db_session)
         assert message.receiver_user_id == client_user_id
         assert message.original_text == "Hello, I can help with this beta service."
         assert message.original_language == "en"
-        assert message.translation_status == "pending"
+        assert message.translation_status == "not_needed"
+        assert message.translated_text is None
+        assert message.translated_language is None
 
         assert notification is not None
         assert notification.user_id == client_user_id
@@ -1488,7 +1491,7 @@ def test_beta_06_rate_limit_repository_contract_exists():
     for fragment in required_fragments:
         assert fragment in source
 
-async def test_contact_request_creates_pending_translation_job_when_languages_differ(db_session):
+async def test_contact_request_does_not_create_translation_job_in_controlled_beta(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
         prefix="test-contact-client-translation",
@@ -1519,14 +1522,12 @@ async def test_contact_request_creates_pending_translation_job_when_languages_di
         )
         job = job_result.scalar_one_or_none()
 
-        assert job is not None
-        assert job.tenant_id == tenant_id
-        assert job.message_id == created.first_message_id
-        assert job.source_language == "en"
-        assert job.target_language == "ru"
-        assert job.status == "pending"
-        assert job.retry_count == 0
-        assert job.max_retries == 3
+        assert job is None
+
+        message = await db_session.get(Message, created.first_message_id)
+        assert message.translation_status == "not_needed"
+        assert message.translated_text is None
+        assert message.translated_language is None
 
     finally:
         await cleanup_test_user(db_session, client_platform_id)
@@ -1570,7 +1571,7 @@ async def test_contact_request_does_not_create_translation_job_when_languages_ma
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
 
-async def test_thread_message_creates_pending_translation_job_when_languages_differ(db_session):
+async def test_thread_message_does_not_create_translation_job_in_controlled_beta(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
         prefix="test-contact-client-thread-translation",
@@ -1617,10 +1618,12 @@ async def test_thread_message_creates_pending_translation_job_when_languages_dif
         )
         job = job_result.scalar_one_or_none()
 
-        assert job is not None
-        assert job.source_language == "en"
-        assert job.target_language == "ru"
-        assert job.status == "pending"
+        assert job is None
+
+        message = await db_session.get(Message, sent.message_id)
+        assert message.translation_status == "not_needed"
+        assert message.translated_text is None
+        assert message.translated_language is None
 
     finally:
         await cleanup_test_user(db_session, client_platform_id)
@@ -1784,3 +1787,131 @@ async def test_thread_message_with_external_payment_restricts_thread(db_session)
     finally:
         await cleanup_test_user(db_session, client_platform_user_id)
         await cleanup_test_user(db_session, specialist_platform_user_id)
+
+async def test_contact_request_creates_conversation_participants(db_session):
+    client_platform_id, client_user_id, client_tenant_id = await create_test_user(
+        db_session,
+        prefix="test-contact-client-participants",
+    )
+    specialist_platform_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    service = ContactChatService(ContactChatRepository(db_session))
+    service.rate_limit_service = None
+
+    try:
+        result = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, I want to contact you about the service.",
+            original_language="en",
+        )
+
+        participants = (
+            await db_session.execute(
+                select(ConversationParticipant).where(
+                    ConversationParticipant.thread_id == result.thread_id,
+                )
+            )
+        ).scalars().all()
+
+        assert len(participants) == 2
+
+        by_user_id = {item.user_id: item for item in participants}
+
+        assert by_user_id[client_user_id].participant_role == "client"
+        assert by_user_id[client_user_id].unread_count == 0
+        assert by_user_id[client_user_id].is_archived is False
+        assert by_user_id[client_user_id].is_hidden is False
+
+        assert by_user_id[specialist_user_id].participant_role == "specialist"
+        assert by_user_id[specialist_user_id].unread_count == 1
+        assert by_user_id[specialist_user_id].is_archived is False
+        assert by_user_id[specialist_user_id].is_hidden is False
+    finally:
+        await cleanup_test_user(db_session, client_platform_id)
+        await cleanup_test_user(db_session, specialist_platform_id)
+        await cleanup_legal_documents(db_session, tenant_id)
+
+async def test_thread_visibility_and_unread_are_persisted_per_participant(db_session):
+    client_platform_id, client_user_id, client_tenant_id = await create_test_user(
+        db_session,
+        prefix="test-contact-client-visibility",
+    )
+    specialist_platform_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    service = ContactChatService(ContactChatRepository(db_session))
+    service.rate_limit_service = None
+
+    try:
+        request = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, I want to contact you about the service.",
+            original_language="en",
+        )
+
+        await service.set_contact_request_status(
+            tenant_id=tenant_id,
+            contact_request_id=request.contact_request_id,
+            actor_user_id=specialist_user_id,
+            action="accept",
+        )
+
+        reply = await service.send_thread_message(
+            thread_id=request.thread_id,
+            sender_user_id=specialist_user_id,
+            text="Specialist reply message.",
+            original_language="en",
+        )
+
+        client_participant = (
+            await db_session.execute(
+                select(ConversationParticipant).where(
+                    ConversationParticipant.thread_id == request.thread_id,
+                    ConversationParticipant.user_id == client_user_id,
+                )
+            )
+        ).scalar_one()
+
+        assert client_participant.unread_count == 1
+
+        visibility = await service.set_thread_visibility(
+            thread_id=request.thread_id,
+            user_id=client_user_id,
+            is_archived=True,
+            is_hidden=True,
+        )
+
+        assert visibility.is_archived is True
+        assert visibility.is_hidden is True
+
+        await service.mark_thread_message_read(
+            thread_id=request.thread_id,
+            message_id=reply.message_id,
+            user_id=client_user_id,
+        )
+
+        client_participant = (
+            await db_session.execute(
+                select(ConversationParticipant).where(
+                    ConversationParticipant.thread_id == request.thread_id,
+                    ConversationParticipant.user_id == client_user_id,
+                )
+            )
+        ).scalar_one()
+
+        assert client_participant.unread_count == 0
+        assert client_participant.last_read_message_id == reply.message_id
+        assert client_participant.last_read_at is not None
+        assert client_participant.is_archived is True
+        assert client_participant.is_hidden is True
+    finally:
+        await cleanup_test_user(db_session, client_platform_id)
+        await cleanup_test_user(db_session, specialist_platform_id)
+        await cleanup_legal_documents(db_session, tenant_id)

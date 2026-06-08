@@ -23,7 +23,9 @@ from tests.test_beta_06_contact_chat import (
     create_active_specialist_for_contact,
     create_test_user,
 )
-
+pytestmark = pytest.mark.skip(
+    reason="TZ10 controlled Beta disables automatic translation; translation flow is post-beta."
+)
 
 class FakeTranslationProvider:
     provider_name = "fake"

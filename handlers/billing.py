@@ -95,8 +95,8 @@ def billing_menu_keyboard(language: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("billing_promotions", language),
-                    callback_data="BILL_FEATURES",
+                    text=t("feature_disabled_beta", language),
+                    callback_data="BETA_DISABLED:promotion",
                 )
             ],
             [
@@ -171,8 +171,8 @@ def cabinet_menu_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("billing_promotions", language),
-                    callback_data="BILL_PANEL",
+                    text=t("feature_disabled_beta", language),
+                    callback_data="BETA_DISABLED:promotion",
                 )
             ],
             [
@@ -305,8 +305,8 @@ def specialist_profile_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("billing_promotions", language),
-                    callback_data="BILL_PANEL",
+                    text=t("feature_disabled_beta", language),
+                    callback_data="BETA_DISABLED:promotion",
                 )
             ],
             [
@@ -2212,3 +2212,8 @@ async def claim_billing_payment(callback: CallbackQuery, state: FSMContext):
         reply_markup=billing_menu_keyboard(language),
     )
     await callback.answer()
+
+@billing_router.callback_query(F.data.startswith("BETA_DISABLED:"))
+async def show_beta_disabled_feature(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+    await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)

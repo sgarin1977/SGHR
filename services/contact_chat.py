@@ -54,6 +54,13 @@ class ContactThreadStatusResult:
     thread_id: UUID
     status: str
 
+@dataclass
+class ContactThreadVisibilityResult:
+    thread_id: UUID
+    user_id: UUID
+    is_archived: bool
+    is_hidden: bool
+
 class ContactChatService:
     def __init__(
         self,
@@ -293,4 +300,32 @@ class ContactChatService:
         return ContactThreadStatusResult(
             thread_id=thread.id,
             status=thread.status,
+        )
+    
+    async def set_thread_visibility(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+        is_archived: bool | None = None,
+        is_hidden: bool | None = None,
+    ) -> ContactThreadVisibilityResult:
+        if is_archived is None and is_hidden is None:
+            raise ContactChatError("No visibility change requested.")
+
+        try:
+            thread, participant = await self.repository.set_thread_participant_visibility(
+                thread_id=thread_id,
+                user_id=user_id,
+                is_archived=is_archived,
+                is_hidden=is_hidden,
+            )
+        except ValueError as exc:
+            raise ContactChatError(str(exc)) from exc
+
+        return ContactThreadVisibilityResult(
+            thread_id=thread.id,
+            user_id=participant.user_id,
+            is_archived=participant.is_archived,
+            is_hidden=participant.is_hidden,
         )

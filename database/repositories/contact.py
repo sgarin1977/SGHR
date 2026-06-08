@@ -14,6 +14,7 @@ from database.models import (
     Specialist,
     User,
     TranslationJob,
+    ConversationParticipant,
 )
 from database.repositories.translation import TranslationRepository
 
@@ -32,42 +33,16 @@ class ContactChatRepository:
         source_language: str,
         receiver_user_id: UUID,
     ) -> TranslationJob | None:
-        translation_repository = TranslationRepository(self.session)
-
-        target_language = await translation_repository.get_user_message_language(
-            receiver_user_id
-        )
-        normalized_source_language = self._normalize_translation_language(source_language)
-        auto_translate_enabled = await translation_repository.is_auto_translate_enabled(
-            receiver_user_id
-        )
-
         message = await self.session.get(Message, message_id)
         if not message:
             return None
 
-        if not auto_translate_enabled or target_language == normalized_source_language:
-            message.translation_status = "not_needed"
-            message.translated_text = None
-            message.translated_language = None
-            await self.session.flush()
-            return None
-
-        message.translation_status = "pending"
-
-        translation_job = TranslationJob(
-            tenant_id=tenant_id,
-            message_id=message_id,
-            source_language=normalized_source_language,
-            target_language=target_language,
-            status="pending",
-            retry_count=0,
-            max_retries=3,
-        )
-        self.session.add(translation_job)
+        message.translation_status = "not_needed"
+        message.translated_text = None
+        message.translated_language = None
         await self.session.flush()
 
-        return translation_job
+        return None
     async def get_active_specialist(
         self,
         specialist_id: UUID,
@@ -225,6 +200,23 @@ class ContactChatRepository:
         self.session.add(thread)
         await self.session.flush()
 
+        self.session.add_all(
+            [
+                ConversationParticipant(
+                    thread_id=thread.id,
+                    user_id=from_user_id,
+                    participant_role="client",
+                    unread_count=0,
+                ),
+                ConversationParticipant(
+                    thread_id=thread.id,
+                    user_id=specialist_user_id,
+                    participant_role="specialist",
+                    unread_count=1,
+                ),
+            ]
+        )
+
         first_message = Message(
             tenant_id=tenant_id,
             thread_id=thread.id,
@@ -328,6 +320,20 @@ class ContactChatRepository:
         )
         return result.scalar_one_or_none()
 
+    async def _get_conversation_participant(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+    ) -> ConversationParticipant | None:
+        result = await self.session.execute(
+            select(ConversationParticipant).where(
+                ConversationParticipant.thread_id == thread_id,
+                ConversationParticipant.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def create_thread_message(
         self,
         *,
@@ -371,6 +377,27 @@ class ContactChatRepository:
         )
         self.session.add(message)
         await self.session.flush()
+
+        sender_participant = await self._get_conversation_participant(
+            thread_id=thread.id,
+            user_id=sender_user_id,
+        )
+        receiver_participant = await self._get_conversation_participant(
+            thread_id=thread.id,
+            user_id=receiver_user_id,
+        )
+
+        if sender_participant:
+            sender_participant.unread_count = 0
+            sender_participant.last_read_message_id = message.id
+            sender_participant.last_read_at = datetime.utcnow()
+            sender_participant.updated_at = datetime.utcnow()
+
+        if receiver_participant:
+            receiver_participant.unread_count += 1
+            receiver_participant.is_hidden = False
+            receiver_participant.hidden_at = None
+            receiver_participant.updated_at = datetime.utcnow()
 
         await self._create_translation_job_if_needed(
             tenant_id=thread.tenant_id,
@@ -450,9 +477,73 @@ class ContactChatRepository:
             user_id=user_id,
         )
         self.session.add(receipt)
+
+        participant = await self._get_conversation_participant(
+            thread_id=thread.id,
+            user_id=user_id,
+        )
+        if participant:
+            participant.unread_count = 0
+            participant.last_read_message_id = message.id
+            participant.last_read_at = datetime.utcnow()
+            participant.updated_at = datetime.utcnow()
+
         await self.session.commit()
 
         return thread, receipt
+
+    async def set_thread_participant_visibility(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+        is_archived: bool | None = None,
+        is_hidden: bool | None = None,
+        platform: str = "telegram",
+    ) -> tuple[ConversationThread, ConversationParticipant]:
+        thread = await self.get_thread_for_user(
+            thread_id=thread_id,
+            user_id=user_id,
+        )
+        if not thread:
+            raise ValueError("Conversation thread not found.")
+
+        participant = await self._get_conversation_participant(
+            thread_id=thread.id,
+            user_id=user_id,
+        )
+        if not participant:
+            raise ValueError("Conversation participant not found.")
+
+        now = datetime.utcnow()
+
+        if is_archived is not None:
+            participant.is_archived = is_archived
+            participant.archived_at = now if is_archived else None
+
+        if is_hidden is not None:
+            participant.is_hidden = is_hidden
+            participant.hidden_at = now if is_hidden else None
+
+        participant.updated_at = now
+
+        self.session.add(
+            EventLog(
+                tenant_id=thread.tenant_id,
+                user_id=user_id,
+                event_type="thread_visibility_changed",
+                entity_type="conversation_thread",
+                entity_id=thread.id,
+                platform=platform,
+                payload={
+                    "is_archived": participant.is_archived,
+                    "is_hidden": participant.is_hidden,
+                },
+            )
+        )
+
+        await self.session.commit()
+        return thread, participant
 
     async def complete_thread(
         self,

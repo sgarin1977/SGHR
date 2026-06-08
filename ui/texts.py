@@ -2709,6 +2709,18 @@ translations = {
         "en": "Message added to the ticket.",
         "pt": "Mensagem adicionada ao chamado.",
     },
+
+    "feature_disabled_beta": {
+        "ru": "Функция появится после controlled Beta",
+        "en": "This feature will appear after controlled Beta",
+        "pt": "Este recurso aparecerá após o controlled Beta",
+    },
+    "feature_disabled_beta_message": {
+        "ru": "Функция появится после controlled Beta.",
+        "en": "This feature will appear after controlled Beta.",
+        "pt": "Este recurso aparecerá após o controlled Beta.",
+    },
+
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
