@@ -776,4 +776,23 @@ def test_admin_rbac_full_beta_contract_is_covered():
     assert '"super_admin" not in roles' in admin_handler
 
     assert "ApprovalRequest" in billing_repo
-   
+def test_admin_panel_uses_active_role_context_for_visible_menu():
+    source = open("handlers/admin.py", encoding="utf-8").read()
+
+    assert "def effective_panel_roles" in source
+    assert "active_role in roles" in source
+    assert "panel_roles = effective_panel_roles(" in source
+    assert "admin_panel_keyboard(" in source
+    assert "panel_roles," in source
+
+    show_panel_block = source.split(
+        "async def show_admin_panel",
+        1,
+    )[1].split(
+        "@admin_router.message(Command(\"admin\"))",
+        1,
+    )[0]
+
+    assert "panel_roles.intersection(ADMIN_MODERATION_MENU_ROLES)" in show_panel_block
+    assert "panel_roles.intersection(ADMIN_SUPPORT_MENU_ROLES)" in show_panel_block
+    assert "reply_markup=admin_panel_keyboard(" in show_panel_block

@@ -2,11 +2,11 @@ import os
 import uuid
 
 from sqlalchemy import delete, select
-
+import pytest
 from database.models import EventLog, User, UserAccount, UserRoleMapping
 from database.repositories.user import UserRepository
 from services.user import TelegramUserData, UserService
-
+from handlers.start import get_main_menu_keyboard, role_switch_keyboard
 
 async def cleanup_user_by_platform_id(session, platform_user_id: str):
     await session.rollback()
@@ -339,3 +339,229 @@ async def test_get_user_by_telegram_id_returns_none_for_unknown_user(db_session)
     user = await service.get_user_by_telegram_id(f"unknown-{uuid.uuid4()}")
 
     assert user is None
+async def test_user_service_switches_active_role(db_session):
+    platform_user_id = f"test-role-switch-{uuid.uuid4()}"
+
+    try:
+        service = UserService(db_session)
+
+        result = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="role_switch",
+                first_name="Role",
+                last_name="Switch",
+                language_code="ru",
+            )
+        )
+
+        user = await db_session.get(User, result.user_id)
+        assert user is not None
+
+        db_session.add(
+            UserRoleMapping(
+                user_id=user.id,
+                tenant_id=user.tenant_id,
+                role="support",
+                status="active",
+            )
+        )
+        await db_session.commit()
+
+        context = await service.get_role_switch_context(platform_user_id)
+
+        assert context is not None
+        assert context.active_role is None
+        assert context.available_roles == ["client", "support"]
+
+        switched = await service.switch_active_role(
+            platform_user_id,
+            "support",
+        )
+
+        assert switched.active_role == "support"
+        assert switched.available_roles == ["client", "support"]
+
+        user_after = await db_session.get(User, user.id)
+        assert user_after.active_role == "support"
+
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == user.id,
+                EventLog.event_type == "role_switched",
+            )
+        )
+        event = event_result.scalar_one_or_none()
+
+        assert event is not None
+        assert event.payload["active_role"] == "support"
+
+        with pytest.raises(ValueError):
+            await service.switch_active_role(platform_user_id, "finance_admin")
+
+    finally:
+        await cleanup_user_by_platform_id(db_session, platform_user_id)
+
+def _keyboard_callback_data(keyboard):
+    return [
+        button.callback_data
+        for row in keyboard.inline_keyboard
+        for button in row
+    ]
+
+
+def _keyboard_texts(keyboard):
+    return [
+        button.text
+        for row in keyboard.inline_keyboard
+        for button in row
+    ]
+
+
+def test_start_menu_role_switch_button_is_only_for_multi_role_users():
+    single_role_keyboard = get_main_menu_keyboard(
+        "ru",
+        show_role_switch=False,
+    )
+    single_role_callbacks = _keyboard_callback_data(single_role_keyboard)
+
+    assert "ROLE_SWITCH_MENU" not in single_role_callbacks
+
+    multi_role_keyboard = get_main_menu_keyboard(
+        "ru",
+        show_role_switch=True,
+    )
+    multi_role_callbacks = _keyboard_callback_data(multi_role_keyboard)
+
+    assert "ROLE_SWITCH_MENU" in multi_role_callbacks
+    assert "M_FIND" in multi_role_callbacks
+    assert "SS_START" in multi_role_callbacks
+    assert "M_CABINET" in multi_role_callbacks
+    assert "M_SETTINGS" in multi_role_callbacks
+
+
+def test_role_switch_keyboard_marks_active_role_and_uses_role_callbacks():
+    keyboard = role_switch_keyboard(
+        roles=["client", "specialist", "support", "moderator"],
+        active_role="specialist",
+        language="ru",
+        role_details={"specialist": "Электрик"},
+        unread_counts={"specialist": 3, "client": 1},
+    )
+
+    callbacks = _keyboard_callback_data(keyboard)
+    texts = _keyboard_texts(keyboard)
+
+    assert "ROLE_SWITCH:client" in callbacks
+    assert "ROLE_SWITCH:support" in callbacks
+    assert "ROLE_SWITCH:moderator" in callbacks
+    assert "ROLE_SWITCH:specialist" in callbacks
+    assert any("Специалист: Электрик" in text for text in texts)
+    assert "GLOBAL_MAIN_MENU" in callbacks
+    assert any("Специалист: Электрик (3)" in text for text in texts)
+    assert any(text.startswith("Клиент") and "(1)" in text for text in texts)
+    assert any(text.startswith("* ") for text in texts)
+async def test_start_opened_audit_event_is_written_on_start(db_session):
+    platform_user_id = f"test-start-opened-{uuid.uuid4()}"
+
+    try:
+        service = UserService(db_session)
+
+        first = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="start_opened",
+                first_name="Start",
+                last_name="Opened",
+                language_code="ru",
+            )
+        )
+
+        second = await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="start_opened",
+                first_name="Start",
+                last_name="Opened",
+                language_code="ru",
+            )
+        )
+
+        assert second.user_id == first.user_id
+
+        events_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == first.user_id,
+                EventLog.event_type == "start_opened",
+            )
+        )
+        events = events_result.scalars().all()
+
+        assert len(events) == 2
+        assert events[0].payload["is_new"] is True
+        assert events[1].payload["is_new"] is False
+        assert all(event.payload["role"] == "client" for event in events)
+        assert all("active_role" in event.payload for event in events)
+
+    finally:
+        await cleanup_user_by_platform_id(db_session, platform_user_id)
+
+def test_role_switch_opens_matching_cabinet_after_context_save():
+    source = open("handlers/start.py", encoding="utf-8").read()
+
+    assert "async def open_active_role_cabinet" in source
+    assert "from handlers.admin import show_admin_panel" in source
+    assert "from handlers.billing import show_specialist_cabinet" in source
+    assert 'role in {"support", "moderator", "admin", "super_admin"}' in source
+    assert 'role in {"client", "specialist"}' in source
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+
+    assert '@billing_router.callback_query(F.data == "M_CABINET")' in billing_source
+    assert "await open_current_role_cabinet(callback, state)" in billing_source
+    assert "async def show_specialist_cabinet" in billing_source
+    switch_block = source.split(
+        '@start_router.callback_query(F.data.startswith("ROLE_SWITCH:"))',
+        1,
+    )[1]
+
+    assert "await service.switch_active_role(" in switch_block
+    assert "await open_active_role_cabinet(" in switch_block
+    assert switch_block.index("await service.switch_active_role(") < switch_block.index(
+        "await open_active_role_cabinet("
+    )
+
+def test_start_restores_active_role_context_and_invalid_role_goes_to_switcher():
+    source = open("handlers/start.py", encoding="utf-8").read()
+
+    assert "async def cmd_start(message: Message, state: FSMContext)" in source
+    assert "active_role_is_valid" in source
+    assert "send_active_role_cabinet_from_message" in source
+    assert "await open_active_role_cabinet(" in source
+    assert "role_context.active_role in role_context.available_roles" in source
+
+    invalid_role_block = source.split(
+        "if role_context and role_context.active_role and len(role_context.available_roles) > 1:",
+        1,
+    )[1].split(
+        "await message.answer(\n        t(\"search_main_menu\", language)",
+        1,
+    )[0]
+
+    assert "t(\"role_switch_prompt\", language)" in invalid_role_block
+    assert "role_switch_keyboard(" in invalid_role_block
+    assert "role_details=role_context.role_details" in invalid_role_block
+    assert "unread_counts=role_context.unread_counts" in invalid_role_block
+    assert "return" in invalid_role_block
+def test_specialist_and_admin_cabinets_show_role_switch_for_multi_role_users():
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+
+    assert "show_role_switch: bool = False" in billing_source
+    assert "callback_data=\"ROLE_SWITCH_MENU\"" in billing_source
+    assert "get_role_switch_context(callback.from_user.id)" in billing_source
+    assert "show_role_switch=show_role_switch" in billing_source
+
+    assert "show_role_switch: bool = False" in admin_source
+    assert "callback_data=\"ROLE_SWITCH_MENU\"" in admin_source
+    assert "get_role_switch_context(user.id)" in admin_source
+    assert "show_role_switch=show_role_switch" in admin_source

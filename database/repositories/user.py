@@ -2,11 +2,20 @@ import os
 import uuid
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import User, UserAccount, UserRoleMapping, Tenant
+from database.models import (
+    ConversationParticipant,
+    Profession,
+    Specialist,
+    SpecialistProfession,
+    Tenant,
+    User,
+    UserAccount,
+    UserRoleMapping,
+)
 
 
 class UserRepository:
@@ -35,6 +44,118 @@ class UserRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def list_active_roles(
+        self,
+        user_id: uuid.UUID,
+    ) -> list[str]:
+        stmt = (
+            select(UserRoleMapping.role)
+            .where(
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.status == "active",
+            )
+            .distinct()
+            .order_by(UserRoleMapping.role)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_primary_specialist_profession_name(
+        self,
+        user_id: uuid.UUID,
+        language: str = "ru",
+    ) -> Optional[str]:
+        localized_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+        }.get(language, Profession.name_ru)
+
+        stmt = (
+            select(
+                func.coalesce(
+                    localized_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                )
+            )
+            .select_from(Specialist)
+            .join(
+                SpecialistProfession,
+                SpecialistProfession.specialist_id == Specialist.id,
+            )
+            .join(
+                Profession,
+                Profession.id == SpecialistProfession.profession_id,
+            )
+            .where(
+                Specialist.user_id == user_id,
+                SpecialistProfession.status == "active",
+            )
+            .order_by(
+                SpecialistProfession.is_primary.desc(),
+                SpecialistProfession.created_at.asc(),
+            )
+            .limit(1)
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_role_unread_counts(
+        self,
+        user_id: uuid.UUID,
+    ) -> dict[str, int]:
+        stmt = (
+            select(
+                ConversationParticipant.participant_role,
+                func.coalesce(func.sum(ConversationParticipant.unread_count), 0),
+            )
+            .where(
+                ConversationParticipant.user_id == user_id,
+                ConversationParticipant.is_archived.is_(False),
+                ConversationParticipant.is_hidden.is_(False),
+            )
+            .group_by(ConversationParticipant.participant_role)
+        )
+
+        result = await self.session.execute(stmt)
+
+        counts: dict[str, int] = {}
+        for participant_role, unread_count in result.all():
+            if participant_role in {"client", "specialist"}:
+                counts[participant_role] = int(unread_count or 0)
+
+        return counts
+
+    async def set_active_role(
+        self,
+        user_id: uuid.UUID,
+        role: str,
+    ) -> User:
+        role_result = await self.session.execute(
+            select(UserRoleMapping.id)
+            .where(
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.role == role,
+                UserRoleMapping.status == "active",
+            )
+            .limit(1)
+        )
+
+        if role_result.scalar_one_or_none() is None:
+            raise ValueError("Role is not active for this user.")
+
+        user = await self.session.get(User, user_id)
+        if not user:
+            raise ValueError("User not found.")
+
+        user.active_role = role
+        await self.session.flush()
+        return user
 
     async def create_telegram_user_core(
         self,

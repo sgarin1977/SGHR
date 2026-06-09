@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from database.repositories.translation import TranslationRepository
 from database.repositories.legal import LegalRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard
+from handlers.start import get_main_menu_keyboard_for_user
 from services.legal import LegalService, MissingLegalDocumentError
 from services.user import UserService
 from ui.texts import t
@@ -228,6 +228,6 @@ async def back_to_main_menu(callback: CallbackQuery):
 
     await callback.message.answer(
         t("legal_main_menu", language),
-        reply_markup=get_main_menu_keyboard(language),
+        reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
     )
     await callback.answer()

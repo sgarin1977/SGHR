@@ -22,7 +22,7 @@ from database.models import City, Country, Invoice, PaidFeature, Specialist
 from database.repositories.billing import BillingRepository
 from database.repositories.specialist import SpecialistRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard, normalize_language
+from handlers.start import get_main_menu_keyboard_for_user, normalize_language, open_current_role_cabinet, send_global_main_menu
 from services.billing import BillingError, BillingService
 from services.specialist import (
     SpecialistProfileUpdateData,
@@ -154,7 +154,11 @@ def invoice_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-def cabinet_menu_keyboard(language: str) -> InlineKeyboardMarkup:
+def cabinet_menu_keyboard(
+    language: str,
+    *,
+    show_role_switch: bool = False,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -175,6 +179,18 @@ def cabinet_menu_keyboard(language: str) -> InlineKeyboardMarkup:
                     callback_data="BETA_DISABLED:promotion",
                 )
             ],
+            *(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text=t("switch_profile", language),
+                            callback_data="ROLE_SWITCH_MENU",
+                        )
+                    ]
+                ]
+                if show_role_switch
+                else []
+            ),
             [
                 InlineKeyboardButton(
                     text=t("search_menu", language),
@@ -836,15 +852,27 @@ def format_invoice_text(
         f"{manual_instructions}"
     )
 
-
 @billing_router.callback_query(F.data == "M_CABINET")
-async def show_cabinet(callback: CallbackQuery, state: FSMContext):
+async def open_my_cabinet(callback: CallbackQuery, state: FSMContext):
+    await open_current_role_cabinet(callback, state)
+    
+async def show_specialist_cabinet(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
+
+    async with get_session() as session:
+        role_context = await UserService(session).get_role_switch_context(callback.from_user.id)
+
+    show_role_switch = bool(
+        role_context and len(role_context.available_roles) > 1
+    )
 
     await state.clear()
     await callback.message.answer(
         t("menu_my_cabinet", language),
-        reply_markup=cabinet_menu_keyboard(language),
+        reply_markup=cabinet_menu_keyboard(
+            language,
+            show_role_switch=show_role_switch,
+        ),
     )
     await callback.answer()
 
@@ -2070,13 +2098,7 @@ async def show_billing_panel(callback: CallbackQuery, state: FSMContext):
 
 @billing_router.callback_query(F.data == "BILL_MENU")
 async def billing_to_menu(callback: CallbackQuery, state: FSMContext):
-    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
-    await state.clear()
-    await callback.message.answer(
-        t("search_main_menu", language),
-        reply_markup=get_main_menu_keyboard(language),
-    )
-    await callback.answer()
+    await send_global_main_menu(callback, state)
 
 
 @billing_router.callback_query(F.data == "BILL_FEATURES")

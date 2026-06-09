@@ -2720,7 +2720,61 @@ translations = {
         "en": "This feature will appear after controlled Beta.",
         "pt": "Este recurso aparecerá após o controlled Beta.",
     },
-
+    "role_text_specialist": {
+        "ru": "Специалист",
+        "en": "Specialist",
+        "pt": "Especialista",
+    },
+    "role_text_support": {
+        "ru": "Поддержка",
+        "en": "Support",
+        "pt": "Suporte",
+    },
+    "role_text_moderator": {
+        "ru": "Модератор",
+        "en": "Moderator",
+        "pt": "Moderador",
+    },
+    "role_text_admin": {
+        "ru": "Администратор",
+        "en": "Admin",
+        "pt": "Administrador",
+    },
+    "role_switch_prompt": {
+        "ru": "Выберите активный кабинет:",
+        "en": "Choose active cabinet:",
+        "pt": "Escolha o gabinete ativo:",
+    },
+    "role_switch_done": {
+        "ru": "Активный кабинет: {role}",
+        "en": "Active cabinet: {role}",
+        "pt": "Gabinete ativo: {role}",
+    },
+    "role_switch_failed": {
+        "ru": "Эта роль недоступна.",
+        "en": "This role is not available.",
+        "pt": "Esta função não está disponível.",
+    },
+    "role_switch_not_available": {
+        "ru": "Для этого пользователя доступен только один кабинет.",
+        "en": "Only one cabinet is available for this user.",
+        "pt": "Apenas um gabinete está disponível para este usuário.",
+    },
+    "active_cabinet_menu": {
+        "ru": "К активному кабинету",
+        "en": "Active cabinet",
+        "pt": "Gabinete ativo",
+    },
+    "auth_required_start": {
+        "ru": "Для этого действия нужно сначала запустить бота. Нажмите /start, затем действие продолжится.",
+        "en": "Start the bot first. Press /start, then this action will continue.",
+        "pt": "Primeiro inicie o bot. Pressione /start e a ação continuará.",
+    },
+    "auth_action_restored": {
+        "ru": "Продолжаем действие, которое вы начали ранее.",
+        "en": "Continuing the action you started earlier.",
+        "pt": "Continuando a ação que você iniciou antes.",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

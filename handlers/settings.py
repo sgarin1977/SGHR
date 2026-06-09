@@ -4,11 +4,11 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from database.repositories.privacy import PrivacyRepository
 from database.repositories.translation import TranslationRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard, normalize_language
+from handlers.start import normalize_language, send_global_main_menu
 from services.privacy import PrivacyError, PrivacyService
 from services.user import UserService
 from ui.texts import t
-
+from aiogram.fsm.context import FSMContext
 settings_router = Router()
 
 
@@ -258,24 +258,8 @@ async def toggle_show_original(callback: CallbackQuery):
 
 
 @settings_router.callback_query(F.data == "SET_MAIN_MENU")
-async def settings_to_main_menu(callback: CallbackQuery):
-    fallback_language = normalize_language(callback.from_user.language_code)
-
-    async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not user:
-            await callback.answer(t("search_contact_user_not_found", fallback_language), show_alert=True)
-            return
-
-        settings = await TranslationRepository(session).get_language_settings(user.id)
-        language = normalize_language(settings.interface_language or user.language_code)
-        await session.commit()
-
-    await callback.message.answer(
-        t("search_main_menu", language),
-        reply_markup=get_main_menu_keyboard(language),
-    )
-    await callback.answer()
+async def settings_to_main_menu(callback: CallbackQuery, state: FSMContext):
+    await send_global_main_menu(callback, state)
 
 @settings_router.callback_query(F.data == "PRIVACY_MENU")
 async def open_privacy_settings(callback: CallbackQuery):

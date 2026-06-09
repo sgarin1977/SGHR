@@ -25,7 +25,7 @@ from database.repositories.user import UserRepository
 from database.repositories.moderation import ModerationRepository
 from database.repositories.translation import TranslationRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard
+from handlers.start import get_main_menu_keyboard_for_user
 from services.contact_chat import ContactChatError, ContactChatService
 from services.geo_search import GeoSearchService, SpecialistPublicCard
 from services.geo_service import GeoService, GeoServiceError
@@ -195,7 +195,98 @@ async def get_requester_context(platform_user_id: int | str) -> tuple[UUID | Non
             return account.user_id, None
 
         return user.id, user.tenant_id
+async def store_post_auth_action(
+    *,
+    callback: CallbackQuery,
+    state: FSMContext,
+    action: str,
+    language: str,
+):
+    await state.update_data(post_auth_action=action)
+    await callback.message.answer(t("auth_required_start", language))
+    await callback.answer(t("auth_required_start", language), show_alert=True)
 
+
+async def resume_post_auth_action(
+    *,
+    message: Message,
+    state: FSMContext,
+    language: str,
+) -> bool:
+    data = await state.get_data()
+    action = data.get("post_auth_action")
+    specialist_id = data.get("selected_specialist_id")
+
+    if not action or not specialist_id:
+        return False
+
+    user_id, tenant_id = await get_requester_context(message.from_user.id)
+    if not user_id or not tenant_id:
+        return False
+
+    await state.update_data(post_auth_action=None)
+    await message.answer(t("auth_action_restored", language))
+
+    if action == "contact":
+        pending_message = (data.get("pending_contact_message") or "").strip()
+
+        if pending_message:
+            await state.set_state(SpecialistSearchFSM.confirming_contact_message)
+            await message.answer(
+                t("contact_message_confirm_prompt", language).format(
+                    message=pending_message,
+                ),
+                reply_markup=contact_message_confirm_keyboard(language),
+            )
+            return True
+
+        await state.set_state(SpecialistSearchFSM.viewing_results)
+        await message.answer(
+            t("contact_disclaimer_text", language),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t("contact_disclaimer_continue", language),
+                            callback_data="contact_disclaimer_continue",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t("search_menu", language),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
+        return True
+
+    if action == "favorite":
+        try:
+            async with get_session() as session:
+                is_saved = await FavoriteRepository(session).toggle_specialist(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    specialist_id=UUID(specialist_id),
+                )
+        except ValueError as exc:
+            await message.answer(str(exc))
+            return True
+
+        text_key = "favorite_saved" if is_saved else "favorite_removed"
+        await message.answer(t(text_key, language))
+        return True
+
+    if action == "report":
+        await state.set_state(SpecialistSearchFSM.viewing_results)
+        await message.answer(
+            t("complaint_reason_prompt", language),
+            reply_markup=complaint_reason_keyboard(language),
+        )
+        return True
+
+    return False
 
 def callback_index(callback: CallbackQuery) -> int | None:
     try:
@@ -1894,7 +1985,12 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
 
     requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
     if not requester_user_id or not tenant_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        await store_post_auth_action(
+            callback=callback,
+            state=state,
+            action="contact",
+            language=language,
+        )
         return
 
     specialist_platform_user_id = None
@@ -2246,7 +2342,12 @@ async def favorite_pending(callback: CallbackQuery, state: FSMContext):
 
     user_id, tenant_id = await get_requester_context(callback.from_user.id)
     if not user_id or not tenant_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        await store_post_auth_action(
+            callback=callback,
+            state=state,
+            action="favorite",
+            language=language,
+        )
         return
 
     try:
@@ -2368,10 +2469,13 @@ async def create_search_complaint(
 
     reporter_user_id, tenant_id = await get_requester_context(event.from_user.id)
     if not reporter_user_id or not tenant_id:
+        await state.update_data(post_auth_action="report")
+
         if isinstance(event, CallbackQuery):
-            await event.answer(t("search_contact_user_not_found", language), show_alert=True)
+            await event.message.answer(t("auth_required_start", language))
+            await event.answer(t("auth_required_start", language), show_alert=True)
         else:
-            await event.answer(t("search_contact_user_not_found", language))
+            await event.answer(t("auth_required_start", language))
         return
 
     try:
@@ -2446,7 +2550,7 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.answer(
         t("search_main_menu", language),
-        reply_markup=get_main_menu_keyboard(language),
+        reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
     )
     await callback.answer()
 

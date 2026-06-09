@@ -23,7 +23,7 @@ from database.repositories.portfolio import PortfolioRepository
 from database.repositories.support import SupportRepository
 from database.repositories.user import UserRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard, normalize_language
+from handlers.start import get_main_menu_keyboard_for_user, normalize_language, open_current_role_cabinet, send_global_main_menu
 from services.moderation import ModerationError, ModerationService
 from services.billing import BillingError, BillingService
 from services.reviews import ReviewService, ReviewServiceError
@@ -39,6 +39,14 @@ ADMIN_PAYMENT_MENU_ROLES = {"super_admin", "admin", "finance_admin"}
 ADMIN_ROLE_MENU_ROLES = {"super_admin"}
 ADMIN_LOG_MENU_ROLES = {"super_admin", "admin", "support"}
 ADMIN_SUPPORT_MENU_ROLES = {"super_admin", "admin", "support"}
+def effective_panel_roles(
+    roles: set[str],
+    active_role: str | None,
+) -> set[str]:
+    if active_role in roles:
+        return {active_role}
+
+    return roles
 class AdminModerationFSM(StatesGroup):
     entering_reject_reason = State()
     entering_complaint_resolution_reason = State()
@@ -62,7 +70,12 @@ async def get_admin_user_context(telegram_id: int | str):
         return user.id, user.tenant_id, roles
 
 
-def admin_panel_keyboard(language: str, roles: set[str] | None = None) -> InlineKeyboardMarkup:
+def admin_panel_keyboard(
+    language: str,
+    roles: set[str] | None = None,
+    *,
+    show_role_switch: bool = False,
+) -> InlineKeyboardMarkup:
     roles = roles or set()
     rows = []
 
@@ -148,12 +161,21 @@ def admin_panel_keyboard(language: str, roles: set[str] | None = None) -> Inline
                 )
             ]
         )
-
+    if show_role_switch:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("switch_profile", language),
+                    callback_data="ROLE_SWITCH_MENU",
+                )
+            ]
+        )
     rows.append(
+
         [
             InlineKeyboardButton(
                 text=t("search_menu", language),
-                callback_data="ADM_MENU",
+                callback_data="ADM_MENU", 
             )
         ]
     )
@@ -751,19 +773,40 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
         if isinstance(message_or_callback, CallbackQuery)
         else message_or_callback
     )
+    role_context = None
+    async with get_session() as session:
+        role_context = await UserService(session).get_role_switch_context(user.id)
+
+    show_role_switch = bool(
+        role_context and len(role_context.available_roles) > 1
+    )
+    async with get_session() as session:
+        role_context = await UserService(session).get_role_switch_context(user.id)
+
+    show_role_switch = bool(
+        role_context and len(role_context.available_roles) > 1
+    )
+    panel_roles = effective_panel_roles(
+        roles,
+        role_context.active_role if role_context else None,
+    )
     panel_text = t("admin_panel_title", language)
     if not (
-        roles.intersection(ADMIN_MODERATION_MENU_ROLES)
-        or roles.intersection(ADMIN_PAYMENT_MENU_ROLES)
-        or roles.intersection(ADMIN_ROLE_MENU_ROLES)
-        or roles.intersection(ADMIN_LOG_MENU_ROLES)
-        or roles.intersection(ADMIN_SUPPORT_MENU_ROLES)
+        panel_roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_PAYMENT_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_ROLE_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_LOG_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_SUPPORT_MENU_ROLES)
     ):
         panel_text = t("admin_no_available_actions", language)
 
     await target_message.answer(
         panel_text,
-        reply_markup=admin_panel_keyboard(language, roles),
+        reply_markup=admin_panel_keyboard(
+            language,
+            panel_roles,
+            show_role_switch=show_role_switch,
+        ),
     )
 
     if isinstance(message_or_callback, CallbackQuery):
@@ -1205,14 +1248,7 @@ async def receive_role_revoke(message: Message, state: FSMContext):
 
 @admin_router.callback_query(F.data == "ADM_MENU")
 async def admin_to_menu(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
-    await state.clear()
-    await callback.message.answer(
-        t("search_main_menu", language),
-        reply_markup=get_main_menu_keyboard(language),
-    )
-    await callback.answer()
-
+    await send_global_main_menu(callback, state)
 
 @admin_router.callback_query(F.data == "ADM_PENDING")
 async def list_pending_profiles(callback: CallbackQuery, state: FSMContext):

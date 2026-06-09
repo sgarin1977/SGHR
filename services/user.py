@@ -26,6 +26,13 @@ class TelegramRegistrationResult:
     role: str
     is_new: bool
 
+@dataclass(frozen=True)
+class RoleSwitchResult:
+    user_id: uuid.UUID
+    active_role: Optional[str]
+    available_roles: list[str]
+    role_details: dict[str, str]
+    unread_counts: dict[str, int]
 
 class UserService:
     def __init__(self, session: AsyncSession):
@@ -56,6 +63,76 @@ class UserService:
 
         return await self.session.get(User, account.user_id)
 
+    async def get_role_switch_context(
+        self,
+        telegram_id: int | str,
+        language: str = "ru",
+    ) -> Optional[RoleSwitchResult]:
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if not user:
+            return None
+
+        roles = await self.repository.list_active_roles(user.id)
+        role_details = {}
+        unread_counts = await self.repository.get_role_unread_counts(user.id)
+        if "specialist" in roles:
+            profession_name = await self.repository.get_primary_specialist_profession_name(
+                user.id,
+                language,
+            )
+            if profession_name:
+                role_details["specialist"] = profession_name
+        return RoleSwitchResult(
+            user_id=user.id,
+            active_role=user.active_role,
+            available_roles=roles,
+            role_details=role_details,
+            unread_counts=unread_counts,
+        )
+    async def switch_active_role(
+        self,
+        telegram_id: int | str,
+        role: str,
+    ) -> RoleSwitchResult:
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if not user:
+            raise ValueError("User not found.")
+
+        roles = await self.repository.list_active_roles(user.id)
+        role_details = {}
+        unread_counts = await self.repository.get_role_unread_counts(user.id)
+        if "specialist" in roles:
+            profession_name = await self.repository.get_primary_specialist_profession_name(
+                user.id,
+            )
+            if profession_name:
+                role_details["specialist"] = profession_name
+        if role not in roles:
+            raise ValueError("Role is not active for this user.")
+
+        updated_user = await self.repository.set_active_role(user.id, role)
+
+        await self.events.create_event(
+            event_type="role_switched",
+            tenant_id=updated_user.tenant_id,
+            user_id=updated_user.id,
+            entity_type="user",
+            entity_id=updated_user.id,
+            payload={
+                "active_role": role,
+                "available_roles": roles,
+            },
+            platform="telegram",
+        )
+        await self.session.commit()
+
+        return RoleSwitchResult(
+            user_id=updated_user.id,
+            active_role=updated_user.active_role,
+            available_roles=roles,
+            role_details=role_details,
+            unread_counts=unread_counts,
+        )
     async def register_telegram_user(
         self,
         data: TelegramUserData,
@@ -89,6 +166,20 @@ class UserService:
                 payload={
                     "is_new": False,
                     "role": role,
+                    "platform_user_id": platform_user_id,
+                },
+                platform="telegram",
+            )
+            await self.events.create_event(
+                event_type="start_opened",
+                tenant_id=user.tenant_id if user else None,
+                user_id=existing_account.user_id,
+                entity_type="user",
+                entity_id=existing_account.user_id,
+                payload={
+                    "is_new": False,
+                    "role": role,
+                    "active_role": user.active_role if user else None,
                     "platform_user_id": platform_user_id,
                 },
                 platform="telegram",
@@ -129,6 +220,20 @@ class UserService:
             payload={
                 "is_new": True,
                 "role": role,
+                "platform_user_id": platform_user_id,
+            },
+            platform="telegram",
+        )
+        await self.events.create_event(
+            event_type="start_opened",
+            tenant_id=user.tenant_id if user else None,
+            user_id=user_id,
+            entity_type="user",
+            entity_id=user_id,
+            payload={
+                "is_new": True,
+                "role": role,
+                "active_role": user.active_role if user else None,
                 "platform_user_id": platform_user_id,
             },
             platform="telegram",

@@ -1713,3 +1713,79 @@ async def test_city_search_includes_whole_country_specialist(db_session):
     finally:
         await cleanup_test_user(db_session, platform_user_id)
         await cleanup_legal_documents(db_session, tenant_id)
+
+def test_public_search_and_card_do_not_require_legal_gate_or_registration():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    start_search_block = source.split(
+        '@search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data == "search_filters")',
+        1,
+    )[0]
+
+    assert "LegalService" not in start_search_block
+    assert "LegalRepository" not in start_search_block
+    assert "get_missing_specialist_consents" not in start_search_block
+    assert "has_required_specialist_consents" not in start_search_block
+    assert "legal_start_required" not in start_search_block
+    assert "billing_start_required" not in start_search_block
+    assert "await state.clear()" in start_search_block
+    assert "await show_filters(callback, state)" in start_search_block
+
+    card_block = source.split(
+        '@search_router.callback_query(F.data.startswith("search_result:"))',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data == "search_contact_pending")',
+        1,
+    )[0]
+
+    assert "LegalService" not in card_block
+    assert "LegalRepository" not in card_block
+    assert "get_missing_specialist_consents" not in card_block
+    assert "has_required_specialist_consents" not in card_block
+    assert "legal_start_required" not in card_block
+    assert "billing_start_required" not in card_block
+    assert "if not requester_user_id" not in card_block
+    assert "get_public_card" in card_block
+    assert "format_public_card(card, language)" in card_block
+
+def test_public_card_formatter_does_not_expose_raw_ids():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    card_formatter = source.split(
+        "def format_public_card",
+        1,
+    )[1].split(
+        "async def show_filters",
+        1,
+    )[0]
+
+    assert "card.specialist_id" not in card_formatter
+    assert ".id}" not in card_formatter
+    assert "UUID" not in card_formatter
+    assert "search_legal_warning" in card_formatter
+    assert "card.display_name" in card_formatter
+    assert "card.short_description" in card_formatter
+
+def test_auth_required_actions_are_restored_after_start():
+    search_source = open("handlers/search.py", encoding="utf-8").read()
+    start_source = open("handlers/start.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "async def store_post_auth_action" in search_source
+    assert "async def resume_post_auth_action" in search_source
+
+    assert 'post_auth_action=action' in search_source
+    assert 'post_auth_action=None' in search_source
+
+    assert 'action="contact"' in search_source
+    assert 'action="favorite"' in search_source
+    assert 'post_auth_action="report"' in search_source
+
+    assert "await resume_post_auth_action(" in start_source
+
+    assert "auth_required_start" in texts_source
+    assert "auth_action_restored" in texts_source
