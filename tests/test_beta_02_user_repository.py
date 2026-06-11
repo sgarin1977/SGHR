@@ -100,11 +100,11 @@ async def test_create_telegram_super_admin_user(db_session):
         role_result = await db_session.execute(
             select(UserRoleMapping).where(UserRoleMapping.user_id == user_id)
         )
-        role = role_result.scalar_one_or_none()
+        roles = role_result.scalars().all()
+        roles_by_name = {item.role: item for item in roles}
 
-        assert role is not None
-        assert role.role == "super_admin"
-        assert role.status == "active"
+        assert roles_by_name["client"].status == "active"
+        assert roles_by_name["super_admin"].status == "active"
 
     finally:
         await cleanup_user_by_platform_id(db_session, platform_user_id)
@@ -202,11 +202,11 @@ async def test_admin_bootstrap_from_env_creates_super_admin(db_session, monkeypa
         role_result = await db_session.execute(
             select(UserRoleMapping).where(UserRoleMapping.user_id == result.user_id)
         )
-        role = role_result.scalar_one_or_none()
+        roles = role_result.scalars().all()
+        roles_by_name = {item.role: item for item in roles}
 
-        assert role is not None
-        assert role.role == "super_admin"
-        assert role.status == "active"
+        assert roles_by_name["client"].status == "active"
+        assert roles_by_name["super_admin"].status == "active"
         event_result = await db_session.execute(
             select(EventLog).where(
                 EventLog.user_id == result.user_id,
@@ -223,6 +223,57 @@ async def test_admin_bootstrap_from_env_creates_super_admin(db_session, monkeypa
         assert event.payload["is_new"] is True
     finally:
         await cleanup_user_by_platform_id(db_session, platform_user_id)
+
+async def test_existing_telegram_user_gets_base_client_role_on_start(db_session):
+    platform_user_id = f"test-existing-base-client-{uuid.uuid4()}"
+
+    try:
+        repo = UserRepository(db_session)
+        user_id = await repo.create_telegram_user_core(
+            platform_user_id=platform_user_id,
+            username="base_client",
+            first_name="Base",
+            last_name="Client",
+            language_code="ru",
+            role="super_admin",
+        )
+
+        result = await db_session.execute(
+            select(UserRoleMapping).where(
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.role == "client",
+            )
+        )
+        existing_client_role = result.scalar_one_or_none()
+        if existing_client_role:
+            await db_session.delete(existing_client_role)
+            await db_session.commit()
+
+        service = UserService(db_session)
+        await service.register_telegram_user(
+            TelegramUserData(
+                platform_user_id=platform_user_id,
+                username="base_client",
+                first_name="Base",
+                last_name="Client",
+                language_code="ru",
+            )
+        )
+
+        roles_result = await db_session.execute(
+            select(UserRoleMapping.role, UserRoleMapping.status).where(
+                UserRoleMapping.user_id == user_id,
+            )
+        )
+        roles = dict(roles_result.all())
+
+        assert roles["client"] == "active"
+        assert roles["super_admin"] == "active"
+
+    finally:
+        await cleanup_user_by_platform_id(db_session, platform_user_id)
+
+
 async def test_register_existing_user_logs_return_start_without_duplicates(db_session):
     platform_user_id = f"test-repeat-start-{uuid.uuid4()}"
 
@@ -513,7 +564,9 @@ def test_role_switch_opens_matching_cabinet_after_context_save():
     assert "from handlers.admin import show_admin_panel" in source
     assert "from handlers.billing import show_specialist_cabinet" in source
     assert 'role in {"support", "moderator", "admin", "super_admin"}' in source
-    assert 'role in {"client", "specialist"}' in source
+    assert 'role == "client"' in source
+    assert 'role == "specialist"' in source
+    assert "from handlers.billing import show_client_cabinet" in source
     billing_source = open("handlers/billing.py", encoding="utf-8").read()
 
     assert '@billing_router.callback_query(F.data == "M_CABINET")' in billing_source

@@ -3,6 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from database.repositories.translation import TranslationRepository
+from database.repositories.event import EventRepository
 from database.session import get_session
 from services.rate_limit import RateLimitError
 from services.user import TelegramUserData, UserService
@@ -92,7 +93,13 @@ async def open_active_role_cabinet(
         await show_admin_panel(callback, state)
         return
 
-    if role in {"client", "specialist"}:
+    if role == "client":
+        from handlers.billing import show_client_cabinet
+
+        await show_client_cabinet(callback, state)
+        return
+
+    if role == "specialist":
         from handlers.billing import show_specialist_cabinet
 
         await show_specialist_cabinet(callback, state)
@@ -219,7 +226,45 @@ async def send_active_role_cabinet_from_message(
         await show_admin_panel(message, state)
         return
 
-    if role in {"client", "specialist"}:
+    if role == "client":
+        from handlers.billing import client_cabinet_keyboard, get_client_cabinet_counts
+
+        async with get_session() as session:
+            service = UserService(session)
+            user = await service.get_user_by_telegram_id(message.from_user.id)
+            role_context = await service.get_role_switch_context(message.from_user.id)
+
+            if user:
+                await EventRepository(session).create_event(
+                    event_type="client_menu_opened",
+                    tenant_id=user.tenant_id,
+                    user_id=user.id,
+                    entity_type="user",
+                    entity_id=user.id,
+                    payload={
+                        "active_role": user.active_role,
+                    },
+                    platform="telegram",
+                )
+                await session.commit()
+
+        show_role_switch = bool(
+            role_context and len(role_context.available_roles) > 1
+        )
+        counts = await get_client_cabinet_counts(message.from_user.id)
+
+        await message.answer(
+            t("client_cabinet_title", language)
+            + "\n\n"
+            + t("client_cabinet_summary", language).format(**counts),
+            reply_markup=client_cabinet_keyboard(
+                language,
+                show_role_switch=show_role_switch,
+            ),
+        )
+        return
+
+    if role == "specialist":
         from handlers.billing import cabinet_menu_keyboard
 
         async with get_session() as session:

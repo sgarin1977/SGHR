@@ -294,6 +294,79 @@ class GeoSearchService:
 
         return paginated_results
 
+    async def search_without_location(
+        self,
+        *,
+        sort_by: str = "relevance",
+        category_id: UUID | None = None,
+        profession_id: UUID | None = None,
+        price_min: float | None = None,
+        price_max: float | None = None,
+        language_code: str | None = None,
+        verified_only: bool = False,
+        premium_only: bool = False,
+        rating_min: float | None = None,
+        work_format: str | None = None,
+        limit: int = 10,
+        offset: int = 0,
+        requester_user_id: UUID | None = None,
+        tenant_id: UUID | None = None,
+        log_event: bool = False,
+        interface_language: str = "ru",
+    ) -> list[SpecialistSearchResult]:
+        filters = SpecialistSearchFilters(
+            category_id=category_id,
+            profession_id=profession_id,
+            price_min=price_min,
+            price_max=price_max,
+            language_code=language_code,
+            verified_only=verified_only,
+            premium_only=premium_only,
+            rating_min=rating_min,
+            work_format=work_format,
+            status="active",
+            limit=limit,
+            offset=offset,
+            sort_by="relevance" if sort_by == "distance" else sort_by,
+        )
+
+        specialists = await self.repository.search_specialists(filters)
+        user_metrics = await self.repository.get_user_metrics_by_specialist_ids(
+            [specialist.id for specialist in specialists]
+        )
+
+        results = []
+        for specialist in specialists:
+            metrics = user_metrics.get(specialist.id, {})
+            results.append(
+                SpecialistSearchResult(
+                    specialist=specialist,
+                    distance_km=None,
+                    ranking_score=self._calculate_ranking_score(
+                        specialist=specialist,
+                        distance_km=None,
+                        radius_km=filters.normalized_radius_km,
+                        profile_completion_score=metrics.get("profile_completion_score", 0),
+                        risk_score=metrics.get("risk_score", 0),
+                    ),
+                )
+            )
+
+        results = await self._enrich_search_results(
+            results,
+            interface_language,
+        )
+
+        if log_event:
+            await self.repository.log_search_performed(
+                tenant_id=tenant_id,
+                user_id=requester_user_id,
+                filters=filters,
+                results_count=len(results),
+            )
+
+        return results
+
     async def search_by_radius(
         self,
         *,

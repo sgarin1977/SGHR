@@ -6,7 +6,7 @@ from database.repositories.contact_detection import ContactDetectionRepository
 from services.contact_detection import ContactDetectionService
 from database.repositories.rate_limit import RateLimitRepository
 from services.rate_limit import RateLimitError, RateLimitService
-
+from datetime import datetime
 class ContactChatError(Exception):
     pass
 
@@ -60,6 +60,16 @@ class ContactThreadVisibilityResult:
     user_id: UUID
     is_archived: bool
     is_hidden: bool
+
+@dataclass
+class ContactThreadListItem:
+    thread_id: UUID
+    specialist_name: str
+    profession_name: str | None
+    last_message_text: str | None
+    last_message_at: datetime | None
+    unread_count: int
+    status: str
 
 class ContactChatService:
     def __init__(
@@ -329,3 +339,41 @@ class ContactChatService:
             is_archived=participant.is_archived,
             is_hidden=participant.is_hidden,
         )
+    
+    async def list_client_threads(
+        self,
+        *,
+        user_id: UUID,
+        view: str = "active",
+        limit: int = 5,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[ContactThreadListItem]:
+        rows = await self.repository.list_threads_for_user(
+            user_id=user_id,
+            participant_role="client",
+            view=view,
+            limit=limit,
+            offset=offset,
+            language=language,
+        )
+
+        return [
+            ContactThreadListItem(
+                thread_id=thread.id,
+                specialist_name=specialist_name,
+                profession_name=profession_name,
+                last_message_text=last_message_text,
+                last_message_at=last_message_at,
+                unread_count=int(participant.unread_count or 0),
+                status=thread.status,
+            )
+            for (
+                thread,
+                participant,
+                specialist_name,
+                profession_name,
+                last_message_text,
+                last_message_at,
+            ) in rows
+        ]

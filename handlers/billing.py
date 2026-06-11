@@ -39,6 +39,10 @@ from database.repositories.search import SpecialistSearchRepository
 from services.geo_search import GeoSearchService, SpecialistPublicCard
 from services.portfolio import PortfolioService, PortfolioServiceError
 from io import BytesIO
+from database.repositories.contact import ContactChatRepository
+from services.contact_chat import ContactChatService
+
+
 
 billing_router = Router()
 logger = logging.getLogger(__name__)
@@ -90,6 +94,49 @@ async def get_billing_interface_language(
         await session.commit()
         return normalize_language(settings.interface_language or user.language_code)
 
+async def get_client_cabinet_counts(telegram_id: int | str) -> dict[str, int]:
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(telegram_id)
+        if not user:
+            return {
+                "dialogs_unread": 0,
+                "requests_count": 0,
+                "requests_new": 0,
+                "requests_accepted": 0,
+            }
+
+        role_context = await UserService(session).get_role_switch_context(telegram_id)
+        dialogs_unread = 0
+        if role_context:
+            dialogs_unread = int((role_context.unread_counts or {}).get("client", 0))
+
+        from sqlalchemy import func, select
+        from database.models import ContactRequest
+
+        requests_result = await session.execute(
+            select(ContactRequest.status, func.count(ContactRequest.id))
+            .where(
+                ContactRequest.from_user_id == user.id,
+                ContactRequest.status.in_(["new", "accepted"]),
+            )
+            .group_by(ContactRequest.status)
+        )
+
+        by_status = {
+            status: int(count or 0)
+            for status, count in requests_result.all()
+        }
+
+        requests_new = by_status.get("new", 0)
+        requests_accepted = by_status.get("accepted", 0)
+
+        return {
+            "dialogs_unread": dialogs_unread,
+            "requests_count": requests_new + requests_accepted,
+            "requests_new": requests_new,
+            "requests_accepted": requests_accepted,
+        }
+
 def billing_menu_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -108,6 +155,206 @@ def billing_menu_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
+def client_cabinet_keyboard(
+    language: str,
+    *,
+    show_role_switch: bool = False,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("menu_find_specialist", language),
+                callback_data="M_FIND",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("client_dialogs_btn", language),
+                callback_data="CLIENT_DIALOGS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("client_requests_btn", language),
+                callback_data="CLIENT_REQUESTS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_favorites", language),
+                callback_data="CAB_FAVORITES",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("menu_settings", language),
+                callback_data="M_SETTINGS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("support_open_btn", language),
+                callback_data="SUPPORT_MENU",
+            )
+        ],
+    ]
+
+    if show_role_switch:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("switch_profile", language),
+                    callback_data="ROLE_SWITCH_MENU",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="BILL_MENU",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+CLIENT_DIALOGS_PAGE_SIZE = 5
+
+
+def client_dialogs_keyboard(
+    *,
+    items_count: int,
+    page: int,
+    view: str,
+    language: str,
+    show_role_switch: bool = False,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("client_dialogs_new", language),
+                callback_data="CLIENT_DIALOGS:new:0",
+            ),
+            InlineKeyboardButton(
+                text=t("client_dialogs_active", language),
+                callback_data="CLIENT_DIALOGS:active:0",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("client_dialogs_archive", language),
+                callback_data="CLIENT_DIALOGS:archive:0",
+            ),
+            InlineKeyboardButton(
+                text=t("client_dialogs_hidden", language),
+                callback_data="CLIENT_DIALOGS:hidden:0",
+            ),
+        ],
+    ]
+
+    if not items_count:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("menu_find_specialist", language),
+                    callback_data="M_FIND",
+                )
+            ]
+        )
+
+    if items_count:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("client_dialog_open", language),
+                    callback_data="CLIENT_DIALOG_OPEN:0",
+                )
+            ]
+        )
+    nav_row = []
+    if page > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                text=t("client_dialogs_prev", language),
+                callback_data=f"CLIENT_DIALOGS:{view}:{page - 1}",
+            )
+        )
+    if items_count >= CLIENT_DIALOGS_PAGE_SIZE:
+        nav_row.append(
+            InlineKeyboardButton(
+                text=t("client_dialogs_next", language),
+                callback_data=f"CLIENT_DIALOGS:{view}:{page + 1}",
+            )
+        )
+    if nav_row:
+        rows.append(nav_row)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("billing_back", language),
+                callback_data="M_CABINET",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="BILL_MENU",
+            )
+        ]
+    )
+
+    if show_role_switch:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("switch_profile", language),
+                    callback_data="ROLE_SWITCH_MENU",
+                )
+            ]
+        )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def client_dialog_status_label(status: str | None, language: str) -> str:
+    key = {
+        "waiting_specialist": "client_dialog_status_waiting_specialist",
+        "waiting_client": "client_dialog_status_waiting_client",
+        "open": "client_dialog_status_open",
+        "in_discussion": "client_dialog_status_in_discussion",
+        "completed": "client_dialog_status_completed",
+        "closed": "client_dialog_status_closed",
+    }.get(status or "", "client_dialog_status_other")
+
+    return t(key, language)
+
+def format_client_dialogs_text(items, language: str) -> str:
+    if not items:
+        return t("client_dialogs_empty", language)
+
+    lines = [t("client_dialogs_title", language), ""]
+
+    for index, item in enumerate(items, start=1):
+        last_text = item.last_message_text or "-"
+        if len(last_text) > 80:
+            last_text = last_text[:77] + "..."
+
+        profession = item.profession_name or "-"
+        status = client_dialog_status_label(item.status, language)
+
+        lines.append(
+            f"{index}. {item.specialist_name}\n"
+            f"{t('search_filter_profession_label', language)}: {profession}\n"
+            f"{t('admin_status', language)}: {status}\n"
+            f"{t('client_dialog_unread_label', language)}: {item.unread_count}\n"
+            f"{t('client_dialog_last_label', language)}: {last_text}"
+        )
+
+    return "\n\n".join(lines)
 
 def paid_features_keyboard(
     features: list[PaidFeature],
@@ -855,7 +1102,7 @@ def format_invoice_text(
 @billing_router.callback_query(F.data == "M_CABINET")
 async def open_my_cabinet(callback: CallbackQuery, state: FSMContext):
     await open_current_role_cabinet(callback, state)
-    
+
 async def show_specialist_cabinet(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
 
@@ -870,6 +1117,50 @@ async def show_specialist_cabinet(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         t("menu_my_cabinet", language),
         reply_markup=cabinet_menu_keyboard(
+            language,
+            show_role_switch=show_role_switch,
+        ),
+    )
+    await callback.answer()
+
+async def show_client_cabinet(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        if not user:
+            await callback.answer(t("billing_start_required", language), show_alert=True)
+            return
+
+        role_context = await UserService(session).get_role_switch_context(callback.from_user.id)
+        show_role_switch = bool(
+            role_context and len(role_context.available_roles) > 1
+        )
+
+        await EventRepository(session).create_event(
+            event_type="client_menu_opened",
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            entity_type="user",
+            entity_id=user.id,
+            payload={
+                "active_role": user.active_role,
+            },
+            platform="telegram",
+        )
+        await session.commit()
+
+    counts = await get_client_cabinet_counts(callback.from_user.id)
+
+    await state.clear()
+    await callback.message.answer(
+        t("client_cabinet_title", language)
+        + "\n\n"
+    + t("client_cabinet_summary", language).format(**counts),
+        reply_markup=client_cabinet_keyboard(
             language,
             show_role_switch=show_role_switch,
         ),
@@ -2239,3 +2530,60 @@ async def claim_billing_payment(callback: CallbackQuery, state: FSMContext):
 async def show_beta_disabled_feature(callback: CallbackQuery):
     language = normalize_language(callback.from_user.language_code)
     await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)
+
+@billing_router.callback_query(F.data == "CLIENT_DIALOGS")
+@billing_router.callback_query(F.data.startswith("CLIENT_DIALOGS:"))
+async def show_client_dialogs(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    view = "active"
+    page = 0
+
+    if callback.data and callback.data.startswith("CLIENT_DIALOGS:"):
+        parts = callback.data.split(":")
+        if len(parts) >= 2 and parts[1] in {"new", "active", "archive", "hidden"}:
+            view = parts[1]
+        if len(parts) >= 3 and parts[2].isdigit():
+            page = int(parts[2])
+
+    user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
+    if not user_id or not tenant_id:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    async with get_session() as session:
+        items = await ContactChatService(
+            ContactChatRepository(session)
+        ).list_client_threads(
+            user_id=user_id,
+            view=view,
+            limit=CLIENT_DIALOGS_PAGE_SIZE,
+            offset=page * CLIENT_DIALOGS_PAGE_SIZE,
+            language=language,
+        )
+
+    await state.update_data(
+        client_dialog_thread_ids=[str(item.thread_id) for item in items],
+        client_dialog_view=view,
+        client_dialog_page=page,
+    )
+    async with get_session() as session:
+        role_context = await UserService(session).get_role_switch_context(callback.from_user.id)
+
+    show_role_switch = bool(
+        role_context and len(role_context.available_roles) > 1
+    )
+    await callback.message.answer(
+        format_client_dialogs_text(items, language),
+        reply_markup=client_dialogs_keyboard(
+            items_count=len(items),
+            page=page,
+            view=view,
+            language=language,
+            show_role_switch=show_role_switch,
+        ),
+    )
+    await callback.answer()

@@ -1915,3 +1915,25 @@ async def test_thread_visibility_and_unread_are_persisted_per_participant(db_ses
         await cleanup_test_user(db_session, client_platform_id)
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
+
+def test_client_dialogs_c13_screen_is_wired_to_threads_participant_state():
+    contact_repo_source = open("database/repositories/contact.py", encoding="utf-8").read()
+    contact_service_source = open("services/contact_chat.py", encoding="utf-8").read()
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+
+    assert "list_threads_for_user" in contact_repo_source
+    assert "ConversationParticipant.unread_count" in contact_repo_source
+    assert "ConversationParticipant.is_archived" in contact_repo_source
+    assert "ConversationParticipant.is_hidden" in contact_repo_source
+    assert "Specialist.display_name" in contact_repo_source
+    assert "Profession" in contact_repo_source
+
+    assert "ContactThreadListItem" in contact_service_source
+    assert "list_client_threads" in contact_service_source
+    assert 'participant_role="client"' in contact_service_source
+
+    assert 'F.data == "CLIENT_DIALOGS"' in billing_source
+    assert 'F.data.startswith("CLIENT_DIALOGS:")' in billing_source
+    assert "client_dialogs_keyboard" in billing_source
+    assert "CLIENT_DIALOG_OPEN" in billing_source
+    assert "client_dialog_thread_ids" in billing_source

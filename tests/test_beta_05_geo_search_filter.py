@@ -1170,10 +1170,7 @@ def test_search_ux_uses_single_filter_dashboard_instead_of_wizard():
         "search_filter_profession",
         "search_filter_location",
         "search_filter_radius",
-        "search_filter_work_format",
-        "search_filter_language",
-        "search_filter_price",
-        "search_filter_sort",
+        "search_advanced_filters",
         "search_reset_filters",
         "search_show_results",
         "search_menu",
@@ -1217,10 +1214,7 @@ def test_search_ux_has_flat_filter_actions_without_nested_mode_step():
         "search_filter_profession",
         "search_filter_location",
         "search_filter_radius",
-        "search_filter_work_format",
-        "search_filter_language",
-        "search_filter_price",
-        "search_filter_sort",
+        "search_advanced_filters",
         "search_reset_filters",
         "search_show_results",
         "search_menu",
@@ -1526,30 +1520,30 @@ def test_search_handler_does_not_query_user_accounts_directly():
     assert "select(UserAccount)" in user_repo_source
     assert 'UserAccount.platform == "telegram"' in user_repo_source
 
-def test_search_show_results_requires_location_before_rendering_results():
+def test_search_show_results_allows_explicit_without_location_mode():
     source = open("handlers/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
 
     assert "def search_location_keyboard" in source
     assert "async def show_filtered_results" in source
-    assert "has_location = bool(data.get(\"city_id\"))" in source
-    assert "data.get(\"latitude\") is not None and data.get(\"longitude\") is not None" in source
-    assert "if not has_location:" in source
-    assert "if not city_id and not has_geo:" in source
-    assert "search_location_prompt" in source
-    assert "search_location_keyboard(language)" in source
+    assert "search_location_without" in source
+    assert 'callback_data="search_location_without"' in source
+    assert "async def choose_search_without_location" in source
+
+    assert 'location_state="without"' in source
+    assert 'data.get("location_state") == "without"' in source
 
     render_results_block = source.split(
-    "async def render_results(",
-    1,
-)[1].split(
-    '@search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))',
-    1,
-)[0]
+        "async def render_results(",
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))',
+        1,
+    )[0]
 
-    assert "has_geo = data.get(\"latitude\") is not None and data.get(\"longitude\") is not None" in render_results_block
-    assert render_results_block.index("has_geo = data.get(\"latitude\")") < render_results_block.index(
-    "if not city_id and not has_geo:"
-)
+    assert "without_location = data.get(\"location_state\") == \"without\"" in render_results_block
+    assert "if not city_id and not has_geo and not without_location:" in render_results_block
+    assert "await service.search_without_location(" in render_results_block
 
     show_results_block = source.split(
         '@search_router.callback_query(F.data == "search_show_results")',
@@ -1559,12 +1553,13 @@ def test_search_show_results_requires_location_before_rendering_results():
         1,
     )[0]
 
+    assert "data.get(\"location_state\") == \"without\"" in show_results_block
     assert "if not has_location:" in show_results_block
     assert "await render_results(event=callback, state=state, page=0)" in show_results_block
-    assert show_results_block.index("if not has_location:") < show_results_block.index(
-        "await render_results(event=callback, state=state, page=0)"
-    )
-    
+
+    assert "async def search_without_location" in service_source
+    assert "await self.repository.search_specialists(filters)" in service_source
+    assert "distance_km=None" in service_source
 def test_public_card_details_include_required_human_fields():
     handler_source = open("handlers/search.py", encoding="utf-8").read()
     service_source = open("services/geo_search.py", encoding="utf-8").read()
@@ -1713,7 +1708,21 @@ async def test_city_search_includes_whole_country_specialist(db_session):
     finally:
         await cleanup_test_user(db_session, platform_user_id)
         await cleanup_legal_documents(db_session, tenant_id)
+def test_search_start_logs_search_opened_event():
+    source = open("handlers/search.py", encoding="utf-8").read()
 
+    start_search_block = source.split(
+        '@search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data == "search_filters")',
+        1,
+    )[0]
+
+    assert 'event_type="search_opened"' in start_search_block
+    assert 'entity_type="search"' in start_search_block
+    assert '"source": callback.data' in start_search_block
+    assert "await session.commit()" in start_search_block
 def test_public_search_and_card_do_not_require_legal_gate_or_registration():
     source = open("handlers/search.py", encoding="utf-8").read()
 
@@ -1789,3 +1798,243 @@ def test_auth_required_actions_are_restored_after_start():
 
     assert "auth_required_start" in texts_source
     assert "auth_action_restored" in texts_source
+
+def test_search_advanced_filters_keyboard_contains_full_tz10_c7_filters():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "def search_advanced_filters_keyboard" in source
+    assert '@search_router.callback_query(F.data == "search_advanced_filters")' in source
+
+    advanced_keyboard_block = source.split(
+        "def search_advanced_filters_keyboard",
+        1,
+    )[1].split(
+        "def search_location_keyboard",
+        1,
+    )[0]
+
+    assert "search_filter_radius" in advanced_keyboard_block
+    assert "search_filter_work_format" in advanced_keyboard_block
+    assert "search_filter_language" in advanced_keyboard_block
+    assert "search_filter_price" in advanced_keyboard_block
+    assert "search_filter_sort" in advanced_keyboard_block
+    assert "search_apply_filters" in advanced_keyboard_block
+    assert "search_reset_filters" in advanced_keyboard_block
+    assert "search_back_to_filters" in advanced_keyboard_block
+    assert "search_menu" in advanced_keyboard_block
+
+    assert "async def log_search_filters_changed" in source
+    assert 'event_type="filters_changed"' in source
+    assert 'filter_name="radius"' in source
+    assert 'filter_name="work_format"' in source
+    assert 'filter_name="language"' in source
+    assert 'filter_name="price"' in source
+    assert 'filter_name="sort"' in source
+    assert 'filter_name="reset"' in source
+def test_search_categories_use_tz10_page_size_eight():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    assert "CATEGORY_PAGE_SIZE = 8" in source
+    assert "page_size: int = PER_PAGE" in source
+
+    open_category_block = source.split(
+        '@search_router.callback_query(F.data == "search_filter_category")',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data.startswith("search_categories_page:"))',
+        1,
+    )[0]
+
+    paginate_category_block = source.split(
+        '@search_router.callback_query(F.data.startswith("search_categories_page:"))',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data.startswith("search_category:"))',
+        1,
+    )[0]
+
+    assert "page_size=CATEGORY_PAGE_SIZE" in open_category_block
+    assert "page_size=CATEGORY_PAGE_SIZE" in paginate_category_block
+
+def test_search_category_selection_logs_category_selected_event():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    choose_category_block = source.split(
+        '@search_router.callback_query(F.data.startswith("search_category:"))',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data == "search_filter_profession")',
+        1,
+    )[0]
+
+    assert 'event_type="category_selected"' in choose_category_block
+    assert 'entity_type="specialist_category"' in choose_category_block
+    assert '"category_name": item_name(category, language)' in choose_category_block
+    assert "await session.commit()" in choose_category_block
+
+def test_search_profession_selection_validates_category_and_logs_event():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    choose_profession_block = source.split(
+        '@search_router.callback_query(F.data.startswith("search_profession:"))',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data == "search_filter_location")',
+        1,
+    )[0]
+
+    assert 'category_id = UUID(data["category_id"]) if data.get("category_id") else None' in choose_profession_block
+    assert "profession.category_id != category_id" in choose_profession_block
+    assert 'event_type="profession_selected"' in choose_profession_block
+    assert 'entity_type="profession"' in choose_profession_block
+    assert '"profession_name": item_name(profession, language)' in choose_profession_block
+    assert '"category_id": str(category_id) if category_id else None' in choose_profession_block
+    assert "await session.commit()" in choose_profession_block
+
+def test_search_results_screen_matches_tz10_c8_requirements():
+    source = open("handlers/search.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "PER_PAGE = 5" in source
+
+    assert "def format_results_header" in source
+    assert "search_results_header" in source
+    assert "search_results_range" in source
+    assert "profession=profession" in source
+    assert "location=location" in source
+    assert "radius=radius" in source
+    assert "found=found" in source
+
+    assert "async def log_results_viewed" in source
+    assert 'event_type="results_viewed"' in source
+    assert '"page": page' in source
+    assert '"visible_count": visible_count' in source
+    assert '"has_next": has_next' in source
+
+    results_keyboard_block = source.split(
+        "def results_keyboard",
+        1,
+    )[1].split(
+        "def card_keyboard",
+        1,
+    )[0]
+
+    assert 'callback_data=f"search_result:{index}"' in results_keyboard_block
+    assert 'callback_data=f"search_results_page:{page - 1}"' in results_keyboard_block
+    assert 'callback_data=f"search_results_page:{page + 1}"' in results_keyboard_block
+    assert 'callback_data="search_filters"' in results_keyboard_block
+    assert 'callback_data="search_menu"' in results_keyboard_block
+
+    assert "Профессия: {profession}" in texts_source
+    assert "Локация: {location}" in texts_source
+    assert "Радиус: {radius}" in texts_source
+    assert "Найдено: {found}" in texts_source
+    assert "Показаны: {range}" in texts_source
+
+def test_search_result_cards_match_tz10_c9_requirements():
+    source = open("handlers/search.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    result_card_source = source.split(
+        "def format_specialist_result",
+        1,
+    )[1].split(
+        "def format_public_card",
+        1,
+    )[0]
+
+    assert "specialist.display_name" in result_card_source
+    assert "result.profession_name" in result_card_source
+    assert "result.city_name" in result_card_source
+    assert "result.distance_km" in result_card_source
+    assert "search_rating" in result_card_source
+    assert "search_no_reviews" in result_card_source
+    assert "search_price_not_set" in result_card_source
+    assert "result.languages" in result_card_source
+    assert "work_format_label" in result_card_source
+    assert "search_verified_label" in result_card_source
+
+    assert "if specialist.price_from and specialist.price_to" in result_card_source
+    assert "elif specialist.price_from" in result_card_source
+    assert "0 EUR" not in result_card_source
+    assert "0.0" not in result_card_source
+
+    results_keyboard_block = source.split(
+        "def results_keyboard",
+        1,
+    )[1].split(
+        "def card_keyboard",
+        1,
+    )[0]
+
+    assert 'callback_data=f"search_result:{index}"' in results_keyboard_block
+    assert 'callback_data=f"search_result_contact:{index}"' in results_keyboard_block
+    assert 'callback_data=f"search_result_favorite:{index}"' in results_keyboard_block
+    assert 'callback_data=f"search_result_report:{index}"' in results_keyboard_block
+
+    assert "async def favorite_from_result" in source
+    assert "await favorite_pending(callback, state)" in source
+    assert "async def report_from_result" in source
+    assert "await report_pending(callback, state)" in source
+
+    assert 'event_type="card_viewed"' in source
+    assert '"source": "search_results"' in source
+
+    assert "search_no_reviews" in texts_source
+
+def test_specialist_public_profile_matches_tz10_c10_requirements():
+    source = open("handlers/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
+
+    assert "def format_public_card" in source
+
+    profile_formatter = source.split(
+        "def format_public_card",
+        1,
+    )[1].split(
+        "async def show_filters",
+        1,
+    )[0]
+
+    assert "card.display_name" in profile_formatter
+    assert "search_verified_label" in profile_formatter
+    assert "card.category_name" in profile_formatter
+    assert "card.profession_name" in profile_formatter
+    assert "card.city_name" in profile_formatter
+    assert "card.short_description" in profile_formatter
+    assert "card.service_titles" in profile_formatter
+    assert "search_rating" in profile_formatter
+    assert "search_legal_warning" in profile_formatter
+    assert "search_price_not_set" in profile_formatter
+
+    card_keyboard_block = source.split(
+        "def card_keyboard",
+        1,
+    )[1].split(
+        "def public_portfolio_keyboard",
+        1,
+    )[0]
+
+    assert 'callback_data="search_contact_pending"' in card_keyboard_block
+    assert 'callback_data="search_favorite_pending"' in card_keyboard_block
+    assert 'callback_data="search_reviews_pending"' in card_keyboard_block
+    assert 'callback_data="search_portfolio_pending"' in card_keyboard_block
+    assert 'callback_data="search_report_pending"' in card_keyboard_block
+    assert 'callback_data=f"search_results_page:{results_page}"' in card_keyboard_block
+
+    assert "async def show_selected_specialist_reviews" in source
+    assert "async def show_selected_specialist_portfolio" in source
+    assert "await send_public_portfolio(" in source
+
+    show_card_block = source.split(
+        "async def show_specialist_card",
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data == "search_portfolio_pending")',
+        1,
+    )[0]
+
+    assert "send_public_portfolio(" not in show_card_block
+    assert 'event_type="profile_viewed"' in show_card_block
+
+    assert "reviews_count: int = 0" in service_source

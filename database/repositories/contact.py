@@ -1,20 +1,22 @@
 import secrets
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database.models import (
     ContactRequest,
+    ConversationParticipant,
     ConversationThread,
     EventLog,
     Message,
     MessageReadReceipt,
     Notification,
+    Profession,
     Specialist,
-    User,
+    SpecialistProfession,
     TranslationJob,
-    ConversationParticipant,
+    User,
 )
 from database.repositories.translation import TranslationRepository
 
@@ -333,6 +335,98 @@ class ContactChatRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def list_threads_for_user(
+        self,
+        *,
+        user_id: UUID,
+        participant_role: str,
+        view: str = "active",
+        limit: int = 5,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[tuple]:
+        localized_profession_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+        }.get(language, Profession.name_ru)
+
+        last_message_text = (
+            select(Message.original_text)
+            .where(Message.thread_id == ConversationThread.id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        last_message_at = (
+            select(Message.created_at)
+            .where(Message.thread_id == ConversationThread.id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+
+        stmt = (
+            select(
+                ConversationThread,
+                ConversationParticipant,
+                Specialist.display_name,
+                func.coalesce(
+                    localized_profession_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                ).label("profession_name"),
+                last_message_text.label("last_message_text"),
+                last_message_at.label("last_message_at"),
+            )
+            .join(
+                ConversationParticipant,
+                ConversationParticipant.thread_id == ConversationThread.id,
+            )
+            .join(Specialist, Specialist.id == ConversationThread.specialist_id)
+            .outerjoin(
+                SpecialistProfession,
+                (SpecialistProfession.specialist_id == Specialist.id)
+                & (SpecialistProfession.status == "active")
+                & (SpecialistProfession.is_primary.is_(True)),
+            )
+            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .where(
+                ConversationParticipant.user_id == user_id,
+                ConversationParticipant.participant_role == participant_role,
+            )
+        )
+
+        if view == "new":
+            stmt = stmt.where(
+                ConversationParticipant.unread_count > 0,
+                ConversationParticipant.is_archived.is_(False),
+                ConversationParticipant.is_hidden.is_(False),
+            )
+        elif view == "archive":
+            stmt = stmt.where(ConversationParticipant.is_archived.is_(True))
+        elif view == "hidden":
+            stmt = stmt.where(ConversationParticipant.is_hidden.is_(True))
+        else:
+            stmt = stmt.where(
+                ConversationParticipant.is_archived.is_(False),
+                ConversationParticipant.is_hidden.is_(False),
+            )
+
+        stmt = (
+            stmt.order_by(
+                last_message_at.desc().nullslast(),
+                ConversationThread.created_at.desc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.all())
 
     async def create_thread_message(
         self,

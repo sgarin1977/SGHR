@@ -61,6 +61,40 @@ class UserRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def ensure_active_role(
+        self,
+        *,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        role: str,
+    ) -> bool:
+        result = await self.session.execute(
+            select(UserRoleMapping).where(
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.role == role,
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            if existing.status != "active":
+                existing.status = "active"
+                await self.session.flush()
+                return True
+
+            return False
+
+        self.session.add(
+            UserRoleMapping(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                role=role,
+                status="active",
+            )
+        )
+        await self.session.flush()
+        return True
+
     async def get_primary_specialist_profession_name(
         self,
         user_id: uuid.UUID,
@@ -202,13 +236,19 @@ class UserRepository:
         )
         self.session.add(new_account)
 
-        new_role = UserRoleMapping(
-            user_id=new_user.id,
-            tenant_id=tenant_id,
-            role=role,
-            status="active",
-        )
-        self.session.add(new_role)
+        roles_to_create = ["client"]
+        if role != "client":
+            roles_to_create.append(role)
+
+        for role_name in roles_to_create:
+            self.session.add(
+                UserRoleMapping(
+                    user_id=new_user.id,
+                    tenant_id=tenant_id,
+                    role=role_name,
+                    status="active",
+                )
+            )
 
         try:
             await self.session.commit()

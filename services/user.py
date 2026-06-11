@@ -156,7 +156,11 @@ class UserService:
                     tenant_id=user.tenant_id,
                     user_id=existing_account.user_id,
                 )
-
+                await self.repository.ensure_active_role(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    role="client",
+                )
             await self.events.create_event(
                 event_type="user_started",
                 tenant_id=user.tenant_id if user else None,

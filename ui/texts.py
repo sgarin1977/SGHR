@@ -2775,6 +2775,171 @@ translations = {
         "en": "Continuing the action you started earlier.",
         "pt": "Continuando a ação que você iniciou antes.",
     },
+    "client_cabinet_title": {
+        "ru": "Кабинет клиента",
+        "en": "Client cabinet",
+        "pt": "Gabinete do cliente",
+    },
+    "client_cabinet_summary": {
+        "ru": "Диалоги: {dialogs_unread}\nЗаявки: {requests_count}\nНовые: {requests_new}\nПринятые: {requests_accepted}",
+        "en": "Dialogs: {dialogs_unread}\nRequests: {requests_count}\nNew: {requests_new}\nAccepted: {requests_accepted}",
+        "pt": "Diálogos: {dialogs_unread}\nPedidos: {requests_count}\nNovos: {requests_new}\nAceitos: {requests_accepted}",
+    },
+    "client_dialogs_btn": {
+        "ru": "Диалоги",
+        "en": "Dialogs",
+        "pt": "Diálogos",
+    },
+    "client_requests_btn": {
+        "ru": "Мои заявки",
+        "en": "My requests",
+        "pt": "Meus pedidos",
+    },
+    "client_dialogs_title": {
+        "ru": "Диалоги клиента",
+        "en": "Client dialogs",
+        "pt": "Diálogos do cliente",
+    },
+    "client_dialogs_empty": {
+        "ru": "Диалогов пока нет.",
+        "en": "No dialogs yet.",
+        "pt": "Ainda não há diálogos.",
+    },
+    "client_dialog_open": {
+        "ru": "Открыть",
+        "en": "Open",
+        "pt": "Abrir",
+    },
+    "client_dialogs_new": {
+        "ru": "Новые",
+        "en": "New",
+        "pt": "Novos",
+    },
+    "client_dialogs_active": {
+        "ru": "Активные",
+        "en": "Active",
+        "pt": "Ativos",
+    },
+    "client_dialogs_archive": {
+        "ru": "Архив",
+        "en": "Archive",
+        "pt": "Arquivo",
+    },
+    "client_dialogs_hidden": {
+        "ru": "Скрытые",
+        "en": "Hidden",
+        "pt": "Ocultos",
+    },
+    "client_dialogs_prev": {
+        "ru": "Пред.",
+        "en": "Prev",
+        "pt": "Ant.",
+    },
+    "client_dialogs_next": {
+        "ru": "След.",
+        "en": "Next",
+        "pt": "Próx.",
+    },
+    "client_dialog_status_waiting_specialist": {
+        "ru": "Ожидает ответа специалиста",
+        "en": "Waiting for specialist reply",
+        "pt": "Aguardando resposta do especialista",
+    },
+    "client_dialog_status_waiting_client": {
+        "ru": "Ожидает вашего ответа",
+        "en": "Waiting for your reply",
+        "pt": "Aguardando sua resposta",
+    },
+    "client_dialog_status_open": {
+        "ru": "Открыт",
+        "en": "Open",
+        "pt": "Aberto",
+    },
+    "client_dialog_status_in_discussion": {
+        "ru": "В обсуждении",
+        "en": "In discussion",
+        "pt": "Em discussão",
+    },
+    "client_dialog_status_completed": {
+        "ru": "Завершён",
+        "en": "Completed",
+        "pt": "Concluído",
+    },
+    "client_dialog_status_closed": {
+        "ru": "Закрыт",
+        "en": "Closed",
+        "pt": "Fechado",
+    },
+    "client_dialog_status_other": {
+        "ru": "Активен",
+        "en": "Active",
+        "pt": "Ativo",
+    },
+    "client_dialog_unread_label": {
+        "ru": "Непрочитано",
+        "en": "Unread",
+        "pt": "Não lidas",
+    },
+    "client_dialog_last_label": {
+        "ru": "Последнее",
+        "en": "Last",
+        "pt": "Última",
+    },
+    "search_advanced_filters": {
+        "ru": "Доп. фильтры",
+        "en": "More filters",
+        "pt": "Mais filtros",
+    },
+    "search_location_without": {
+        "ru": "Без локации",
+        "en": "Without location",
+        "pt": "Sem localizacao",
+    },
+    "search_geo_other": {
+        "ru": "Другие",
+        "en": "Other options",
+        "pt": "Outras opcoes",
+    },
+    "search_geo_retry": {
+        "ru": "Повторить",
+        "en": "Retry",
+        "pt": "Repetir",
+    },
+    "search_apply_filters": {
+        "ru": "Применить",
+        "en": "Apply",
+        "pt": "Aplicar",
+    },
+    "search_results_header": {
+        "ru": "Результаты поиска\nПрофессия: {profession}\nЛокация: {location}\nРадиус: {radius}\nНайдено: {found}\nПоказаны: {range}",
+        "en": "Search results\nProfession: {profession}\nLocation: {location}\nRadius: {radius}\nFound: {found}\nShown: {range}",
+        "pt": "Resultados da busca\nProfissao: {profession}\nLocalizacao: {location}\nRaio: {radius}\nEncontrado: {found}\nMostrando: {range}",
+    },
+    "search_results_range": {
+        "ru": "{start}-{end}",
+        "en": "{start}-{end}",
+        "pt": "{start}-{end}",
+    },
+    "search_no_reviews": {
+        "ru": "Нет отзывов",
+        "en": "No reviews",
+        "pt": "Sem avaliacoes",
+    },
+    "reviews_btn": {
+        "ru": "Отзывы",
+        "en": "Reviews",
+        "pt": "Avaliacoes",
+    },
+    "portfolio_btn": {
+        "ru": "Портфолио",
+        "en": "Portfolio",
+        "pt": "Portfolio",
+    },
+    "reviews_opening": {
+        "ru": "Отзывы специалиста",
+        "en": "Specialist reviews",
+        "pt": "Avaliacoes do especialista",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
