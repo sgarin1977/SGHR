@@ -1408,8 +1408,15 @@ def format_specialist_result(result, index: int, language: str) -> str:
     elif specialist.price_from:
         price = f"{t('search_price_from', language)} {specialist.price_from} {specialist.currency}"
 
-    distance = f"{result.distance_km:.1f} km" if result.distance_km is not None else None
-    city = result.city_name or t("search_filter_not_set", language)
+    is_remote = getattr(specialist, "work_format", None) == "remote"
+    distance = None if is_remote else (
+        f"{result.distance_km:.1f} km" if result.distance_km is not None else None
+    )
+    city = (
+        work_format_label("remote", language)
+        if is_remote
+        else result.city_name or t("search_filter_not_set", language)
+    )
     profession = result.profession_name or t("search_filter_not_set", language)
     languages = ", ".join(result.languages) if result.languages else t("search_filter_not_set", language)
     reviews_count = specialist.reviews_count or 0
@@ -1458,8 +1465,17 @@ def format_public_card(card: SpecialistPublicCard, language: str) -> str:
 
     label_text = f" ({', '.join(labels)})" if labels else ""
     languages = ", ".join(card.languages) if card.languages else t("search_filter_not_set", language)
-    distance = f"\n{t('search_distance', language)}: {card.distance_km:.1f} km" if card.distance_km is not None else ""
-    city = card.city_name or t("search_filter_not_set", language)
+    is_remote = card.work_format == "remote"
+    distance = "" if is_remote else (
+        f"\n{t('search_distance', language)}: {card.distance_km:.1f} km"
+        if card.distance_km is not None
+        else ""
+    )
+    city = (
+        work_format_label("remote", language)
+        if is_remote
+        else card.city_name or t("search_filter_not_set", language)
+    )
     category = card.category_name or t("search_filter_not_set", language)
     profession = card.profession_name or t("search_filter_not_set", language)
     work_format = work_format_label(card.work_format, language)
@@ -1515,7 +1531,10 @@ async def render_results(
     city_id = UUID(data["city_id"]) if data.get("city_id") else None
     country_id = UUID(data["country_id"]) if data.get("country_id") else None
     has_geo = data.get("latitude") is not None and data.get("longitude") is not None
-    without_location = data.get("location_state") == "without"
+    without_location = (
+        data.get("location_state") == "without"
+        or data.get("work_format") == "remote"
+    )
 
     if not city_id and not has_geo and not without_location:
         if isinstance(event, CallbackQuery):
@@ -1541,9 +1560,9 @@ async def render_results(
     price_max = data.get("price_max")
     premium_only = bool(data.get("premium_only"))
     work_format = data.get("work_format")
+    remote_only = work_format == "remote"
     rating_min = data.get("rating_min")
     sort_by = data.get("sort_by") or "distance"
-
     requester_user_id = None
     tenant_id = None
     platform_user_id = event.from_user.id if event.from_user else None
@@ -1553,7 +1572,27 @@ async def render_results(
     async with get_session() as session:
         service = GeoSearchService(SpecialistSearchRepository(session))
 
-        if has_geo:
+        if remote_only:
+            results = await service.search_without_location(
+                category_id=category_id,
+                profession_id=profession_id,
+                price_min=price_min,
+                price_max=price_max,
+                interface_language=language,
+                language_code=language_code,
+                verified_only=verified_only,
+                premium_only=premium_only,
+                work_format=work_format,
+                rating_min=rating_min,
+                limit=PER_PAGE + 1,
+                offset=page * PER_PAGE,
+                requester_user_id=requester_user_id,
+                tenant_id=tenant_id,
+                log_event=True,
+                sort_by=sort_by,
+            )
+
+        elif has_geo:
             results = await service.search_by_radius(
                 latitude=float(data["latitude"]),
                 longitude=float(data["longitude"]),
@@ -2462,7 +2501,25 @@ async def choose_work_format_filter(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    await state.update_data(work_format=work_format, page=0)
+    if work_format == "remote":
+        await state.update_data(
+            work_format=work_format,
+            location_state="without",
+            country_id=None,
+            country_name=None,
+            city_id=None,
+            city_name=None,
+            latitude=None,
+            longitude=None,
+            radius_km=None,
+            country_wide=False,
+            page=0,
+        )
+    else:
+        await state.update_data(
+            work_format=work_format,
+            page=0,
+        )
     await log_search_filters_changed(
         callback,
         filter_name="work_format",
@@ -2643,8 +2700,8 @@ async def show_filtered_results(callback: CallbackQuery, state: FSMContext):
             and data.get("longitude") is not None
         )
         or data.get("location_state") == "without"
+        or data.get("work_format") == "remote"
     )
-
     if not has_location:
         await show_callback_message(
             callback,

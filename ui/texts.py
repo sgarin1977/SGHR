@@ -76,14 +76,14 @@ translations = {
         "pt": "Pronto",
     },
     "spec_confirm_btn": {
-        "ru": "Подтвердить",
-        "en": "Confirm",
-        "pt": "Confirmar",
+        "ru": "Отправить",  
+        "en": "Submit",
+        "pt": "Enviar",
     },
     "spec_restart_btn": {
-        "ru": "Заполнить заново",
-        "en": "Start again",
-        "pt": "Preencher novamente",
+        "ru": "Изменить",
+        "en": "Edit",
+        "pt": "Editar",
     },
     "spec_choose_city_btn": {
         "ru": "Выбрать город",
@@ -303,9 +303,9 @@ translations = {
         "pt": "Não foi possível criar o perfil: {error}",
     },
     "spec_created": {
-        "ru": "Профиль специалиста создан и отправлен на модерацию.\nID профиля: {specialist_id}",
-        "en": "Specialist profile has been created and sent to moderation.\nProfile ID: {specialist_id}",
-        "pt": "O perfil de especialista foi criado e enviado para moderação.\nID do perfil: {specialist_id}",
+        "ru": "Профиль специалиста создан и отправлен на модерацию.",
+        "en": "Specialist profile has been created and sent for moderation.",
+        "pt": "O perfil de especialista foi criado e enviado para moderação.",
     },
     "spec_cancelled": {
         "ru": "Регистрация специалиста отменена.",
@@ -1813,10 +1813,10 @@ translations = {
         "en": "Location",
         "pt": "Localização",
     },
-    "cabinet_profile_title": {
-        "ru": "Профиль специалиста",
-        "en": "Specialist profile",
-        "pt": "Perfil do especialista",
+    "cabinet_profile": {
+        "ru": "Профиль",
+        "en": "Profile",
+        "pt": "Perfil",
     },
     "cabinet_profile_not_found": {
         "ru": "Профиль специалиста не найден. Сначала предложите услуги.",
@@ -3137,6 +3137,186 @@ translations = {
         "ru": "Назад к заявкам",
         "en": "Back to requests",
         "pt": "Voltar aos pedidos",
+    },
+    "specialist_new_requests_btn": {
+        "ru": "Новые заявки",
+        "en": "New requests",
+        "pt": "Novos pedidos",
+    },
+    "specialist_dialogs_btn": {
+        "ru": "Диалоги",
+        "en": "Dialogs",
+        "pt": "Dialogos",
+    },
+    "specialist_services_btn": {
+        "ru": "Услуги",
+        "en": "Services",
+        "pt": "Servicos",
+    },
+    "specialist_cabinet_title": {
+        "ru": "Кабинет специалиста",
+        "en": "Specialist cabinet",
+        "pt": "Painel do especialista",
+    },
+    "specialist_new_requests_label": {
+        "ru": "Новые заявки",
+        "en": "New requests",
+        "pt": "Novos pedidos",
+    },
+    "specialist_unread_label": {
+        "ru": "Непрочитанные",
+        "en": "Unread",
+        "pt": "Nao lidas",
+    },
+    "specialist_no_profile_start": {
+        "ru": "Профиль специалиста ещё не создан. Начните регистрацию специалиста.",
+        "en": "Specialist profile has not been created yet. Start specialist registration.",
+        "pt": "O perfil de especialista ainda nao foi criado. Inicie o cadastro.",
+    },
+    "specialist_status_active_notice": {
+        "ru": "Профиль активен и виден клиентам.",
+        "en": "Profile is active and visible to clients.",
+        "pt": "O perfil esta ativo e visivel para clientes.",
+    },
+    "specialist_status_pending_notice": {
+        "ru": "Профиль ожидает модерации. Клиенты пока его не видят.",
+        "en": "Profile is waiting for moderation. Clients cannot see it yet.",
+        "pt": "O perfil aguarda moderacao. Clientes ainda nao o veem.",
+    },
+    "specialist_status_rejected_notice": {
+        "ru": "Профиль отклонён. Исправьте данные или обратитесь в поддержку.",
+        "en": "Profile was rejected. Update the data or contact support.",
+        "pt": "O perfil foi rejeitado. Atualize os dados ou contacte o suporte.",
+    },
+    "specialist_status_paused_notice": {
+        "ru": "Профиль на паузе и не показывается клиентам.",
+        "en": "Profile is paused and not shown to clients.",
+        "pt": "O perfil esta pausado e nao aparece para clientes.",
+    },
+    "specialist_status_generic_notice": {
+        "ru": "Текущий статус профиля: {status}",
+        "en": "Current profile status: {status}",
+        "pt": "Status atual do perfil: {status}",
+    },
+    "specialist_requests_placeholder": {
+        "ru": "Новые заявки специалиста. Полный экран будет в S9.",
+        "en": "Specialist new requests. Full screen will be implemented in S9.",
+        "pt": "Novos pedidos do especialista. A tela completa sera implementada no S9.",
+    },
+    "specialist_dialogs_placeholder": {
+        "ru": "Диалоги специалиста. Полный экран будет в S10.",
+        "en": "Specialist dialogs. Full screen will be implemented in S10.",
+        "pt": "Dialogos do especialista. A tela completa sera implementada no S10.",
+    },
+    "specialist_reviews_placeholder": {
+        "ru": "Отзывы специалиста. Полный экран будет в S17.",
+        "en": "Specialist reviews. Full screen will be implemented in S17.",
+        "pt": "Avaliacoes do especialista. A tela completa sera implementada no S17.",
+    },
+    "specialist_settings_placeholder": {
+        "ru": "Настройки специалиста. Полный экран будет в S19.",
+        "en": "Specialist settings. Full screen will be implemented in S19.",
+        "pt": "Configuracoes do especialista. A tela completa sera implementada no S19.",
+    },
+    "specialist_registration_start_text": {
+        "ru": "Создание кабинета специалиста.\n\nВы сможете указать профессию, локацию, описание, услуги и портфолио. Перед публикацией нужно принять обязательные документы.",
+        "en": "Create a specialist cabinet.\n\nYou will be able to set profession, location, description, services, and portfolio. Required documents must be accepted before publication.",
+        "pt": "Crie um painel de especialista.\n\nVoce podera definir profissao, localizacao, descricao, servicos e portfolio. Os documentos obrigatorios devem ser aceitos antes da publicacao.",
+    },
+    "specialist_registration_start_btn": {
+        "ru": "Начать",
+        "en": "Start",
+        "pt": "Comecar",
+    },
+    "spec_location_remote_btn": {
+        "ru": "Удалённо",
+        "en": "Remote",
+        "pt": "Remoto",
+    },
+    "spec_location_remote_selected": {
+        "ru": "Локация: удалённо",
+        "en": "Location: remote",
+        "pt": "Localização: remoto",
+    },
+    "spec_contact_visibility_prompt": {
+        "ru": "Выберите видимость контакта. Заявки через платформу останутся включены.",
+        "en": "Choose contact visibility. Platform requests stay enabled.",
+        "pt": "Escolha a visibilidade do contacto. Os pedidos pela plataforma continuam ativos.",
+    },
+    "spec_contact_visibility_platform_only": {
+        "ru": "Platform only",
+        "en": "Platform only",
+        "pt": "Apenas plataforma",
+    },
+    "spec_contact_visibility_public_limited": {
+        "ru": "Public limited",
+        "en": "Public limited",
+        "pt": "Público limitado",
+    },
+    "spec_contact_visibility_private": {
+        "ru": "Private",
+        "en": "Private",
+        "pt": "Privado",
+    },
+    "spec_continue_btn": {
+        "ru": "Продолжить",
+        "en": "Continue",
+        "pt": "Continuar",
+    },
+    "spec_platform_contact_default": {
+        "ru": "Связь внутри SGHR Beta chat",
+        "en": "Contact through SGHR Beta chat",
+        "pt": "Contacto pelo chat SGHR Beta",
+    },
+    "spec_contact_visibility_summary": {
+        "ru": "Видимость контакта",
+        "en": "Contact visibility",
+        "pt": "Visibilidade do contacto",
+    },
+    "spec_draft_missing": {
+        "ru": "Черновик профиля не найден. Начните регистрацию заново.",
+        "en": "Profile draft was not found. Please start registration again.",
+        "pt": "O rascunho do perfil não foi encontrado. Inicie o registo novamente.",
+    },
+    "specialist_requests_title": {
+        "ru": "Новые заявки",
+        "en": "New requests",
+        "pt": "Novos pedidos",
+    },
+    "specialist_requests_empty": {
+        "ru": "Новых заявок пока нет.",
+        "en": "There are no new requests yet.",
+        "pt": "Ainda não há novos pedidos.",
+    },
+    "specialist_request_status_updated": {
+        "ru": "Статус заявки обновлён.",
+        "en": "Request status updated.",
+        "pt": "Estado do pedido atualizado.",
+    },
+    "specialist_dialogs_title": {
+        "ru": "Диалоги специалиста",
+        "en": "Specialist dialogs",
+        "pt": "Diálogos do especialista",
+    },
+    "specialist_dialogs_empty": {
+        "ru": "Диалогов пока нет.",
+        "en": "No dialogs yet.",
+        "pt": "Ainda não há diálogos.",
+    },
+    "specialist_request_decline_reason_prompt": {
+        "ru": "Укажите причину отклонения заявки.",
+        "en": "Please enter the reason for declining the request.",
+        "pt": "Informe o motivo para recusar a solicitação.",
+    },
+    "specialist_request_decline_reason_required": {
+        "ru": "Причина обязательна. Введите минимум 3 символа.",
+        "en": "Reason is required. Enter at least 3 characters.",
+        "pt": "O motivo é obrigatório. Digite pelo menos 3 caracteres.",
+    },
+    "specialist_request_declined": {
+        "ru": "Заявка отклонена.",
+        "en": "Request declined.",
+        "pt": "Solicitação recusada.",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

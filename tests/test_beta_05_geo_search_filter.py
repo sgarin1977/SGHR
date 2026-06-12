@@ -1551,7 +1551,9 @@ def test_search_show_results_allows_explicit_without_location_mode():
         1,
     )[0]
 
-    assert "without_location = data.get(\"location_state\") == \"without\"" in render_results_block
+    assert "without_location = (" in render_results_block
+    assert 'data.get("location_state") == "without"' in render_results_block
+    assert 'or data.get("work_format") == "remote"' in render_results_block
     assert "if not city_id and not has_geo and not without_location:" in render_results_block
     assert "await service.search_without_location(" in render_results_block
 
@@ -2066,3 +2068,91 @@ def test_favorites_c16_list_has_pagination_and_remove_flow():
     assert "favorite_viewed" in billing_source
     assert "favorite_removed" in billing_source
     assert "EventRepository(session).create_event" in billing_source
+
+def test_remote_work_format_search_does_not_require_location():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    choose_work_block = source.split(
+        'async def choose_work_format_filter',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data == "search_filter_language")',
+        1,
+    )[0]
+
+    assert 'if work_format == "remote":' in choose_work_block
+    assert 'location_state="without"' in choose_work_block
+    assert 'city_id=None' in choose_work_block
+    assert 'country_id=None' in choose_work_block
+    assert 'latitude=None' in choose_work_block
+    assert 'longitude=None' in choose_work_block
+
+    show_results_block = source.split(
+        '@search_router.callback_query(F.data == "search_show_results")',
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data.startswith("search_results_page:"))',
+        1,
+    )[0]
+
+    assert 'or data.get("work_format") == "remote"' in show_results_block
+
+    render_results_block = source.split(
+        "async def render_results(",
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))',
+        1,
+    )[0]
+
+    assert 'or data.get("work_format") == "remote"' in render_results_block
+    assert "await service.search_without_location(" in render_results_block
+
+def test_remote_work_format_search_ignores_geo_and_shows_remote_label():
+    source = open("handlers/search.py", encoding="utf-8").read()
+
+    render_results_block = source.split(
+        "async def render_results(",
+        1,
+    )[1].split(
+        '@search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))',
+        1,
+    )[0]
+
+    assert 'remote_only = work_format == "remote"' in render_results_block
+    assert "if remote_only:" in render_results_block
+
+    remote_branch = render_results_block.split(
+        "if remote_only:",
+        1,
+    )[1].split(
+        "elif has_geo:",
+        1,
+    )[0]
+
+    assert "await service.search_without_location(" in remote_branch
+    assert "work_format=work_format" in remote_branch
+
+    result_card_block = source.split(
+        "def format_specialist_result",
+        1,
+    )[1].split(
+        "def format_public_card",
+        1,
+    )[0]
+
+    assert 'is_remote = getattr(specialist, "work_format", None) == "remote"' in result_card_block
+    assert 'work_format_label("remote", language)' in result_card_block
+    assert "distance = None if is_remote else" in result_card_block
+
+    public_card_block = source.split(
+        "def format_public_card",
+        1,
+    )[1].split(
+        "async def show_filters",
+        1,
+    )[0]
+
+    assert 'is_remote = card.work_format == "remote"' in public_card_block
+    assert 'work_format_label("remote", language)' in public_card_block
+    assert 'distance = "" if is_remote else' in public_card_block

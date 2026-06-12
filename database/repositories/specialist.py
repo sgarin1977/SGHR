@@ -17,6 +17,7 @@ from database.models import (
     SpecialistService,
     User,
     UserRoleMapping,
+    ProfileVisibilitySetting,
 )
 MAX_SPECIALIST_CATEGORIES = 2
 MAX_PROFESSIONS_PER_CATEGORY = 3
@@ -234,6 +235,8 @@ class SpecialistRepository:
         service_title: str | None,
         service_description: str | None,
         contact_text: str | None,
+        contact_visibility: str | None,
+        allow_requests: bool,
         work_format: str | None,
     ) -> Specialist:
         price_unit = price_unit or "service"
@@ -263,7 +266,11 @@ class SpecialistRepository:
             is_verified=False,
             is_premium=False,
             is_available=True,
-            extra_metadata={"contact_text": contact_text} if contact_text else {},
+            extra_metadata={
+                "contact_text": contact_text,
+                "contact_visibility": contact_visibility or "platform_only",
+                "allow_requests": bool(allow_requests),
+            },
         )
         self.session.add(specialist)
         await self.session.flush()
@@ -306,6 +313,37 @@ class SpecialistRepository:
             )
 
         await self.ensure_specialist_role(tenant_id=tenant_id, user_id=user_id)
+        visibility_level = contact_visibility or "platform_only"
+
+        visibility_result = await self.session.execute(
+            select(ProfileVisibilitySetting).where(
+                ProfileVisibilitySetting.user_id == user_id,
+                ProfileVisibilitySetting.profile_type == "specialist",
+            )
+        )
+        visibility_settings = visibility_result.scalar_one_or_none()
+
+        if visibility_settings:
+            visibility_settings.visibility_level = visibility_level
+            visibility_settings.visible_to_clients = True
+            visibility_settings.visible_to_employers = False
+            visibility_settings.visible_to_agencies = False
+            visibility_settings.allow_direct_messages = bool(allow_requests)
+            visibility_settings.allow_profile_export = False
+            visibility_settings.updated_at = datetime.utcnow()
+        else:
+            self.session.add(
+                ProfileVisibilitySetting(
+                    user_id=user_id,
+                    profile_type="specialist",
+                    visibility_level=visibility_level,
+                    visible_to_clients=True,
+                    visible_to_employers=False,
+                    visible_to_agencies=False,
+                    allow_direct_messages=bool(allow_requests),
+                    allow_profile_export=False,
+                )
+            )
         if country_id or city_id or latitude or longitude:
             self.session.add(
                 SpecialistLocation(

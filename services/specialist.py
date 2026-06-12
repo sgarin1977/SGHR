@@ -35,6 +35,8 @@ class SpecialistRegistrationData:
     service_title: str | None = None
     service_description: str | None = None
     contact_text: str | None = None
+    contact_visibility: str = "platform_only"
+    allow_requests: bool = True
     language: str = "ru"
     work_format: str = "mixed"
 
@@ -179,6 +181,8 @@ class SpecialistService:
             service_title=service_title,
             service_description=service_description,
             contact_text=contact_text,
+            contact_visibility=data.contact_visibility or "platform_only",
+            allow_requests=data.allow_requests,
             work_format=data.work_format or "mixed",
         )
     

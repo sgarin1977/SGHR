@@ -104,6 +104,17 @@ class ContactRequestDetail:
     status: str
     created_at: datetime
 
+@dataclass
+class SpecialistContactRequestListItem:
+    contact_request_id: UUID
+    thread_id: UUID | None
+    client_user_id: UUID
+    client_name: str
+    profession_name: str | None
+    message: str
+    status: str
+    created_at: datetime
+
 class ContactChatService:
     def __init__(
         self,
@@ -131,6 +142,49 @@ class ContactChatService:
             raise ContactChatError("Contact message must be at least 10 characters.")
 
         return normalized
+
+    async def list_specialist_requests(
+        self,
+        *,
+        specialist_id: UUID,
+        status: str = "new",
+        limit: int = 5,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[SpecialistContactRequestListItem]:
+        rows = await self.repository.list_contact_requests_for_specialist(
+            specialist_id=specialist_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+            language=self._normalize_language(language),
+        )
+
+        items = []
+        for (
+            contact_request,
+            thread_id,
+            client_user_id,
+            display_name,
+            first_name,
+            username,
+            profession_name,
+        ) in rows:
+            client_name = display_name or first_name or username or "Client"
+            items.append(
+                SpecialistContactRequestListItem(
+                    contact_request_id=contact_request.id,
+                    thread_id=thread_id,
+                    client_user_id=client_user_id,
+                    client_name=client_name,
+                    profession_name=profession_name,
+                    message=contact_request.message,
+                    status=contact_request.status,
+                    created_at=contact_request.created_at,
+                )
+            )
+
+        return items
 
     async def create_contact_request(
         self,
@@ -219,11 +273,15 @@ class ContactChatService:
         actor_user_id: UUID,
         tenant_id: UUID,
         action: str,
+        decline_reason: str | None = None,
     ) -> ContactRequestStatusResult:
         if action == "accept":
             status = "accepted"
             thread_status = "open"
         elif action == "reject":
+            normalized_reason = (decline_reason or "").strip()
+            if len(normalized_reason) < 3:
+                raise ContactChatError("Decline reason is required.")
             status = "rejected"
             thread_status = "closed"
         else:
@@ -236,6 +294,7 @@ class ContactChatService:
                 thread_status=thread_status,
                 actor_user_id=actor_user_id,
                 tenant_id=tenant_id,
+                decline_reason=decline_reason,
             )
         except ValueError as exc:
             raise ContactChatError(str(exc)) from exc
@@ -510,6 +569,44 @@ class ContactChatService:
         rows = await self.repository.list_threads_for_user(
             user_id=user_id,
             participant_role="client",
+            view=view,
+            limit=limit,
+            offset=offset,
+            language=language,
+        )
+
+        return [
+            ContactThreadListItem(
+                thread_id=thread.id,
+                specialist_name=specialist_name,
+                profession_name=profession_name,
+                last_message_text=last_message_text,
+                last_message_at=last_message_at,
+                unread_count=int(participant.unread_count or 0),
+                status=thread.status,
+            )
+            for (
+                thread,
+                participant,
+                specialist_name,
+                profession_name,
+                last_message_text,
+                last_message_at,
+            ) in rows
+        ]
+    
+    async def list_specialist_threads(
+        self,
+        *,
+        user_id: UUID,
+        view: str = "active",
+        limit: int = 5,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[ContactThreadListItem]:
+        rows = await self.repository.list_threads_for_user(
+            user_id=user_id,
+            participant_role="specialist",
             view=view,
             limit=limit,
             offset=offset,

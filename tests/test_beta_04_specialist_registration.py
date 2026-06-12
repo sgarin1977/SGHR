@@ -532,3 +532,298 @@ def test_specialist_fsm_uses_geo_provider_for_location_selection():
     for callback_data in callback_literals:
         assert len(callback_data.encode("utf-8")) <= 64
 
+def test_specialist_cabinet_s1_matches_tz10_contract():
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    for fragment in [
+        "def cabinet_menu_keyboard",
+        'callback_data="SPEC_REQUESTS"',
+        'callback_data="SPEC_DIALOGS"',
+        'callback_data="CAB_PROFILE"',
+        'callback_data="SPEC_SERVICES"',
+        'callback_data="CAB_PORTFOLIO"',
+        'callback_data="SPEC_REVIEWS"',
+        'callback_data="BETA_DISABLED:promotion"',
+        'callback_data="SPEC_SETTINGS"',
+        'callback_data="ROLE_SWITCH_MENU"',
+        "async def show_specialist_cabinet",
+        "format_specialist_cabinet_text",
+        "specialist_status_notice",
+        "list_active_specialist_professions",
+        "ContactRequest.specialist_id == specialist.id",
+        'ContactRequest.status == "new"',
+        'event_type="specialist_menu"',
+        "specialist_no_profile_start",
+        "async def specialist_requests_entry",
+        "async def specialist_dialogs_entry",
+        "async def specialist_services_entry",
+        "async def specialist_reviews_entry",
+        "async def specialist_settings_entry",
+    ]:
+        assert fragment in billing_source
+
+    for fragment in [
+        "specialist_cabinet_title",
+        "specialist_new_requests_label",
+        "specialist_unread_label",
+        "specialist_no_profile_start",
+        "specialist_status_active_notice",
+        "specialist_status_pending_notice",
+        "specialist_status_rejected_notice",
+        "specialist_status_paused_notice",
+        "specialist_new_requests_btn",
+        "specialist_dialogs_btn",
+        "specialist_services_btn",
+        "specialist_requests_placeholder",
+        "specialist_dialogs_placeholder",
+        "specialist_reviews_placeholder",
+        "specialist_settings_placeholder",
+    ]:
+        assert fragment in texts_source
+def test_specialist_registration_s2_start_matches_tz10_contract():
+    legal_source = open("handlers/legal.py", encoding="utf-8").read()
+    fsm_source = open("fsm/specialist_form.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    for fragment in [
+        "CB_SPECIALIST_START",
+        "CB_SPECIALIST_START_CONFIRM",
+        "CB_SPECIALIST_START_CANCEL",
+        "specialist_registration_start_keyboard",
+        "specialist_registration_start_screen",
+        "specialist_start_legal_gate",
+        "specialist_registration_start_cancel",
+        "specialist_registration_start_text",
+        "specialist_registration_start_btn",
+        "legal_gate_keyboard",
+        "get_missing_specialist_consents",
+        "accept_required_specialist_consents",
+        'event_type="registration_started"',
+        'entity_type="specialist_registration"',
+        "CB_REGISTER_SPECIALIST",
+    ]:
+        assert fragment in legal_source
+
+    for fragment in [
+        "register_specialist",
+        "ensure_specialist_consents",
+        "spec_legal_consents_required",
+        "SpecialistRegistration",
+    ]:
+        assert fragment in fsm_source
+
+    for fragment in [
+        "specialist_registration_start_text",
+        "specialist_registration_start_btn",
+        "legal_gate_intro",
+        "legal_accept_continue_btn",
+        "legal_show_documents_btn",
+        "legal_back_to_menu_btn",
+        "spec_legal_consents_required",
+    ]:
+        assert fragment in texts_source
+def test_specialist_registration_s3_category_matches_tz10_contract():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+
+    assert "PER_PAGE = 8" in source
+    assert "class SpecialistForm" in source
+    assert "choosing_category = State()" in source
+
+    assert "def build_category_keyboard" in source
+    assert 'prefix="spec_category"' in source
+    assert 'page_prefix="spec_categories_page"' in source
+    assert "spec_categories_page:" in source
+    assert "async def paginate_categories" in source
+
+    assert "async def choose_category" in source
+    assert "await state.set_state(SpecialistForm.choosing_profession)" in source
+
+    assert "spec_categories_missing" in source
+    assert "spec_category_not_found" in source
+    assert "spec_category_not_found_restart" in source
+
+    assert 'text=t("spec_back_btn", language)' in source
+    assert 'text=t("search_menu", language)' in source
+    assert 'callback_data="spec_cancel"' in source
+
+def test_specialist_registration_s4_profession_matches_tz10_contract():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+
+    assert "choosing_profession = State()" in source
+
+    assert "def build_profession_multi_keyboard" in source
+    assert 'callback_data=f"spec_profession:{item_index}"' in source
+    assert 'callback_data=f"spec_professions_page:{page - 1}"' in source
+    assert 'callback_data=f"spec_professions_page:{page + 1}"' in source
+
+    assert "async def paginate_professions" in source
+    assert "async def choose_profession" in source
+    assert "async def finish_profession_selection" in source
+
+    assert "selected_profession_ids" in source
+    assert "selected_professions" in source
+    assert "profession_limit_error_key" in source
+    assert "MAX_SPECIALIST_CATEGORIES = 2" in source
+    assert "MAX_PROFESSIONS_PER_CATEGORY = 3" in source
+
+    assert "spec_profession_select_one" in source
+    assert "spec_professions_missing" in source
+    assert "spec_profession_not_found" in source
+    assert "spec_profession_not_found_back" in source
+
+    assert 'callback_data="spec_back_to_categories"' in source
+    assert 'text=t("search_menu", language)' in source
+    assert 'callback_data="spec_cancel"' in source
+
+    assert "await state.set_state(SpecialistForm.choosing_location_mode)" in source
+def test_specialist_registration_s5_location_matches_tz10_contract():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "choosing_location_mode = State()" in source
+    assert "entering_city_query = State()" in source
+    assert "entering_country_query = State()" in source
+    assert "waiting_geo = State()" in source
+
+    assert "def location_mode_keyboard" in source
+    assert 'callback_data="spec_location_geo"' in source
+    assert 'callback_data="spec_location_city"' in source
+    assert 'callback_data="spec_location_country"' in source
+    assert 'callback_data="spec_location_remote"' in source
+    assert 'callback_data="spec_back_to_categories"' in source
+    assert 'callback_data="spec_cancel"' in source
+    assert 'text=t("search_menu", language)' in source
+
+    assert "async def choose_city_mode" in source
+    assert "async def choose_country_mode" in source
+    assert "async def geo_location_prompt" in source
+    assert "async def receive_geo_location" in source
+    assert "async def choose_remote_location" in source
+
+    assert "city_id=None" in source
+    assert "country_id=None" in source
+    assert 'work_format="remote"' in source
+    assert "await state.set_state(SpecialistForm.entering_display_name)" in source
+
+    assert "spec_location_remote_btn" in texts_source
+    assert "spec_location_remote_selected" in texts_source
+
+def test_specialist_registration_remote_location_skips_work_format_prompt():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+
+    assert 'work_format="remote"' in source
+    assert 'if data.get("work_format") == "remote":' in source
+    assert "spec_languages_prompt" in source
+    assert "language_keyboard(" in source
+    assert "await state.set_state(SpecialistForm.choosing_languages)" in source
+def test_specialist_registration_s6_description_matches_tz10_contract():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+
+    assert "entering_description = State()" in source
+    assert "def description_keyboard" in source
+
+    assert "async def enter_description" in source
+    assert "spec_description_prompt" in source
+    assert "spec_description_too_short" in source
+    assert "len(description) < 20" in source
+    assert "await state.update_data(short_description=description)" in source
+
+    assert 'callback_data="spec_back_to_location_mode"' in source
+    assert 'text=t("search_menu", language)' in source
+    assert 'callback_data="spec_cancel"' in source
+
+    assert "spec_contact_prompt" in source
+    assert "await state.set_state(SpecialistForm.entering_contact)" in source
+
+def test_specialist_registration_s7_contact_visibility_matches_tz10_contract():
+    form_source = open("fsm/specialist_form.py", encoding="utf-8").read()
+    service_source = open("services/specialist.py", encoding="utf-8").read()
+    repo_source = open("database/repositories/specialist.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+    assert "visibility_result = await self.session.execute" in repo_source
+    assert "visibility_settings = visibility_result.scalar_one_or_none()" in repo_source
+    assert "if visibility_settings:" in repo_source
+    assert "visibility_settings.visibility_level = visibility_level" in repo_source
+    assert "else:" in repo_source
+    assert "ProfileVisibilitySetting(" in repo_source
+    assert "choosing_contact_visibility = State()" in form_source
+    assert "def contact_visibility_keyboard" in form_source
+    assert "ProfileVisibilitySetting" in repo_source
+    assert 'profile_type="specialist"' in repo_source
+    assert "visibility_level=visibility_level" in repo_source
+    assert "visible_to_clients=True" in repo_source
+    assert "visible_to_employers=False" in repo_source
+    assert "visible_to_agencies=False" in repo_source
+    assert "allow_direct_messages=bool(allow_requests)" in repo_source
+    assert "allow_profile_export=False" in repo_source
+    assert 'callback_data="spec_contact_visibility:platform_only"' in form_source
+    assert 'callback_data="spec_contact_visibility:public_limited"' in form_source
+    assert 'callback_data="spec_contact_visibility:private"' in form_source
+    assert 'callback_data="spec_contact_visibility_done"' in form_source
+
+    assert "async def choose_contact_visibility" in form_source
+    assert "async def finish_contact_visibility" in form_source
+    assert "async def show_registration_summary" in form_source
+
+    assert "contact_visibility" in form_source
+    assert "allow_requests" in form_source
+    assert "spec_platform_contact_default" in form_source
+
+    assert 'contact_visibility: str = "platform_only"' in service_source
+    assert "allow_requests: bool = True" in service_source
+    assert "contact_visibility=data.contact_visibility" in service_source
+    assert "allow_requests=data.allow_requests" in service_source
+
+    assert '"contact_visibility": contact_visibility or "platform_only"' in repo_source
+    assert '"allow_requests": bool(allow_requests)' in repo_source
+
+    for key in [
+        "spec_contact_visibility_prompt",
+        "spec_contact_visibility_platform_only",
+        "spec_contact_visibility_public_limited",
+        "spec_contact_visibility_private",
+        "spec_continue_btn",
+        "spec_platform_contact_default",
+        "spec_contact_visibility_summary",
+    ]:
+        assert key in texts_source
+    enter_contact_block = form_source.split(
+        "async def enter_contact",
+        1,
+    )[1].split(
+        "async def show_registration_summary",
+        1,
+    )[0]
+
+    assert "await state.set_state(SpecialistForm.choosing_contact_visibility)" in enter_contact_block
+    assert "return" in enter_contact_block
+
+def test_specialist_registration_s8_confirmation_matches_tz10_contract():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "def confirm_keyboard" in source
+    assert 'callback_data="spec_confirm"' in source
+    assert 'callback_data="register_specialist"' in source
+    assert 'callback_data="spec_cancel"' in source
+
+    assert "async def show_registration_summary" in source
+    assert "async def confirm_specialist" in source
+    assert "SpecialistRegistrationData(" in source
+
+    assert "required_fields =" in source
+    assert "missing_fields =" in source
+    assert "spec_draft_missing" in source
+
+    assert "from handlers.billing import show_specialist_cabinet" in source
+    assert "await show_specialist_cabinet(callback, state)" in source
+
+    assert "spec_confirm_btn" in texts_source
+    assert "Отправить" in texts_source
+    assert "spec_restart_btn" in texts_source
+    assert "Изменить" in texts_source
+    assert "spec_cancel_btn" in texts_source
+    assert "spec_draft_missing" in texts_source
+    assert "{specialist_id}" not in texts_source
+    assert "ID профиля" not in texts_source

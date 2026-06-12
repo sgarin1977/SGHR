@@ -263,26 +263,11 @@ async def send_active_role_cabinet_from_message(
             ),
         )
         return
-
     if role == "specialist":
-        from handlers.billing import cabinet_menu_keyboard
+        from handlers.billing import send_specialist_cabinet_message
 
-        async with get_session() as session:
-            role_context = await UserService(session).get_role_switch_context(message.from_user.id)
-
-        show_role_switch = bool(
-            role_context and len(role_context.available_roles) > 1
-        )
-
-        await message.answer(
-            t("menu_my_cabinet", language),
-            reply_markup=cabinet_menu_keyboard(
-                language,
-                show_role_switch=show_role_switch,
-            ),
-        )
+        await send_specialist_cabinet_message(message, state)
         return
-
     await message.answer(
         t("search_main_menu", language),
         reply_markup=await get_main_menu_keyboard_for_user(message.from_user.id, language),

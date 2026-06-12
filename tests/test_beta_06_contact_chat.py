@@ -649,6 +649,7 @@ async def test_contact_request_rejects_and_closes_thread(db_session):
             actor_user_id=specialist_user_id,
             tenant_id=tenant_id,
             action="reject",
+            decline_reason="Not relevant for this request.",
         )
 
         contact_request = await db_session.get(ContactRequest, rejected.contact_request_id)
@@ -769,6 +770,7 @@ async def test_thread_message_rejects_closed_thread(db_session):
             actor_user_id=specialist_user_id,
             tenant_id=tenant_id,
             action="reject",
+            decline_reason="Not relevant for this request.",
         )
 
         try:
@@ -1493,6 +1495,7 @@ async def test_contact_request_rate_limit_blocks_excess_requests_and_logs_abuse(
             actor_user_id=specialist_user_id,
             tenant_id=tenant_id,
             action="reject",
+            decline_reason="Not relevant for this request.",
         )
         try:
             await service.create_contact_request(
@@ -2216,3 +2219,34 @@ async def test_client_can_complete_request_thread_from_request_card_backend(db_s
         await cleanup_test_user(db_session, client_platform_id)
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
+
+def test_specialist_s9_new_requests_screen_is_wired():
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+    contact_repo_source = open("database/repositories/contact.py", encoding="utf-8").read()
+    contact_service_source = open("services/contact_chat.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "list_contact_requests_for_specialist" in contact_repo_source
+    assert "ContactRequest.specialist_id == specialist_id" in contact_repo_source
+    assert 'ContactRequest.status == status' in contact_repo_source
+
+    assert "SpecialistContactRequestListItem" in contact_service_source
+    assert "list_specialist_requests" in contact_service_source
+
+    assert "async def show_specialist_requests" in billing_source
+    assert "specialist_requests_keyboard" in billing_source
+    assert "format_specialist_requests_text" in billing_source
+
+    assert 'callback_data="SPEC_REQUESTS"' in billing_source
+    assert "SPEC_REQUESTS_PAGE:" in billing_source
+    assert "SPEC_REQUEST_ACCEPT:" in billing_source
+    assert "SPEC_REQUEST_REJECT:" in billing_source
+
+    assert "set_contact_request_status" in billing_source
+    assert 'action="accept"' in billing_source
+    assert 'action="reject"' in billing_source
+
+    assert "specialist_requests_opened" in billing_source
+    assert "specialist_requests_title" in texts_source
+    assert "specialist_requests_empty" in texts_source
+    assert "specialist_request_status_updated" in texts_source

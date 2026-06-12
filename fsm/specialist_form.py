@@ -60,6 +60,7 @@ class SpecialistForm(StatesGroup):
     choosing_work_format = State()
     choosing_languages = State()
     entering_contact = State()
+    choosing_contact_visibility = State()
     confirming = State()
 
 
@@ -175,11 +176,24 @@ def build_paged_keyboard(
     if navigation:
         rows.append(navigation)
 
-    rows.append([InlineKeyboardButton(text=t("spec_back_btn", language), callback_data=back_callback)])
-    rows.append([InlineKeyboardButton(text=t("spec_cancel_btn", language), callback_data="spec_cancel")])
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("spec_back_btn", language),
+                callback_data=back_callback,
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="spec_cancel",
+            )
+        ]
+    )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
 def build_category_keyboard(
     *,
     items,
@@ -269,17 +283,67 @@ def build_profession_multi_keyboard(
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("spec_cancel_btn", language),
+                text=t("search_menu", language),
                 callback_data="spec_cancel",
             )
         ]
     )
-
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def contact_visibility_keyboard(
+    selected: str | None,
+    language: str = "ru",
+) -> InlineKeyboardMarkup:
+    selected = selected or "platform_only"
+
+    def label(value: str, key: str) -> str:
+        marker = "[x] " if selected == value else "[ ] "
+        return marker + t(key, language)
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=label("platform_only", "spec_contact_visibility_platform_only"),
+                    callback_data="spec_contact_visibility:platform_only",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=label("public_limited", "spec_contact_visibility_public_limited"),
+                    callback_data="spec_contact_visibility:public_limited",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=label("private", "spec_contact_visibility_private"),
+                    callback_data="spec_contact_visibility:private",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("spec_continue_btn", language),
+                    callback_data="spec_contact_visibility_done",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="spec_cancel",
+                )
+            ],
+        ]
+    )
 
 def location_mode_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("spec_send_geo_btn", language),
+                    callback_data="spec_location_geo",
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text=t("spec_choose_city_btn", language),
@@ -294,8 +358,8 @@ def location_mode_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("spec_send_geo_btn", language),
-                    callback_data="spec_location_geo",
+                    text=t("spec_location_remote_btn", language),
+                    callback_data="spec_location_remote",
                 )
             ],
             [
@@ -306,13 +370,29 @@ def location_mode_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("spec_cancel_btn", language),
+                    text=t("search_menu", language),
                     callback_data="spec_cancel",
                 )
             ],
         ]
     )
-
+def description_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("spec_back_btn", language),
+                    callback_data="spec_back_to_location_mode",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="spec_cancel",
+                )
+            ],
+        ]
+    )
 def work_format_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -638,7 +718,7 @@ async def paginate_categories(callback: CallbackQuery, state: FSMContext):
             selected_professions=data.get("selected_professions") or [],
             page=page,
             language=language,
-            back_callback="M",
+            back_callback="spec_cancel",
         ),
     )
     await callback.answer()
@@ -928,6 +1008,29 @@ async def back_to_location_mode(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SpecialistForm.choosing_location_mode)
     await callback.answer()
 
+@specialist_form_router.callback_query(F.data == "spec_location_remote")
+async def choose_remote_location(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
+
+    await state.update_data(
+        city_id=None,
+        country_id=None,
+        city_name=t("spec_location_remote_selected", language),
+        latitude=None,
+        longitude=None,
+        service_radius_km=0,
+        work_format="remote",
+        geo_candidates=[],
+        country_candidates=[],
+    )
+
+    await show_callback_message(
+        callback,
+        t("spec_display_name_prompt", language),
+    )
+    await state.set_state(SpecialistForm.entering_display_name)
+    await callback.answer()
 
 @specialist_form_router.message(SpecialistForm.entering_city_query)
 async def search_city_query(message: Message, state: FSMContext):
@@ -1280,9 +1383,11 @@ async def enter_display_name(message: Message, state: FSMContext):
         return
 
     await state.update_data(display_name=display_name)
-    await message.answer(t("spec_description_prompt", language))
+    await message.answer(
+        t("spec_description_prompt", language),
+        reply_markup=description_keyboard(language),
+    )
     await state.set_state(SpecialistForm.entering_description)
-
 
 @specialist_form_router.message(SpecialistForm.entering_description)
 async def enter_description(message: Message, state: FSMContext):
@@ -1294,10 +1399,8 @@ async def enter_description(message: Message, state: FSMContext):
         return
 
     await state.update_data(short_description=description)
-    await message.answer(t("spec_price_prompt", language))
-    await state.set_state(SpecialistForm.entering_price)
-
-
+    await message.answer(t("spec_contact_prompt", language))
+    await state.set_state(SpecialistForm.entering_contact)
 @specialist_form_router.message(SpecialistForm.entering_price)
 async def enter_price(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -1315,12 +1418,23 @@ async def enter_price(message: Message, state: FSMContext):
         price_unit="service",
     )
 
+    data = await state.get_data()
+    if data.get("work_format") == "remote":
+        await message.answer(
+            t("spec_languages_prompt", language),
+            reply_markup=language_keyboard(
+                selected=data.get("languages") or [],
+                language=language,
+            ),
+        )
+        await state.set_state(SpecialistForm.choosing_languages)
+        return
+
     await message.answer(
         t("spec_work_format_prompt", language),
         reply_markup=work_format_keyboard(language),
     )
     await state.set_state(SpecialistForm.choosing_work_format)
-
 @specialist_form_router.callback_query(F.data.startswith("spec_work:"))
 async def choose_work_format(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -1392,11 +1506,31 @@ async def enter_contact(message: Message, state: FSMContext):
     data = await state.get_data()
     language = data.get("user_language") or message.from_user.language_code or "ru"
     contact_text = (message.text or "").strip()
-    if not contact_text:
-        await message.answer(t("spec_contact_required", language))
-        return
 
-    await state.update_data(contact_text=contact_text)
+    if not contact_text or contact_text == "-":
+        contact_text = t("spec_platform_contact_default", language)
+
+    await state.update_data(
+        contact_text=contact_text,
+        contact_visibility=data.get("contact_visibility") or "platform_only",
+        allow_requests=True,
+    )
+
+    await message.answer(
+        t("spec_contact_visibility_prompt", language),
+        reply_markup=contact_visibility_keyboard(
+            selected="platform_only",
+            language=language,
+        ),
+    )
+    await state.set_state(SpecialistForm.choosing_contact_visibility)
+    return
+
+async def show_registration_summary(
+    event: CallbackQuery | Message,
+    state: FSMContext,
+    language: str,
+) -> None:
     data = await state.get_data()
 
     price_text = t("spec_price_not_set", language)
@@ -1435,26 +1569,98 @@ async def enter_contact(message: Message, state: FSMContext):
     }.get(data.get("work_format") or "mixed", "search_work_mixed")
     work_format_text = t(work_format_key, language)
 
-    summary = t("spec_summary", language).format(
-        category=category_summary,
-        profession=profession_summary,
-        location=data.get("city_name"),
-        display_name=data.get("display_name"),
-        description=data.get("short_description"),
-        price=price_text,
-        languages=", ".join(data.get("languages") or ["ru"]),
-        contact=data.get("contact_text"),
-        work_format=work_format_text,
+    contact_visibility_key = {
+        "platform_only": "spec_contact_visibility_platform_only",
+        "public_limited": "spec_contact_visibility_public_limited",
+        "private": "spec_contact_visibility_private",
+    }.get(
+        data.get("contact_visibility") or "platform_only",
+        "spec_contact_visibility_platform_only",
     )
 
-    await message.answer(summary, reply_markup=confirm_keyboard(language))
+    summary = (
+        t("spec_summary", language).format(
+            category=category_summary,
+            profession=profession_summary,
+            location=data.get("city_name"),
+            display_name=data.get("display_name"),
+            description=data.get("short_description"),
+            price=price_text,
+            languages=", ".join(data.get("languages") or ["ru"]),
+            contact=data.get("contact_text"),
+            work_format=work_format_text,
+        )
+        + "\n"
+        + f"{t('spec_contact_visibility_summary', language)}: {t(contact_visibility_key, language)}"
+    )
+
+    target = event.message if isinstance(event, CallbackQuery) else event
+    await target.answer(summary, reply_markup=confirm_keyboard(language))
     await state.set_state(SpecialistForm.confirming)
 
+@specialist_form_router.callback_query(F.data.startswith("spec_contact_visibility:"))
+async def choose_contact_visibility(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
+    visibility = (callback.data or "").split(":", 1)[1]
+
+    if visibility not in {"platform_only", "public_limited", "private"}:
+        await callback.answer()
+        return
+
+    await state.update_data(
+        contact_visibility=visibility,
+        allow_requests=True,
+    )
+
+    await show_callback_message(
+        callback,
+        t("spec_contact_visibility_prompt", language),
+        contact_visibility_keyboard(
+            selected=visibility,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+
+@specialist_form_router.callback_query(F.data == "spec_contact_visibility_done")
+async def finish_contact_visibility(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = data.get("user_language") or callback.from_user.language_code or "ru"
+
+    if not data.get("contact_visibility"):
+        await state.update_data(
+            contact_visibility="platform_only",
+            allow_requests=True,
+        )
+
+    await show_registration_summary(callback, state, language)
+    await callback.answer()
 
 @specialist_form_router.callback_query(F.data == "spec_confirm")
 async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = data.get("user_language") or callback.from_user.language_code or "ru"
+
+    required_fields = [
+        "category_id",
+        "profession_id",
+        "display_name",
+        "short_description",
+        "contact_text",
+    ]
+
+    missing_fields = [field for field in required_fields if not data.get(field)]
+    if missing_fields:
+        await callback.message.answer(
+            t("spec_draft_missing", language),
+            reply_markup=get_main_menu_keyboard(language),
+        )
+        await state.clear()
+        await callback.answer()
+        return
+
     async with get_session() as session:
         user = await get_current_user(session, callback.from_user.id)
         if not user:
@@ -1488,6 +1694,8 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
                     languages=data.get("languages") or ["ru"],
                     service_title=data["display_name"],
                     service_description=data["short_description"],
+                    contact_visibility=data.get("contact_visibility") or "platform_only",
+                    allow_requests=bool(data.get("allow_requests", True)),
                     contact_text=data["contact_text"],
                     work_format=data.get("work_format") or "mixed",
                 )
@@ -1510,10 +1718,12 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
 
     await state.clear()
     await callback.message.answer(
-    t("spec_created", language).format(specialist_id=specialist.id),
-    reply_markup=get_main_menu_keyboard(language),)
-    await callback.answer()
+        t("spec_created", language)
+    )
 
+    from handlers.billing import show_specialist_cabinet
+
+    await show_specialist_cabinet(callback, state)
 
 @specialist_form_router.callback_query(F.data == "spec_cancel")
 async def cancel_specialist_registration(callback: CallbackQuery, state: FSMContext):

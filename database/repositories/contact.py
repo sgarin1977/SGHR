@@ -18,6 +18,7 @@ from database.models import (
     SpecialistProfession,
     TranslationJob,
     User,
+    UserAccount
 )
 from database.repositories.translation import TranslationRepository
 
@@ -127,6 +128,7 @@ class ContactChatRepository:
         thread_status: str,
         actor_user_id: UUID,
         tenant_id: UUID,
+        decline_reason: str | None = None,
         platform: str = "telegram",
     ) -> tuple[ContactRequest, ConversationThread]:
         contact_request = await self.session.get(ContactRequest, contact_request_id)
@@ -146,6 +148,12 @@ class ContactChatRepository:
 
         contact_request.status = status
         thread.status = thread_status
+        if status == "rejected":
+            metadata = dict(contact_request.extra_metadata or {})
+            metadata["decline_reason"] = (decline_reason or "").strip()
+            metadata["declined_by_user_id"] = str(actor_user_id)
+            metadata["declined_at"] = datetime.utcnow().isoformat()
+            contact_request.extra_metadata = metadata
 
         self.session.add(
             EventLog(
@@ -158,6 +166,7 @@ class ContactChatRepository:
                 payload={
                     "thread_id": str(thread.id),
                     "thread_status": thread_status,
+                    "decline_reason": (decline_reason or "").strip() if status == "rejected" else None,
                 },
             )
         )
@@ -540,6 +549,65 @@ class ContactChatRepository:
         )
         return list(result.all())
 
+    async def list_contact_requests_for_specialist(
+        self,
+        *,
+        specialist_id: UUID,
+        status: str = "new",
+        limit: int = 5,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[tuple]:
+        localized_profession_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+        }.get(language, Profession.name_ru)
+
+        result = await self.session.execute(
+            select(
+                ContactRequest,
+                ConversationThread.id.label("thread_id"),
+                User.id.label("client_user_id"),
+                UserAccount.display_name,
+                UserAccount.first_name,
+                UserAccount.username,
+                func.coalesce(
+                    localized_profession_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                ).label("profession_name"),
+            )
+            .join(User, User.id == ContactRequest.from_user_id)
+            .outerjoin(
+                UserAccount,
+                (UserAccount.user_id == User.id)
+                & (UserAccount.platform == "telegram"),
+            )
+            .join(Specialist, Specialist.id == ContactRequest.specialist_id)
+            .outerjoin(
+                ConversationThread,
+                (ConversationThread.context_type == "contact_request")
+                & (ConversationThread.context_id == ContactRequest.id),
+            )
+            .outerjoin(
+                SpecialistProfession,
+                (SpecialistProfession.specialist_id == Specialist.id)
+                & (SpecialistProfession.status == "active")
+                & (SpecialistProfession.is_primary.is_(True)),
+            )
+            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .where(
+                ContactRequest.specialist_id == specialist_id,
+                ContactRequest.status == status,
+            )
+            .order_by(ContactRequest.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.all())
 
     async def get_contact_request_detail_for_client(
         self,
