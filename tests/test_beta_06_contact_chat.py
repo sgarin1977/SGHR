@@ -26,6 +26,7 @@ from database.models import (
     RiskFlag,
     ThreadRestriction,
     ConversationParticipant,
+    Blacklist,
 )
 
 from database.repositories.contact import ContactChatRepository
@@ -457,6 +458,7 @@ async def test_create_contact_request_thread_message_notification_and_events(db_
         event_types = {event.event_type for event in events_result.scalars().all()}
 
         assert "contact_request_created" in event_types
+        assert "request_created" in event_types
         assert "thread_created" in event_types
         assert "message_sent" in event_types
 
@@ -786,6 +788,71 @@ async def test_thread_message_rejects_closed_thread(db_session):
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
 
+async def test_thread_message_is_read_only_when_participant_blacklisted(db_session):
+    client_platform_id, client_user_id, client_tenant_id = await create_test_user(
+        db_session,
+        prefix="test-contact-client-blacklist-readonly",
+    )
+    specialist_platform_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    try:
+        service = ContactChatService(ContactChatRepository(db_session))
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, please help with this beta service.",
+            original_language="en",
+        )
+
+        accepted = await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        blacklist = Blacklist(
+            tenant_id=tenant_id,
+            user_id=client_user_id,
+            platform="telegram",
+            platform_user_id=client_platform_id,
+            reason="test_blacklist_read_only",
+            status="active",
+            created_by=specialist_user_id,
+        )
+        db_session.add(blacklist)
+        await db_session.commit()
+
+        try:
+            await service.send_thread_message(
+                thread_id=accepted.thread_id,
+                sender_user_id=client_user_id,
+                text="Trying to write from a blacklisted account.",
+                original_language="en",
+            )
+        except ContactChatError as exc:
+            assert "read-only" in str(exc)
+        else:
+            raise AssertionError("Blacklisted user was allowed to write to thread")
+
+    finally:
+        await db_session.rollback()
+        await db_session.execute(
+            delete(Blacklist).where(
+                Blacklist.tenant_id == tenant_id,
+                Blacklist.user_id.in_([client_user_id, specialist_user_id]),
+            )
+        )
+        await db_session.commit()
+
+        await cleanup_test_user(db_session, client_platform_id)
+        await cleanup_test_user(db_session, specialist_platform_id)
+        await cleanup_legal_documents(db_session, tenant_id)
+
 async def test_thread_message_creates_message_notification_and_event(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
@@ -1101,6 +1168,12 @@ def test_contact_reply_flow_is_wired_in_search_handler():
         "receiver_platform_user_id",
         "contact_thread_message_received",
         "message.bot.send_message",
+        "callback_data=\"contact_archive\"",
+        "callback_data=\"contact_hide\"",
+        "callback_data=\"CLIENT_DIALOGS\"",
+        "async def archive_contact_thread",
+        "async def hide_contact_thread",
+        "set_thread_visibility",
     ]
 
     for fragment in required_fragments:
@@ -1123,6 +1196,8 @@ def test_contact_reply_flow_is_wired_in_search_handler():
     "contact_reply",
     "contact_show_original",
     "contact_finish",
+    "contact_archive",
+    "contact_hide",
 ]
 
     for callback_data in callback_literals:
@@ -1222,12 +1297,21 @@ async def test_thread_can_be_completed_by_participant(db_session):
                 EventLog.entity_id == thread.id,
             )
         )
+        request_completed_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == client_user_id,
+                EventLog.event_type == "request_completed",
+                EventLog.entity_id == created.contact_request_id,
+            )
+        )
+        assert request_completed_result.scalar_one_or_none() is not None
         assert events_result.scalar_one_or_none() is not None
 
     finally:
         await cleanup_test_user(db_session, client_platform_id)
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
+
 async def test_completed_thread_rejects_new_messages(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
@@ -1327,18 +1411,17 @@ async def test_contact_request_rejects_duplicate_active_request(db_session):
 
         assert first.contact_request_id is not None
 
-        try:
-            await service.create_contact_request(
-                tenant_id=tenant_id,
-                from_user_id=client_user_id,
-                specialist_id=specialist.id,
-                message="Hello, please help with this second beta service.",
-                original_language="en",
-            )
-        except ContactChatError as exc:
-            assert "active contact request" in str(exc)
-        else:
-            raise AssertionError("Duplicate active contact request was not rejected")
+        second = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, please help with this second beta service.",
+            original_language="en",
+        )
+
+        assert second.was_existing is True
+        assert second.contact_request_id == first.contact_request_id
+        assert second.thread_id == first.thread_id
 
     finally:
         await cleanup_test_user(db_session, client_platform_id)
@@ -1659,7 +1742,9 @@ def test_contact_request_flow_requires_message_confirmation_before_create():
     )[0]
 
     assert "ContactChatService(ContactChatRepository(session)).create_contact_request" in confirm_handler
-
+    assert "if result.was_existing:" in confirm_handler
+    assert "contact_request_existing" in confirm_handler
+    assert "contact_thread_keyboard(language)" in confirm_handler
 async def test_contact_request_masks_external_contacts_and_logs_detection(db_session):
     client_platform_user_id, client_user_id, tenant_id = await create_test_user(
         db_session,
@@ -1890,6 +1975,15 @@ async def test_thread_visibility_and_unread_are_persisted_per_participant(db_ses
 
         assert visibility.is_archived is True
         assert visibility.is_hidden is True
+        archived_event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == client_user_id,
+                EventLog.event_type == "dialog_archived",
+                EventLog.entity_id == request.thread_id,
+            )
+        )
+        assert archived_event_result.scalar_one_or_none() is not None
+
 
         await service.mark_thread_message_read(
             thread_id=request.thread_id,
@@ -1937,3 +2031,188 @@ def test_client_dialogs_c13_screen_is_wired_to_threads_participant_state():
     assert "client_dialogs_keyboard" in billing_source
     assert "CLIENT_DIALOG_OPEN" in billing_source
     assert "client_dialog_thread_ids" in billing_source
+    assert "dialogs_opened" in billing_source
+    assert "EventRepository(session).create_event" in billing_source
+    assert "for index in range(items_count)" in billing_source
+    assert 'callback_data=f"CLIENT_DIALOG_OPEN:{index}"' in billing_source
+    assert "async def open_client_dialog" in billing_source
+    assert "client_dialog_thread_ids" in billing_source
+    assert "active_thread_id=thread_id" in billing_source
+    assert "contact_thread_keyboard(language)" in billing_source
+    assert "get_thread_detail_for_user" in contact_repo_source
+    assert "ContactThreadDetail" in contact_service_source
+    assert "get_thread_detail" in contact_service_source
+    assert "format_client_thread_detail_text" in billing_source
+    assert "get_thread_detail(" in billing_source
+    assert "client_thread_detail_title" in billing_source
+    assert "client_thread_history_label" in billing_source
+
+def test_client_requests_c15_backend_is_wired_to_contact_requests():
+    contact_repo_source = open("database/repositories/contact.py", encoding="utf-8").read()
+    contact_service_source = open("services/contact_chat.py", encoding="utf-8").read()
+
+    assert "list_contact_requests_for_client" in contact_repo_source
+    assert "ContactRequest.from_user_id == user_id" in contact_repo_source
+    assert "ConversationThread.id.label(\"thread_id\")" in contact_repo_source
+    assert "Specialist.display_name" in contact_repo_source
+    assert "Profession" in contact_repo_source
+
+    assert "ContactRequestListItem" in contact_service_source
+    assert "list_client_requests" in contact_service_source
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "CLIENT_REQUESTS_PAGE_SIZE" in billing_source
+    assert "client_requests_keyboard" in billing_source
+    assert "format_client_requests_text" in billing_source
+    assert "CLIENT_REQUEST_OPEN" in billing_source
+    assert "CLIENT_REQUEST_DIALOG" in billing_source
+    assert "CLIENT_REQUEST_CANCEL" in billing_source
+
+    assert "client_requests_title" in texts_source
+    assert "client_requests_empty" in texts_source
+    assert "client_request_cancelled" in texts_source
+    assert 'F.data == "CLIENT_REQUESTS"' in billing_source
+    assert 'F.data.startswith("CLIENT_REQUESTS:")' in billing_source
+    assert "async def show_client_requests" in billing_source
+    assert "list_client_requests" in billing_source
+    assert "request_list" in billing_source
+    assert "client_request_ids" in billing_source
+    assert "client_request_thread_ids" in billing_source
+    assert "send_client_thread_detail" in billing_source
+    assert "async def open_client_request_dialog" in billing_source
+    assert 'F.data.startswith("CLIENT_REQUEST_DIALOG:")' in billing_source
+    assert "client_request_thread_ids" in billing_source
+    assert "cancel_contact_request_by_client" in contact_repo_source
+    assert "contact_request.status not in" in contact_repo_source
+    assert "request_cancelled" in contact_repo_source
+    assert "cancel_contact_request" in contact_service_source
+    assert "async def cancel_client_request" in billing_source
+    assert 'F.data.startswith("CLIENT_REQUEST_CANCEL:")' in billing_source
+    assert "cancel_contact_request(" in billing_source
+    assert "client_request_cancelled" in billing_source
+    assert "ContactRequestDetail" in contact_service_source
+    assert "get_contact_request_detail_for_client" in contact_repo_source
+    assert "get_client_request_detail" in contact_service_source
+    assert "format_client_request_detail_text" in billing_source
+    assert "async def open_client_request_card" in billing_source
+    assert 'F.data.startswith("CLIENT_REQUEST_OPEN:")' in billing_source
+    assert "client_request_detail_title" in texts_source
+    assert "client_request_card_keyboard" in billing_source
+    assert "CLIENT_REQUEST_CARD_DIALOG:" in billing_source
+    assert "CLIENT_REQUEST_CARD_CANCEL:" in billing_source
+    assert "CLIENT_REQUEST_CARD_FINISH:" in billing_source
+    assert "async def open_client_request_card_dialog" in billing_source
+    assert "async def cancel_client_request_card" in billing_source
+    assert "async def finish_client_request_card" in billing_source
+    assert "request_viewed" in billing_source
+    assert "client_request_status_updated" in texts_source
+    assert "client_request_back_to_requests" in texts_source
+    assert "complete_thread(" in billing_source
+
+async def test_client_can_cancel_only_new_or_accepted_contact_request(db_session):
+    client_platform_id, client_user_id, client_tenant_id = await create_test_user(
+        db_session,
+        prefix="test-contact-client-cancel",
+    )
+    specialist_platform_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    try:
+        service = ContactChatService(ContactChatRepository(db_session))
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, please help with this beta service.",
+            original_language="en",
+        )
+
+        cancelled = await service.cancel_contact_request(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=client_user_id,
+            tenant_id=tenant_id,
+        )
+
+        assert cancelled.status == "rejected"
+        assert cancelled.thread_status == "closed"
+
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == client_user_id,
+                EventLog.event_type == "request_cancelled",
+                EventLog.entity_id == created.contact_request_id,
+            )
+        )
+        assert event_result.scalar_one_or_none() is not None
+
+        try:
+            await service.cancel_contact_request(
+                contact_request_id=created.contact_request_id,
+                actor_user_id=client_user_id,
+                tenant_id=tenant_id,
+            )
+        except ContactChatError as exc:
+            assert "cannot be cancelled" in str(exc)
+        else:
+            raise AssertionError("Cancelled request was cancelled twice")
+
+    finally:
+        await cleanup_test_user(db_session, client_platform_id)
+        await cleanup_test_user(db_session, specialist_platform_id)
+        await cleanup_legal_documents(db_session, tenant_id)
+async def test_client_can_complete_request_thread_from_request_card_backend(db_session):
+    client_platform_id, client_user_id, client_tenant_id = await create_test_user(
+        db_session,
+        prefix="test-contact-client-finish",
+    )
+    specialist_platform_id, specialist_user_id, tenant_id, specialist = (
+        await create_active_specialist_for_contact(db_session)
+    )
+
+    try:
+        service = ContactChatService(ContactChatRepository(db_session))
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Hello, please help with this beta service.",
+            original_language="en",
+        )
+
+        detail = await service.get_client_request_detail(
+            contact_request_id=created.contact_request_id,
+            user_id=client_user_id,
+            language="ru",
+        )
+
+        assert detail.thread_id == created.thread_id
+        assert detail.specialist_name
+        assert detail.message == "Hello, please help with this beta service."
+
+        completed = await service.complete_thread(
+            thread_id=detail.thread_id,
+            actor_user_id=client_user_id,
+        )
+
+        assert completed.status == "completed"
+
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.user_id == client_user_id,
+                EventLog.event_type == "request_completed",
+                EventLog.entity_id == created.contact_request_id,
+            )
+        )
+        event = event_result.scalar_one_or_none()
+
+        assert event is not None
+        assert event.entity_type == "contact_request"
+        assert event.payload["thread_id"] == str(detail.thread_id)
+    finally:
+        await cleanup_test_user(db_session, client_platform_id)
+        await cleanup_test_user(db_session, specialist_platform_id)
+        await cleanup_legal_documents(db_session, tenant_id)

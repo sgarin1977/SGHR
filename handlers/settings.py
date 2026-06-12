@@ -3,6 +3,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from database.repositories.privacy import PrivacyRepository
 from database.repositories.translation import TranslationRepository
+from database.repositories.event import EventRepository
 from database.session import get_session
 from handlers.start import normalize_language, send_global_main_menu
 from services.privacy import PrivacyError, PrivacyService
@@ -93,6 +94,7 @@ async def show_translation_settings(callback: CallbackQuery):
         t("settings_translation_title", language).format(
             interface_language=settings.interface_language,
             message_language=settings.message_language,
+            notifications=t("settings_enabled", language),
             auto_translate=t(
                 "settings_enabled" if settings.auto_translate_enabled else "settings_disabled",
                 language,
@@ -125,6 +127,25 @@ async def get_user_settings_context(callback: CallbackQuery):
 
     return user, language
 
+async def log_settings_changed(
+    *,
+    session,
+    user,
+    setting_name: str,
+    new_value,
+) -> None:
+    await EventRepository(session).create_event(
+        event_type="settings_changed",
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        entity_type="user",
+        entity_id=user.id,
+        payload={
+            "setting": setting_name,
+            "value": new_value,
+        },
+        platform="telegram",
+    )
 
 def privacy_settings_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -207,6 +228,14 @@ async def set_interface_language(callback: CallbackQuery):
             interface_language=interface_language,
         )
         user.language_code = interface_language
+
+        await log_settings_changed(
+            session=session,
+            user=user,
+            setting_name="interface_language",
+            new_value=interface_language,
+        )
+
         await session.commit()
 
     await show_translation_settings(callback)
@@ -226,6 +255,14 @@ async def set_message_language(callback: CallbackQuery):
             user_id=user.id,
             message_language=message_language,
         )
+
+        await log_settings_changed(
+            session=session,
+            user=user,
+            setting_name="message_language",
+            new_value=message_language,
+        )
+
         await session.commit()
 
     await show_translation_settings(callback)
@@ -248,10 +285,19 @@ async def toggle_show_original(callback: CallbackQuery):
 
         repository = TranslationRepository(session)
         settings = await repository.get_language_settings(user.id)
+        new_value = not settings.show_original_button
         await repository.update_language_settings(
             user_id=user.id,
-            show_original_button=not settings.show_original_button,
+            show_original_button=new_value,
         )
+
+        await log_settings_changed(
+            session=session,
+            user=user,
+            setting_name="show_original_button",
+            new_value=new_value,
+        )
+
         await session.commit()
 
     await show_translation_settings(callback)

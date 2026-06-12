@@ -79,7 +79,8 @@ class FavoriteRepository:
         *,
         tenant_id: UUID,
         user_id: UUID,
-        limit: int = 20,
+        limit: int = 10,
+        offset: int = 0,
     ) -> list[Specialist]:
         result = await self.session.execute(
             select(Specialist)
@@ -95,6 +96,7 @@ class FavoriteRepository:
             )
             .order_by(SavedSpecialist.created_at.desc())
             .limit(limit)
+            .offset(offset)
         )
         return list(result.scalars().all())
 

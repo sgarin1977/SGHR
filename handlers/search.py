@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 PER_PAGE = 5
 DEFAULT_RADIUS_KM = 25
 CATEGORY_PAGE_SIZE = 8
+PUBLIC_REVIEW_PAGE_SIZE = 5
 
 class SpecialistSearchFSM(StatesGroup):
     choosing_category = State()
@@ -285,7 +286,10 @@ async def resume_post_auth_action(
             reply_markup=complaint_reason_keyboard(language),
         )
         return True
-
+    if action == "reviews":
+        await state.set_state(SpecialistSearchFSM.viewing_results)
+        await message.answer(t("auth_action_restored", language))
+        return True
     return False
 
 def callback_index(callback: CallbackQuery) -> int | None:
@@ -459,90 +463,331 @@ def card_keyboard(language: str, results_page: int = 0) -> InlineKeyboardMarkup:
         ]
     )
 
+def public_portfolio_caption(view, language: str) -> str:
+    is_photo = view.storage_object.file_type == "photo"
+    label = t(
+        (
+            "portfolio_photo_label"
+            if is_photo
+            else "portfolio_pdf_label"
+        ),
+        language,
+    )
+
+    title = view.item.title or label
+    description = (view.item.description or "").strip()
+
+    lines = [
+        t("public_portfolio_title", language),
+        f"{label}: {title}",
+    ]
+
+    if description:
+        lines.append(description)
+
+    return "\n".join(lines)
+
+
 def public_portfolio_keyboard(
+    *,
     signed_url: str,
     language: str,
+    page: int,
+    has_previous: bool,
+    has_next: bool,
+    results_page: int,
 ) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=t("portfolio_open_button", language),
-                    url=signed_url,
-                )
-            ]
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("portfolio_open_button", language),
+                url=signed_url,
+            )
+        ]
+    ]
+
+    nav = []
+    if has_previous:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("prev_btn", language),
+                callback_data=f"search_portfolio_page:{page - 1}",
+            )
+        )
+    if has_next:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("next_btn", language),
+                callback_data=f"search_portfolio_page:{page + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("public_portfolio_report_btn", language),
+                callback_data="search_portfolio_report",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_back", language),
+                callback_data=f"search_result_back_to_card:{results_page}",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="search_menu",
+            )
         ]
     )
 
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
-async def send_public_portfolio(
-    message,
+def format_public_reviews(review_page, language: str) -> str:
+    if review_page.reputation and review_page.reputation.review_count:
+        score = float(review_page.reputation.score or 0)
+        rating_line = t("public_reviews_summary", language).format(
+            rating=f"{score:.1f}",
+            count=review_page.reputation.review_count,
+        )
+    else:
+        rating_line = t("public_reviews_summary", language).format(
+            rating="0.0",
+            count=0,
+        )
+
+    lines = [
+        t("public_reviews_title", language),
+        rating_line,
+        "",
+    ]
+
+    if not review_page.reviews:
+        lines.append(t("public_reviews_empty", language))
+        return "\n".join(lines)
+
+    start_number = review_page.page * review_page.page_size + 1
+
+    for index, review in enumerate(review_page.reviews, start=start_number):
+        text = (review.text or "").strip() or t("public_review_without_text", language)
+        lines.append(
+            t("public_review_item", language).format(
+                number=index,
+                rating=review.rating,
+                text=text,
+            )
+        )
+
+        if review.specialist_reply:
+            lines.append(
+                t("public_review_specialist_reply", language).format(
+                    reply=review.specialist_reply,
+                )
+            )
+
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def public_reviews_keyboard(
     *,
-    tenant_id: UUID,
-    specialist_id: UUID,
     language: str,
+    page: int,
+    has_previous: bool,
+    has_next: bool,
+    reviews_count: int,
+    results_page: int,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    nav = []
+    if has_previous:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("prev_btn", language),
+                callback_data=f"search_reviews_page:{page - 1}",
+            )
+        )
+    if has_next:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("next_btn", language),
+                callback_data=f"search_reviews_page:{page + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    for index in range(reviews_count):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("public_review_report_btn", language).format(
+                        number=index + 1,
+                    ),
+                    callback_data=f"search_review_report:{index}",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_back", language),
+                callback_data=f"search_result_back_to_card:{results_page}",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="search_menu",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+async def render_public_portfolio(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    page: int = 0,
 ) -> None:
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+
+    specialist_id = data.get("selected_specialist_id")
+    if not specialist_id:
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not requester_user_id or not tenant_id:
+        await store_post_auth_action(
+            callback=callback,
+            state=state,
+            action="portfolio",
+            language=language,
+        )
+        return
+
     try:
         async with get_session() as session:
             items = await PortfolioService(
                 PortfolioRepository(session)
             ).list_active_items(
                 tenant_id=tenant_id,
-                specialist_id=specialist_id,
+                specialist_id=UUID(specialist_id),
             )
+
+            await EventRepository(session).create_event(
+                tenant_id=tenant_id,
+                user_id=requester_user_id,
+                event_type="portfolio_viewed",
+                entity_type="specialist",
+                entity_id=UUID(specialist_id),
+                payload={
+                    "page": max(int(page), 0),
+                    "total_count": len(items),
+                },
+                platform="telegram",
+            )
+            await session.commit()
     except PortfolioServiceError as exc:
         logger.warning(
-            "public_portfolio_load_failed "
-            "specialist_id=%s error=%s",
+            "public_portfolio_load_failed specialist_id=%s error=%s",
             specialist_id,
             exc,
         )
+        await callback.answer(str(exc), show_alert=True)
         return
 
     if not items:
+        await state.update_data(
+            public_portfolio_page=0,
+            public_portfolio_item_ids=[],
+        )
+        await show_callback_message(
+            callback,
+            t("public_portfolio_empty", language),
+            InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t("search_back", language),
+                            callback_data=f"search_result_back_to_card:{int(data.get('results_page') or 0)}",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t("search_menu", language),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
+        await callback.answer()
         return
 
-    await message.answer(t("portfolio_title", language))
+    normalized_page = max(0, min(int(page), len(items) - 1))
+    view = items[normalized_page]
 
-    for view in items:
-        is_photo = view.storage_object.file_type == "photo"
+    await state.update_data(
+        public_portfolio_page=normalized_page,
+        public_portfolio_item_ids=[str(item.item.id) for item in items],
+        pending_report_target_type="portfolio_item",
+        pending_report_target_id=str(view.item.id),
+    )
 
-        label = t(
-            (
-                "portfolio_photo_label"
-                if is_photo
-                else "portfolio_pdf_label"
-            ),
-            language,
-        )
+    keyboard = public_portfolio_keyboard(
+        signed_url=view.signed_url,
+        language=language,
+        page=normalized_page,
+        has_previous=normalized_page > 0,
+        has_next=normalized_page + 1 < len(items),
+        results_page=int(data.get("results_page") or 0),
+    )
 
-        title = view.item.title or label
-        text = f"{label}: {title}"
+    caption = public_portfolio_caption(view, language)
 
-        keyboard = public_portfolio_keyboard(
-            view.signed_url,
-            language,
-        )
-
-        if is_photo:
-            try:
-                await message.answer_photo(
-                    photo=view.signed_url,
-                    caption=text,
-                    reply_markup=keyboard,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "public_portfolio_photo_send_failed "
-                    "item_id=%s error=%s",
-                    view.item.id,
-                    exc,
-                )
-        else:
-            await message.answer(
-                text,
+    if view.storage_object.file_type == "photo":
+        try:
+            await callback.message.answer_photo(
+                photo=view.signed_url,
+                caption=caption,
                 reply_markup=keyboard,
             )
+        except Exception as exc:
+            logger.warning(
+                "public_portfolio_photo_send_failed item_id=%s error=%s",
+                view.item.id,
+                exc,
+            )
+            await show_callback_message(
+                callback,
+                caption,
+                keyboard,
+            )
+    else:
+        await show_callback_message(
+            callback,
+            caption,
+            keyboard,
+        )
+
+    await callback.answer()
 
 def complaint_reason_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -607,9 +852,13 @@ def contact_thread_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=t("contact_reply_btn", language), callback_data="contact_reply")],
-            [InlineKeyboardButton(text=t("contact_show_original_btn", language), callback_data="contact_show_original")],
+            [
+                InlineKeyboardButton(text=t("contact_archive_btn", language), callback_data="contact_archive"),
+                InlineKeyboardButton(text=t("contact_hide_btn", language), callback_data="contact_hide"),
+            ],
             [InlineKeyboardButton(text=t("contact_finish_btn", language), callback_data="contact_finish")],
             [InlineKeyboardButton(text=t("contact_report_btn", language), callback_data="search_report_pending")],
+            [InlineKeyboardButton(text=t("contact_back_to_dialogs_btn", language), callback_data="CLIENT_DIALOGS")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
@@ -680,10 +929,64 @@ def review_skip_text_keyboard(language: str) -> InlineKeyboardMarkup:
 def contact_message_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=t("contact_send_confirm", language), callback_data="contact_send_confirm")],
-            [InlineKeyboardButton(text=t("search_back", language), callback_data="contact_disclaimer_continue")],
-            [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            [
+                InlineKeyboardButton(
+                    text=t("contact_check_draft_btn", language),
+                    callback_data="contact_draft_check",
+                ),
+                InlineKeyboardButton(
+                    text=t("contact_edit_draft_btn", language),
+                    callback_data="contact_draft_edit",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("contact_send_confirm", language),
+                    callback_data="contact_send_confirm",
+                ),
+                InlineKeyboardButton(
+                    text=t("contact_cancel_btn", language),
+                    callback_data="search_contact_cancel",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
         ]
+    )
+
+async def format_contact_draft_summary(
+    *,
+    specialist_id: str,
+    message_text: str,
+    distance_km,
+    language: str,
+) -> str:
+    specialist_name = t("search_filter_not_set", language)
+    profession = t("search_filter_not_set", language)
+
+    async with get_session() as session:
+        card = await GeoSearchService(
+            SpecialistSearchRepository(session)
+        ).get_public_card(
+            specialist_id=UUID(specialist_id),
+            distance_km=distance_km,
+            log_event=False,
+            language=language,
+        )
+
+    if card:
+        specialist_name = card.display_name
+        profession = card.profession_name or profession
+
+    return t("contact_draft_summary", language).format(
+        specialist=specialist_name,
+        profession=profession,
+        message=message_text,
+        disclaimer=t("contact_disclaimer_text", language),
     )
 
 async def translate_message_for_notification(
@@ -1026,8 +1329,24 @@ def empty_results_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
 
     rows.extend(
         [
-            [InlineKeyboardButton(text=t("search_empty_reset_profession", language), callback_data="search_empty_reset_profession")],
-            [InlineKeyboardButton(text=t("search_empty_reset_all", language), callback_data="search_reset_filters")],
+            [
+                InlineKeyboardButton(
+                    text=t("search_empty_reset_price", language),
+                    callback_data="search_empty_reset_price",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_location_without", language),
+                    callback_data="search_location_without",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_empty_reset_all", language),
+                    callback_data="search_reset_filters",
+                )
+            ],
             [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
@@ -1333,6 +1652,31 @@ async def render_results(
     )
 
     if not visible_results:
+        if requester_user_id and tenant_id:
+            async with get_session() as session:
+                await EventRepository(session).create_event(
+                    event_type="empty_search",
+                    tenant_id=tenant_id,
+                    user_id=requester_user_id,
+                    entity_type="search",
+                    entity_id=None,
+                    payload={
+                        "page": page,
+                        "category_id": data.get("category_id"),
+                        "profession_id": data.get("profession_id"),
+                        "city_id": data.get("city_id"),
+                        "location_state": data.get("location_state"),
+                        "radius_km": data.get("radius_km"),
+                        "country_wide": bool(data.get("country_wide")),
+                        "price_min": data.get("price_min"),
+                        "price_max": data.get("price_max"),
+                        "language_code": data.get("language_code"),
+                        "work_format": data.get("work_format"),
+                    },
+                    platform="telegram",
+                )
+                await session.commit()
+
         text = format_empty_results_text(data, language)
         keyboard = empty_results_keyboard(data, language)
     else:
@@ -2273,6 +2617,14 @@ async def empty_increase_radius(callback: CallbackQuery, state: FSMContext):
 
     await render_results(event=callback, state=state, page=0)
 
+@search_router.callback_query(F.data == "search_empty_reset_price")
+async def empty_reset_price(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(
+        price_min=None,
+        price_max=None,
+        page=0,
+    )
+    await render_results(event=callback, state=state, page=0)
 
 @search_router.callback_query(F.data == "search_empty_reset_profession")
 async def empty_reset_profession(callback: CallbackQuery, state: FSMContext):
@@ -2456,59 +2808,189 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
 
 @search_router.callback_query(F.data == "search_portfolio_pending")
 async def show_selected_specialist_portfolio(callback: CallbackQuery, state: FSMContext):
+    await render_public_portfolio(callback, state, page=0)
+
+
+@search_router.callback_query(F.data.startswith("search_portfolio_page:"))
+async def show_selected_specialist_portfolio_page(callback: CallbackQuery, state: FSMContext):
+    try:
+        page = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        page = 0
+
+    await render_public_portfolio(callback, state, page=page)
+
+@search_router.callback_query(F.data == "search_portfolio_report")
+async def report_public_portfolio_item(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = await get_search_language(state, callback)
 
-    specialist_id = data.get("selected_specialist_id")
-    if not specialist_id:
+    item_ids = data.get("public_portfolio_item_ids") or []
+    page = int(data.get("public_portfolio_page") or 0)
+
+    if page < 0 or page >= len(item_ids):
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
 
-    _requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not tenant_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    await send_public_portfolio(
-        callback.message,
-        tenant_id=tenant_id,
-        specialist_id=UUID(specialist_id),
-        language=language,
+    await state.update_data(
+        pending_report_target_type="portfolio_item",
+        pending_report_target_id=item_ids[page],
     )
-    await callback.answer()
-
-@search_router.callback_query(F.data == "search_reviews_pending")
-async def show_selected_specialist_reviews(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-
-    specialist_id = data.get("selected_specialist_id")
-    if not specialist_id:
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
-        return
 
     await show_callback_message(
         callback,
-        t("reviews_opening", language),
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t("search_back", language),
-                        callback_data=f"search_results_page:{int(data.get('results_page') or 0)}",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("search_menu", language),
-                        callback_data="search_menu",
-                    )
-                ],
-            ]
+        t("complaint_reason_prompt", language),
+        complaint_reason_keyboard(language),
+    )
+    await callback.answer()
+
+async def render_selected_specialist_reviews(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    page: int = 0,
+):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+
+    specialist_id = data.get("selected_specialist_id")
+    if not specialist_id:
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not requester_user_id or not tenant_id:
+        await store_post_auth_action(
+            callback=callback,
+            state=state,
+            action="reviews",
+            language=language,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            review_page = await ReviewService(
+                ReviewRepository(session)
+            ).list_public_reviews_for_specialist(
+                tenant_id=tenant_id,
+                specialist_id=UUID(specialist_id),
+                page=page,
+                page_size=PUBLIC_REVIEW_PAGE_SIZE,
+            )
+
+            await EventRepository(session).create_event(
+                tenant_id=tenant_id,
+                user_id=requester_user_id,
+                event_type="reviews_viewed",
+                entity_type="specialist",
+                entity_id=UUID(specialist_id),
+                payload={
+                    "page": review_page.page,
+                    "total_count": review_page.total_count,
+                },
+                platform="telegram",
+            )
+            await session.commit()
+    except ReviewServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await state.update_data(
+        public_reviews_page=review_page.page,
+        public_review_ids=[str(review.id) for review in review_page.reviews],
+    )
+
+    await show_callback_message(
+        callback,
+        format_public_reviews(review_page, language),
+        public_reviews_keyboard(
+            language=language,
+            page=review_page.page,
+            has_previous=review_page.has_previous,
+            has_next=review_page.has_next,
+            reviews_count=len(review_page.reviews),
+            results_page=int(data.get("results_page") or 0),
         ),
     )
     await callback.answer()
- 
+
+
+@search_router.callback_query(F.data == "search_reviews_pending")
+async def show_selected_specialist_reviews(callback: CallbackQuery, state: FSMContext):
+    await render_selected_specialist_reviews(callback, state, page=0)
+
+
+@search_router.callback_query(F.data.startswith("search_reviews_page:"))
+async def show_selected_specialist_reviews_page(callback: CallbackQuery, state: FSMContext):
+    try:
+        page = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        page = 0
+
+    await render_selected_specialist_reviews(callback, state, page=page)
+
+@search_router.callback_query(F.data.startswith("search_review_report:"))
+async def report_public_review(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        await callback.answer()
+        return
+
+    review_ids = data.get("public_review_ids") or []
+    if index < 0 or index >= len(review_ids):
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    await state.update_data(
+        pending_report_target_type="review",
+        pending_report_target_id=review_ids[index],
+    )
+
+    await show_callback_message(
+        callback,
+        t("complaint_reason_prompt", language),
+        complaint_reason_keyboard(language),
+    )
+    await callback.answer()
+
+@search_router.callback_query(F.data.startswith("search_result_back_to_card:"))
+async def back_to_selected_specialist_card(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+
+    specialist_id = data.get("selected_specialist_id")
+    if not specialist_id:
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    async with get_session() as session:
+        card = await GeoSearchService(
+            SpecialistSearchRepository(session)
+        ).get_public_card(
+            specialist_id=UUID(specialist_id),
+        )
+
+    if not card:
+        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        return
+
+    try:
+        results_page = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        results_page = int(data.get("results_page") or 0)
+
+    await show_callback_message(
+        callback,
+        format_public_card(card, language),
+        card_keyboard(language, results_page),
+    )
+    await callback.answer()
+
 @search_router.callback_query(F.data == "search_contact_pending")
 async def contact_start(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -2517,6 +2999,11 @@ async def contact_start(callback: CallbackQuery, state: FSMContext):
     if not data.get("selected_specialist_id"):
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
+
+    await state.update_data(
+        pending_report_target_type="specialist",
+        pending_report_target_id=data.get("selected_specialist_id"),
+    )
 
     await show_callback_message(
         callback,
@@ -2594,10 +3081,70 @@ async def receive_contact_message(message: Message, state: FSMContext):
     await state.update_data(pending_contact_message=text)
     await state.set_state(SpecialistSearchFSM.confirming_contact_message)
 
+    draft_text = await format_contact_draft_summary(
+        specialist_id=data["selected_specialist_id"],
+        message_text=text,
+        distance_km=data.get("selected_specialist_distance"),
+        language=language,
+    )
+
     await message.answer(
-        t("contact_message_confirm_prompt", language).format(message=text),
+        draft_text,
         reply_markup=contact_message_confirm_keyboard(language),
     )
+
+@search_router.callback_query(F.data == "contact_draft_check")
+async def check_contact_draft(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+    message_text = (data.get("pending_contact_message") or "").strip()
+
+    if len(message_text) < 10:
+        await callback.answer(t("contact_message_too_short", language), show_alert=True)
+        await state.set_state(SpecialistSearchFSM.entering_contact_message)
+        return
+
+    draft_text = await format_contact_draft_summary(
+        specialist_id=data["selected_specialist_id"],
+        message_text=message_text,
+        distance_km=data.get("selected_specialist_distance"),
+        language=language,
+    )
+
+    await show_callback_message(
+        callback,
+        draft_text,
+        contact_message_confirm_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data == "contact_draft_edit")
+async def edit_contact_draft(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+
+    await show_callback_message(
+        callback,
+        t("contact_request_prompt", language),
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_cancel_btn", language),
+                        callback_data="search_contact_cancel",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="search_menu",
+                    )
+                ],
+            ]
+        ),
+    )
+    await state.set_state(SpecialistSearchFSM.entering_contact_message)
+    await callback.answer()
 
 @search_router.callback_query(F.data == "contact_send_confirm")
 async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
@@ -2642,7 +3189,20 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
                 message=message_text,
                 original_language=language,
             )
+            if result.was_existing:
+                await state.update_data(
+                    active_contact_request_id=str(result.contact_request_id),
+                    active_thread_id=str(result.thread_id),
+                    pending_contact_message=None,
+                )
+                await state.set_state(SpecialistSearchFSM.viewing_results)
 
+                await callback.message.answer(
+                    t("contact_request_existing", language),
+                    reply_markup=contact_thread_keyboard(language),
+                )
+                await callback.answer()
+                return
             specialist_user = await session.get(User, result.specialist_user_id)
             if specialist_user:
                 specialist_language = normalize_language(specialist_user.language_code)
@@ -2868,6 +3428,70 @@ async def start_thread_reply(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SpecialistSearchFSM.entering_thread_message)
     await callback.answer()
 
+@search_router.callback_query(F.data == "contact_archive")
+async def archive_contact_thread(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+    thread_id = data.get("active_thread_id")
+
+    if not thread_id:
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not user_id or not tenant_id:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            await ContactChatService(ContactChatRepository(session)).set_thread_visibility(
+                thread_id=UUID(thread_id),
+                user_id=user_id,
+                is_archived=True,
+            )
+    except ContactChatError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("contact_thread_archived", language),
+        reply_markup=contact_thread_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data == "contact_hide")
+async def hide_contact_thread(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+    thread_id = data.get("active_thread_id")
+
+    if not thread_id:
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not user_id or not tenant_id:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            await ContactChatService(ContactChatRepository(session)).set_thread_visibility(
+                thread_id=UUID(thread_id),
+                user_id=user_id,
+                is_hidden=True,
+            )
+    except ContactChatError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("contact_thread_hidden", language),
+        reply_markup=contact_thread_keyboard(language),
+    )
+    await callback.answer()
 
 @search_router.message(SpecialistSearchFSM.entering_thread_message)
 async def receive_thread_message(message: Message, state: FSMContext):
@@ -2968,8 +3592,10 @@ async def favorite_pending(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = await get_search_language(state, callback)
     specialist_id = data.get("selected_specialist_id")
+    target_type = data.get("pending_report_target_type") or "specialist"
+    target_id = data.get("pending_report_target_id") or specialist_id
 
-    if not specialist_id:
+    if not target_id:
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
 
@@ -3092,8 +3718,10 @@ async def create_search_complaint(
         or event.from_user.language_code
     )
     specialist_id = data.get("selected_specialist_id")
+    target_type = data.get("pending_report_target_type") or "specialist"
+    target_id = data.get("pending_report_target_id") or specialist_id
 
-    if not specialist_id:
+    if not target_id:
         if isinstance(event, CallbackQuery):
             await event.answer(t("search_contact_no_specialist", language), show_alert=True)
         else:
@@ -3118,24 +3746,26 @@ async def create_search_complaint(
             ).create_complaint(
                 tenant_id=tenant_id,
                 reporter_user_id=reporter_user_id,
-                target_type="specialist",
-                target_id=UUID(specialist_id),
+                target_type=target_type,
+                target_id=UUID(target_id),
                 reason=reason,
                 comment=comment,
             )
 
         logger.info(
-            "complaint_created telegram_id=%s reporter_user_id=%s specialist_id=%s reason=%s",
+            "complaint_created telegram_id=%s reporter_user_id=%s target_type=%s target_id=%s reason=%s",
             event.from_user.id,
             reporter_user_id,
-            specialist_id,
+            target_type,
+            target_id,
             reason,
         )
     except ModerationError as exc:
         logger.warning(
-            "complaint_create_failed telegram_id=%s specialist_id=%s reason=%s error=%s",
+            "complaint_create_failed telegram_id=%s target_type=%s target_id=%s reason=%s error=%s",
             event.from_user.id,
-            specialist_id,
+            target_type,
+            target_id,
             reason,
             exc,
         )
@@ -3147,6 +3777,8 @@ async def create_search_complaint(
 
     await state.update_data(
         pending_report_reason=None,
+        pending_report_target_type=None,
+        pending_report_target_id=None,
         page=data.get("page") or 0,
     )
     await state.set_state(SpecialistSearchFSM.viewing_results)

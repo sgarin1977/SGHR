@@ -15,6 +15,53 @@ class ReviewRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+
+    async def get_specialist_reputation(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+    ) -> ReputationScore | None:
+        result = await self.session.execute(
+            select(ReputationScore).where(
+                ReputationScore.tenant_id == tenant_id,
+                ReputationScore.target_type == "specialist",
+                ReputationScore.target_id == specialist_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_public_reviews_for_specialist(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        limit: int = 5,
+        offset: int = 0,
+    ) -> tuple[list[Review], int]:
+        normalized_limit = max(1, min(int(limit), 10))
+        normalized_offset = max(int(offset), 0)
+
+        filters = (
+            Review.tenant_id == tenant_id,
+            Review.target_type == "specialist",
+            Review.target_id == specialist_id,
+            Review.status == "published",
+        )
+
+        reviews_result = await self.session.execute(
+            select(Review)
+            .where(*filters)
+            .order_by(Review.created_at.desc())
+            .offset(normalized_offset)
+            .limit(normalized_limit)
+        )
+        count_result = await self.session.execute(
+            select(func.count(Review.id)).where(*filters)
+        )
+
+        return list(reviews_result.scalars().all()), int(count_result.scalar_one() or 0)
+
     async def get_completed_contact_request_for_review(
         self,
         *,

@@ -517,3 +517,17 @@ async def test_show_original_returns_original_only_for_thread_participant(db_ses
         await cleanup_test_user(db_session, data["client_platform_id"])
         await cleanup_test_user(db_session, data["specialist_platform_id"])
         await cleanup_legal_documents(db_session, data["tenant_id"])
+
+def test_client_settings_c17_logs_settings_changed_without_new_tables():
+    source = open("handlers/settings.py", encoding="utf-8").read()
+
+    assert "EventRepository" in source
+    assert "async def log_settings_changed" in source
+    assert 'event_type="settings_changed"' in source
+    assert 'setting_name="interface_language"' in source
+    assert 'setting_name="message_language"' in source
+    assert 'setting_name="show_original_button"' in source
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "{notifications}" in texts_source
+    assert "notifications=t(\"settings_enabled\", language)" in source

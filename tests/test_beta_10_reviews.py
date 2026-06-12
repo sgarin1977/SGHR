@@ -299,6 +299,63 @@ async def test_review_moderation_can_publish_and_hide_review(db_session):
         await cleanup_test_user(db_session, client_platform_user_id)
         await cleanup_test_user(db_session, specialist_platform_user_id)
 
+
+async def test_public_reviews_list_only_published_visible_reviews(db_session):
+    (
+        client_platform_user_id,
+        client_user_id,
+        specialist_platform_user_id,
+        specialist_user_id,
+        tenant_id,
+        specialist_id,
+        contact_request_id,
+    ) = await create_completed_contact_request(db_session)
+
+    try:
+        service = ReviewService(ReviewRepository(db_session))
+
+        published_review = await service.create_contact_review(
+            tenant_id=tenant_id,
+            reviewer_user_id=client_user_id,
+            contact_request_id=contact_request_id,
+            rating=5,
+            text="Visible public review",
+        )
+        await service.publish_review(review_id=published_review.id)
+
+        hidden_review = Review(
+            tenant_id=tenant_id,
+            reviewer_user_id=client_user_id,
+            target_type="specialist",
+            target_id=specialist_id,
+            context_type=None,
+            context_id=None,
+            rating=1,
+            text="Hidden review must not be public",
+            status="hidden",
+        )
+        db_session.add(hidden_review)
+        await db_session.commit()
+
+        public_page = await service.list_public_reviews_for_specialist(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+            page=0,
+            page_size=5,
+        )
+
+        assert public_page.total_count == 1
+        assert public_page.reputation is not None
+        assert public_page.reputation.review_count == 1
+        assert len(public_page.reviews) == 1
+        assert public_page.reviews[0].id == published_review.id
+        assert public_page.reviews[0].text == "Visible public review"
+        assert all(review.status == "published" for review in public_page.reviews)
+    finally:
+        await cleanup_reviews_for_specialist(db_session, specialist_id)
+        await cleanup_test_user(db_session, client_platform_user_id)
+        await cleanup_test_user(db_session, specialist_platform_user_id)
+
 def test_beta_10_reviews_static_contract():
     models_source = open("database/models.py", encoding="utf-8").read()
     repository_source = open("database/repositories/reviews.py", encoding="utf-8").read()
@@ -306,6 +363,7 @@ def test_beta_10_reviews_static_contract():
     admin_source = open("handlers/admin.py", encoding="utf-8").read()
     texts_source = open("ui/texts.py", encoding="utf-8").read()
     search_source = open("handlers/search.py", encoding="utf-8").read()
+    moderation_source = open("services/moderation.py", encoding="utf-8").read()
     for fragment in [
         "class Review",
         '__tablename__ = "reviews"',
@@ -323,6 +381,8 @@ def test_beta_10_reviews_static_contract():
         "get_completed_contact_request_for_review",
         "get_existing_contact_review",
         "list_pending_reviews",
+        "get_specialist_reputation",
+        "list_public_reviews_for_specialist",
         "publish_review",
         "reject_review",
         "hide_review",
@@ -336,8 +396,10 @@ def test_beta_10_reviews_static_contract():
 
     for fragment in [
         "class ReviewService",
+        "PublicReviewPage",
         "create_contact_review",
         "list_pending_reviews",
+        "list_public_reviews_for_specialist",
         "moderate_review",
         "publish_review",
         "reject_review",
@@ -346,7 +408,6 @@ def test_beta_10_reviews_static_contract():
         "_normalize_reason",
     ]:
         assert fragment in service_source
-
     for fragment in [
         "ADM_REVIEWS",
         "ADM_RV_APPROVE:",
@@ -376,6 +437,15 @@ def test_beta_10_reviews_static_contract():
         "ReviewRepository(session)",
         "create_contact_review",
         "active_contact_request_id",
+        "format_public_reviews",
+        "public_reviews_keyboard",
+        "render_selected_specialist_reviews",
+        "search_reviews_page:",
+        "search_review_report:",
+        "reviews_viewed",
+        "public_review_ids",
+        "pending_report_target_type",
+        "pending_report_target_id",
     ]:
         assert fragment in search_source
 
@@ -390,5 +460,12 @@ def test_beta_10_reviews_static_contract():
         "review_skip_text_btn",
         "review_created",
         "review_error",
+        "public_reviews_title",
+        "public_reviews_summary",
+        "public_reviews_empty",
+        "public_review_item",
+        "public_review_report_btn",
     ]:
         assert fragment in texts_source
+
+    assert '"review"' in moderation_source

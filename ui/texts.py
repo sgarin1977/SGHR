@@ -1387,18 +1387,21 @@ translations = {
             "Язык сообщений: {message_language}\n"
             "Автоперевод: {auto_translate}\n"
             "Кнопка оригинала: {show_original}"
+            "Уведомления: {notifications}\n"
         ),
         "en": (
             "Translation settings:\n\n"
             "Message language: {message_language}\n"
             "Auto-translation: {auto_translate}\n"
             "Show original button: {show_original}"
+            "Notifications: {notifications}\n"
         ),
         "pt": (
             "Configurações de tradução:\n\n"
             "Idioma das mensagens: {message_language}\n"
             "Tradução automática: {auto_translate}\n"
             "Botão de original: {show_original}"
+            "Notificacoes: {notifications}\n"
         ),
     },
     "settings_message_language_ru": {
@@ -2939,6 +2942,201 @@ translations = {
         "ru": "Отзывы специалиста",
         "en": "Specialist reviews",
         "pt": "Avaliacoes do especialista",
+    },
+    "search_empty_reset_price": {
+        "ru": "Сбросить цену",
+        "en": "Reset price",
+        "pt": "Limpar preco",
+    },
+    "contact_check_draft_btn": {
+        "ru": "Проверить",
+        "en": "Check",
+        "pt": "Verificar",
+    },
+    "contact_edit_draft_btn": {
+        "ru": "Изменить",
+        "en": "Edit",
+        "pt": "Editar",
+    },
+    "contact_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "contact_draft_summary": {
+        "ru": "Проверьте заявку:\n\nСпециалист: {specialist}\nПрофессия: {profession}\nЗадача: {message}\n\n{disclaimer}",
+        "en": "Check the request:\n\nSpecialist: {specialist}\nProfession: {profession}\nTask: {message}\n\n{disclaimer}",
+        "pt": "Verifique o pedido:\n\nEspecialista: {specialist}\nProfissao: {profession}\nTarefa: {message}\n\n{disclaimer}",
+    },
+    "contact_request_existing": {
+        "ru": "У вас уже есть активная заявка к этому специалисту. Открываю диалог.",
+        "en": "You already have an active request with this specialist. Opening the thread.",
+        "pt": "Voce ja tem um pedido ativo com este especialista. Abrindo o dialogo.",
+    },
+    "client_dialog_opened": {
+        "ru": "Диалог открыт.",
+        "en": "Thread opened.",
+        "pt": "Dialogo aberto.",
+    },
+    "client_thread_detail_title": {
+        "ru": "Открытый диалог",
+        "en": "Open thread",
+        "pt": "Dialogo aberto",
+    },
+    "client_thread_specialist_label": {
+        "ru": "Специалист",
+        "en": "Specialist",
+        "pt": "Especialista",
+    },
+    "client_thread_request_label": {
+        "ru": "Заявка",
+        "en": "Request",
+        "pt": "Pedido",
+    },
+    "client_thread_history_label": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Historico",
+    },
+    "client_thread_no_messages": {
+        "ru": "Сообщений пока нет. Текст заявки показан выше.",
+        "en": "No messages yet. The request text is shown above.",
+        "pt": "Ainda nao ha mensagens. O texto do pedido esta acima.",
+    },
+    "contact_archive_btn": {
+        "ru": "Архивировать",
+        "en": "Archive",
+        "pt": "Arquivar",
+    },
+    "contact_hide_btn": {
+        "ru": "Скрыть",
+        "en": "Hide",
+        "pt": "Ocultar",
+    },
+    "contact_back_to_dialogs_btn": {
+        "ru": "К диалогам",
+        "en": "To dialogs",
+        "pt": "Para dialogos",
+    },
+    "contact_thread_archived": {
+        "ru": "Диалог перенесен в архив.",
+        "en": "Thread moved to archive.",
+        "pt": "Dialogo movido para o arquivo.",
+    },
+    "contact_thread_hidden": {
+        "ru": "Диалог скрыт.",
+        "en": "Thread hidden.",
+        "pt": "Dialogo ocultado.",
+    },
+    "client_requests_title": {
+        "ru": "Мои заявки",
+        "en": "My requests",
+        "pt": "Meus pedidos",
+    },
+    "client_requests_empty": {
+        "ru": "Заявок пока нет.",
+        "en": "No requests yet.",
+        "pt": "Ainda nao ha pedidos.",
+    },
+    "client_request_open": {
+        "ru": "Открыть",
+        "en": "Open",
+        "pt": "Abrir",
+    },
+    "client_request_dialog": {
+        "ru": "Диалог",
+        "en": "Thread",
+        "pt": "Dialogo",
+    },
+    "client_request_cancel": {
+        "ru": "Отменить",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "client_request_date": {
+        "ru": "Дата",
+        "en": "Date",
+        "pt": "Data",
+    },
+    "client_request_cancelled": {
+        "ru": "Заявка отменена.",
+        "en": "Request cancelled.",
+        "pt": "Pedido cancelado.",
+    },
+    "client_request_detail_title": {
+        "ru": "Карточка заявки",
+        "en": "Request card",
+        "pt": "Cartao do pedido",
+    },
+    "public_reviews_title": {
+        "ru": "Отзывы специалиста",
+        "en": "Specialist reviews",
+        "pt": "Avaliacoes do especialista",
+    },
+    "public_reviews_summary": {
+        "ru": "Рейтинг: {rating}\nОтзывов: {count}",
+        "en": "Rating: {rating}\nReviews: {count}",
+        "pt": "Avaliacao: {rating}\nAvaliacoes: {count}",
+    },
+    "public_reviews_empty": {
+        "ru": "Отзывов пока нет",
+        "en": "No reviews yet",
+        "pt": "Ainda nao ha avaliacoes",
+    },
+    "public_review_item": {
+        "ru": "{number}. Оценка: {rating}/5\n{text}",
+        "en": "{number}. Rating: {rating}/5\n{text}",
+        "pt": "{number}. Avaliacao: {rating}/5\n{text}",
+    },
+    "public_review_without_text": {
+        "ru": "Без текста",
+        "en": "No text",
+        "pt": "Sem texto",
+    },
+    "public_review_specialist_reply": {
+        "ru": "Ответ специалиста: {reply}",
+        "en": "Specialist reply: {reply}",
+        "pt": "Resposta do especialista: {reply}",
+    },
+    "public_review_report_btn": {
+        "ru": "Жалоба на отзыв {number}",
+        "en": "Report review {number}",
+        "pt": "Denunciar avaliacao {number}",
+    },
+    "prev_btn": {
+        "ru": "Пред.",
+        "en": "Prev",
+        "pt": "Ant.",
+    },
+    "next_btn": {
+        "ru": "След.",
+        "en": "Next",
+        "pt": "Prox.",
+    },
+    "public_portfolio_title": {
+        "ru": "Портфолио специалиста",
+        "en": "Specialist portfolio",
+        "pt": "Portfolio do especialista",
+    },
+    "public_portfolio_empty": {
+        "ru": "Портфолио не заполнено",
+        "en": "Portfolio is empty",
+        "pt": "Portfolio nao preenchido",
+    },
+    "public_portfolio_report_btn": {
+        "ru": "Жалоба",
+        "en": "Report",
+        "pt": "Denunciar",
+    },
+    "client_request_status_updated": {
+        "ru": "Статус заявки обновлён.",
+        "en": "Request status updated.",
+        "pt": "Status do pedido atualizado.",
+    },
+    "client_request_back_to_requests": {
+        "ru": "Назад к заявкам",
+        "en": "Back to requests",
+        "pt": "Voltar aos pedidos",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

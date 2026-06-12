@@ -324,6 +324,14 @@ class ModerationService:
 
     def _normalize_target_type(self, target_type: str) -> str:
         normalized = (target_type or "").strip().lower()
-        if normalized not in {"specialist", "user", "message", "thread", "contact_request"}:
+        if normalized not in {
+            "specialist",
+            "user",
+            "message",
+            "thread",
+            "contact_request",
+            "review",
+            "portfolio_item",
+        }:
             raise ModerationError("Unsupported complaint target type.")
         return normalized

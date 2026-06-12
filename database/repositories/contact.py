@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database.models import (
+    Blacklist,
     ContactRequest,
     ConversationParticipant,
     ConversationThread,
@@ -164,6 +165,57 @@ class ContactChatRepository:
         await self.session.commit()
         return contact_request, thread
 
+
+    async def cancel_contact_request_by_client(
+        self,
+        *,
+        contact_request_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+        platform: str = "telegram",
+    ) -> tuple[ContactRequest, ConversationThread]:
+        contact_request = await self.session.get(ContactRequest, contact_request_id)
+        if not contact_request or contact_request.tenant_id != tenant_id:
+            raise ValueError("Contact request not found.")
+
+        if contact_request.from_user_id != actor_user_id:
+            raise ValueError("Only request owner can cancel contact request.")
+
+        if contact_request.status not in {"new", "accepted"}:
+            raise ValueError("Contact request cannot be cancelled.")
+
+        thread = await self.get_thread_by_contact_request_id(contact_request_id)
+        if not thread:
+            raise ValueError("Conversation thread not found.")
+
+        previous_status = contact_request.status
+        contact_request.status = "rejected"
+        contact_request.updated_at = datetime.utcnow()
+
+        if thread.status not in {"completed", "closed", "restricted", "disputed"}:
+            thread.status = "closed"
+            thread.updated_at = datetime.utcnow()
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                event_type="request_cancelled",
+                entity_type="contact_request",
+                entity_id=contact_request.id,
+                platform=platform,
+                payload={
+                    "thread_id": str(thread.id),
+                    "thread_status": thread.status,
+                    "previous_status": previous_status,
+                    "cancelled_by": "client",
+                },
+            )
+        )
+
+        await self.session.commit()
+        return contact_request, thread
+
     async def create_contact_request_with_thread(
         self,
         *,
@@ -263,6 +315,18 @@ class ContactChatRepository:
                     tenant_id=tenant_id,
                     user_id=from_user_id,
                     event_type="contact_request_created",
+                    entity_type="contact_request",
+                    entity_id=contact_request.id,
+                    platform=platform,
+                    payload={
+                        "specialist_id": str(specialist_id),
+                        "thread_id": str(thread.id),
+                    },
+                ),
+                EventLog(
+                    tenant_id=tenant_id,
+                    user_id=from_user_id,
+                    event_type="request_created",
                     entity_type="contact_request",
                     entity_id=contact_request.id,
                     platform=platform,
@@ -428,6 +492,183 @@ class ContactChatRepository:
         result = await self.session.execute(stmt)
         return list(result.all())
 
+
+    async def list_contact_requests_for_client(
+        self,
+        *,
+        user_id: UUID,
+        limit: int = 5,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[tuple]:
+        localized_profession_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+        }.get(language, Profession.name_ru)
+
+        result = await self.session.execute(
+            select(
+                ContactRequest,
+                ConversationThread.id.label("thread_id"),
+                Specialist.display_name,
+                func.coalesce(
+                    localized_profession_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                ).label("profession_name"),
+            )
+            .join(Specialist, Specialist.id == ContactRequest.specialist_id)
+            .outerjoin(
+                ConversationThread,
+                (ConversationThread.context_type == "contact_request")
+                & (ConversationThread.context_id == ContactRequest.id),
+            )
+            .outerjoin(
+                SpecialistProfession,
+                (SpecialistProfession.specialist_id == Specialist.id)
+                & (SpecialistProfession.status == "active")
+                & (SpecialistProfession.is_primary.is_(True)),
+            )
+            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .where(ContactRequest.from_user_id == user_id)
+            .order_by(ContactRequest.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.all())
+
+
+    async def get_contact_request_detail_for_client(
+        self,
+        *,
+        contact_request_id: UUID,
+        user_id: UUID,
+        language: str = "ru",
+    ) -> tuple | None:
+        localized_profession_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+        }.get(language, Profession.name_ru)
+
+        result = await self.session.execute(
+            select(
+                ContactRequest,
+                ConversationThread.id.label("thread_id"),
+                Specialist.display_name,
+                func.coalesce(
+                    localized_profession_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                ).label("profession_name"),
+            )
+            .join(Specialist, Specialist.id == ContactRequest.specialist_id)
+            .outerjoin(
+                ConversationThread,
+                (ConversationThread.context_type == "contact_request")
+                & (ConversationThread.context_id == ContactRequest.id),
+            )
+            .outerjoin(
+                SpecialistProfession,
+                (SpecialistProfession.specialist_id == Specialist.id)
+                & (SpecialistProfession.status == "active")
+                & (SpecialistProfession.is_primary.is_(True)),
+            )
+            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .where(
+                ContactRequest.id == contact_request_id,
+                ContactRequest.from_user_id == user_id,
+            )
+        )
+        return result.one_or_none()
+
+    async def get_thread_detail_for_user(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+        language: str = "ru",
+        messages_limit: int = 10,
+    ) -> tuple | None:
+        localized_profession_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+        }.get(language, Profession.name_ru)
+
+        result = await self.session.execute(
+            select(
+                ConversationThread,
+                ContactRequest,
+                Specialist.display_name,
+                func.coalesce(
+                    localized_profession_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                ).label("profession_name"),
+            )
+            .join(ContactRequest, ContactRequest.id == ConversationThread.context_id)
+            .join(Specialist, Specialist.id == ConversationThread.specialist_id)
+            .outerjoin(
+                SpecialistProfession,
+                (SpecialistProfession.specialist_id == Specialist.id)
+                & (SpecialistProfession.status == "active")
+                & (SpecialistProfession.is_primary.is_(True)),
+            )
+            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .where(
+                ConversationThread.id == thread_id,
+                ConversationThread.context_type == "contact_request",
+                (
+                    (ConversationThread.client_user_id == user_id)
+                    | (
+                        ConversationThread.specialist_id.in_(
+                            select(Specialist.id).where(Specialist.user_id == user_id)
+                        )
+                    )
+                ),
+            )
+        )
+        detail = result.one_or_none()
+        if not detail:
+            return None
+
+        messages_result = await self.session.execute(
+            select(Message)
+            .where(Message.thread_id == thread_id)
+            .order_by(Message.created_at.desc())
+            .limit(messages_limit)
+        )
+        messages = list(reversed(messages_result.scalars().all()))
+
+        return (*detail, messages)
+
+    async def _is_user_blacklisted_or_blocked(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+    ) -> bool:
+        user = await self.session.get(User, user_id)
+        if not user or user.status in {"blocked", "deleted"}:
+            return True
+
+        result = await self.session.execute(
+            select(Blacklist.id).where(
+                Blacklist.tenant_id == tenant_id,
+                Blacklist.user_id == user_id,
+                Blacklist.status == "active",
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
     async def create_thread_message(
         self,
         *,
@@ -446,6 +687,11 @@ class ContactChatRepository:
 
         if thread.status not in {"open", "waiting_client", "waiting_specialist", "in_discussion"}:
             raise ValueError("Conversation thread is not open for messages.")
+        if await self._is_user_blacklisted_or_blocked(
+            tenant_id=thread.tenant_id,
+            user_id=sender_user_id,
+        ):
+            raise ValueError("Conversation thread is read-only for blacklisted users.")
 
         specialist = await self.session.get(Specialist, thread.specialist_id)
         if not specialist:
@@ -457,6 +703,12 @@ class ContactChatRepository:
             receiver_user_id = thread.client_user_id
         else:
             raise ValueError("User is not a thread participant.")
+        if await self._is_user_blacklisted_or_blocked(
+            tenant_id=thread.tenant_id,
+            user_id=receiver_user_id,
+        ):
+            raise ValueError("Conversation thread is read-only for blacklisted users.")
+
 
         message = Message(
             tenant_id=thread.tenant_id,
@@ -621,7 +873,7 @@ class ContactChatRepository:
 
         participant.updated_at = now
 
-        self.session.add(
+        events = [
             EventLog(
                 tenant_id=thread.tenant_id,
                 user_id=user_id,
@@ -634,8 +886,25 @@ class ContactChatRepository:
                     "is_hidden": participant.is_hidden,
                 },
             )
-        )
+        ]
 
+        if is_archived is True:
+            events.append(
+                EventLog(
+                    tenant_id=thread.tenant_id,
+                    user_id=user_id,
+                    event_type="dialog_archived",
+                    entity_type="conversation_thread",
+                    entity_id=thread.id,
+                    platform=platform,
+                    payload={
+                        "is_archived": participant.is_archived,
+                        "is_hidden": participant.is_hidden,
+                    },
+                )
+            )
+
+        self.session.add_all(events)
         await self.session.commit()
         return thread, participant
 
@@ -662,16 +931,29 @@ class ContactChatRepository:
             if contact_request and contact_request.status != "reviewed":
                 contact_request.status = "completed"
                 contact_request.updated_at = datetime.utcnow()
-        self.session.add(
-            EventLog(
-                tenant_id=thread.tenant_id,
-                user_id=actor_user_id,
-                event_type="thread_completed",
-                entity_type="conversation_thread",
-                entity_id=thread.id,
-                platform=platform,
-                payload={},
-            )
+        self.session.add_all(
+            [
+                EventLog(
+                    tenant_id=thread.tenant_id,
+                    user_id=actor_user_id,
+                    event_type="thread_completed",
+                    entity_type="conversation_thread",
+                    entity_id=thread.id,
+                    platform=platform,
+                    payload={},
+                ),
+                EventLog(
+                    tenant_id=thread.tenant_id,
+                    user_id=actor_user_id,
+                    event_type="request_completed",
+                    entity_type="contact_request",
+                    entity_id=thread.context_id,
+                    platform=platform,
+                    payload={
+                        "thread_id": str(thread.id),
+                    },
+                ),
+            ]
         )
 
         await self.session.commit()

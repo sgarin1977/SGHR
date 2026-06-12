@@ -14,6 +14,15 @@ class ReviewResult:
     review: Review
     reputation: ReputationScore | None = None
 
+@dataclass(frozen=True)
+class PublicReviewPage:
+    reviews: list[Review]
+    reputation: ReputationScore | None
+    total_count: int
+    page: int
+    page_size: int
+    has_previous: bool
+    has_next: bool
 
 class ReviewService:
     def __init__(self, repository: ReviewRepository):
@@ -163,3 +172,35 @@ class ReviewService:
         if len(normalized) > 1000:
             raise ReviewServiceError("Reply is too long.")
         return normalized
+    async def list_public_reviews_for_specialist(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        page: int = 0,
+        page_size: int = 5,
+    ) -> PublicReviewPage:
+        normalized_page = max(int(page), 0)
+        normalized_page_size = max(1, min(int(page_size), 10))
+        offset = normalized_page * normalized_page_size
+
+        reviews, total_count = await self.repository.list_public_reviews_for_specialist(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+            limit=normalized_page_size,
+            offset=offset,
+        )
+        reputation = await self.repository.get_specialist_reputation(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+        )
+
+        return PublicReviewPage(
+            reviews=reviews,
+            reputation=reputation,
+            total_count=total_count,
+            page=normalized_page,
+            page_size=normalized_page_size,
+            has_previous=normalized_page > 0,
+            has_next=offset + len(reviews) < total_count,
+        )

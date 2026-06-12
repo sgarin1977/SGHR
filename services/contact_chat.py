@@ -22,6 +22,7 @@ class ContactRequestResult:
     message_masked: bool = False
     detection_types: list[str] | None = None
     thread_restricted: bool = False
+    was_existing: bool = False
 
 @dataclass
 class ContactRequestStatusResult:
@@ -70,6 +71,38 @@ class ContactThreadListItem:
     last_message_at: datetime | None
     unread_count: int
     status: str
+
+@dataclass
+class ContactThreadDetail:
+    thread_id: UUID
+    contact_request_id: UUID | None
+    specialist_name: str
+    profession_name: str | None
+    request_text: str | None
+    request_status: str | None
+    thread_status: str
+    messages: list[str]
+
+@dataclass
+class ContactRequestListItem:
+    contact_request_id: UUID
+    thread_id: UUID | None
+    specialist_name: str
+    profession_name: str | None
+    message: str
+    status: str
+    created_at: datetime
+
+
+@dataclass
+class ContactRequestDetail:
+    contact_request_id: UUID
+    thread_id: UUID | None
+    specialist_name: str
+    profession_name: str | None
+    message: str
+    status: str
+    created_at: datetime
 
 class ContactChatService:
     def __init__(
@@ -131,8 +164,25 @@ class ContactChatService:
             specialist_id=specialist.id,
         )
         if existing_contact_request:
-            raise ContactChatError(
-                "You already have an active contact request with this specialist."
+            existing_thread = await self.repository.get_thread_by_contact_request_id(
+                existing_contact_request.id
+            )
+            if not existing_thread:
+                raise ContactChatError("Conversation thread not found.")
+
+            contact_token = (existing_contact_request.extra_metadata or {}).get(
+                "contact_token",
+                "",
+            )
+
+            return ContactRequestResult(
+                contact_request_id=existing_contact_request.id,
+                thread_id=existing_thread.id,
+                first_message_id=existing_thread.id,
+                notification_id=existing_thread.id,
+                specialist_user_id=specialist.user_id,
+                contact_token=contact_token,
+                was_existing=True,
             )
 
         contact_request, thread, first_message, notification = (
@@ -218,6 +268,114 @@ class ContactChatService:
             actor_user_id=actor_user_id,
             tenant_id=tenant_id,
             action=action,
+        )
+
+
+    async def cancel_contact_request(
+        self,
+        *,
+        contact_request_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+    ) -> ContactRequestStatusResult:
+        try:
+            contact_request, thread = await self.repository.cancel_contact_request_by_client(
+                contact_request_id=contact_request_id,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+            )
+        except ValueError as exc:
+            raise ContactChatError(str(exc)) from exc
+
+        return ContactRequestStatusResult(
+            contact_request_id=contact_request.id,
+            thread_id=thread.id,
+            status=contact_request.status,
+            thread_status=thread.status,
+        )
+
+    async def list_client_requests(
+        self,
+        *,
+        user_id: UUID,
+        limit: int = 5,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[ContactRequestListItem]:
+        rows = await self.repository.list_contact_requests_for_client(
+            user_id=user_id,
+            limit=limit,
+            offset=offset,
+            language=language,
+        )
+
+        return [
+            ContactRequestListItem(
+                contact_request_id=request.id,
+                thread_id=thread_id,
+                specialist_name=specialist_name,
+                profession_name=profession_name,
+                message=request.message,
+                status=request.status,
+                created_at=request.created_at,
+            )
+            for request, thread_id, specialist_name, profession_name in rows
+        ]
+
+
+    async def get_client_request_detail(
+        self,
+        *,
+        contact_request_id: UUID,
+        user_id: UUID,
+        language: str = "ru",
+    ) -> ContactRequestDetail:
+        row = await self.repository.get_contact_request_detail_for_client(
+            contact_request_id=contact_request_id,
+            user_id=user_id,
+            language=language,
+        )
+        if not row:
+            raise ContactChatError("Contact request not found.")
+
+        request, thread_id, specialist_name, profession_name = row
+
+        return ContactRequestDetail(
+            contact_request_id=request.id,
+            thread_id=thread_id,
+            specialist_name=specialist_name,
+            profession_name=profession_name,
+            message=request.message,
+            status=request.status,
+            created_at=request.created_at,
+        )
+
+    async def get_thread_detail(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+        language: str = "ru",
+    ) -> ContactThreadDetail:
+        row = await self.repository.get_thread_detail_for_user(
+            thread_id=thread_id,
+            user_id=user_id,
+            language=language,
+        )
+        if not row:
+            raise ContactChatError("Conversation thread not found.")
+
+        thread, contact_request, specialist_name, profession_name, messages = row
+
+        return ContactThreadDetail(
+            thread_id=thread.id,
+            contact_request_id=contact_request.id if contact_request else None,
+            specialist_name=specialist_name,
+            profession_name=profession_name,
+            request_text=contact_request.message if contact_request else None,
+            request_status=contact_request.status if contact_request else None,
+            thread_status=thread.status,
+            messages=[message.original_text for message in messages],
         )
 
     async def send_thread_message(

@@ -1310,29 +1310,39 @@ def test_search_radius_work_language_price_sort_are_separate_quick_filters():
         assert fragment in source
 
 
-def test_search_empty_results_offer_recovery_actions():
+def test_search_empty_results_offer_tz10_c11_recovery_actions():
     source = open("handlers/search.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
 
-    required_fragments = [
-        "empty_results_keyboard",
-        "next_empty_radius_suggestion",
-        "search_empty_increase_radius_to",
-        "search_empty_increase_radius_country",
-        "await render_results(event=callback, state=state, page=0)",
-        "search_empty_summary",
-        "search_empty_increase_radius",
-        "search_empty_reset_profession",
-        "search_empty_reset_all",
-        "search_back_to_filters",
-        "callback_data=\"search_empty_increase_radius\"",
-        "callback_data=\"search_empty_reset_profession\"",
-        "callback_data=\"search_reset_filters\"",
-        "callback_data=\"search_filters\"",
-    ]
+    assert "empty_results_keyboard" in source
+    assert "next_empty_radius_suggestion" in source
+    assert "search_empty_increase_radius_to" in source
+    assert "search_empty_increase_radius_country" in source
+    assert "format_empty_results_text" in source
+    assert "search_empty_summary" in source
 
-    for fragment in required_fragments:
-        assert fragment in source
+    empty_keyboard_block = source.split(
+        "def empty_results_keyboard",
+        1,
+    )[1].split(
+        "def format_empty_results_text",
+        1,
+    )[0]
 
+    assert 'callback_data="search_empty_increase_radius"' in empty_keyboard_block
+    assert 'callback_data="search_empty_reset_price"' in empty_keyboard_block
+    assert 'callback_data="search_location_without"' in empty_keyboard_block
+    assert 'callback_data="search_reset_filters"' in empty_keyboard_block
+    assert 'callback_data="search_filters"' in empty_keyboard_block
+
+    assert "async def empty_reset_price" in source
+    assert "price_min=None" in source
+    assert "price_max=None" in source
+    assert "await render_results(event=callback, state=state, page=0)" in source
+
+    assert 'event_type="empty_search"' in source
+
+    assert "search_empty_reset_price" in texts_source
 
 def test_search_cards_are_readable_and_keep_contact_flow_separate():
     source = open("handlers/search.py", encoding="utf-8").read()
@@ -1747,7 +1757,7 @@ def test_public_search_and_card_do_not_require_legal_gate_or_registration():
         '@search_router.callback_query(F.data.startswith("search_result:"))',
         1,
     )[1].split(
-        '@search_router.callback_query(F.data == "search_contact_pending")',
+        '@search_router.callback_query(F.data == "search_portfolio_pending")',
         1,
     )[0]
 
@@ -1757,7 +1767,8 @@ def test_public_search_and_card_do_not_require_legal_gate_or_registration():
     assert "has_required_specialist_consents" not in card_block
     assert "legal_start_required" not in card_block
     assert "billing_start_required" not in card_block
-    assert "if not requester_user_id" not in card_block
+    assert "await store_post_auth_action" not in card_block
+    assert "await callback.answer(t(\"billing_start_required\"" not in card_block
     assert "get_public_card" in card_block
     assert "format_public_card(card, language)" in card_block
 
@@ -2024,7 +2035,8 @@ def test_specialist_public_profile_matches_tz10_c10_requirements():
 
     assert "async def show_selected_specialist_reviews" in source
     assert "async def show_selected_specialist_portfolio" in source
-    assert "await send_public_portfolio(" in source
+    assert "render_public_portfolio" in source
+    assert "public_portfolio_keyboard" in source
 
     show_card_block = source.split(
         "async def show_specialist_card",
@@ -2034,7 +2046,23 @@ def test_specialist_public_profile_matches_tz10_c10_requirements():
         1,
     )[0]
 
-    assert "send_public_portfolio(" not in show_card_block
+    assert "render_public_portfolio(" not in show_card_block
     assert 'event_type="profile_viewed"' in show_card_block
 
     assert "reviews_count: int = 0" in service_source
+def test_favorites_c16_list_has_pagination_and_remove_flow():
+    repo_source = open("database/repositories/favorites.py", encoding="utf-8").read()
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+
+    assert "offset: int = 0" in repo_source
+    assert ".offset(offset)" in repo_source
+    assert "FAVORITES_PAGE_SIZE = 10" in billing_source
+    assert 'F.data.startswith("CAB_FAVORITES:")' in billing_source
+    assert "cabinet_favorites_page" in billing_source
+    assert 'callback_data=f"CAB_FAVORITES:{page + 1}"' in billing_source
+    assert 'callback_data=f"CAB_FAVORITES:{page - 1}"' in billing_source
+    assert "CAB_FAV_REMOVE" in billing_source
+    assert "favorites_opened" in billing_source
+    assert "favorite_viewed" in billing_source
+    assert "favorite_removed" in billing_source
+    assert "EventRepository(session).create_event" in billing_source

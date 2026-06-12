@@ -678,3 +678,52 @@ async def test_portfolio_cleanup_physically_deletes_due_file(
             platform_user_id=platform_user_id,
             specialist_id=specialist_id,
         )
+def test_public_portfolio_screen_matches_tz10_c19_contract():
+    search_source = open("handlers/search.py", encoding="utf-8").read()
+    moderation_source = open("services/moderation.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+    repository_source = open("database/repositories/portfolio.py", encoding="utf-8").read()
+    service_source = open("services/portfolio.py", encoding="utf-8").read()
+
+    for fragment in [
+        "render_public_portfolio",
+        "public_portfolio_caption",
+        "public_portfolio_keyboard",
+        "portfolio_viewed",
+        "search_portfolio_page:",
+        "search_portfolio_report",
+        "public_portfolio_item_ids",
+        "pending_report_target_type=\"portfolio_item\"",
+        "pending_report_target_id",
+        "portfolio_open_button",
+        "view.signed_url",
+        "public_portfolio_empty",
+        "search_result_back_to_card:",
+    ]:
+        assert fragment in search_source
+
+    for fragment in [
+        "public_portfolio_title",
+        "public_portfolio_empty",
+        "public_portfolio_report_btn",
+        "portfolio_open_button",
+        "prev_btn",
+        "next_btn",
+    ]:
+        assert fragment in texts_source
+
+    for fragment in [
+        'SpecialistPortfolioItem.status == "active"',
+        'FileStorageObject.visibility_scope == "private"',
+        "list_active_items",
+    ]:
+        assert fragment in repository_source
+
+    for fragment in [
+        "list_active_items",
+        "create_signed_url",
+        "signed_url",
+    ]:
+        assert fragment in service_source
+
+    assert '"portfolio_item"' in moderation_source
