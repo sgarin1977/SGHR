@@ -12,7 +12,7 @@ from handlers.start import normalize_language
 from services.support import SupportService, SupportServiceError
 from services.user import UserService
 from ui.texts import t
-
+from database.repositories.event import EventRepository
 
 support_router = Router()
 
@@ -20,20 +20,21 @@ support_router = Router()
 SUPPORT_CATEGORIES = [
     "account",
     "specialist_profile",
-    "payment",
-    "translation",
+    "request",
+    "dialog",
     "complaint",
-    "technical",
     "other",
 ]
 
 SUPPORT_PRIORITIES = ["P1", "P2", "P3", "P4"]
-
+SUPPORT_TICKETS_PAGE_SIZE = 5
+SUPPORT_ACTIVE_STATUSES = {"open", "in_progress"}
+SUPPORT_RESOLVED_STATUSES = {"resolved", "closed", "rejected"}
 
 class SupportFSM(StatesGroup):
     entering_message = State()
+    confirming_ticket = State()
     entering_reply = State()
-
 
 def support_menu_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -52,13 +53,18 @@ def support_menu_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("support_back_to_settings_btn", language),
-                    callback_data="M_SETTINGS",
+                    text=t("billing_back", language),
+                    callback_data="M_CABINET",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="BILL_MENU",
                 )
             ],
         ]
     )
-
 
 def support_category_keyboard(language: str) -> InlineKeyboardMarkup:
     rows = []
@@ -105,34 +111,126 @@ def support_priority_keyboard(language: str) -> InlineKeyboardMarkup:
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
-def support_tickets_keyboard(tickets, language: str) -> InlineKeyboardMarkup:
-    rows = []
+def support_ticket_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("support_send_btn", language),
+                    callback_data="SUPPORT_SEND",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_edit_btn", language),
+                    callback_data="SUPPORT_EDIT_MESSAGE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_cancel_btn", language),
+                    callback_data="SUPPORT_CANCEL",
+                )
+            ],
+        ]
+    )
+
+def format_support_tickets_list(tickets, language: str, *, page: int) -> str:
+    if not tickets:
+        return t("support_no_tickets", language)
+
+    lines = [t("support_tickets_title", language), ""]
+    start_number = page * SUPPORT_TICKETS_PAGE_SIZE + 1
+
+    for number, ticket in enumerate(tickets, start=start_number):
+        lines.append(
+            t("support_ticket_list_item", language).format(
+                number=number,
+                ticket_id=str(ticket.id)[:8],
+                category=t(f"support_category_{ticket.category}", language),
+                status=t(f"support_status_{ticket.status}", language),
+                updated_at=ticket.updated_at.strftime("%Y-%m-%d") if ticket.updated_at else "-",
+            )
+        )
+
+    return "\n\n".join(lines)
+
+def support_tickets_keyboard(
+    tickets,
+    language: str,
+    *,
+    view: str,
+    page: int,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("support_tickets_active_btn", language),
+                callback_data="SUPPORT_MY_TICKETS:active:0",
+            ),
+            InlineKeyboardButton(
+                text=t("support_tickets_resolved_btn", language),
+                callback_data="SUPPORT_MY_TICKETS:resolved:0",
+            ),
+        ]
+    ]
 
     for index, ticket in enumerate(tickets):
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("support_ticket_button", language).format(
-                        ticket_id=str(ticket.id)[:8],
-                        status=ticket.status,
-                        priority=ticket.priority,
-                    ),
+                    text=f"{index + 1}. {t('client_request_open', language)}",
                     callback_data=f"SUPPORT_VIEW:{index}",
-                )
-            ]
+                                    )
+                                ]
+                            )
+
+    pagination = []
+    if page > 0:
+        pagination.append(
+            InlineKeyboardButton(
+                text="<",
+                callback_data=f"SUPPORT_MY_TICKETS:{view}:{page - 1}",
+            )
         )
+    if len(tickets) >= SUPPORT_TICKETS_PAGE_SIZE:
+        pagination.append(
+            InlineKeyboardButton(
+                text=">",
+                callback_data=f"SUPPORT_MY_TICKETS:{view}:{page + 1}",
+            )
+        )
+    if pagination:
+        rows.append(pagination)
 
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("support_back_to_settings_btn", language),
+                text=t("support_create_btn", language),
+                callback_data="SUPPORT_CREATE",
+            )
+        ]
+    )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("billing_back", language),
                 callback_data="SUPPORT_MENU",
             )
         ]
     )
 
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="BILL_MENU",
+            )
+        ]
+    )
 
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def support_ticket_view_keyboard(
     *,
@@ -151,7 +249,15 @@ def support_ticket_view_keyboard(
                 )
             ]
         )
-
+    if can_reply:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("support_close_btn", language),
+                    callback_data=f"SUPPORT_CLOSE:{index}",
+                )
+            ]
+        )
     rows.append(
         [
             InlineKeyboardButton(
@@ -197,6 +303,17 @@ def format_support_ticket_view(view, language: str) -> str:
 
     return "\n".join(lines)
 
+def format_support_ticket_draft(data: dict, language: str) -> str:
+    category = data.get("support_category") or "other"
+    priority = data.get("support_priority") or "P3"
+    message_text = (data.get("support_message_text") or "").strip()
+
+    return t("support_ticket_draft", language).format(
+        category=t(f"support_category_{category}", language),
+        priority=priority,
+        message=message_text,
+    )
+
 async def get_support_user_context(telegram_id: int, fallback_language: str):
     async with get_session() as session:
         user = await UserService(session).get_user_by_telegram_id(telegram_id)
@@ -221,6 +338,22 @@ async def open_support_menu(callback: CallbackQuery, state: FSMContext):
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
+
+    async with get_session() as session:
+        fresh_user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        if fresh_user:
+            await EventRepository(session).create_event(
+                event_type="support_opened",
+                tenant_id=fresh_user.tenant_id,
+                user_id=fresh_user.id,
+                entity_type="support",
+                entity_id=None,
+                payload={
+                    "source": "support_menu",
+                },
+                platform="telegram",
+            )
+            await session.commit()
 
     await callback.message.answer(
         t("support_title", language),
@@ -264,6 +397,19 @@ async def choose_support_priority(callback: CallbackQuery, state: FSMContext):
         return
 
     await state.update_data(support_category=category)
+    async with get_session() as session:
+        await EventRepository(session).create_event(
+            event_type="ticket_category",
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            entity_type="support_ticket",
+            entity_id=None,
+            payload={
+                "category": category,
+            },
+            platform="telegram",
+        )
+        await session.commit()
     await callback.message.answer(
         t("support_priority_prompt", language),
         reply_markup=support_priority_keyboard(language),
@@ -305,17 +451,89 @@ async def receive_support_message(message: Message, state: FSMContext):
         await state.clear()
         return
 
+    message_text = (message.text or "").strip()
+    if len(message_text) < 10:
+        await message.answer(t("support_message_too_short", language))
+        return
+
+    await state.update_data(support_message_text=message_text)
+    data = await state.get_data()
+    await state.set_state(SupportFSM.confirming_ticket)
+
+    await message.answer(
+        format_support_ticket_draft(data, language),
+        reply_markup=support_ticket_confirm_keyboard(language),
+    )
+
+@support_router.callback_query(F.data == "SUPPORT_EDIT_MESSAGE")
+async def edit_support_message(callback: CallbackQuery, state: FSMContext):
+    fallback_language = normalize_language(callback.from_user.language_code)
+    user, language = await get_support_user_context(
+        callback.from_user.id,
+        fallback_language,
+    )
+
+    if not user:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    await state.set_state(SupportFSM.entering_message)
+    await callback.message.answer(t("support_message_prompt", language))
+    await callback.answer()
+
+
+@support_router.callback_query(F.data == "SUPPORT_CANCEL")
+async def cancel_support_ticket_draft(callback: CallbackQuery, state: FSMContext):
+    fallback_language = normalize_language(callback.from_user.language_code)
+    user, language = await get_support_user_context(
+        callback.from_user.id,
+        fallback_language,
+    )
+
+    await state.clear()
+
+    if not user:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("support_ticket_cancelled", language),
+        reply_markup=support_menu_keyboard(language),
+    )
+    await callback.answer()
+
+
+@support_router.callback_query(F.data == "SUPPORT_SEND")
+async def send_support_ticket(callback: CallbackQuery, state: FSMContext):
+    fallback_language = normalize_language(callback.from_user.language_code)
+    user, language = await get_support_user_context(
+        callback.from_user.id,
+        fallback_language,
+    )
+
+    if not user:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        await state.clear()
+        return
+
     data = await state.get_data()
     category = data.get("support_category")
     priority = data.get("support_priority") or "P3"
+    message_text = (data.get("support_message_text") or "").strip()
+
+    if len(message_text) < 10:
+        await state.set_state(SupportFSM.entering_message)
+        await callback.message.answer(t("support_message_too_short", language))
+        await callback.answer()
+        return
 
     try:
         async with get_session() as session:
             fresh_user = await UserService(session).get_user_by_telegram_id(
-                message.from_user.id
+                callback.from_user.id
             )
             if not fresh_user:
-                await message.answer(t("search_contact_user_not_found", language))
+                await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
                 await state.clear()
                 return
 
@@ -327,27 +545,58 @@ async def receive_support_message(message: Message, state: FSMContext):
                 subject=None,
                 priority=priority,
                 category=category,
-                message_text=message.text or "",
+                message_text=message_text,
             )
+
+            await EventRepository(session).create_event(
+                event_type="ticket_created",
+                tenant_id=fresh_user.tenant_id,
+                user_id=fresh_user.id,
+                entity_type="support_ticket",
+                entity_id=ticket.id,
+                payload={
+                    "category": category,
+                    "priority": priority,
+                },
+                platform="telegram",
+            )
+            await session.commit()
     except SupportServiceError as exc:
-        await message.answer(
+        await callback.message.answer(
             t("support_error", language).format(error=str(exc))
         )
+        await callback.answer()
         return
 
     await state.clear()
-    await message.answer(
+    await callback.message.answer(
         t("support_ticket_created", language).format(
             ticket_id=str(ticket.id)[:8],
         ),
         reply_markup=support_menu_keyboard(language),
     )
-
+    await callback.answer()
 
 @support_router.callback_query(F.data == "SUPPORT_MY_TICKETS")
+@support_router.callback_query(F.data.startswith("SUPPORT_MY_TICKETS:"))
 async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     fallback_language = normalize_language(callback.from_user.language_code)
+
+    view = "active"
+    page = 0
+    if callback.data and callback.data.startswith("SUPPORT_MY_TICKETS:"):
+        parts = callback.data.split(":")
+        if len(parts) >= 3:
+            view = parts[1]
+            page = max(0, int(parts[2]))
+
+    statuses = (
+        SUPPORT_RESOLVED_STATUSES
+        if view == "resolved"
+        else SUPPORT_ACTIVE_STATUSES
+    )
+
 
     user, language = await get_support_user_context(
         callback.from_user.id,
@@ -371,8 +620,25 @@ async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
         ).list_user_tickets(
             tenant_id=fresh_user.tenant_id,
             user_id=fresh_user.id,
-            limit=10,
+            statuses=statuses,
+            limit=SUPPORT_TICKETS_PAGE_SIZE,
+            offset=page * SUPPORT_TICKETS_PAGE_SIZE,
         )
+
+        await EventRepository(session).create_event(
+            event_type="ticket_list",
+            tenant_id=fresh_user.tenant_id,
+            user_id=fresh_user.id,
+            entity_type="support_ticket",
+            entity_id=None,
+            payload={
+                "view": view,
+                "page": page,
+                "count": len(tickets),
+            },
+            platform="telegram",
+        )
+        await session.commit()
 
     if not tickets:
         await callback.message.answer(
@@ -384,11 +650,18 @@ async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(
         support_ticket_ids=[str(ticket.id) for ticket in tickets],
+        support_tickets_view=view,
+        support_tickets_page=page,
     )
 
     await callback.message.answer(
-        t("support_tickets_title", language),
-        reply_markup=support_tickets_keyboard(tickets, language),
+        format_support_tickets_list(tickets, language, page=page),
+        reply_markup=support_tickets_keyboard(
+            tickets,
+            language,
+            view=view,
+            page=page,
+        ),
     )
     await callback.answer()
 
@@ -444,6 +717,75 @@ async def view_my_support_ticket(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
+@support_router.callback_query(F.data.startswith("SUPPORT_CLOSE:"))
+async def close_my_support_ticket(callback: CallbackQuery, state: FSMContext):
+    fallback_language = normalize_language(callback.from_user.language_code)
+    index = int(callback.data.split(":", 1)[1])
+    data = await state.get_data()
+    ids = data.get("support_ticket_ids") or []
+
+    user, language = await get_support_user_context(
+        callback.from_user.id,
+        fallback_language,
+    )
+
+    if not user:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            fresh_user = await UserService(session).get_user_by_telegram_id(
+                callback.from_user.id
+            )
+            if not fresh_user:
+                await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+                return
+
+            service = SupportService(SupportRepository(session))
+            view = await service.get_user_ticket_view(
+                tenant_id=fresh_user.tenant_id,
+                user_id=fresh_user.id,
+                ticket_id=UUID(ids[index]),
+            )
+
+            if view.ticket.status in {"resolved", "closed", "rejected"}:
+                await callback.answer(t("support_ticket_already_closed", language), show_alert=True)
+                return
+
+            ticket = await service.repository.update_ticket_status(
+                tenant_id=fresh_user.tenant_id,
+                ticket_id=view.ticket.id,
+                status="closed",
+                assigned_user_id=None,
+            )
+
+            await EventRepository(session).create_event(
+                event_type="closed",
+                tenant_id=fresh_user.tenant_id,
+                user_id=fresh_user.id,
+                entity_type="support_ticket",
+                entity_id=view.ticket.id,
+                payload={
+                    "source": "user_support_ticket",
+                    "status": "closed",
+                },
+                platform="telegram",
+            )
+            await session.commit()
+    except SupportServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("support_ticket_closed", language),
+        reply_markup=support_menu_keyboard(language),
+    )
+    await callback.answer()
 
 @support_router.callback_query(F.data.startswith("SUPPORT_REPLY:"))
 async def ask_user_support_reply(callback: CallbackQuery, state: FSMContext):
@@ -514,6 +856,19 @@ async def receive_user_support_reply(message: Message, state: FSMContext):
                 ticket_id=UUID(ticket_id),
                 message_text=message.text or "",
             )
+
+            await EventRepository(session).create_event(
+                event_type="ticket_message",
+                tenant_id=fresh_user.tenant_id,
+                user_id=fresh_user.id,
+                entity_type="support_ticket",
+                entity_id=UUID(ticket_id),
+                payload={
+                    "sender_role": "user",
+                },
+                platform="telegram",
+            )
+            await session.commit()
     except SupportServiceError as exc:
         await message.answer(
             t("support_error", language).format(error=str(exc))

@@ -25,6 +25,8 @@ SUPPORT_TICKET_PRIORITIES = {
 SUPPORT_TICKET_CATEGORIES = {
     "account",
     "specialist_profile",
+    "request",
+    "dialog",
     "payment",
     "translation",
     "complaint",
@@ -136,9 +138,11 @@ class SupportRepository:
         *,
         tenant_id: UUID,
         user_id: UUID,
+        statuses: set[str] | None = None,
         limit: int = 10,
+        offset: int = 0,
     ) -> list[SupportTicket]:
-        result = await self.session.execute(
+        stmt = (
             select(SupportTicket)
             .where(
                 SupportTicket.tenant_id == tenant_id,
@@ -149,7 +153,13 @@ class SupportRepository:
                 SupportTicket.created_at.desc(),
             )
             .limit(max(1, min(int(limit), 50)))
+            .offset(max(0, int(offset)))
         )
+
+        if statuses is not None:
+            stmt = stmt.where(SupportTicket.status.in_(statuses))
+
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def list_staff_tickets(

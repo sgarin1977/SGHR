@@ -2487,9 +2487,21 @@ translations = {
         "pt": "Suporte",
     },
     "support_title": {
-        "ru": "Поддержка SGHR Beta.\n\nЗдесь можно создать обращение по аккаунту, профилю, оплате, переводу, жалобе или технической проблеме.",
-        "en": "SGHR Beta support.\n\nHere you can create a ticket about your account, profile, payment, translation, complaint, or technical issue.",
-        "pt": "Suporte SGHR Beta.\n\nAqui você pode criar um chamado sobre conta, perfil, pagamento, tradução, reclamação ou problema técnico.",
+        "ru": (
+            "Поддержка SGHR Beta.\n\n"
+            "Здесь можно создать обращение по аккаунту, профилю специалиста, "
+            "заявке, диалогу, жалобе или другой теме."
+        ),
+        "en": (
+            "SGHR Beta support.\n\n"
+            "Here you can create a ticket about your account, specialist profile, "
+            "request, dialog, complaint, or another topic."
+        ),
+        "pt": (
+            "Suporte SGHR Beta.\n\n"
+            "Aqui pode criar um pedido sobre conta, perfil de especialista, "
+            "pedido, dialogo, reclamacao ou outro tema."
+        ),
     },
     "support_create_btn": {
         "ru": "Создать обращение",
@@ -2683,9 +2695,9 @@ translations = {
         "pt": "Resposta do suporte para o chamado #{ticket_id}:\n\n{message}",
     },
     "support_ticket_button": {
-        "ru": "#{ticket_id} | {status} | {priority}",
-        "en": "#{ticket_id} | {status} | {priority}",
-        "pt": "#{ticket_id} | {status} | {priority}",
+        "ru": "#{ticket_id} | {category} | {status}",
+        "en": "#{ticket_id} | {category} | {status}",
+        "pt": "#{ticket_id} | {category} | {status}",
     },
     "support_ticket_view_title": {
         "ru": "Обращение #{ticket_id}",
@@ -3708,6 +3720,116 @@ translations = {
         "ru": "Раздел находится в разработке.",
         "en": "This section is under development.",
         "pt": "Esta secao esta em desenvolvimento.",
+    },
+    "support_category_request": {
+        "ru": "Заявка",
+        "en": "Request",
+        "pt": "Pedido",
+    },
+    "support_category_dialog": {
+        "ru": "Диалог",
+        "en": "Dialog",
+        "pt": "Dialogo",
+    },
+    "support_ticket_draft": {
+    "ru": (
+        "Проверьте обращение:\n\n"
+        "Категория: {category}\n"
+        "Приоритет: {priority}\n"
+        "Сообщение: {message}"
+    ),
+    "en": (
+        "Check the ticket:\n\n"
+        "Category: {category}\n"
+        "Priority: {priority}\n"
+        "Message: {message}"
+    ),
+    "pt": (
+        "Verifique o pedido:\n\n"
+        "Categoria: {category}\n"
+        "Prioridade: {priority}\n"
+        "Mensagem: {message}"
+    ),
+    },
+    "support_send_btn": {
+        "ru": "Отправить",
+        "en": "Send",
+        "pt": "Enviar",
+    },
+    "support_edit_btn": {
+        "ru": "Изменить",
+        "en": "Edit",
+        "pt": "Editar",
+    },
+    "support_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "support_ticket_cancelled": {
+        "ru": "Создание обращения отменено.",
+        "en": "Ticket creation cancelled.",
+        "pt": "Criacao do pedido cancelada.",
+    },
+    "support_message_too_short": {
+        "ru": "Сообщение слишком короткое. Введите минимум 10 символов.",
+        "en": "Message is too short. Enter at least 10 characters.",
+        "pt": "A mensagem e muito curta. Introduza pelo menos 10 caracteres.",
+    },
+    "support_tickets_active_btn": {
+    "ru": "Активные",
+    "en": "Active",
+    "pt": "Ativos",
+    },
+    "support_tickets_resolved_btn": {
+        "ru": "Решённые",
+        "en": "Resolved",
+        "pt": "Resolvidos",
+    },
+    "support_status_open": {
+        "ru": "Открыто",
+        "en": "Open",
+        "pt": "Aberto",
+    },
+    "support_status_in_progress": {
+        "ru": "В работе",
+        "en": "In progress",
+        "pt": "Em andamento",
+    },
+    "support_status_resolved": {
+        "ru": "Решено",
+        "en": "Resolved",
+        "pt": "Resolvido",
+    },
+    "support_status_closed": {
+        "ru": "Закрыто",
+        "en": "Closed",
+        "pt": "Fechado",
+    },
+    "support_status_rejected": {
+        "ru": "Отклонено",
+        "en": "Rejected",
+        "pt": "Rejeitado",
+    },
+    "support_ticket_list_item": {
+        "ru": "{number}. #{ticket_id}\nКатегория: {category}\nСтатус: {status}\nОбновлено: {updated_at}",
+        "en": "{number}. #{ticket_id}\nCategory: {category}\nStatus: {status}\nUpdated: {updated_at}",
+        "pt": "{number}. #{ticket_id}\nCategoria: {category}\nEstado: {status}\nAtualizado: {updated_at}",
+    },
+    "support_close_btn": {
+    "ru": "Закрыть",
+    "en": "Close",
+    "pt": "Fechar",
+    },
+    "support_ticket_closed": {
+        "ru": "Обращение закрыто.",
+        "en": "Ticket closed.",
+        "pt": "Pedido fechado.",
+    },
+    "support_ticket_already_closed": {
+        "ru": "Обращение уже закрыто.",
+        "en": "Ticket is already closed.",
+        "pt": "O pedido ja esta fechado.",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

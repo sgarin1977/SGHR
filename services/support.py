@@ -60,14 +60,24 @@ class SupportService:
         *,
         tenant_id: UUID,
         user_id: UUID,
+        statuses: set[str] | None = None,
         limit: int = 10,
+        offset: int = 0,
     ) -> list[SupportTicket]:
+        normalized_statuses = None
+        if statuses is not None:
+            normalized_statuses = {
+                self._validate_status(status)
+                for status in statuses
+            }
+
         return await self.repository.list_user_tickets(
             tenant_id=tenant_id,
             user_id=user_id,
+            statuses=normalized_statuses,
             limit=limit,
+            offset=offset,
         )
-
     async def list_staff_tickets(
         self,
         *,
