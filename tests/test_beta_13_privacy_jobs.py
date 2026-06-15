@@ -68,7 +68,12 @@ async def cleanup_privacy_test_user(session, platform_user_id):
 
 async def test_privacy_data_export_job_creates_json_file(db_session, tmp_path):
     platform_user_id, user_id, tenant_id = await create_privacy_test_user(db_session)
-
+    await db_session.execute(
+        delete(DataSubjectRequest).where(
+            DataSubjectRequest.status == "requested",
+        )
+    )
+    await db_session.commit()
     service = PrivacyService(PrivacyRepository(db_session))
 
     try:

@@ -473,11 +473,19 @@ class ContactChatRepository:
             )
         )
 
+        messageable_statuses = {
+            "open",
+            "waiting_client",
+            "waiting_specialist",
+            "in_discussion",
+        }
+
         if view == "new":
             stmt = stmt.where(
                 ConversationParticipant.unread_count > 0,
                 ConversationParticipant.is_archived.is_(False),
                 ConversationParticipant.is_hidden.is_(False),
+                ConversationThread.status.in_(messageable_statuses),
             )
         elif view == "archive":
             stmt = stmt.where(ConversationParticipant.is_archived.is_(True))
@@ -487,6 +495,7 @@ class ContactChatRepository:
             stmt = stmt.where(
                 ConversationParticipant.is_archived.is_(False),
                 ConversationParticipant.is_hidden.is_(False),
+                ConversationThread.status.in_(messageable_statuses),
             )
 
         stmt = (

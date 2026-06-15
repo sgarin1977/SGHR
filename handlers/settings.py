@@ -58,14 +58,8 @@ def translation_settings_keyboard(
             ],
             [
                 InlineKeyboardButton(
-                    text=t("privacy_open_btn", language),
-                    callback_data="PRIVACY_MENU",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("support_open_btn", language),
-                    callback_data="SUPPORT_MENU",
+                    text=t("billing_back", language),
+                    callback_data="M_SETTINGS",
                 )
             ],
             [
@@ -76,6 +70,43 @@ def translation_settings_keyboard(
             ],
         ]
     )
+
+def client_settings_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("settings_language_btn", language),
+                    callback_data="CLIENT_SETTINGS_LANGUAGE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("settings_notifications_btn", language),
+                    callback_data="CLIENT_SETTINGS_NOTIFICATIONS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("client_settings_privacy_btn", language),
+                    callback_data="PRIVACY_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("client_settings_delete_data_btn", language),
+                    callback_data="PRIVACY_DELETE_PROFILE_CONFIRM",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("billing_back", language),
+                    callback_data="M_CABINET",
+                )
+            ],
+        ]
+    )
+
 async def show_translation_settings(callback: CallbackQuery):
     language = normalize_language(callback.from_user.language_code)
 
@@ -95,10 +126,7 @@ async def show_translation_settings(callback: CallbackQuery):
             interface_language=settings.interface_language,
             message_language=settings.message_language,
             notifications=t("settings_enabled", language),
-            auto_translate=t(
-                "settings_enabled" if settings.auto_translate_enabled else "settings_disabled",
-                language,
-            ),
+            auto_translate=t("feature_disabled_beta", language),
             show_original=t(
                 "settings_enabled" if settings.show_original_button else "settings_disabled",
                 language,
@@ -208,9 +236,67 @@ def privacy_confirm_keyboard(
 @settings_router.callback_query(F.data == "SET_NOOP")
 async def settings_noop(callback: CallbackQuery):
     await callback.answer()
+
+async def show_client_settings(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        if not user:
+            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+            return
+
+        settings = await TranslationRepository(session).get_language_settings(user.id)
+        language = normalize_language(settings.interface_language or user.language_code)
+        await session.commit()
+
+    await callback.message.answer(
+        t("client_settings_title", language).format(
+            interface_language=settings.interface_language,
+            message_language=settings.message_language,
+            notifications=t("settings_enabled", language),
+        ),
+        reply_markup=client_settings_keyboard(language),
+    )
+    await callback.answer()
+
+
 @settings_router.callback_query(F.data == "M_SETTINGS")
 async def open_settings(callback: CallbackQuery):
+    await show_client_settings(callback)
+
+
+@settings_router.callback_query(F.data == "CLIENT_SETTINGS_LANGUAGE")
+async def open_client_language_settings(callback: CallbackQuery):
     await show_translation_settings(callback)
+
+@settings_router.callback_query(F.data == "CLIENT_SETTINGS_NOTIFICATIONS")
+async def open_client_notifications_settings(callback: CallbackQuery):
+    user, language = await get_user_settings_context(callback)
+    if not user:
+        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("client_notifications_settings", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("billing_back", language),
+                        callback_data="M_SETTINGS",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="SET_MAIN_MENU",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
 
 @settings_router.callback_query(F.data.startswith("SET_UI_LANG:"))
 async def set_interface_language(callback: CallbackQuery):

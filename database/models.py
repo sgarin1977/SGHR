@@ -385,7 +385,7 @@ class SpecialistLanguage(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id"), nullable=False)
     language_code: Mapped[str] = mapped_column(String(10), nullable=False)
-    level: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    level: Mapped[str] = mapped_column(Text, nullable=False, default="basic")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

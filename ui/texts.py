@@ -3244,17 +3244,17 @@ translations = {
         "pt": "Escolha a visibilidade do contacto. Os pedidos pela plataforma continuam ativos.",
     },
     "spec_contact_visibility_platform_only": {
-        "ru": "Platform only",
+        "ru": "Только через платформу",
         "en": "Platform only",
-        "pt": "Apenas plataforma",
+        "pt": "Somente pela plataforma",
     },
     "spec_contact_visibility_public_limited": {
-        "ru": "Public limited",
-        "en": "Public limited",
-        "pt": "Público limitado",
+        "ru": "Публично, без прямых контактов",
+        "en": "Public, no direct contacts",
+        "pt": "Público, sem contatos diretos",
     },
     "spec_contact_visibility_private": {
-        "ru": "Private",
+        "ru": "Приватно",
         "en": "Private",
         "pt": "Privado",
     },
@@ -3317,6 +3317,397 @@ translations = {
         "ru": "Заявка отклонена.",
         "en": "Request declined.",
         "pt": "Solicitação recusada.",
+    },
+    "client_dialogs_view_label": {
+        "ru": "Раздел",
+        "en": "View",
+        "pt": "Secao",
+    },
+    "client_dialogs_unread": {
+        "ru": "Непрочитанные",
+        "en": "Unread",
+        "pt": "Nao lidas",
+    },
+    "client_dialogs_last_message": {
+        "ru": "Последнее сообщение",
+        "en": "Last message",
+        "pt": "Ultima mensagem",
+    },
+    "contact_complete_btn": {
+        "ru": "Запросить завершение",
+        "en": "Request completion",
+        "pt": "Solicitar conclusao",
+    },
+    "search_report_btn": {
+        "ru": "Жалоба",
+        "en": "Report",
+        "pt": "Denunciar",
+    },
+    "contact_thread_completion_requested": {
+        "ru": "Запрос на завершение отправлен клиенту.",
+        "en": "Completion request has been sent to the client.",
+        "pt": "A solicitação de conclusão foi enviada ao cliente.",
+    },
+    "contact_thread_completion_not_available": {
+        "ru": "Этот диалог нельзя завершить.",
+        "en": "This dialog cannot be completed.",
+        "pt": "Este diálogo não pode ser concluído.",
+    },
+    "cabinet_profile_title": {
+        "ru": "Профиль специалиста",
+        "en": "Specialist profile",
+        "pt": "Perfil do especialista",
+    },
+    "cabinet_profile_verified": {
+        "ru": "Проверен",
+        "en": "Verified",
+        "pt": "Verificado",
+    },
+    "cabinet_pause_profile": {
+        "ru": "Пауза",
+        "en": "Pause",
+        "pt": "Pausar",
+    },
+    "cabinet_visibility_profile": {
+        "ru": "Видимость",
+        "en": "Visibility",
+        "pt": "Visibilidade",
+    },
+    "cabinet_delete_profile": {
+        "ru": "Удалить",
+        "en": "Delete",
+        "pt": "Excluir",
+    },
+    "cabinet_visibility_current": {
+        "ru": "Текущая видимость: {visibility}",
+        "en": "Current visibility: {visibility}",
+        "pt": "Visibilidade atual: {visibility}",
+    },
+    "cabinet_visibility_updated": {
+        "ru": "Видимость обновлена: {visibility}",
+        "en": "Visibility updated: {visibility}",
+        "pt": "Visibilidade atualizada: {visibility}",
+    },
+    "cabinet_edit_work_format": {
+        "ru": "Формат работы",
+        "en": "Work format",
+        "pt": "Formato de trabalho",
+    },
+    "cabinet_edit_languages": {
+        "ru": "Языки",
+        "en": "Languages",
+        "pt": "Idiomas",
+    },
+    "cabinet_critical_edit_blocked": {
+        "ru": "Изменение этого поля требует модерации. В controlled Beta изменение заблокировано, чтобы не обновить активный профиль без проверки. Администратор увидит событие в аудите.",
+        "en": "Changing this field requires moderation. In controlled Beta this change is blocked so the active profile is not updated without review. Admin can see the audit event.",
+        "pt": "Alterar este campo requer moderação. No controlled Beta esta alteração está bloqueada para não atualizar o perfil ativo sem revisão. O administrador verá o evento no audit.",
+    },
+    "cabinet_profile_no_changes": {
+        "ru": "Изменений нет.",
+        "en": "No changes.",
+        "pt": "Sem alterações.",
+    },
+    "specialist_services_title": {
+        "ru": "Услуги специалиста",
+        "en": "Specialist services",
+        "pt": "Serviços do especialista",
+    },
+    "specialist_services_empty": {
+        "ru": "Услуг пока нет. Добавьте первую услугу.",
+        "en": "No services yet. Add your first service.",
+        "pt": "Ainda não há serviços. Adicione o primeiro serviço.",
+    },
+    "specialist_service_price_not_set": {
+        "ru": "Цена не указана",
+        "en": "Price not set",
+        "pt": "Preço não informado",
+    },
+    "specialist_service_status_active": {
+        "ru": "Активна",
+        "en": "Active",
+        "pt": "Ativa",
+    },
+    "specialist_service_status_paused": {
+        "ru": "На паузе",
+        "en": "Paused",
+        "pt": "Pausada",
+    },
+    "specialist_service_status_pending": {
+        "ru": "На модерации",
+        "en": "Pending moderation",
+        "pt": "Em moderação",
+    },
+    "specialist_service_status_deleted": {
+        "ru": "Удалена",
+        "en": "Deleted",
+        "pt": "Excluída",
+    },
+    "specialist_service_add_btn": {
+        "ru": "Добавить",
+        "en": "Add",
+        "pt": "Adicionar",
+    },
+    "specialist_service_edit_btn": {
+        "ru": "Редактировать",
+        "en": "Edit",
+        "pt": "Editar",
+    },
+    "specialist_service_pause_btn": {
+        "ru": "Пауза",
+        "en": "Pause",
+        "pt": "Pausar",
+    },
+    "specialist_service_delete_btn": {
+        "ru": "Удалить",
+        "en": "Delete",
+        "pt": "Excluir",
+    },
+    "specialist_service_title_prompt": {
+        "ru": "Введите название услуги.",
+        "en": "Enter service title.",
+        "pt": "Digite o título do serviço.",
+    },
+    "specialist_service_title_required": {
+        "ru": "Название услуги обязательно.",
+        "en": "Service title is required.",
+        "pt": "O título do serviço é obrigatório.",
+    },
+    "specialist_service_description_prompt": {
+        "ru": "Введите описание услуги.",
+        "en": "Enter service description.",
+        "pt": "Digite a descrição do serviço.",
+    },
+    "specialist_service_description_required": {
+        "ru": "Описание услуги обязательно.",
+        "en": "Service description is required.",
+        "pt": "A descrição do serviço é obrigatória.",
+    },
+    "specialist_service_price_prompt": {
+        "ru": "Укажите цену в EUR. Можно одним числом: 50, или диапазоном: 50-100.",
+        "en": "Enter price in EUR. Use one number: 50, or a range: 50-100.",
+        "pt": "Digite o preço em EUR. Use um número: 50, ou intervalo: 50-100.",
+    },
+    "specialist_service_price_invalid": {
+        "ru": "Цена должна быть числом >= 0. Пример: 50 или 50-100.",
+        "en": "Price must be a number >= 0. Example: 50 or 50-100.",
+        "pt": "O preço deve ser um número >= 0. Exemplo: 50 ou 50-100.",
+    },
+    "specialist_service_preview": {
+        "ru": "Проверьте услугу:\n\nНазвание: {title}\nОписание: {description}\nЦена: {price}\nВалюта: {currency}",
+        "en": "Check service:\n\nTitle: {title}\nDescription: {description}\nPrice: {price}\nCurrency: {currency}",
+        "pt": "Verifique o serviço:\n\nTítulo: {title}\nDescrição: {description}\nPreço: {price}\nMoeda: {currency}",
+    },
+    "specialist_service_saved": {
+        "ru": "Услуга сохранена.",
+        "en": "Service saved.",
+        "pt": "Serviço salvo.",
+    },
+    "specialist_service_continue_btn": {
+        "ru": "Продолжить",
+        "en": "Continue",
+        "pt": "Continuar",
+    },
+    "specialist_service_skip_price_btn": {
+        "ru": "Пропустить цену",
+        "en": "Skip price",
+        "pt": "Pular preço",
+    },
+    "specialist_service_status_changed": {
+        "ru": "Статус услуги обновлен.",
+        "en": "Service status updated.",
+        "pt": "Status do serviço atualizado.",
+    },
+    "specialist_service_not_found": {
+        "ru": "Услуга не найдена.",
+        "en": "Service not found.",
+        "pt": "Serviço não encontrado.",
+    },
+    "specialist_service_delete_confirm": {
+        "ru": "Удалить эту услугу? Она будет скрыта из списка.",
+        "en": "Delete this service? It will be hidden from the list.",
+        "pt": "Excluir este serviço? Ele será ocultado da lista.",
+    },
+    "specialist_service_deleted": {
+        "ru": "Услуга удалена.",
+        "en": "Service deleted.",
+        "pt": "Serviço excluído.",
+    },
+    "portfolio_caption_prompt": {
+        "ru": "Добавьте подпись к файлу.",
+        "en": "Add a caption for the file.",
+        "pt": "Adicione uma legenda ao arquivo.",
+    },
+    "portfolio_caption_skip_btn": {
+        "ru": "Без подписи",
+        "en": "No caption",
+        "pt": "Sem legenda",
+    },
+    "portfolio_upload_preview": {
+        "ru": "Проверьте загрузку:\n\nФайл: {filename}\nТип: {file_type}\nРазмер: {size_kb} KB\nПодпись: {caption}\n\nПосле подтверждения файл будет отправлен на модерацию.",
+        "en": "Check upload:\n\nFile: {filename}\nType: {file_type}\nSize: {size_kb} KB\nCaption: {caption}\n\nAfter confirmation, the file will be sent for moderation.",
+        "pt": "Verifique o upload:\n\nArquivo: {filename}\nTipo: {file_type}\nTamanho: {size_kb} KB\nLegenda: {caption}\n\nApós confirmar, o arquivo será enviado para moderação.",
+    },
+    "portfolio_upload_confirm_btn": {
+        "ru": "Подтвердить",
+        "en": "Confirm",
+        "pt": "Confirmar",
+    },
+    "specialist_settings_title": {
+        "ru": "Настройки специалиста",
+        "en": "Specialist settings",
+        "pt": "Configuracoes do especialista",
+    },
+    "settings_language_btn": {
+        "ru": "Язык",
+        "en": "Language",
+        "pt": "Idioma",
+    },
+    "settings_notifications_btn": {
+        "ru": "Уведомления",
+        "en": "Notifications",
+        "pt": "Notificacoes",
+    },
+    "settings_visibility_btn": {
+        "ru": "Видимость",
+        "en": "Visibility",
+        "pt": "Visibilidade",
+    },
+    "settings_consents_btn": {
+        "ru": "Согласия",
+        "en": "Consents",
+        "pt": "Consentimentos",
+    },
+    "settings_deletion_btn": {
+        "ru": "Удаление",
+        "en": "Deletion",
+        "pt": "Exclusao",
+    },
+    "specialist_notifications_settings": {
+        "ru": "Уведомления включены по умолчанию для заявок, диалогов и важных системных событий.",
+        "en": "Notifications are enabled by default for requests, dialogs, and important system events.",
+        "pt": "As notificacoes ficam ativadas por padrao para pedidos, dialogos e eventos importantes do sistema.",
+    },
+    "settings_consents_title": {
+        "ru": "Согласия",
+        "en": "Consents",
+        "pt": "Consentimentos",
+    },
+    "settings_consents_empty": {
+        "ru": "Активных согласий пока нет.",
+        "en": "No active consents yet.",
+        "pt": "Ainda nao ha consentimentos ativos.",
+    },
+    "settings_consent_active": {
+        "ru": "активно",
+        "en": "active",
+        "pt": "ativo",
+    },
+    "settings_consent_revoked": {
+        "ru": "отозвано",
+        "en": "revoked",
+        "pt": "revogado",
+    },
+    "settings_consent_item": {
+        "ru": "{number}. {consent_type} / {version} / {status}",
+        "en": "{number}. {consent_type} / {version} / {status}",
+        "pt": "{number}. {consent_type} / {version} / {status}",
+    },
+"client_settings_title": {
+    "ru": (
+        "Настройки клиента:\n\n"
+        "Язык интерфейса: {interface_language}\n"
+        "Язык общения: {message_language}\n"
+        "Уведомления: {notifications}"
+    ),
+    "en": (
+        "Client settings:\n\n"
+        "Interface language: {interface_language}\n"
+        "Message language: {message_language}\n"
+        "Notifications: {notifications}"
+    ),
+    "pt": (
+        "Configuracoes do cliente:\n\n"
+        "Idioma da interface: {interface_language}\n"
+        "Idioma das mensagens: {message_language}\n"
+        "Notificacoes: {notifications}"
+    ),
+    },
+    "client_settings_privacy_btn": {
+        "ru": "Приватность",
+        "en": "Privacy",
+        "pt": "Privacidade",
+    },
+    "client_settings_delete_data_btn": {
+        "ru": "Удаление данных",
+        "en": "Delete data",
+        "pt": "Eliminar dados",
+    },
+    "client_notifications_settings": {
+        "ru": "Уведомления включены по умолчанию для заявок, диалогов и важных системных событий.",
+        "en": "Notifications are enabled by default for requests, dialogs, and important system events.",
+        "pt": "As notificacoes ficam ativadas por padrao para pedidos, dialogos e eventos importantes do sistema.",
+    },
+    "specialist_language_settings_title": {
+        "ru": (
+            "Настройки языка специалиста:\n\n"
+            "Язык интерфейса: {interface_language}\n"
+            "Язык общения: {message_language}\n"
+            "Уведомления: {notifications}\n"
+            "Автоперевод: {auto_translate}\n"
+            "Кнопка оригинала: {show_original}"
+        ),
+        "en": (
+            "Specialist language settings:\n\n"
+            "Interface language: {interface_language}\n"
+            "Message language: {message_language}\n"
+            "Notifications: {notifications}\n"
+            "Auto-translation: {auto_translate}\n"
+            "Original button: {show_original}"
+        ),
+        "pt": (
+            "Configuracoes de idioma do especialista:\n\n"
+            "Idioma da interface: {interface_language}\n"
+            "Idioma das mensagens: {message_language}\n"
+            "Notificacoes: {notifications}\n"
+            "Traducao automatica: {auto_translate}\n"
+            "Botao original: {show_original}"
+        ),
+    },
+    "menu_jobs": {
+        "ru": "💼 Работа и вакансии",
+        "en": "💼 Jobs and vacancies",
+        "pt": "💼 Trabalho e vagas",
+    },
+    "jobs_menu_title": {
+        "ru": "💼 Работа и вакансии\n\n🚧 Раздел находится в разработке",
+        "en": "💼 Jobs and vacancies\n\n🚧 This section is under development",
+        "pt": "💼 Trabalho e vagas\n\n🚧 Esta secao esta em desenvolvimento",
+    },
+    "jobs_find_work_btn": {
+        "ru": "🔍 Найти работу",
+        "en": "🔍 Find work",
+        "pt": "🔍 Encontrar trabalho",
+    },
+    "jobs_my_applications_btn": {
+        "ru": "📄 Мои отклики",
+        "en": "📄 My applications",
+        "pt": "📄 Minhas candidaturas",
+    },
+    "jobs_my_vacancies_btn": {
+        "ru": "📋 Мои вакансии",
+        "en": "📋 My vacancies",
+        "pt": "📋 Minhas vagas",
+    },
+    "jobs_employers_btn": {
+        "ru": "🏢 Работодатели",
+        "en": "🏢 Employers",
+        "pt": "🏢 Empregadores",
+    },
+    "jobs_under_construction": {
+        "ru": "Раздел находится в разработке.",
+        "en": "This section is under development.",
+        "pt": "Esta secao esta em desenvolvimento.",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

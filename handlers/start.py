@@ -132,48 +132,77 @@ def get_main_menu_keyboard(
     *,
     show_role_switch: bool = False,
 ) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=t("menu_find_specialist", language),
-                callback_data="M_FIND",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_offer_services", language),
-                callback_data="SS_START",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_my_cabinet", language),
-                callback_data="M_CABINET",
-            )
-        ],
-    ]
-
-    if show_role_switch:
-        rows.append(
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("switch_profile", language),
-                    callback_data="ROLE_SWITCH_MENU",
+                    text=t("menu_find_specialist", language),
+                    callback_data="M_FIND",
                 )
-            ]
-        )
-
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("menu_settings", language),
-                callback_data="M_SETTINGS",
-            )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_jobs", language),
+                    callback_data="JOBS_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_my_cabinet", language),
+                    callback_data="M_CABINET",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_settings", language),
+                    callback_data="M_SETTINGS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_open_btn", language),
+                    callback_data="SUPPORT_MENU",
+                )
+            ],
         ]
     )
 
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-    
+def jobs_menu_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("jobs_find_work_btn", language),
+                    callback_data="JOBS_PLACEHOLDER:find_work",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("jobs_my_applications_btn", language),
+                    callback_data="JOBS_PLACEHOLDER:applications",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("jobs_my_vacancies_btn", language),
+                    callback_data="JOBS_PLACEHOLDER:vacancies",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("jobs_employers_btn", language),
+                    callback_data="JOBS_PLACEHOLDER:employers",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="GLOBAL_MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
 async def get_main_menu_keyboard_for_user(
     telegram_id: int | str,
     language: str = "ru",
@@ -210,6 +239,64 @@ async def send_global_main_menu(
         reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
     )
     await callback.answer()
+
+@start_router.callback_query(F.data == "JOBS_MENU")
+async def open_jobs_menu(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        if user:
+            settings = await TranslationRepository(session).get_language_settings(user.id)
+            language = normalize_language(settings.interface_language or user.language_code)
+
+            await EventRepository(session).create_event(
+                event_type="placeholder_opened",
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                entity_type="feature",
+                entity_id=None,
+                payload={
+                    "feature": "jobs",
+                    "source": "global_menu",
+                },
+                platform="telegram",
+            )
+            await session.commit()
+
+    await callback.message.answer(
+        t("jobs_menu_title", language),
+        reply_markup=jobs_menu_keyboard(language),
+    )
+    await callback.answer()
+
+
+@start_router.callback_query(F.data.startswith("JOBS_PLACEHOLDER:"))
+async def open_jobs_placeholder(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+    feature = (callback.data or "").split(":", 1)[1]
+
+    async with get_session() as session:
+        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        if user:
+            settings = await TranslationRepository(session).get_language_settings(user.id)
+            language = normalize_language(settings.interface_language or user.language_code)
+
+            await EventRepository(session).create_event(
+                event_type="placeholder_opened",
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                entity_type="feature",
+                entity_id=None,
+                payload={
+                    "feature": f"jobs_{feature}",
+                    "source": "jobs_menu",
+                },
+                platform="telegram",
+            )
+            await session.commit()
+
+    await callback.answer(t("jobs_under_construction", language), show_alert=True)
 
 async def send_active_role_cabinet_from_message(
     message: Message,

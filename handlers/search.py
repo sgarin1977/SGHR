@@ -863,6 +863,58 @@ def contact_thread_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
+def contact_thread_keyboard_for_role(
+    language: str,
+    role: str | None,
+) -> InlineKeyboardMarkup:
+    if role == "specialist":
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_reply_btn", language),
+                        callback_data="contact_reply",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_archive_btn", language),
+                        callback_data="SPEC_THREAD_ARCHIVE",
+                    ),
+                    InlineKeyboardButton(
+                        text=t("contact_hide_btn", language),
+                        callback_data="SPEC_THREAD_HIDE",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_complete_btn", language),
+                        callback_data="SPEC_THREAD_COMPLETE",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_report_btn", language),
+                        callback_data="SPEC_THREAD_REPORT",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_back_to_dialogs_btn", language),
+                        callback_data="SPEC_DIALOGS",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="BILL_MENU",
+                    )
+                ],
+            ]
+        )
+
+    return contact_thread_keyboard(language)
+
 def contact_completed_keyboard(contact_request_id: str, language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -3473,14 +3525,12 @@ async def start_thread_reply(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("contact_thread_not_found", language), show_alert=True)
         return
 
+    active_thread_role = data.get("active_thread_role")
+
     await show_callback_message(
         callback,
         t("contact_reply_prompt", language),
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")]
-            ]
-        ),
+        contact_thread_keyboard_for_role(language, active_thread_role),
     )
     await state.set_state(SpecialistSearchFSM.entering_thread_message)
     await callback.answer()
@@ -3639,7 +3689,10 @@ async def receive_thread_message(message: Message, state: FSMContext):
 
     await message.answer(
         t("contact_message_sent", language),
-        reply_markup=contact_thread_keyboard(language),
+        reply_markup=contact_thread_keyboard_for_role(
+            language,
+            data.get("active_thread_role"),
+        ),
     )
     if result.message_masked:
         await message.answer(t("contact_detection_warning", language))
@@ -3649,10 +3702,8 @@ async def favorite_pending(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = await get_search_language(state, callback)
     specialist_id = data.get("selected_specialist_id")
-    target_type = data.get("pending_report_target_type") or "specialist"
-    target_id = data.get("pending_report_target_id") or specialist_id
 
-    if not target_id:
+    if not specialist_id:
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
 
