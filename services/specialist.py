@@ -58,6 +58,19 @@ class SpecialistProfileUpdateData:
     clear_city: bool = False
     clear_coordinates: bool = False
 
+@dataclass
+class SpecialistServiceItemData:
+    tenant_id: UUID
+    user_id: UUID
+    specialist_id: UUID
+    title: str
+    description: str
+    price_from: float | None = None
+    price_to: float | None = None
+    currency: str = "EUR"
+    category_id: UUID | None = None
+    profession_id: UUID | None = None
+    service_id: UUID | None = None
 
 class SpecialistService:
     def __init__(
@@ -262,3 +275,247 @@ class SpecialistService:
             clear_coordinates=data.clear_coordinates,
         )
     
+    async def save_service_item(
+        self,
+        data: SpecialistServiceItemData,
+    ):
+        specialist = await self.repository.get_by_user_id(data.user_id)
+        if not specialist or specialist.id != data.specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        title = data.title.strip()
+        description = data.description.strip()
+        currency = (data.currency or "EUR")[:3].upper()
+
+        if len(title) < 3:
+            raise SpecialistRegistrationError("Service title is too short.")
+
+        if len(description) < 3:
+            raise SpecialistRegistrationError("Service description is too short.")
+
+        if data.price_from is not None and data.price_from < 0:
+            raise SpecialistRegistrationError("Price from cannot be negative.")
+
+        if data.price_to is not None and data.price_to < 0:
+            raise SpecialistRegistrationError("Price to cannot be negative.")
+
+        if (
+            data.price_from is not None
+            and data.price_to is not None
+            and data.price_to < data.price_from
+        ):
+            raise SpecialistRegistrationError("Price to cannot be lower than price from.")
+
+        if data.category_id is not None:
+            category = await self.repository.get_active_category(data.category_id)
+            if not category:
+                raise SpecialistRegistrationError("Category not found or inactive.")
+
+        if data.profession_id is not None:
+            profession = await self.repository.get_active_profession(data.profession_id)
+            if not profession:
+                raise SpecialistRegistrationError("Profession not found or inactive.")
+
+            category_id = data.category_id or specialist.category_id
+            if profession.category_id != category_id:
+                raise SpecialistRegistrationError("Profession does not belong to selected category.")
+
+        if data.service_id:
+            service = await self.repository.update_specialist_service_item(
+                specialist_id=data.specialist_id,
+                user_id=data.user_id,
+                service_id=data.service_id,
+                title=title,
+                description=description,
+                price_from=data.price_from,
+                price_to=data.price_to,
+                currency=currency,
+                category_id=data.category_id,
+                profession_id=data.profession_id,
+            )
+            mode = "edit"
+        else:
+            service = await self.repository.create_specialist_service_item(
+                tenant_id=data.tenant_id,
+                specialist_id=data.specialist_id,
+                category_id=data.category_id,
+                profession_id=data.profession_id,
+                title=title,
+                description=description,
+                price_from=data.price_from,
+                price_to=data.price_to,
+                currency=currency,
+            )
+            mode = "create"
+
+        return service, mode
+
+    async def toggle_service_item_status(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        service_id: UUID,
+    ):
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        service = await self.repository.get_owned_service_item(
+            specialist_id=specialist_id,
+            user_id=user_id,
+            service_id=service_id,
+        )
+        if not service:
+            raise SpecialistRegistrationError("Service not found.")
+
+        before_status = service.status or "active"
+        after_status = "paused" if before_status == "active" else "active"
+
+        service = await self.repository.set_specialist_service_item_status(
+            specialist_id=specialist_id,
+            user_id=user_id,
+            service_id=service_id,
+            status=after_status,
+        )
+
+        return service, before_status, after_status
+
+    async def delete_service_item(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        service_id: UUID,
+    ):
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        service = await self.repository.get_owned_service_item(
+            specialist_id=specialist_id,
+            user_id=user_id,
+            service_id=service_id,
+        )
+        if not service:
+            raise SpecialistRegistrationError("Service not found.")
+
+        before_status = service.status or "active"
+
+        service = await self.repository.set_specialist_service_item_status(
+            specialist_id=specialist_id,
+            user_id=user_id,
+            service_id=service_id,
+            status="deleted",
+        )
+
+        return service, before_status
+    async def toggle_profile_status(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+    ):
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        before_status = specialist.status
+        after_status = "active" if before_status == "paused" else "paused"
+        action = "resume" if after_status == "active" else "pause"
+
+        specialist = await self.repository.set_specialist_profile_status(
+            user_id=user_id,
+            specialist_id=specialist_id,
+            status=after_status,
+        )
+
+        return specialist, before_status, after_status, action
+    
+    async def update_profile_visibility(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        visibility: str,
+    ):
+        if visibility not in {"platform_only", "public_limited", "private"}:
+            raise SpecialistRegistrationError("Invalid visibility.")
+
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        updated_specialist, before_visibility = (
+            await self.repository.update_specialist_profile_visibility(
+                user_id=user_id,
+                specialist_id=specialist_id,
+                visibility=visibility,
+            )
+        )
+
+        return updated_specialist, before_visibility, visibility
+    
+    async def update_work_format(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        work_format: str,
+    ):
+        if work_format not in {"at_client", "at_specialist", "remote", "mixed"}:
+            raise SpecialistRegistrationError("Invalid work format.")
+
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        before_work_format = specialist.work_format
+
+        if before_work_format == work_format:
+            return specialist, before_work_format, work_format, False
+
+        updated_specialist = await self.repository.update_specialist_work_format(
+            user_id=user_id,
+            specialist_id=specialist_id,
+            work_format=work_format,
+        )
+
+        return updated_specialist, before_work_format, work_format, True
+    
+    async def update_languages(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        language_codes: list[str],
+    ):
+        selected = [
+            item.strip().lower()
+            for item in language_codes
+            if item and item.strip().lower() in {"ru", "en", "pt"}
+        ]
+
+        selected = list(dict.fromkeys(selected))
+
+        if not selected:
+            raise SpecialistRegistrationError("At least one language is required.")
+
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        before_languages = await self.repository.list_specialist_language_codes(
+            specialist_id=specialist_id,
+        )
+
+        if sorted(before_languages) == sorted(selected):
+            return before_languages, selected, False
+
+        await self.repository.replace_specialist_languages(
+            user_id=user_id,
+            specialist_id=specialist_id,
+            language_codes=selected,
+        )
+
+        return before_languages, selected, True

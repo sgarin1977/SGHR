@@ -63,6 +63,22 @@ class UserService:
 
         return await self.session.get(User, account.user_id)
 
+    async def update_interface_language(
+        self,
+        *,
+        user_id: uuid.UUID,
+        language_code: str,
+    ) -> User:
+        normalized_language = (language_code or "ru").strip().lower()
+
+        if normalized_language not in {"ru", "en", "pt"}:
+            raise ValueError("Unsupported language.")
+
+        return await self.repository.update_language_code(
+            user_id=user_id,
+            language_code=normalized_language,
+        )
+
     async def get_role_switch_context(
         self,
         telegram_id: int | str,

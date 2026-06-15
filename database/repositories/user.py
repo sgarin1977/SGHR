@@ -165,6 +165,20 @@ class UserRepository:
 
         return counts
 
+    async def update_language_code(
+        self,
+        *,
+        user_id: uuid.UUID,
+        language_code: str,
+    ) -> User:
+        user = await self.session.get(User, user_id)
+        if not user:
+            raise ValueError("User not found.")
+
+        user.language_code = language_code[:10] if language_code else "ru"
+        await self.session.flush()
+        return user
+
     async def set_active_role(
         self,
         user_id: uuid.UUID,

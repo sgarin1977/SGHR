@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database.models import (
@@ -121,6 +121,230 @@ class SpecialistRepository:
             select(Specialist).where(Specialist.user_id == user_id)
         )
         return result.scalar_one_or_none()
+
+    async def set_specialist_profile_status(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        status: str,
+    ) -> Specialist:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            raise ValueError("Specialist profile not found.")
+
+        specialist.status = status
+        await self.session.flush()
+        return specialist
+
+    async def update_specialist_profile_visibility(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        visibility: str,
+    ) -> tuple[Specialist, str | None]:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            raise ValueError("Specialist profile not found.")
+
+        result = await self.session.execute(
+            select(ProfileVisibilitySetting).where(
+                ProfileVisibilitySetting.user_id == user_id,
+                ProfileVisibilitySetting.profile_type == "specialist",
+            )
+        )
+        settings = result.scalar_one_or_none()
+
+        before_visibility = settings.visibility_level if settings else None
+
+        if settings:
+            settings.visibility_level = visibility
+            settings.visible_to_clients = True
+            settings.visible_to_employers = False
+            settings.visible_to_agencies = False
+            settings.allow_direct_messages = True
+            settings.allow_profile_export = False
+            settings.updated_at = datetime.utcnow()
+        else:
+            settings = ProfileVisibilitySetting(
+                user_id=user_id,
+                profile_type="specialist",
+                visibility_level=visibility,
+                visible_to_clients=True,
+                visible_to_employers=False,
+                visible_to_agencies=False,
+                allow_direct_messages=True,
+                allow_profile_export=False,
+            )
+            self.session.add(settings)
+
+        metadata = dict(specialist.extra_metadata or {})
+        metadata["contact_visibility"] = visibility
+        specialist.extra_metadata = metadata
+
+        await self.session.flush()
+        return specialist, before_visibility
+
+    async def update_specialist_work_format(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        work_format: str,
+    ) -> Specialist:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            raise ValueError("Specialist profile not found.")
+
+        specialist.work_format = work_format
+        await self.session.flush()
+        return specialist
+
+    async def list_specialist_language_codes(
+        self,
+        *,
+        specialist_id: UUID,
+    ) -> list[str]:
+        result = await self.session.execute(
+            select(SpecialistLanguage.language_code).where(
+                SpecialistLanguage.specialist_id == specialist_id,
+            )
+        )
+        return [row[0] for row in result.all()]
+
+    async def replace_specialist_languages(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        language_codes: list[str],
+    ) -> list[str]:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            raise ValueError("Specialist profile not found.")
+
+        await self.session.execute(
+            delete(SpecialistLanguage).where(
+                SpecialistLanguage.specialist_id == specialist_id,
+            )
+        )
+
+        for code in language_codes:
+            self.session.add(
+                SpecialistLanguage(
+                    specialist_id=specialist_id,
+                    language_code=code,
+                    level="basic",
+                )
+            )
+
+        await self.session.flush()
+        return language_codes
+
+    async def get_owned_service_item(
+        self,
+        *,
+        specialist_id: UUID,
+        user_id: UUID,
+        service_id: UUID,
+    ) -> SpecialistService | None:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            return None
+
+        service = await self.session.get(SpecialistService, service_id)
+        if (
+            not service
+            or service.specialist_id != specialist_id
+            or service.status == "deleted"
+        ):
+            return None
+
+        return service
+
+    async def create_specialist_service_item(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        category_id: UUID | None,
+        profession_id: UUID | None,
+        title: str,
+        description: str,
+        price_from: float | None,
+        price_to: float | None,
+        currency: str,
+    ) -> SpecialistService:
+        service = SpecialistService(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+            category_id=category_id,
+            profession_id=profession_id,
+            title=title,
+            description=description,
+            price_from=price_from,
+            price_to=price_to,
+            currency=currency,
+            price_unit="service",
+            status="active",
+        )
+        self.session.add(service)
+        await self.session.flush()
+        return service
+
+    async def update_specialist_service_item(
+        self,
+        *,
+        specialist_id: UUID,
+        user_id: UUID,
+        service_id: UUID,
+        title: str,
+        description: str,
+        price_from: float | None,
+        price_to: float | None,
+        currency: str,
+        category_id: UUID | None,
+        profession_id: UUID | None,
+    ) -> SpecialistService:
+        service = await self.get_owned_service_item(
+            specialist_id=specialist_id,
+            user_id=user_id,
+            service_id=service_id,
+        )
+        if not service:
+            raise ValueError("Specialist service not found.")
+
+        service.title = title
+        service.description = description
+        service.price_from = price_from
+        service.price_to = price_to
+        service.currency = currency
+        service.category_id = category_id
+        service.profession_id = profession_id
+
+        await self.session.flush()
+        return service
+
+    async def set_specialist_service_item_status(
+        self,
+        *,
+        specialist_id: UUID,
+        user_id: UUID,
+        service_id: UUID,
+        status: str,
+    ) -> SpecialistService:
+        service = await self.get_owned_service_item(
+            specialist_id=specialist_id,
+            user_id=user_id,
+            service_id=service_id,
+        )
+        if not service:
+            raise ValueError("Specialist service not found.")
+
+        service.status = status
+        await self.session.flush()
+        return service
 
     async def list_active_specialist_professions(
         self,

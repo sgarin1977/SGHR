@@ -691,6 +691,88 @@ def support_ticket_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def support_staff_menu_keyboard(
+    language: str,
+    *,
+    show_role_switch: bool = True,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_open_btn", language),
+                callback_data="ADM_SUPPORT_VIEW:open:0",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_in_progress_btn", language),
+                callback_data="ADM_SUPPORT_VIEW:in_progress:0",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_resolved_btn", language),
+                callback_data="ADM_SUPPORT_VIEW:resolved:0",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_search_btn", language),
+                callback_data="ADM_SUPPORT_SEARCH",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_stats_btn", language),
+                callback_data="ADM_SUPPORT_STATS",
+            )
+        ],
+    ]
+
+    if show_role_switch:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("switch_profile", language),
+                    callback_data="ROLE_SWITCH_MENU",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="ADM_MENU",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def format_support_staff_menu(counts: dict[str, int], language: str) -> str:
+    return t("support_staff_menu_title", language).format(
+        open_count=counts.get("open", 0),
+        in_progress_count=counts.get("in_progress", 0),
+        resolved_count=counts.get("resolved", 0),
+    )
+
+async def get_support_staff_counts(*, tenant_id) -> dict[str, int]:
+    async with get_session() as session:
+        result = await session.execute(
+            select(SupportTicket.status, func.count(SupportTicket.id))
+            .where(SupportTicket.tenant_id == tenant_id)
+            .where(SupportTicket.status.in_({"open", "in_progress", "resolved"}))
+            .group_by(SupportTicket.status)
+        )
+        return {status: count for status, count in result.all()}
+
+def format_support_staff_menu(counts: dict[str, int], language: str) -> str:
+    return t("support_staff_menu_title", language).format(
+        open_count=counts.get("open", 0),
+        in_progress_count=counts.get("in_progress", 0),
+        resolved_count=counts.get("resolved", 0),
+    )
 
 def format_support_ticket_card(
     view,

@@ -97,6 +97,66 @@ class ContactChatRepository:
         )
         return result.scalar_one_or_none()
 
+    async def request_thread_completion(
+        self,
+        *,
+        tenant_id: UUID,
+        thread_id: UUID,
+        actor_user_id: UUID,
+        role: str = "specialist",
+        platform: str = "telegram",
+    ) -> tuple[ConversationThread, Notification]:
+        thread = await self.get_thread_for_user(
+            thread_id=thread_id,
+            user_id=actor_user_id,
+        )
+
+        if not thread:
+            raise ValueError("Conversation thread not found.")
+
+        if thread.status in {"closed", "completed", "restricted", "disputed"}:
+            raise ValueError("Conversation thread completion is not available.")
+
+        requested_for_user_id = (
+            thread.client_user_id
+            if role == "specialist"
+            else thread.specialist_user_id
+        )
+
+        notification = Notification(
+            tenant_id=tenant_id,
+            user_id=requested_for_user_id,
+            notification_type="completion_requested",
+            channel="telegram",
+            payload={
+                "thread_id": str(thread.id),
+                "contact_request_id": str(thread.context_id) if thread.context_id else None,
+                "requested_by_user_id": str(actor_user_id),
+                "role": role,
+            },
+            status="pending",
+        )
+        self.session.add(notification)
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                event_type="completion_requested",
+                entity_type="conversation_thread",
+                entity_id=thread.id,
+                payload={
+                    "contact_request_id": str(thread.context_id) if thread.context_id else None,
+                    "requested_for_user_id": str(requested_for_user_id),
+                    "role": role,
+                },
+                platform=platform,
+            )
+        )
+
+        await self.session.commit()
+        return thread, notification
+
     async def get_thread_by_contact_request_id(
         self,
         contact_request_id: UUID,

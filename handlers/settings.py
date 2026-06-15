@@ -313,7 +313,10 @@ async def set_interface_language(callback: CallbackQuery):
             user_id=user.id,
             interface_language=interface_language,
         )
-        user.language_code = interface_language
+        await UserService(session).update_interface_language(
+            user_id=user.id,
+            language_code=interface_language,
+        )
 
         await log_settings_changed(
             session=session,

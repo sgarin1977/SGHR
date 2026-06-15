@@ -26,9 +26,7 @@ from database.models import (
     PaidFeature,
     Specialist,
     ContactRequest,
-    Notification,
     ProfileVisibilitySetting,
-    SpecialistLanguage,
     SpecialistService as SpecialistServiceModel,
     UserConsent,
 )
@@ -42,6 +40,7 @@ from services.specialist import (
     SpecialistProfileUpdateData,
     SpecialistRegistrationError,
     SpecialistService,
+    SpecialistServiceItemData,
 )
 from services.user import UserService
 from ui.texts import t
@@ -2341,50 +2340,14 @@ async def request_specialist_thread_completion(callback: CallbackQuery, state: F
 
     try:
         async with get_session() as session:
-            repository = ContactChatRepository(session)
-            thread = await repository.get_thread_for_user(
-                thread_id=UUID(thread_id),
-                user_id=user_id,
-            )
-
-            if not thread:
-                await callback.answer(t("contact_thread_not_found", language), show_alert=True)
-                return
-
-            if thread.status in {"closed", "completed", "restricted", "disputed"}:
-                await callback.answer(t("contact_thread_completion_not_available", language), show_alert=True)
-                return
-
-            session.add(
-                Notification(
-                    tenant_id=tenant_id,
-                    user_id=thread.client_user_id,
-                    notification_type="completion_requested",
-                    channel="telegram",
-                    payload={
-                        "thread_id": str(thread.id),
-                        "contact_request_id": str(thread.context_id) if thread.context_id else None,
-                        "requested_by_user_id": str(user_id),
-                        "role": "specialist",
-                    },
-                    status="pending",
-                )
-            )
-
-            await EventRepository(session).create_event(
+            await ContactChatService(
+                ContactChatRepository(session)
+            ).request_thread_completion(
                 tenant_id=tenant_id,
-                user_id=user_id,
-                event_type="completion_requested",
-                entity_type="conversation_thread",
-                entity_id=thread.id,
-                payload={
-                    "contact_request_id": str(thread.context_id) if thread.context_id else None,
-                    "requested_for_user_id": str(thread.client_user_id),
-                    "role": "specialist",
-                },
-                platform="telegram",
+                thread_id=UUID(thread_id),
+                actor_user_id=user_id,
+                role="specialist",
             )
-            await session.commit()
 
     except ContactChatError as exc:
         await callback.answer(
@@ -2981,98 +2944,75 @@ async def confirm_specialist_service(callback: CallbackQuery, state: FSMContext)
         await callback.answer(t("specialist_service_description_required", language), show_alert=True)
         return
 
-    async with get_session() as session:
-        db_specialist = await session.get(Specialist, UUID(specialist_id))
-        if not db_specialist or db_specialist.user_id != UUID(user_id):
-            await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
-            await state.clear()
-            return
+    mode = data.get("service_mode") or "create"
+    service_id = data.get("service_id") if mode == "edit" else None
 
-        mode = data.get("service_mode") or "create"
-        currency = (data.get("service_currency") or "EUR")[:3].upper()
+    if mode == "edit" and not service_id:
+        await callback.answer(t("specialist_service_not_found", language), show_alert=True)
+        await state.clear()
+        return
 
-        if mode == "edit":
-            service_id = data.get("service_id")
-            if not service_id:
-                await callback.answer(t("specialist_service_not_found", language), show_alert=True)
-                await state.clear()
-                return
+    try:
+        async with get_session() as session:
+            service, saved_mode = await SpecialistService(
+                SpecialistRepository(session)
+            ).save_service_item(
+                SpecialistServiceItemData(
+                    tenant_id=UUID(tenant_id),
+                    user_id=UUID(user_id),
+                    specialist_id=UUID(specialist_id),
+                    service_id=UUID(service_id) if service_id else None,
+                    category_id=UUID(data["service_category_id"])
+                    if data.get("service_category_id")
+                    else None,
+                    profession_id=UUID(data["service_profession_id"])
+                    if data.get("service_profession_id")
+                    else None,
+                    title=title,
+                    description=description,
+                    price_from=data.get("service_price_from"),
+                    price_to=data.get("service_price_to"),
+                    currency=data.get("service_currency") or "EUR",
+                )
+            )
 
-            service = await session.get(SpecialistServiceModel, UUID(service_id))
-            if (
-                not service
-                or service.specialist_id != UUID(specialist_id)
-                or service.status == "deleted"
-            ):
-                await callback.answer(t("specialist_service_not_found", language), show_alert=True)
-                await state.clear()
-                return
-
-            before_payload = data.get("service_before") or {
-                "title": service.title,
-                "description": service.description,
-                "price_from": float(service.price_from) if service.price_from is not None else None,
-                "price_to": float(service.price_to) if service.price_to is not None else None,
-                "currency": service.currency,
-                "status": service.status,
-            }
-
-            service.title = title
-            service.description = description
-            service.price_from = data.get("service_price_from")
-            service.price_to = data.get("service_price_to")
-            service.currency = currency
-            service.category_id = UUID(data["service_category_id"]) if data.get("service_category_id") else None
-            service.profession_id = UUID(data["service_profession_id"]) if data.get("service_profession_id") else None
-
-            await session.flush()
-            event_payload = {
-                "mode": "edit",
-                "before": before_payload,
-                "after": {
+            if saved_mode == "edit":
+                before_payload = data.get("service_before") or {}
+                event_payload = {
+                    "mode": "edit",
+                    "before": before_payload,
+                    "after": {
+                        "title": service.title,
+                        "description": service.description,
+                        "price_from": data.get("service_price_from"),
+                        "price_to": data.get("service_price_to"),
+                        "currency": service.currency,
+                        "status": service.status,
+                    },
+                }
+            else:
+                event_payload = {
+                    "mode": "create",
                     "title": service.title,
-                    "description": service.description,
                     "price_from": data.get("service_price_from"),
                     "price_to": data.get("service_price_to"),
                     "currency": service.currency,
                     "status": service.status,
-                },
-            }
-        else:
-            service = SpecialistServiceModel(
-                tenant_id=UUID(tenant_id),
-                specialist_id=UUID(specialist_id),
-                category_id=UUID(data["service_category_id"]) if data.get("service_category_id") else None,
-                profession_id=UUID(data["service_profession_id"]) if data.get("service_profession_id") else None,
-                title=title,
-                description=description,
-                price_from=data.get("service_price_from"),
-                price_to=data.get("service_price_to"),
-                currency=currency,
-                price_unit="service",
-                status="active",
-            )
-            session.add(service)
-            await session.flush()
-            event_payload = {
-                "mode": "create",
-                "title": title,
-                "price_from": data.get("service_price_from"),
-                "price_to": data.get("service_price_to"),
-                "currency": service.currency,
-                "status": service.status,
-            }
+                }
 
-        await EventRepository(session).create_event(
-            tenant_id=UUID(tenant_id),
-            user_id=UUID(user_id),
-            event_type="service_saved",
-            entity_type="specialist_service",
-            entity_id=service.id,
-            payload=event_payload,
-            platform="telegram",
-        )
-        await session.commit()
+            await EventRepository(session).create_event(
+                tenant_id=UUID(tenant_id),
+                user_id=UUID(user_id),
+                event_type="service_saved",
+                entity_type="specialist_service",
+                entity_id=service.id,
+                payload=event_payload,
+                platform="telegram",
+            )
+            await session.commit()
+    except (SpecialistRegistrationError, ValueError) as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
 
     await state.clear()
     await callback.message.answer(
@@ -3094,7 +3034,6 @@ async def pause_specialist_service(callback: CallbackQuery, state: FSMContext):
     )
     data = await state.get_data()
     service_ids = data.get("specialist_service_ids") or []
-    page = int(data.get("specialist_services_page") or 0)
 
     try:
         index = int((callback.data or "").split(":", 1)[1])
@@ -3115,33 +3054,32 @@ async def pause_specialist_service(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
         return
 
-    async with get_session() as session:
-        service = await session.get(SpecialistServiceModel, service_id)
-        if (
-            not service
-            or service.specialist_id != specialist.id
-            or service.status == "deleted"
-        ):
-            await callback.answer(t("specialist_service_not_found", language), show_alert=True)
-            return
+    try:
+        async with get_session() as session:
+            service, before_status, after_status = await SpecialistService(
+                SpecialistRepository(session)
+            ).toggle_service_item_status(
+                user_id=user.id,
+                specialist_id=specialist.id,
+                service_id=service_id,
+            )
 
-        before_status = service.status or "active"
-        after_status = "paused" if before_status == "active" else "active"
-        service.status = after_status
-
-        await EventRepository(session).create_event(
-            tenant_id=tenant_id,
-            user_id=user.id,
-            event_type="service_status_changed",
-            entity_type="specialist_service",
-            entity_id=service.id,
-            payload={
-                "before": before_status,
-                "after": after_status,
-            },
-            platform="telegram",
-        )
-        await session.commit()
+            await EventRepository(session).create_event(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                event_type="service_status_changed",
+                entity_type="specialist_service",
+                entity_id=service.id,
+                payload={
+                    "before": before_status,
+                    "after": after_status,
+                },
+                platform="telegram",
+            )
+            await session.commit()
+    except (SpecialistRegistrationError, ValueError) as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
 
     await callback.message.answer(t("specialist_service_status_changed", language))
     await specialist_services_entry(callback, state)
@@ -3193,32 +3131,32 @@ async def delete_specialist_service(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
         return
 
-    async with get_session() as session:
-        service = await session.get(SpecialistServiceModel, service_id)
-        if (
-            not service
-            or service.specialist_id != specialist.id
-            or service.status == "deleted"
-        ):
-            await callback.answer(t("specialist_service_not_found", language), show_alert=True)
-            return
+    try:
+        async with get_session() as session:
+            service, before_status = await SpecialistService(
+                SpecialistRepository(session)
+            ).delete_service_item(
+                user_id=user.id,
+                specialist_id=specialist.id,
+                service_id=service_id,
+            )
 
-        before_status = service.status or "active"
-        service.status = "deleted"
-
-        await EventRepository(session).create_event(
-            tenant_id=tenant_id,
-            user_id=user.id,
-            event_type="service_deleted",
-            entity_type="specialist_service",
-            entity_id=service.id,
-            payload={
-                "before": before_status,
-                "after": "deleted",
-            },
-            platform="telegram",
-        )
-        await session.commit()
+            await EventRepository(session).create_event(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                event_type="service_deleted",
+                entity_type="specialist_service",
+                entity_id=service.id,
+                payload={
+                    "before": before_status,
+                    "after": "deleted",
+                },
+                platform="telegram",
+            )
+            await session.commit()
+    except (SpecialistRegistrationError, ValueError) as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
 
     await callback.message.answer(t("specialist_service_deleted", language))
     await specialist_services_entry(callback, state)
@@ -3612,7 +3550,10 @@ async def set_specialist_interface_language(callback: CallbackQuery, state: FSMC
             user_id=user.id,
             interface_language=interface_language,
         )
-        user.language_code = interface_language
+        await UserService(session).update_interface_language(
+            user_id=user.id,
+            language_code=interface_language,
+        )
 
         await EventRepository(session).create_event(
             event_type="settings_changed",
@@ -4599,14 +4540,16 @@ async def pause_specialist_profile(callback: CallbackQuery, state: FSMContext):
         return
 
     async with get_session() as session:
-        db_specialist = await session.get(Specialist, specialist.id)
-        if not db_specialist or db_specialist.user_id != user.id:
-            await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        try:
+            db_specialist, before_status, after_status, action = await SpecialistService(
+                SpecialistRepository(session)
+            ).toggle_profile_status(
+                user_id=user.id,
+                specialist_id=specialist.id,
+            )
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await callback.answer(str(exc), show_alert=True)
             return
-
-        before_status = db_specialist.status
-        db_specialist.status = "active" if before_status == "paused" else "paused"
-        action = "resume" if db_specialist.status == "active" else "pause"
 
         await EventRepository(session).create_event(
             tenant_id=tenant_id,
@@ -4617,7 +4560,7 @@ async def pause_specialist_profile(callback: CallbackQuery, state: FSMContext):
             payload={
                 "action": action,
                 "before_status": before_status,
-                "after_status": db_specialist.status,
+                "after_status": after_status,
             },
             platform="telegram",
         )
@@ -4634,7 +4577,6 @@ async def pause_specialist_profile(callback: CallbackQuery, state: FSMContext):
         reply_markup=specialist_profile_keyboard(language),
     )
     await callback.answer()
-
 @billing_router.callback_query(F.data == "CAB_PROFILE_VISIBILITY")
 async def show_specialist_profile_visibility(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(
@@ -4693,58 +4635,30 @@ async def set_specialist_profile_visibility(callback: CallbackQuery, state: FSMC
         return
 
     visibility = (callback.data or "").split(":", 1)[1]
-    if visibility not in {"platform_only", "public_limited", "private"}:
-        await callback.answer(t("cabinet_profile_update_failed", language).format(error="Invalid visibility"), show_alert=True)
-        return
 
     async with get_session() as session:
-        result = await session.execute(
-            select(ProfileVisibilitySetting).where(
-                ProfileVisibilitySetting.user_id == user.id,
-                ProfileVisibilitySetting.profile_type == "specialist",
-            )
-        )
-        settings = result.scalar_one_or_none()
-
-        before_visibility = settings.visibility_level if settings else None
-
-        if settings:
-            settings.visibility_level = visibility
-            settings.visible_to_clients = True
-            settings.visible_to_employers = False
-            settings.visible_to_agencies = False
-            settings.allow_direct_messages = True
-            settings.allow_profile_export = False
-        else:
-            settings = ProfileVisibilitySetting(
+        try:
+            db_specialist, before_visibility, after_visibility = await SpecialistService(
+                SpecialistRepository(session)
+            ).update_profile_visibility(
                 user_id=user.id,
-                profile_type="specialist",
-                visibility_level=visibility,
-                visible_to_clients=True,
-                visible_to_employers=False,
-                visible_to_agencies=False,
-                allow_direct_messages=True,
-                allow_profile_export=False,
+                specialist_id=specialist.id,
+                visibility=visibility,
             )
-            session.add(settings)
-
-        metadata = dict(specialist.extra_metadata or {})
-        metadata["contact_visibility"] = visibility
-
-        db_specialist = await session.get(Specialist, specialist.id)
-        if db_specialist:
-            db_specialist.extra_metadata = metadata
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await callback.answer(str(exc), show_alert=True)
+            return
 
         await EventRepository(session).create_event(
             tenant_id=tenant_id,
             user_id=user.id,
             event_type="profile_action",
             entity_type="specialist",
-            entity_id=specialist.id,
+            entity_id=db_specialist.id,
             payload={
                 "action": "visibility_changed",
                 "before_visibility": before_visibility,
-                "after_visibility": visibility,
+                "after_visibility": after_visibility,
             },
             platform="telegram",
         )
@@ -4921,7 +4835,7 @@ async def ask_edit_specialist_work_format(callback: CallbackQuery, state: FSMCon
 
 
 @billing_router.callback_query(F.data.startswith("CAB_WORK_FORMAT_SET:"))
-async def set_specialist_work_format(callback: CallbackQuery, state: FSMContext):
+async def set_edit_specialist_work_format(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(
         callback.from_user.id,
         callback.from_user.language_code,
@@ -4939,27 +4853,27 @@ async def set_specialist_work_format(callback: CallbackQuery, state: FSMContext)
         return
 
     work_format = (callback.data or "").split(":", 1)[1]
-    if work_format not in {"at_client", "at_specialist", "remote", "mixed"}:
-        await callback.answer(t("spec_work_format_invalid", language), show_alert=True)
-        return
 
     async with get_session() as session:
-        db_specialist = await session.get(Specialist, specialist.id)
-        if not db_specialist or db_specialist.user_id != user.id:
-            await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        try:
+            db_specialist, before_work_format, after_work_format, changed = await SpecialistService(
+                SpecialistRepository(session)
+            ).update_work_format(
+                user_id=user.id,
+                specialist_id=specialist.id,
+                work_format=work_format,
+            )
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await callback.answer(str(exc), show_alert=True)
             return
 
-        before_work_format = db_specialist.work_format
-
-        if before_work_format == work_format:
+        if not changed:
             await callback.message.answer(
                 t("cabinet_profile_no_changes", language),
                 reply_markup=specialist_edit_keyboard(language),
             )
             await callback.answer()
             return
-
-        db_specialist.work_format = work_format
 
         await EventRepository(session).create_event(
             tenant_id=tenant_id,
@@ -4970,7 +4884,7 @@ async def set_specialist_work_format(callback: CallbackQuery, state: FSMContext)
             payload={
                 "field": "work_format",
                 "before": before_work_format,
-                "after": work_format,
+                "after": after_work_format,
             },
             platform="telegram",
         )
@@ -5001,12 +4915,9 @@ async def ask_edit_specialist_languages(callback: CallbackQuery, state: FSMConte
         return
 
     async with get_session() as session:
-        result = await session.execute(
-            select(SpecialistLanguage.language_code).where(
-                SpecialistLanguage.specialist_id == specialist.id,
-            )
+        selected = await SpecialistRepository(session).list_specialist_language_codes(
+            specialist_id=specialist.id,
         )
-        selected = [row[0] for row in result.all()]
 
     if not selected:
         selected = ["ru"]
@@ -5071,30 +4982,25 @@ async def save_specialist_languages(callback: CallbackQuery, state: FSMContext):
     tenant_id = data.get("cabinet_tenant_id")
     selected = list(data.get("cabinet_selected_languages") or [])
 
-    selected = [item for item in selected if item in {"ru", "en", "pt"}]
-
     if not specialist_id or not user_id or not tenant_id:
         await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
         await state.clear()
         return
 
-    if not selected:
-        await callback.answer(t("spec_profession_select_one", language), show_alert=True)
-        return
-
     async with get_session() as session:
-        db_specialist = await session.get(Specialist, UUID(specialist_id))
-        if not db_specialist or db_specialist.user_id != UUID(user_id):
-            await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        try:
+            before_languages, after_languages, changed = await SpecialistService(
+                SpecialistRepository(session)
+            ).update_languages(
+                user_id=UUID(user_id),
+                specialist_id=UUID(specialist_id),
+                language_codes=selected,
+            )
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await callback.answer(str(exc), show_alert=True)
             return
 
-        before_result = await session.execute(
-            select(SpecialistLanguage.language_code).where(
-                SpecialistLanguage.specialist_id == db_specialist.id,
-            )
-        )
-        before_languages = [row[0] for row in before_result.all()]
-        if sorted(before_languages) == sorted(selected):
+        if not changed:
             await state.set_state(None)
             await callback.message.answer(
                 t("cabinet_profile_no_changes", language),
@@ -5102,31 +5008,17 @@ async def save_specialist_languages(callback: CallbackQuery, state: FSMContext):
             )
             await callback.answer()
             return
-        await session.execute(
-            delete(SpecialistLanguage).where(
-                SpecialistLanguage.specialist_id == db_specialist.id,
-            )
-        )
-
-        for code in selected:
-            session.add(
-                SpecialistLanguage(
-                    specialist_id=db_specialist.id,
-                    language_code=code,
-                    level="basic",
-                )
-            )
 
         await EventRepository(session).create_event(
             tenant_id=UUID(tenant_id),
             user_id=UUID(user_id),
             event_type="change_submitted",
             entity_type="specialist",
-            entity_id=db_specialist.id,
+            entity_id=UUID(specialist_id),
             payload={
                 "field": "languages",
                 "before": before_languages,
-                "after": selected,
+                "after": after_languages,
             },
             platform="telegram",
         )

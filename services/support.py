@@ -152,6 +152,36 @@ class SupportService:
         )
         return SupportTicketView(ticket=ticket, messages=messages)
 
+    async def close_user_ticket(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        ticket_id: UUID,
+    ) -> SupportTicket:
+        ticket = await self.repository.get_user_ticket(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            user_id=user_id,
+        )
+        if not ticket:
+            raise SupportServiceError("Support ticket not found.")
+
+        if ticket.status in {"resolved", "closed", "rejected"}:
+            raise SupportServiceError("Support ticket is already closed.")
+
+        ticket = await self.repository.update_ticket_status(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            status="closed",
+            assigned_user_id=None,
+        )
+        if not ticket:
+            raise SupportServiceError("Support ticket not found.")
+
+        await self.repository.session.commit()
+        return ticket
+
     async def add_user_message(
         self,
         *,

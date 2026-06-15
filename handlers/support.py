@@ -746,22 +746,12 @@ async def close_my_support_ticket(callback: CallbackQuery, state: FSMContext):
                 await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
                 return
 
-            service = SupportService(SupportRepository(session))
-            view = await service.get_user_ticket_view(
+            ticket = await SupportService(
+                SupportRepository(session)
+            ).close_user_ticket(
                 tenant_id=fresh_user.tenant_id,
                 user_id=fresh_user.id,
                 ticket_id=UUID(ids[index]),
-            )
-
-            if view.ticket.status in {"resolved", "closed", "rejected"}:
-                await callback.answer(t("support_ticket_already_closed", language), show_alert=True)
-                return
-
-            ticket = await service.repository.update_ticket_status(
-                tenant_id=fresh_user.tenant_id,
-                ticket_id=view.ticket.id,
-                status="closed",
-                assigned_user_id=None,
             )
 
             await EventRepository(session).create_event(
@@ -769,7 +759,7 @@ async def close_my_support_ticket(callback: CallbackQuery, state: FSMContext):
                 tenant_id=fresh_user.tenant_id,
                 user_id=fresh_user.id,
                 entity_type="support_ticket",
-                entity_id=view.ticket.id,
+                entity_id=ticket.id,
                 payload={
                     "source": "user_support_ticket",
                     "status": "closed",
@@ -778,7 +768,10 @@ async def close_my_support_ticket(callback: CallbackQuery, state: FSMContext):
             )
             await session.commit()
     except SupportServiceError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        message = str(exc)
+        if message == "Support ticket is already closed.":
+            message = t("support_ticket_already_closed", language)
+        await callback.answer(message, show_alert=True)
         return
 
     await callback.message.answer(

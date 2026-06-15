@@ -63,6 +63,13 @@ class ContactThreadVisibilityResult:
     is_hidden: bool
 
 @dataclass
+class ContactThreadCompletionRequestResult:
+    thread_id: UUID
+    contact_request_id: UUID | None
+    notification_id: UUID
+    requested_for_user_id: UUID
+
+@dataclass
 class ContactThreadListItem:
     thread_id: UUID
     specialist_name: str
@@ -305,7 +312,35 @@ class ContactChatService:
             status=contact_request.status,
             thread_status=thread.status,
         )
-    
+
+    async def request_thread_completion(
+        self,
+        *,
+        tenant_id: UUID,
+        thread_id: UUID,
+        actor_user_id: UUID,
+        role: str = "specialist",
+    ) -> ContactThreadCompletionRequestResult:
+        if role not in {"client", "specialist"}:
+            raise ContactChatError("Unsupported completion requester role.")
+
+        try:
+            thread, notification = await self.repository.request_thread_completion(
+                tenant_id=tenant_id,
+                thread_id=thread_id,
+                actor_user_id=actor_user_id,
+                role=role,
+            )
+        except ValueError as exc:
+            raise ContactChatError(str(exc)) from exc
+
+        return ContactThreadCompletionRequestResult(
+            thread_id=thread.id,
+            contact_request_id=thread.context_id,
+            notification_id=notification.id,
+            requested_for_user_id=notification.user_id,
+        )
+
     async def set_contact_request_status_by_token(
         self,
         *,
