@@ -371,15 +371,36 @@ def profession_keyboard(
     return keyboard
 
 
-def results_keyboard(page: int, has_next: bool, results_count: int, language: str) -> InlineKeyboardMarkup:
+def result_card_keyboard(index: int, language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("search_details_btn", language),
+                    callback_data=f"search_result:{index}",
+                ),
+                InlineKeyboardButton(
+                    text=t("contact", language),
+                    callback_data=f"search_result_contact:{index}",
+                ),
+            ],
+        ]
+    )
+
+def results_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+    indexes: list[int] | None = None,
+) -> InlineKeyboardMarkup:
     rows = []
 
-    for index in range(results_count):
-        number = page * PER_PAGE + index + 1
+    for index in indexes or []:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"{number}. {t('search_details_btn', language)}",
+                    text=t("search_details_btn", language),
                     callback_data=f"search_result:{index}",
                 ),
                 InlineKeyboardButton(
@@ -403,14 +424,79 @@ def results_keyboard(page: int, has_next: bool, results_count: int, language: st
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton(text="<", callback_data=f"search_results_page:{page - 1}"))
+        nav.append(
+            InlineKeyboardButton(
+                text="<",
+                callback_data=f"search_results_page:{page - 1}",
+            )
+        )
     if has_next:
-        nav.append(InlineKeyboardButton(text=">", callback_data=f"search_results_page:{page + 1}"))
+        nav.append(
+            InlineKeyboardButton(
+                text=">",
+                callback_data=f"search_results_page:{page + 1}",
+            )
+        )
     if nav:
         rows.append(nav)
 
-    rows.append([InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")])
-    rows.append([InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")])
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_back_to_filters", language),
+                callback_data="search_filters",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="search_menu",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def results_navigation_keyboard(page: int, has_next: bool, language: str) -> InlineKeyboardMarkup:
+    rows = []
+
+    nav = []
+    if page > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text="<",
+                callback_data=f"search_results_page:{page - 1}",
+            )
+        )
+    if has_next:
+        nav.append(
+            InlineKeyboardButton(
+                text=">",
+                callback_data=f"search_results_page:{page + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_back_to_filters", language),
+                callback_data="search_filters",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="search_menu",
+            )
+        ]
+    )
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def card_keyboard(language: str, results_page: int = 0) -> InlineKeyboardMarkup:
@@ -1419,29 +1505,16 @@ def format_results_header(
     language: str,
     page: int,
     visible_count: int,
-    has_next: bool,
+    total_count: int,
 ) -> str:
-    profession = data.get("profession_name") or t("search_filter_not_set", language)
-
-    if data.get("location_state") == "without":
-        location = t("search_location_without", language)
-    else:
-        location = data.get("city_name") or t("search_filter_not_set", language)
-
-    radius = (
-        t("search_radius_country", language)
-        if data.get("country_wide")
-        else f"{data.get('radius_km') or DEFAULT_RADIUS_KM} km"
-    )
-
-    start = page * PER_PAGE + 1
+    start = page * PER_PAGE + 1 if visible_count else 0
     end = page * PER_PAGE + visible_count
-
-    found = f"{end}+" if has_next else str(end)
-    shown_range = t("search_results_range", language).format(
-        start=start,
-        end=end,
-    )
+    profession = data.get("profession_name") or t("search_filter_not_set", language)
+    location = data.get("city_name") or data.get("country_name") or t("search_filter_not_set", language)
+    radius = data.get("radius_km") or DEFAULT_RADIUS_KM
+    found = total_count
+    shown_range = f"{start}-{end} {t('search_results_of', language)} {total_count}"
+    _ = t("search_results_range", language)
 
     return t("search_results_header", language).format(
         profession=profession,
@@ -1450,56 +1523,108 @@ def format_results_header(
         found=found,
         range=shown_range,
     )
+def search_result_badge(specialist) -> str:
+    metadata = specialist.extra_metadata or {}
+
+    if metadata.get("boost_enabled") or metadata.get("is_boosted"):
+        return "🔥"
+
+    if specialist.is_premium:
+        return "⭐"
+
+    if metadata.get("partner") or metadata.get("is_partner"):
+        return "🤝"
+
+    return ""
+
+
+def compact_rating(specialist, language: str) -> str:
+    reviews_count = specialist.reviews_count or 0
+
+    if reviews_count > 0 and specialist.rating is not None:
+        return f"⭐{float(specialist.rating):.1f}"
+
+    return f"⭐{t('search_no_reviews', language)}"
+
+
+def compact_distance(result, language: str) -> str:
+    specialist = result.specialist
+
+    if getattr(specialist, "work_format", None) == "remote":
+        return f"📍{work_format_label('remote', language)}"
+
+    if result.distance_km is not None:
+        return f"📍{result.distance_km:.0f} км"
+
+    return f"📍{result.city_name or t('search_filter_not_set', language)}"
+def compact_money_value(value) -> str:
+    if value is None:
+        return ""
+
+    number = float(value)
+    if number.is_integer():
+        return str(int(number))
+
+    return f"{number:.2f}".rstrip("0").rstrip(".")
+
+def compact_price(specialist, language: str) -> str:
+    currency = "€" if specialist.currency == "EUR" else (specialist.currency or "")
+
+    if specialist.price_from and specialist.price_to:
+        price_from = compact_money_value(specialist.price_from)
+        price_to = compact_money_value(specialist.price_to)
+        return f"💶{price_from}-{price_to}{currency}"
+
+    if specialist.price_from:
+        price_from = compact_money_value(specialist.price_from)
+        return f"💶{price_from}{currency}"
+
+    return f"💶{t('search_price_not_set', language)}"
 
 def format_specialist_result(result, index: int, language: str) -> str:
     specialist = result.specialist
 
-    price = t("search_price_not_set", language)
-    if specialist.price_from and specialist.price_to:
-        price = f"{specialist.price_from}-{specialist.price_to} {specialist.currency}"
-    elif specialist.price_from:
-        price = f"{t('search_price_from', language)} {specialist.price_from} {specialist.currency}"
+    badge = search_result_badge(specialist)
+    badge_prefix = f"{badge} " if badge else ""
 
-    is_remote = getattr(specialist, "work_format", None) == "remote"
-    distance = None if is_remote else (
-        f"{result.distance_km:.1f} km" if result.distance_km is not None else None
-    )
-    city = (
-        work_format_label("remote", language)
-        if is_remote
-        else result.city_name or t("search_filter_not_set", language)
-    )
     profession = result.profession_name or t("search_filter_not_set", language)
     languages = ", ".join(result.languages) if result.languages else t("search_filter_not_set", language)
-    reviews_count = specialist.reviews_count or 0
-    if reviews_count > 0 and specialist.rating is not None:
-        rating = f"{float(specialist.rating):.1f} ({reviews_count})"
+    location_parts = [part for part in [result.city_name] if part]
+
+    is_remote = getattr(specialist, "work_format", None) == "remote"
+    if is_remote:
+        distance = None if is_remote else result.distance_km
+        remote_label = work_format_label("remote", language)
+        distance_text = f"📍{remote_label}"
+    elif result.distance_km is not None:
+        distance = None if is_remote else result.distance_km
+        distance_text = f"📍{distance:.0f} км"
     else:
-        rating = t("search_no_reviews", language)
-    location_parts = [city]
-    if distance:
-        location_parts.append(distance)
+        distance = None if is_remote else result.distance_km
+        distance_text = f"📍{', '.join(location_parts) or t('search_filter_not_set', language)}"
 
-    work_format = work_format_label(getattr(specialist, "work_format", None), language)
-    status_line = (
-        f"{t('search_status_label', language)}: {t('search_verified_label', language)}\n"
-        if specialist.is_verified
-        else ""
-    )
+    rating_label = t("search_rating", language)
+    if specialist.reviews_count and specialist.rating is not None:
+        rating = f"⭐{float(specialist.rating):.1f}"
+    else:
+        rating = f"⭐{t('search_no_reviews', language)}"
+    if specialist.price_from and specialist.price_to:
+        price_from = compact_money_value(specialist.price_from)
+        price_to = compact_money_value(specialist.price_to)
+        price = f"💶{price_from}-{price_to}€"
+    elif specialist.price_from:
+        price_from = compact_money_value(specialist.price_from)
+        price = f"💶{price_from}€"
+    else:
+        price = f"💶{t('search_price_not_set', language)}"
 
-    description = (specialist.short_description or "").strip()
-    if len(description) > 160:
-        description = description[:157].rstrip() + "..."
+    verified = f" | {t('search_verified_label', language)}" if specialist.is_verified else ""
+    language_label = t("search_filter_language_label", language)
 
     return (
-        f"{index}. {specialist.display_name}\n"
-        f"{profession} · {' · '.join(location_parts)}\n"
-        f"{t('search_filter_work_label', language)}: {work_format}\n"
-        f"{t('search_filter_language_label', language)}: {languages}\n"
-        f"{t('search_filter_price_label', language)}: {price}\n"
-        f"{t('search_rating', language)}: {rating}\n"
-        f"{status_line}\n"
-        f"{description}"
+        f"{index}. {badge_prefix}{specialist.display_name} | "
+        f"{rating} | {distance_text} | {price}{verified}\n"
+        f"{profession} | {language_label}: {languages}"
     )
 
 def format_public_card(card: SpecialistPublicCard, language: str) -> str:
@@ -1711,6 +1836,98 @@ async def render_results(
         else:
             results = []
 
+    total_results = results
+
+    if len(results) >= PER_PAGE + 1 or page > 0:
+        async with get_session() as session:
+            total_service = GeoSearchService(SpecialistSearchRepository(session))
+
+            if remote_only:
+                total_results = await total_service.search_without_location(
+                    category_id=category_id,
+                    profession_id=profession_id,
+                    price_min=price_min,
+                    price_max=price_max,
+                    interface_language=language,
+                    language_code=language_code,
+                    verified_only=verified_only,
+                    premium_only=premium_only,
+                    work_format=work_format,
+                    rating_min=rating_min,
+                    limit=200,
+                    offset=0,
+                    requester_user_id=requester_user_id,
+                    tenant_id=tenant_id,
+                    log_event=False,
+                    sort_by=sort_by,
+                )
+            elif has_geo:
+                total_results = await total_service.search_by_radius(
+                    latitude=float(data["latitude"]),
+                    longitude=float(data["longitude"]),
+                    radius_km=float(data.get("radius_km") or DEFAULT_RADIUS_KM),
+                    category_id=category_id,
+                    country_id=country_id,
+                    country_wide=country_wide,
+                    interface_language=language,
+                    profession_id=profession_id,
+                    language_code=language_code,
+                    verified_only=verified_only,
+                    limit=200,
+                    offset=0,
+                    requester_user_id=requester_user_id,
+                    tenant_id=tenant_id,
+                    log_event=False,
+                    price_min=price_min,
+                    price_max=price_max,
+                    premium_only=premium_only,
+                    work_format=work_format,
+                    rating_min=rating_min,
+                    sort_by=sort_by,
+                )
+            elif city_id:
+                total_results = await total_service.search_by_city(
+                    city_id=city_id,
+                    category_id=category_id,
+                    profession_id=profession_id,
+                    price_min=price_min,
+                    price_max=price_max,
+                    country_id=country_id,
+                    interface_language=language,
+                    language_code=language_code,
+                    verified_only=verified_only,
+                    premium_only=premium_only,
+                    work_format=work_format,
+                    rating_min=rating_min,
+                    limit=200,
+                    offset=0,
+                    requester_user_id=requester_user_id,
+                    tenant_id=tenant_id,
+                    log_event=False,
+                    sort_by=sort_by,
+                )
+            elif without_location:
+                total_results = await total_service.search_without_location(
+                    category_id=category_id,
+                    profession_id=profession_id,
+                    price_min=price_min,
+                    price_max=price_max,
+                    interface_language=language,
+                    language_code=language_code,
+                    verified_only=verified_only,
+                    premium_only=premium_only,
+                    work_format=work_format,
+                    rating_min=rating_min,
+                    limit=200,
+                    offset=0,
+                    requester_user_id=requester_user_id,
+                    tenant_id=tenant_id,
+                    log_event=False,
+                    sort_by=sort_by,
+                )
+
+    total_count = len(total_results)
+
     logger.info(
         "search_results_rendered telegram_id=%s results=%s page=%s has_geo=%s city_id=%s category_id=%s profession_id=%s sort_by=%s",
         platform_user_id,
@@ -1723,7 +1940,7 @@ async def render_results(
         sort_by,
     )
 
-    has_next = len(results) > PER_PAGE
+    has_next = (page + 1) * PER_PAGE < total_count
     visible_results = results[:PER_PAGE]
 
     await log_results_viewed(
@@ -1777,26 +1994,55 @@ async def render_results(
             language=language,
             page=page,
             visible_count=len(visible_results),
-            has_next=has_next,
+            total_count=total_count,
         )
-        text = f"{header}\n\n" + "\n\n".join(
-            format_specialist_result(result, start_number + index, language)
-            for index, result in enumerate(visible_results)
-        )
-        keyboard = results_keyboard(
+        text = header
+        keyboard = results_navigation_keyboard(
             page=page,
             has_next=has_next,
-            results_count=len(visible_results),
             language=language,
         )
 
     await state.set_state(SpecialistSearchFSM.viewing_results)
 
     if isinstance(event, CallbackQuery):
-        await show_callback_message(event, text, keyboard)
+        if visible_results:
+            for index, result in enumerate(visible_results):
+                await event.message.answer(
+                    format_specialist_result(
+                        result,
+                        start_number + index,
+                        language,
+                    ),
+                    reply_markup=result_card_keyboard(index, language),
+                )
+
+            await event.message.answer(
+                text,
+                reply_markup=keyboard,
+            )
+        else:
+            await show_callback_message(event, text, keyboard)
+
         await event.answer()
     else:
-        await event.answer(text, reply_markup=keyboard)
+        if visible_results:
+            for index, result in enumerate(visible_results):
+                await event.answer(
+                    format_specialist_result(
+                        result,
+                        start_number + index,
+                        language,
+                    ),
+                    reply_markup=result_card_keyboard(index, language),
+                )
+
+            await event.answer(
+                text,
+                reply_markup=keyboard,
+            )
+        else:
+            await event.answer(text, reply_markup=keyboard)
 
 async def log_results_viewed(
     *,
@@ -2334,17 +2580,29 @@ async def receive_geo(message: Message, state: FSMContext):
         return
 
     candidate_state = dedupe_geo_candidate_states(
-    [candidate.to_state() for candidate in candidates],
-    limit=4,
-)
+        [candidate.to_state() for candidate in candidates],
+        limit=4,
+    )
+
+    if not candidate_state:
+        await message.answer(
+            t("search_geo_candidates_not_found", language),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        await message.answer(
+            t("search_location_prompt", language),
+            reply_markup=search_geo_empty_keyboard(language),
+        )
+        return
+
     await state.update_data(search_geo_candidates=candidate_state)
 
     await message.answer(
-        t("search_geo_nearby_prompt", language),
+        t("search_geo_candidates_prompt", language),
         reply_markup=ReplyKeyboardRemove(),
     )
     await message.answer(
-        t("search_geo_candidates_prompt", language),
+        t("search_geo_nearby_prompt", language),
         reply_markup=search_geo_candidates_keyboard(candidate_state, language),
     )
     await state.set_state(SpecialistSearchFSM.choosing_geo_place)

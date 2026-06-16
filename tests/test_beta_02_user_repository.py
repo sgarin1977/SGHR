@@ -469,7 +469,7 @@ def _keyboard_texts(keyboard):
     ]
 
 
-def test_start_menu_role_switch_button_is_only_for_multi_role_users():
+def test_start_menu_is_short_global_menu_without_role_switch():
     single_role_keyboard = get_main_menu_keyboard(
         "ru",
         show_role_switch=False,
@@ -484,12 +484,15 @@ def test_start_menu_role_switch_button_is_only_for_multi_role_users():
     )
     multi_role_callbacks = _keyboard_callback_data(multi_role_keyboard)
 
-    assert "ROLE_SWITCH_MENU" in multi_role_callbacks
+    assert "ROLE_SWITCH_MENU" not in multi_role_callbacks
+
     assert "M_FIND" in multi_role_callbacks
-    assert "SS_START" in multi_role_callbacks
+    assert "JOBS_MENU" in multi_role_callbacks
     assert "M_CABINET" in multi_role_callbacks
     assert "M_SETTINGS" in multi_role_callbacks
+    assert "SUPPORT_MENU" in multi_role_callbacks
 
+    assert "SS_START" not in multi_role_callbacks
 
 def test_role_switch_keyboard_marks_active_role_and_uses_role_callbacks():
     keyboard = role_switch_keyboard(

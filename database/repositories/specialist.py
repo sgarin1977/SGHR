@@ -122,6 +122,19 @@ class SpecialistRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_specialist_profile_visibility(
+        self,
+        *,
+        user_id: UUID,
+    ) -> str | None:
+        result = await self.session.execute(
+            select(ProfileVisibilitySetting.visibility_level).where(
+                ProfileVisibilitySetting.user_id == user_id,
+                ProfileVisibilitySetting.profile_type == "specialist",
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def set_specialist_profile_status(
         self,
         *,

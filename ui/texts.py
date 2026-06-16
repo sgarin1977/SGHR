@@ -550,11 +550,6 @@ translations = {
         "pt": "❌ Cidade não encontrada. Tente novamente.",
         "en": "❌ City not found. Please try again."
     },
-    "main_menu": {
-        "ru": "Вы вернулись в главное меню.",
-        "pt": "Você voltou ao menu principal.",
-        "en": "You have returned to the main menu."
-    },
     "message_sent_to_specialist": {
         "ru": "Сообщение отправлено специалисту ✅",
         "pt": "Mensagem enviada ao especialista ✅",
@@ -687,11 +682,6 @@ translations = {
         "ru": "Расстояние",
         "en": "Distance",
         "pt": "Distancia",
-    },
-    "search_results_title": {
-        "ru": "Найденные специалисты",
-        "en": "Found specialists",
-        "pt": "Especialistas encontrados",
     },
     "search_no_results": {
         "ru": "Специалисты не найдены. Попробуйте другую категорию, город или радиус.",
@@ -1380,29 +1370,6 @@ translations = {
         "ru": "Услуги",
         "en": "Services",
         "pt": "Servicos",
-    },
-    "settings_translation_title": {
-        "ru": (
-            "Настройки перевода:\n\n"
-            "Язык сообщений: {message_language}\n"
-            "Автоперевод: {auto_translate}\n"
-            "Кнопка оригинала: {show_original}"
-            "Уведомления: {notifications}\n"
-        ),
-        "en": (
-            "Translation settings:\n\n"
-            "Message language: {message_language}\n"
-            "Auto-translation: {auto_translate}\n"
-            "Show original button: {show_original}"
-            "Notifications: {notifications}\n"
-        ),
-        "pt": (
-            "Configurações de tradução:\n\n"
-            "Idioma das mensagens: {message_language}\n"
-            "Tradução automática: {auto_translate}\n"
-            "Botão de original: {show_original}"
-            "Notificacoes: {notifications}\n"
-        ),
     },
     "settings_message_language_ru": {
         "ru": "Русский",
@@ -3771,10 +3738,10 @@ translations = {
         "en": "Ticket creation cancelled.",
         "pt": "Criacao do pedido cancelada.",
     },
-    "support_message_too_short": {
-        "ru": "Сообщение слишком короткое. Введите минимум 10 символов.",
-        "en": "Message is too short. Enter at least 10 characters.",
-        "pt": "A mensagem e muito curta. Introduza pelo menos 10 caracteres.",
+    "contact_thread_message_empty": {
+        "ru": "Сообщение не может быть пустым.",
+        "en": "Message cannot be empty.",
+        "pt": "A mensagem não pode estar vazia.",
     },
     "support_tickets_active_btn": {
     "ru": "Активные",
@@ -3830,6 +3797,251 @@ translations = {
         "ru": "Обращение уже закрыто.",
         "en": "Ticket is already closed.",
         "pt": "O pedido ja esta fechado.",
+    },
+    "search_results_navigation": {
+        "ru": "Навигация по результатам",
+        "en": "Search navigation",
+        "pt": "Navegação dos resultados",
+    },
+    "search_results_title": {
+        "ru": "Результаты поиска",
+        "en": "Search results",
+        "pt": "Resultados da pesquisa",
+    },
+    "search_results_found": {
+        "ru": "Найдено: {total}",
+        "en": "Found: {total}",
+        "pt": "Encontrados: {total}",
+    },
+    "search_results_page": {
+        "ru": "Страница: {page}",
+        "en": "Page: {page}",
+        "pt": "Página: {page}",
+    },
+    "search_results_shown_total": {
+        "ru": "Показано {start}-{end} из {total}",
+        "en": "Shown {start}-{end} of {total}",
+        "pt": "Mostrados {start}-{end} de {total}",
+    },
+    "search_badge_boost": {
+        "ru": "Boost",
+        "en": "Boost",
+        "pt": "Boost",
+    },
+    "search_badge_partner": {
+        "ru": "Partner",
+        "en": "Partner",
+        "pt": "Partner",
+    },
+    "specialist_profile_status_title": {
+        "ru": "Статус профиля",
+        "en": "Profile status",
+        "pt": "Status do perfil",
+    },
+    "specialist_profile_status_active": {
+        "ru": "🟢 Активен",
+        "en": "🟢 Active",
+        "pt": "🟢 Ativo",
+    },
+    "specialist_profile_status_active_hint": {
+        "ru": "Показывать в поиске",
+        "en": "Shown in search",
+        "pt": "Mostrar na pesquisa",
+    },
+    "specialist_profile_status_paused": {
+        "ru": "⏸ На паузе",
+        "en": "⏸ Paused",
+        "pt": "⏸ Pausado",
+    },
+    "specialist_profile_status_paused_hint": {
+        "ru": "Не показывать в поиске",
+        "en": "Hidden from search",
+        "pt": "Não mostrar na pesquisa",
+    },
+    "specialist_profile_status_draft": {
+        "ru": "🔒 Черновик",
+        "en": "🔒 Draft",
+        "pt": "🔒 Rascunho",
+    },
+    "specialist_profile_status_draft_hint": {
+        "ru": "Не публиковать профиль",
+        "en": "Do not publish profile",
+        "pt": "Não publicar perfil",
+    },
+    "specialist_status_title": {
+        "ru": "Статус профиля",
+        "en": "Profile status",
+        "pt": "Status do perfil",
+    },
+    "specialist_status_active": {
+        "ru": "🟢 Активен\nПоказывать в поиске",
+        "en": "🟢 Active\nShown in search",
+        "pt": "🟢 Ativo\nMostrar na busca",
+    },
+    "specialist_status_paused": {
+        "ru": "⏸ На паузе\nНе показывать в поиске",
+        "en": "⏸ Paused\nHidden from search",
+        "pt": "⏸ Pausado\nNão mostrar na busca",
+    },
+    "specialist_status_draft": {
+        "ru": "🔒 Черновик\nНе публиковать профиль",
+        "en": "🔒 Draft\nProfile is not published",
+        "pt": "🔒 Rascunho\nNão publicar perfil",
+    },
+    "specialist_visibility_title": {
+        "ru": "Видимость профиля",
+        "en": "Profile visibility",
+        "pt": "Visibilidade do perfil",
+    },
+    "specialist_visibility_current": {
+        "ru": "Текущее значение",
+        "en": "Current value",
+        "pt": "Valor atual",
+    },
+    "specialist_visibility_platform_only": {
+        "ru": "Только через платформу",
+        "en": "Platform only",
+        "pt": "Somente pela plataforma",
+    },
+    "specialist_visibility_public_limited": {
+        "ru": "Публично, без прямых контактов",
+        "en": "Public, no direct contacts",
+        "pt": "Público, sem contatos diretos",
+    },
+    "specialist_visibility_private": {
+        "ru": "Приватно",
+        "en": "Private",
+        "pt": "Privado",
+    },
+    "specialist_visibility_unknown": {
+        "ru": "не указано",
+        "en": "not set",
+        "pt": "não definido",
+    },
+    "dialogs_showing_range": {
+        "ru": "Показано {start}-{end}",
+        "en": "Showing {start}-{end}",
+        "pt": "Mostrando {start}-{end}",
+    },
+    "dialog_unread_badge": {
+        "ru": "🔴 {count}",
+        "en": "🔴 {count}",
+        "pt": "🔴 {count}",
+    },
+    "dialog_last_message_short": {
+        "ru": "Последнее: {message}",
+        "en": "Last: {message}",
+        "pt": "Última: {message}",
+    },
+    "dialog_list_actions_title": {
+        "ru": "Действия со списком",
+        "en": "List actions",
+        "pt": "Ações da lista",
+    },
+    "dialogs_header_title": {
+        "ru": "💬 Диалоги",
+        "en": "💬 Dialogs",
+        "pt": "💬 Diálogos",
+    },
+    "dialogs_header_view_count": {
+        "ru": "{view} ({count})",
+        "en": "{view} ({count})",
+        "pt": "{view} ({count})",
+    },
+    "cabinet_profile_status_visibility": {
+        "ru": "Статус и видимость",
+        "en": "Status and visibility",
+        "pt": "Status e visibilidade",
+    },
+    "specialist_profile_publication_title": {
+        "ru": "Управление профилем",
+        "en": "Profile management",
+        "pt": "Gestão do perfil",
+    },
+    "specialist_status_active_btn": {
+        "ru": "🟢 Активен",
+        "en": "🟢 Active",
+        "pt": "🟢 Ativo",
+    },
+    "specialist_status_paused_btn": {
+        "ru": "⏸ На паузе",
+        "en": "⏸ Paused",
+        "pt": "⏸ Pausado",
+    },
+    "specialist_status_draft_btn": {
+        "ru": "🔒 Черновик",
+        "en": "🔒 Draft",
+        "pt": "🔒 Rascunho",
+    },
+    "specialist_profile_status_updated": {
+        "ru": "Статус профиля обновлён.",
+        "en": "Profile status updated.",
+        "pt": "Status do perfil atualizado.",
+    },
+    "specialist_profile_services_btn": {
+    "ru": "🛠 Услуги",
+    "en": "🛠 Services",
+    "pt": "🛠 Serviços",
+    },
+    "specialist_profile_portfolio_btn": {
+        "ru": "🖼 Портфолио",
+        "en": "🖼 Portfolio",
+        "pt": "🖼 Portfolio",
+    },
+    "specialist_profile_reviews_btn": {
+        "ru": "⭐ Отзывы",
+        "en": "⭐ Reviews",
+        "pt": "⭐ Avaliações",
+    },
+    "specialist_profile_languages_btn": {
+        "ru": "🌐 Языки",
+        "en": "🌐 Languages",
+        "pt": "🌐 Idiomas",
+    },
+    "specialist_profile_locations_btn": {
+        "ru": "📍 Локации работы",
+        "en": "📍 Work locations",
+        "pt": "📍 Locais de trabalho",
+    },
+    "specialist_profile_settings_btn": {
+        "ru": "⚙️ Настройки профиля",
+        "en": "⚙️ Profile settings",
+        "pt": "⚙️ Configurações do perfil",
+    },
+    "specialist_search_visibility_title": {
+        "ru": "Видимость профиля",
+        "en": "Profile visibility",
+        "pt": "Visibilidade do perfil",
+    },
+    "specialist_search_visibility_visible": {
+        "ru": "🌐 Виден в поиске",
+        "en": "🌐 Visible in search",
+        "pt": "🌐 Visível na busca",
+    },
+    "specialist_search_visibility_hidden": {
+        "ru": "🔒 Скрыт из поиска",
+        "en": "🔒 Hidden from search",
+        "pt": "🔒 Oculto da busca",
+    },
+    "search_results_header": {
+        "ru": "Профессия: {profession}\nЛокация: {location}\nРадиус: {radius}\nНайдено: {found}\nПоказаны: {range}",
+        "en": "Profession: {profession}\nLocation: {location}\nRadius: {radius}\nFound: {found}\nShown: {range}",
+        "pt": "Profissao: {profession}\nLocalizacao: {location}\nRaio: {radius}\nEncontrados: {found}\nMostrados: {range}",
+    },
+    "search_results_range": {
+        "ru": "Показаны: {range}",
+        "en": "Shown: {range}",
+        "pt": "Mostrados: {range}",
+    },
+    "search_results_of": {
+        "ru": "из",
+        "en": "of",
+        "pt": "de",
+    },
+    "client_dialogs_archived": {
+        "ru": "Архив",
+        "en": "Archive",
+        "pt": "Arquivo",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

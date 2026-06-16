@@ -26,7 +26,6 @@ from database.models import (
     PaidFeature,
     Specialist,
     ContactRequest,
-    ProfileVisibilitySetting,
     SpecialistService as SpecialistServiceModel,
     UserConsent,
 )
@@ -181,6 +180,7 @@ def client_cabinet_keyboard(
     language: str,
     *,
     show_role_switch: bool = False,
+    show_specialist_registration: bool = False,
 ) -> InlineKeyboardMarkup:
     rows = [
         [
@@ -246,6 +246,7 @@ CLIENT_DIALOGS_PAGE_SIZE = 5
 CLIENT_REQUESTS_PAGE_SIZE = 5
 FAVORITES_PAGE_SIZE = 10
 
+
 def client_dialogs_keyboard(
     *,
     items_count: int,
@@ -267,8 +268,8 @@ def client_dialogs_keyboard(
         ],
         [
             InlineKeyboardButton(
-                text=t("client_dialogs_archive", language),
-                callback_data="CLIENT_DIALOGS:archive:0",
+                text=t("client_dialogs_archived", language),
+                callback_data="CLIENT_DIALOGS:archived:0",
             ),
             InlineKeyboardButton(
                 text=t("client_dialogs_hidden", language),
@@ -277,47 +278,38 @@ def client_dialogs_keyboard(
         ],
     ]
 
-    if not items_count:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("menu_find_specialist", language),
-                    callback_data="M_FIND",
-                )
-            ]
-        )
-
-    for index in range(items_count):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{index + 1}. {t('client_dialog_open', language)}",
-                    callback_data=f"CLIENT_DIALOG_OPEN:{index}",
-                )
-            ]
-        )
-    nav_row = []
+    nav = []
     if page > 0:
-        nav_row.append(
+        nav.append(
             InlineKeyboardButton(
-                text=t("client_dialogs_prev", language),
+                text="<",
                 callback_data=f"CLIENT_DIALOGS:{view}:{page - 1}",
             )
         )
     if items_count >= CLIENT_DIALOGS_PAGE_SIZE:
-        nav_row.append(
+        nav.append(
             InlineKeyboardButton(
-                text=t("client_dialogs_next", language),
+                text=">",
                 callback_data=f"CLIENT_DIALOGS:{view}:{page + 1}",
             )
         )
-    if nav_row:
-        rows.append(nav_row)
+    if nav:
+        rows.append(nav)
+
+    if show_role_switch:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("switch_profile", language),
+                    callback_data="ROLE_SWITCH_MENU",
+                )
+            ]
+        )
 
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("billing_back", language),
+                text=t("back", language),
                 callback_data="M_CABINET",
             )
         ]
@@ -331,6 +323,68 @@ def client_dialogs_keyboard(
         ]
     )
 
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def client_cabinet_keyboard(
+    language: str,
+    *,
+    show_role_switch: bool = False,
+    show_specialist_registration: bool = False,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("menu_find_specialist", language),
+                callback_data="M_FIND",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("client_dialogs_btn", language),
+                callback_data="CLIENT_DIALOGS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("client_requests_btn", language),
+                callback_data="CLIENT_REQUESTS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_favorites", language),
+                callback_data="CAB_FAVORITES",
+            )
+        ],
+    ]
+
+    if show_specialist_registration:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("menu_offer_services", language),
+                    callback_data="SS_START",
+                )
+            ]
+        )
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("menu_settings", language),
+                    callback_data="M_SETTINGS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_open_btn", language),
+                    callback_data="SUPPORT_MENU",
+                )
+            ],
+        ]
+    )
+
     if show_role_switch:
         rows.append(
             [
@@ -341,7 +395,32 @@ def client_dialogs_keyboard(
             ]
         )
 
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="BILL_MENU",
+            )
+        ]
+    )
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def client_dialog_card_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("client_dialog_open", language),
+                    callback_data=f"CLIENT_DIALOG_OPEN:{index}",
+                )
+            ]
+        ]
+    )
 
 def client_requests_keyboard(
     *,
@@ -490,29 +569,60 @@ def client_dialog_status_label(status: str | None, language: str) -> str:
 
     return t(key, language)
 
-def format_client_dialogs_text(items, language: str) -> str:
+def compact_dialog_text(value: str | None, limit: int = 56) -> str:
+    text = (value or "-").strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[: limit - 3]}..."
+
+def format_dialog_card(
+    *,
+    item,
+    display_number: int,
+    language: str,
+) -> str:
+    name = item.specialist_name or "-"
+    profession = item.profession_name or "-"
+    status = client_dialog_status_label(item.status, language)
+    unread = item.unread_count or 0
+    last_text = compact_dialog_text(item.last_message_text, limit=48)
+
+    unread_part = (
+        f" | {t('dialog_unread_badge', language).format(count=unread)}"
+        if unread
+        else ""
+    )
+
+    return (
+        f"{display_number}. {name} | {status}{unread_part}\n"
+        f"{profession}\n"
+        f"{t('dialog_last_message_short', language).format(message=last_text)}"
+    )
+
+def format_client_dialogs_text(
+    items,
+    language: str,
+    *,
+    view: str = "active",
+) -> str:
+    view_label = {
+        "new": t("client_dialogs_new", language),
+        "active": t("client_dialogs_active", language),
+        "archive": t("client_dialogs_archive", language),
+        "hidden": t("client_dialogs_hidden", language),
+    }.get(view, view)
+
     if not items:
-        return t("client_dialogs_empty", language)
-
-    lines = [t("client_dialogs_title", language), ""]
-
-    for index, item in enumerate(items, start=1):
-        last_text = item.last_message_text or "-"
-        if len(last_text) > 80:
-            last_text = last_text[:77] + "..."
-
-        profession = item.profession_name or "-"
-        status = client_dialog_status_label(item.status, language)
-
-        lines.append(
-            f"{index}. {item.specialist_name}\n"
-            f"{t('search_filter_profession_label', language)}: {profession}\n"
-            f"{t('admin_status', language)}: {status}\n"
-            f"{t('client_dialog_unread_label', language)}: {item.unread_count}\n"
-            f"{t('client_dialog_last_label', language)}: {last_text}"
+        return (
+            f"{t('dialogs_header_title', language)}\n"
+            f"{t('dialogs_header_view_count', language).format(view=view_label, count=0)}\n\n"
+            f"{t('client_dialogs_empty', language)}"
         )
 
-    return "\n\n".join(lines)
+    return (
+        f"{t('dialogs_header_title', language)}\n"
+        f"{t('dialogs_header_view_count', language).format(view=view_label, count=len(items))}"
+    )
 
 def format_client_requests_text(items, language: str) -> str:
     if not items:
@@ -822,20 +932,38 @@ def specialist_profile_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("cabinet_pause_profile", language),
-                    callback_data="CAB_PROFILE_PAUSE",
+                    text=t("specialist_profile_services_btn", language),
+                    callback_data="SPEC_SERVICES",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("cabinet_visibility_profile", language),
-                    callback_data="CAB_PROFILE_VISIBILITY",
+                    text=t("specialist_profile_portfolio_btn", language),
+                    callback_data="CAB_PORTFOLIO",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("cabinet_delete_profile", language),
-                    callback_data="CAB_PROFILE_DELETE",
+                    text=t("specialist_profile_reviews_btn", language),
+                    callback_data="SPEC_REVIEWS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_profile_languages_btn", language),
+                    callback_data="CAB_EDIT_LANGUAGES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_profile_locations_btn", language),
+                    callback_data="CAB_EDIT_LOCATION",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_profile_settings_btn", language),
+                    callback_data="SPEC_SETTINGS",
                 )
             ],
             [
@@ -844,9 +972,14 @@ def specialist_profile_keyboard(language: str) -> InlineKeyboardMarkup:
                     callback_data="M_CABINET",
                 )
             ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="BILL_MENU",
+                )
+            ],
         ]
     )
-
 def profile_visibility_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -877,7 +1010,53 @@ def profile_visibility_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-
+def profile_status_visibility_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_status_active_btn", language),
+                    callback_data="CAB_PROFILE_STATUS_SET:active",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_status_paused_btn", language),
+                    callback_data="CAB_PROFILE_STATUS_SET:paused",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_status_draft_btn", language),
+                    callback_data="CAB_PROFILE_STATUS_SET:draft",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_search_visibility_visible", language),
+                    callback_data="CAB_PROFILE_VISIBILITY_SET:public_limited",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("specialist_search_visibility_hidden", language),
+                    callback_data="CAB_PROFILE_VISIBILITY_SET:private",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("billing_back", language),
+                    callback_data="CAB_PROFILE_VIEW",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
+    )
 def profile_visibility_label(value: str | None, language: str) -> str:
     if value == "platform_only":
         return t("spec_contact_visibility_platform_only", language)
@@ -1472,42 +1651,56 @@ def format_specialist_profile_text(
     if not specialist:
         return t("cabinet_profile_not_found", language)
 
-    contact_text = (specialist.extra_metadata or {}).get("contact_text") or "-"
-    verified_text = (
-        t("yes", language)
-        if specialist.is_verified
-        else t("search_filter_not_set", language)
-    )
     rating = specialist.rating or 0
     reviews_count = specialist.reviews_count or 0
+    description = specialist.short_description or t("search_filter_not_set", language)
+
+    if specialist.status == "active":
+        status_text = t("specialist_profile_status_active", language)
+    elif specialist.status == "paused":
+        status_text = t("specialist_profile_status_paused", language)
+    else:
+        status_text = t("specialist_profile_status_draft", language)
 
     return (
         f"{t('cabinet_profile_title', language)}\n\n"
-        f"{t('cabinet_profile_name', language)}: {specialist.display_name}\n"
-        f"{t('cabinet_profile_status', language)}: {client_dialog_status_label(specialist.status, language)}\n"
-        f"{t('search_filter_profession_label', language)}: {profession_text}\n"
-        f"{t('cabinet_profile_location', language)}: {location_text}\n"
-        f"{t('cabinet_profile_description', language)}: {specialist.short_description}\n"
-        f"{t('cabinet_profile_contacts', language)}: {contact_text}\n"
-        f"{t('cabinet_profile_price', language)}: {specialist.price_from or '-'}-{specialist.price_to or '-'} {specialist.currency}\n"
-        f"{t('cabinet_profile_verified', language)}: {verified_text}\n"
-        f"{t('search_rating', language)}: {rating} ({reviews_count})"
+        f"👤 {specialist.display_name or '-'}\n\n"
+        f"🔧 {profession_text or '-'}\n\n"
+        f"⭐ {rating:.2f} ({reviews_count})\n\n"
+        f"📍 {location_text or '-'}\n\n"
+        f"{status_text}\n\n"
+        f"{description}"
     )
-def specialist_status_notice(status: str | None, language: str) -> str:
-    normalized = status or "unknown"
+
+def specialist_profile_status_block(status: str | None, language: str) -> str:
+    normalized = status or "draft"
 
     if normalized == "active":
-        return t("specialist_status_active_notice", language)
-    if normalized == "pending_moderation":
-        return t("specialist_status_pending_notice", language)
-    if normalized == "rejected":
-        return t("specialist_status_rejected_notice", language)
+        return (
+            f"{t('specialist_profile_status_title', language)}\n\n"
+            f"{t('specialist_profile_status_active', language)}\n"
+            f"{t('specialist_profile_status_active_hint', language)}"
+        )
+
     if normalized == "paused":
-        return t("specialist_status_paused_notice", language)
+        return (
+            f"{t('specialist_profile_status_title', language)}\n\n"
+            f"{t('specialist_profile_status_paused', language)}\n"
+            f"{t('specialist_profile_status_paused_hint', language)}"
+        )
 
-    return t("specialist_status_generic_notice", language).format(status=normalized)
+    if normalized in {"draft", "pending_moderation", "rejected"}:
+        return (
+            f"{t('specialist_profile_status_title', language)}\n\n"
+            f"{t('specialist_profile_status_draft', language)}\n"
+            f"{t('specialist_profile_status_draft_hint', language)}"
+        )
 
-
+    return (
+        f"{t('specialist_profile_status_title', language)}\n\n"
+        f"{t('specialist_profile_status_draft', language)}\n"
+        f"{t('specialist_profile_status_draft_hint', language)}"
+    )
 def format_specialist_cabinet_text(
     *,
     profession_name: str,
@@ -1567,10 +1760,39 @@ def format_invoice_text(
         f"{manual_instructions}"
     )
 
-@billing_router.callback_query(F.data == "M_CABINET")
-async def open_my_cabinet(callback: CallbackQuery, state: FSMContext):
-    await open_current_role_cabinet(callback, state)
+def specialist_status_notice(status: str | None, language: str = "ru") -> str:
+    if status == "active":
+        body = t("specialist_status_active", language)
+    elif status == "paused":
+        body = t("specialist_status_paused", language)
+    else:
+        body = t("specialist_status_draft", language)
 
+    return f"{t('specialist_status_title', language)}\n\n{body}"
+
+
+def specialist_visibility_notice(visibility: str | None, language: str = "ru") -> str:
+    if visibility == "private":
+        value = t("specialist_search_visibility_hidden", language)
+    else:
+        value = t("specialist_search_visibility_visible", language)
+
+    return (
+        f"{t('specialist_search_visibility_title', language)}\n\n"
+        f"{value}"
+    )
+
+def specialist_profile_publication_notice(
+    *,
+    status: str | None,
+    visibility: str | None,
+    language: str = "ru",
+) -> str:
+    return (
+        f"{t('specialist_profile_publication_title', language)}\n\n"
+        f"{specialist_status_notice(status, language)}\n\n"
+        f"{specialist_visibility_notice(visibility, language)}"
+    )
 
 async def build_specialist_cabinet_payload(
     telegram_id: int | str,
@@ -2012,28 +2234,19 @@ def specialist_dialogs_keyboard(
         ],
     ]
 
-    for index in range(items_count):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{index + 1}. {t('client_request_open', language)}",
-                    callback_data=f"SPEC_DIALOG_OPEN:{index}",
-                )
-            ]
-        )
 
     nav = []
     if page > 0:
         nav.append(
             InlineKeyboardButton(
-                text="<",
+                text=t("client_dialogs_prev", language),
                 callback_data=f"SPEC_DIALOGS_VIEW:{view}:{page - 1}",
             )
         )
     if has_next:
         nav.append(
             InlineKeyboardButton(
-                text=">",
+                text=t("client_dialogs_next", language),
                 callback_data=f"SPEC_DIALOGS_VIEW:{view}:{page + 1}",
             )
         )
@@ -2059,6 +2272,21 @@ def specialist_dialogs_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def specialist_dialog_card_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("client_request_open", language),
+                    callback_data=f"SPEC_DIALOG_OPEN:{index}",
+                )
+            ]
+        ]
+    )
 
 def format_specialist_dialogs_text(
     *,
@@ -2067,10 +2295,6 @@ def format_specialist_dialogs_text(
     page: int,
     language: str,
 ) -> str:
-    title = t("specialist_dialogs_title", language)
-    if not dialogs:
-        return f"{title}\n\n{t('specialist_dialogs_empty', language)}"
-
     view_label = {
         "new": t("client_dialogs_new", language),
         "active": t("client_dialogs_active", language),
@@ -2078,22 +2302,17 @@ def format_specialist_dialogs_text(
         "hidden": t("client_dialogs_hidden", language),
     }.get(view, view)
 
-    lines = [title, f"{t('client_dialogs_view_label', language)}: {view_label}", ""]
-    for index, item in enumerate(dialogs, start=page * 5 + 1):
-        last_message = item.last_message_text or "-"
-        if len(last_message) > 80:
-            last_message = f"{last_message[:77]}..."
-
-        unread = item.unread_count or 0
-        profession = item.profession_name or "-"
-        lines.append(
-            f"{index}. {profession}\n"
-            f"{t('client_dialogs_unread', language)}: {unread}\n"
-            f"{t('client_dialogs_last_message', language)}: {last_message}"
+    if not dialogs:
+        return (
+            f"{t('dialogs_header_title', language)}\n"
+            f"{t('dialogs_header_view_count', language).format(view=view_label, count=0)}\n\n"
+            f"{t('specialist_dialogs_empty', language)}"
         )
 
-    return "\n\n".join(lines)
-
+    return (
+        f"{t('dialogs_header_title', language)}\n"
+        f"{t('dialogs_header_view_count', language).format(view=view_label, count=len(dialogs))}"
+    )
 
 async def show_specialist_dialogs(
     callback: CallbackQuery,
@@ -2145,7 +2364,6 @@ async def show_specialist_dialogs(
         specialist_dialogs_view=view,
         specialist_dialogs_page=page,
     )
-
     await callback.message.answer(
         format_specialist_dialogs_text(
             dialogs=visible_dialogs,
@@ -2153,6 +2371,24 @@ async def show_specialist_dialogs(
             page=page,
             language=language,
         ),
+    )
+
+    for index, item in enumerate(visible_dialogs):
+        display_number = page * CLIENT_DIALOGS_PAGE_SIZE + index + 1
+        await callback.message.answer(
+            format_dialog_card(
+                item=item,
+                display_number=display_number,
+                language=language,
+            ),
+            reply_markup=specialist_dialog_card_keyboard(
+                index=index,
+                language=language,
+            ),
+        )
+
+    await callback.message.answer(
+        t("dialog_list_actions_title", language),
         reply_markup=specialist_dialogs_keyboard(
             items_count=len(visible_dialogs),
             page=page,
@@ -3400,7 +3636,7 @@ def specialist_settings_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("settings_visibility_btn", language),
+                    text=t("cabinet_profile_status_visibility", language),
                     callback_data="CAB_PROFILE_VISIBILITY",
                 )
             ],
@@ -3408,12 +3644,6 @@ def specialist_settings_keyboard(language: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=t("settings_consents_btn", language),
                     callback_data="SPEC_SETTINGS_CONSENTS",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("settings_deletion_btn", language),
-                    callback_data="CAB_PROFILE_DELETE",
                 )
             ],
             [
@@ -3843,6 +4073,10 @@ async def show_client_cabinet(callback: CallbackQuery, state: FSMContext):
             role_context and len(role_context.available_roles) > 1
         )
 
+        show_specialist_registration = not (
+            role_context and "specialist" in role_context.available_roles
+        )
+
         await EventRepository(session).create_event(
             event_type="client_menu_opened",
             tenant_id=user.tenant_id,
@@ -3866,6 +4100,7 @@ async def show_client_cabinet(callback: CallbackQuery, state: FSMContext):
         reply_markup=client_cabinet_keyboard(
             language,
             show_role_switch=show_role_switch,
+            show_specialist_registration=show_specialist_registration,
         ),
     )
     await callback.answer()
@@ -4068,14 +4303,15 @@ async def show_specialist_profile_menu(callback: CallbackQuery, state: FSMContex
 
     if specialist:
         async with get_session() as session:
-            card = await GeoSearchService(
-                SpecialistSearchRepository(session)
-            ).get_public_card(
+            profession_names = await SpecialistService(
+                SpecialistRepository(session)
+            ).list_profile_profession_names(
                 specialist_id=specialist.id,
                 language=language,
             )
-            if card and card.profession_name:
-                profession_text = card.profession_name
+
+        if profession_names:
+            profession_text = ", ".join(profession_names)
 
     await callback.message.answer(
         format_specialist_profile_text(
@@ -4595,23 +4831,20 @@ async def show_specialist_profile_visibility(callback: CallbackQuery, state: FSM
         await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
         return
 
-    current_visibility = None
     async with get_session() as session:
-        result = await session.execute(
-            select(ProfileVisibilitySetting).where(
-                ProfileVisibilitySetting.user_id == user.id,
-                ProfileVisibilitySetting.profile_type == "specialist",
-            )
+        current_visibility = await SpecialistService(
+            SpecialistRepository(session)
+        ).get_profile_visibility(
+            user_id=user.id,
         )
-        settings = result.scalar_one_or_none()
-        if settings:
-            current_visibility = settings.visibility_level
 
     await callback.message.answer(
-        t("cabinet_visibility_current", language).format(
-            visibility=profile_visibility_label(current_visibility, language),
+        specialist_profile_publication_notice(
+            status=specialist.status,
+            visibility=current_visibility,
+            language=language,
         ),
-        reply_markup=profile_visibility_keyboard(language),
+        reply_markup=profile_status_visibility_keyboard(language),
     )
     await callback.answer()
 
@@ -4668,7 +4901,81 @@ async def set_specialist_profile_visibility(callback: CallbackQuery, state: FSMC
         t("cabinet_visibility_updated", language).format(
             visibility=profile_visibility_label(visibility, language),
         ),
-        reply_markup=specialist_profile_keyboard(language),
+    )
+    await callback.message.answer(
+        specialist_profile_publication_notice(
+            status=specialist.status,
+            visibility=visibility,
+            language=language,
+        ),
+        reply_markup=profile_status_visibility_keyboard(language),
+    )
+    await callback.answer()
+
+@billing_router.callback_query(F.data.startswith("CAB_PROFILE_STATUS_SET:"))
+async def set_specialist_profile_status(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    user, specialist, tenant_id = await get_current_specialist_for_telegram(
+        callback.from_user.id
+    )
+
+    if not user:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    if not specialist:
+        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        return
+
+    status = (callback.data or "").split(":", 1)[1]
+
+    async with get_session() as session:
+        try:
+            db_specialist, before_status, after_status = await SpecialistService(
+                SpecialistRepository(session)
+            ).set_profile_status(
+                user_id=user.id,
+                specialist_id=specialist.id,
+                status=status,
+            )
+
+            current_visibility = await SpecialistService(
+                SpecialistRepository(session)
+            ).get_profile_visibility(
+                user_id=user.id,
+            )
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await callback.answer(str(exc), show_alert=True)
+            return
+
+        await EventRepository(session).create_event(
+            tenant_id=tenant_id,
+            user_id=user.id,
+            event_type="profile_action",
+            entity_type="specialist",
+            entity_id=db_specialist.id,
+            payload={
+                "action": "status_changed",
+                "before_status": before_status,
+                "after_status": after_status,
+            },
+            platform="telegram",
+        )
+        await session.commit()
+
+    await callback.message.answer(
+        t("specialist_profile_status_updated", language),
+    )
+    await callback.message.answer(
+        specialist_profile_publication_notice(
+            status=after_status,
+            visibility=current_visibility,
+            language=language,
+        ),
+        reply_markup=profile_status_visibility_keyboard(language),
     )
     await callback.answer()
 
@@ -6045,7 +6352,29 @@ async def show_client_dialogs(callback: CallbackQuery, state: FSMContext):
         role_context and len(role_context.available_roles) > 1
     )
     await callback.message.answer(
-        format_client_dialogs_text(items, language),
+        format_client_dialogs_text(
+            items,
+            language,
+            view=view,
+        )
+    )
+
+    for index, item in enumerate(items):
+        display_number = page * CLIENT_DIALOGS_PAGE_SIZE + index + 1
+        await callback.message.answer(
+            format_dialog_card(
+                item=item,
+                display_number=display_number,
+                language=language,
+            ),
+            reply_markup=client_dialog_card_keyboard(
+                index=index,
+                language=language,
+            ),
+        )
+
+    await callback.message.answer(
+        t("dialog_list_actions_title", language),
         reply_markup=client_dialogs_keyboard(
             items_count=len(items),
             page=page,

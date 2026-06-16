@@ -150,6 +150,12 @@ class ContactChatService:
 
         return normalized
 
+    def _validate_thread_message(self, message: str) -> str:
+        normalized = (message or "").strip()
+        if not normalized:
+            raise ContactChatError("Message cannot be empty.")
+        return normalized
+
     async def list_specialist_requests(
         self,
         *,
@@ -480,7 +486,7 @@ class ContactChatService:
         text: str,
         original_language: str | None = None,
     ) -> ContactThreadMessageResult:
-        normalized_text = self._validate_contact_message(text)
+        normalized_text = self._validate_thread_message(text)
 
         if self.rate_limit_service is not None:
             try:

@@ -72,6 +72,16 @@ class SpecialistServiceItemData:
     profession_id: UUID | None = None
     service_id: UUID | None = None
 
+def _localized_model_name(item, language: str) -> str:
+    if not item:
+        return "-"
+
+    return (
+        getattr(item, f"name_{language}", None)
+        or getattr(item, "name", None)
+        or "-"
+    )
+
 class SpecialistService:
     def __init__(
         self,
@@ -104,6 +114,21 @@ class SpecialistService:
 
         if not has_consents:
             raise SpecialistRegistrationError("Legal consents are required.")
+
+    async def list_profile_profession_names(
+        self,
+        *,
+        specialist_id: UUID,
+        language: str = "ru",
+    ) -> list[str]:
+        rows = await self.repository.list_active_specialist_professions(
+            specialist_id=specialist_id,
+        )
+
+        return [
+            _localized_model_name(profession, language)
+            for _, _, profession in rows
+        ]
 
     async def create_pending_profile(self, data: SpecialistRegistrationData):
         await self._require_specialist_consents(data)
@@ -431,7 +456,39 @@ class SpecialistService:
         )
 
         return specialist, before_status, after_status, action
-    
+
+    async def set_profile_status(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        status: str,
+    ):
+        if status not in {"active", "paused", "draft"}:
+            raise SpecialistRegistrationError("Invalid profile status.")
+
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        before_status = specialist.status
+        updated_specialist = await self.repository.set_specialist_profile_status(
+            user_id=user_id,
+            specialist_id=specialist_id,
+            status=status,
+        )
+
+        return updated_specialist, before_status, status
+
+    async def get_profile_visibility(
+        self,
+        *,
+        user_id: UUID,
+    ) -> str | None:
+        return await self.repository.get_specialist_profile_visibility(
+            user_id=user_id,
+        )
+
     async def update_profile_visibility(
         self,
         *,

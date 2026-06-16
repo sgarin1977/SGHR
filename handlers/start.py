@@ -111,6 +111,8 @@ async def open_active_role_cabinet(
         reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
     )
     await callback.answer()
+
+@start_router.callback_query(F.data == "M_CABINET")
 async def open_current_role_cabinet(
     callback: CallbackQuery,
     state: FSMContext,
@@ -119,7 +121,12 @@ async def open_current_role_cabinet(
         service = UserService(session)
         context = await service.get_role_switch_context(callback.from_user.id)
 
-    role = context.active_role if context else None
+    role = None
+    if context:
+        if context.active_role in context.available_roles:
+            role = context.active_role
+        elif context.available_roles:
+            role = context.available_roles[0]
 
     await open_active_role_cabinet(
         callback,
