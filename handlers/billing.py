@@ -4056,6 +4056,10 @@ def format_specialist_requests_text(items, language: str) -> str:
 
     return "\n".join(lines).strip()
 
+@billing_router.callback_query(F.data == "M_CABINET")
+async def billing_open_current_role_cabinet(callback: CallbackQuery, state: FSMContext):
+    await open_current_role_cabinet(callback, state)
+
 async def show_client_cabinet(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(
         callback.from_user.id,

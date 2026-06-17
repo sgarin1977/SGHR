@@ -18,6 +18,7 @@ from database.models import (
 )
 from database.repositories.moderation import ModerationRepository
 from database.repositories.billing import BillingRepository
+from database.repositories.event import EventRepository
 from database.repositories.reviews import ReviewRepository
 from database.repositories.portfolio import PortfolioRepository
 from database.repositories.support import SupportRepository
@@ -37,8 +38,10 @@ logger = logging.getLogger(__name__)
 ADMIN_MODERATION_MENU_ROLES = {"super_admin", "admin", "moderator"}
 ADMIN_PAYMENT_MENU_ROLES = {"super_admin", "admin", "finance_admin"}
 ADMIN_ROLE_MENU_ROLES = {"super_admin"}
-ADMIN_LOG_MENU_ROLES = {"super_admin", "admin", "support"}
-ADMIN_SUPPORT_MENU_ROLES = {"super_admin", "admin", "support"}
+ADMIN_LOG_MENU_ROLES = {"super_admin", "admin"}
+ADMIN_SUPPORT_MENU_ROLES = {"support"}
+ADMIN_SUPPORT_STATS_ROLES = {"support", "admin", "super_admin"}
+SUPPORT_STAFF_PAGE_SIZE = 5
 def effective_panel_roles(
     roles: set[str],
     active_role: str | None,
@@ -57,7 +60,8 @@ class AdminModerationFSM(StatesGroup):
     entering_review_reject_reason = State()
     entering_review_hide_reason = State()
     entering_support_reply = State()
-
+    entering_support_search = State()
+    entering_support_escalation_reason = State()
 
 async def get_admin_user_context(telegram_id: int | str):
     async with get_session() as session:
@@ -638,59 +642,6 @@ def format_review_card(
         f"{t('admin_review_reply', language)}:\n{reply_text}"
     )
 
-def support_ticket_keyboard(
-    index: int,
-    total: int,
-    language: str,
-) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=t("admin_support_reply", language),
-                callback_data=f"ADM_SUP_REPLY:{index}",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("admin_support_resolve", language),
-                callback_data=f"ADM_SUP_RESOLVE:{index}",
-            ),
-            InlineKeyboardButton(
-                text=t("admin_support_close", language),
-                callback_data=f"ADM_SUP_CLOSE:{index}",
-            ),
-        ],
-    ]
-
-    nav = []
-    if index > 0:
-        nav.append(
-            InlineKeyboardButton(
-                text=t("admin_prev", language),
-                callback_data=f"ADM_SUP_VIEW:{index - 1}",
-            )
-        )
-    if index < total - 1:
-        nav.append(
-            InlineKeyboardButton(
-                text=t("admin_next", language),
-                callback_data=f"ADM_SUP_VIEW:{index + 1}",
-            )
-        )
-    if nav:
-        rows.append(nav)
-
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("admin_panel_back", language),
-                callback_data="ADM_PANEL",
-            )
-        ]
-    )
-
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
 def support_staff_menu_keyboard(
     language: str,
     *,
@@ -750,6 +701,7 @@ def support_staff_menu_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+
 def format_support_staff_menu(counts: dict[str, int], language: str) -> str:
     return t("support_staff_menu_title", language).format(
         open_count=counts.get("open", 0),
@@ -757,22 +709,291 @@ def format_support_staff_menu(counts: dict[str, int], language: str) -> str:
         resolved_count=counts.get("resolved", 0),
     )
 
-async def get_support_staff_counts(*, tenant_id) -> dict[str, int]:
-    async with get_session() as session:
-        result = await session.execute(
-            select(SupportTicket.status, func.count(SupportTicket.id))
-            .where(SupportTicket.tenant_id == tenant_id)
-            .where(SupportTicket.status.in_({"open", "in_progress", "resolved"}))
-            .group_by(SupportTicket.status)
+def support_staff_status_filter(view: str) -> set[str]:
+    return {
+        "open": {"open"},
+        "in_progress": {"in_progress"},
+        "resolved": {"resolved"},
+    }.get(view, {"open"})
+
+
+def support_staff_view_label(view: str, language: str) -> str:
+    key = {
+        "open": "support_staff_open_btn",
+        "in_progress": "support_staff_in_progress_btn",
+        "resolved": "support_staff_resolved_btn",
+    }.get(view, "support_staff_open_btn")
+    return t(key, language)
+
+
+def format_support_staff_ticket_header(
+    tickets,
+    *,
+    view: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> str:
+    view_label = support_staff_view_label(view, language)
+    start = page * SUPPORT_STAFF_PAGE_SIZE + 1
+    end = start + len(tickets) - 1
+
+    if not tickets:
+        return (
+            f"{t('support_staff_list_title', language)}\n"
+            f"{t('support_staff_empty_list', language).format(view=view_label)}"
         )
-        return {status: count for status, count in result.all()}
 
-def format_support_staff_menu(counts: dict[str, int], language: str) -> str:
-    return t("support_staff_menu_title", language).format(
+    return (
+        f"{t('support_staff_list_title', language)}\n"
+        f"{view_label}\n"
+        f"{t('support_staff_shown_range', language).format(start=start, end=end)}"
+    )
+
+def format_support_staff_search_header(
+    tickets,
+    *,
+    query: str,
+    language: str,
+) -> str:
+    if not tickets:
+        return t("support_staff_search_empty", language).format(query=query)
+
+    return t("support_staff_search_results", language).format(
+        query=query,
+        count=len(tickets),
+    )
+
+def format_support_staff_ticket_card(
+    ticket,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    user_ref = f"user-{str(ticket.user_id)[:8]}"
+    category = t(f"support_category_{ticket.category or 'other'}", language)
+    status = t(f"support_status_{ticket.status}", language)
+    age = ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "-"
+
+    return t("support_staff_ticket_card", language).format(
+        number=number,
+        ticket_id=str(ticket.id)[:8],
+        user=user_ref,
+        category=category,
+        priority=t(f"support_priority_{(ticket.priority or 'P3').lower()}", language),
+        age=age,
+        status=status,
+    )
+
+def support_staff_ticket_card_keyboard(
+    *,
+    index: int,
+    ticket,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_open_ticket_btn", language).format(index=index + 1),
+                callback_data=f"ADM_SUP_VIEW:{index}",
+            )
+        ]
+    ]
+
+    if ticket.status == "open":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_take_ticket_btn", language).format(index=index + 1),
+                    callback_data=f"ADM_SUP_TAKE:{index}",
+                )
+            ]
+        )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def support_staff_ticket_actions_keyboard(
+    *,
+    view: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    nav = []
+    if page > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_SUPPORT_VIEW:{view}:{page - 1}",
+            )
+        )
+    if has_next:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_SUPPORT_VIEW:{view}:{page + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_filter_btn", language),
+                callback_data="ADM_SUPPORT_FILTERS",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_back_to_panel", language),
+                callback_data="ADM_SUPPORT",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def support_staff_filters_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_open_btn", language),
+                    callback_data="ADM_SUPPORT_VIEW:open:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_in_progress_btn", language),
+                    callback_data="ADM_SUPPORT_VIEW:in_progress:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_resolved_btn", language),
+                    callback_data="ADM_SUPPORT_VIEW:resolved:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_back_to_panel", language),
+                    callback_data="ADM_SUPPORT",
+                )
+            ],
+        ]
+    )
+
+def format_support_staff_stats(stats: dict, language: str) -> str:
+    counts = stats.get("counts") or {}
+    avg_response_minutes = stats.get("avg_response_minutes")
+
+    if avg_response_minutes is None:
+        avg_response = t("support_staff_stats_no_response", language)
+    else:
+        avg_response = t("support_staff_stats_avg_minutes", language).format(
+            minutes=avg_response_minutes,
+        )
+
+    return t("support_staff_stats_title", language).format(
         open_count=counts.get("open", 0),
         in_progress_count=counts.get("in_progress", 0),
         resolved_count=counts.get("resolved", 0),
+        closed_count=counts.get("closed", 0),
+        total_count=stats.get("total", 0),
+        avg_response=avg_response,
     )
+
+
+def support_staff_stats_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_stats_period_btn", language),
+                    callback_data="ADM_SUPPORT_STATS_PERIOD",
+                ),
+                InlineKeyboardButton(
+                    text=t("support_staff_stats_category_btn", language),
+                    callback_data="ADM_SUPPORT_STATS_CATEGORY",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_back_to_panel", language),
+                    callback_data="ADM_SUPPORT",
+                )
+            ],
+        ]
+    )
+
+def support_ticket_keyboard(
+    index: int,
+    total: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_support_reply", language),
+                callback_data=f"ADM_SUP_REPLY:{index}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_support_assign", language),
+                callback_data=f"ADM_SUP_ASSIGN:{index}",
+            ),
+            InlineKeyboardButton(
+                text=t("admin_support_escalate", language),
+                callback_data=f"ADM_SUP_ESCALATE:{index}",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_support_resolve", language),
+                callback_data=f"ADM_SUP_RESOLVE:{index}",
+            ),
+            InlineKeyboardButton(
+                text=t("admin_support_close", language),
+                callback_data=f"ADM_SUP_CLOSE:{index}",
+            ),
+        ],
+    ]
+
+    nav = []
+    if index > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_SUP_VIEW:{index - 1}",
+            )
+        )
+    if index < total - 1:
+        nav.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_SUP_VIEW:{index + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_back_to_queue", language),
+                callback_data="ADM_SUPPORT",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def format_support_ticket_card(
     view,
@@ -784,24 +1005,59 @@ def format_support_ticket_card(
     ticket = view.ticket
     messages = view.messages[-5:]
 
+    status_text = t(f"support_status_{ticket.status}", language)
+    category_text = t(f"support_category_{ticket.category or 'other'}", language)
+    priority_text = t(f"support_priority_{(ticket.priority or 'P3').lower()}", language)
+    user_ref = f"user-{str(ticket.user_id)[:8]}"
+
+    created_at = ticket.created_at.strftime("%Y-%m-%d %H:%M") if ticket.created_at else "-"
+    updated_at = ticket.updated_at.strftime("%Y-%m-%d %H:%M") if ticket.updated_at else "-"
+    resolved_at = ticket.resolved_at.strftime("%Y-%m-%d %H:%M") if ticket.resolved_at else None
+
     lines = [
         t("admin_support_ticket_title", language).format(
+            ticket_id=str(ticket.id)[:8],
             index=index + 1,
             total=total,
         ),
         "",
-        f"{t('admin_status', language)}: {ticket.status}",
-        f"{t('admin_support_priority', language)}: {ticket.priority}",
-        f"{t('admin_support_category', language)}: {ticket.category or '-'}",
-        f"{t('admin_support_user', language)}: {str(ticket.user_id)[:8]}",
-        f"{t('admin_support_ticket_id', language)}: {str(ticket.id)[:8]}",
+        f"{t('admin_support_category', language)}: {category_text}",
+        f"{t('admin_support_user', language)}: {user_ref}",
+        f"{t('admin_status', language)}: {status_text}",
+        f"{t('admin_support_priority', language)}: {priority_text}",
         "",
-        t("admin_support_messages", language),
+        t("admin_support_history", language),
+        t("admin_support_created_at", language).format(value=created_at),
+        t("admin_support_updated_at", language).format(value=updated_at),
     ]
 
-    for message in messages:
-        text = message.message_text[:500]
-        lines.append(f"{message.sender_role}: {text}")
+    if resolved_at:
+        lines.append(
+            t("admin_support_resolved_at", language).format(value=resolved_at)
+        )
+
+    lines.extend([
+        "",
+        t("admin_support_messages", language),
+    ])
+
+    if not messages:
+        lines.append(t("admin_support_no_messages", language))
+    else:
+        for message in messages:
+            sender_role = message.sender_role or "system"
+            sender_label = t(f"support_sender_{sender_role}", language)
+
+            text = (message.message_text or "").strip()
+            if text == "[deleted by user request]":
+                text = t("support_message_deleted_by_user", language)
+
+            lines.append(
+                t("support_message_line", language).format(
+                    sender_role=sender_label,
+                    message=text[:500],
+                )
+            )
 
     return "\n".join(lines)
 
@@ -855,30 +1111,80 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
         if isinstance(message_or_callback, CallbackQuery)
         else message_or_callback
     )
-    role_context = None
     async with get_session() as session:
         role_context = await UserService(session).get_role_switch_context(user.id)
 
     show_role_switch = bool(
         role_context and len(role_context.available_roles) > 1
     )
-    async with get_session() as session:
-        role_context = await UserService(session).get_role_switch_context(user.id)
+    active_role = role_context.active_role if role_context else None
 
-    show_role_switch = bool(
-        role_context and len(role_context.available_roles) > 1
-    )
+    if active_role == "support":
+        if not tenant_id or "support" not in roles:
+            if isinstance(message_or_callback, CallbackQuery):
+                await message_or_callback.answer(
+                    t("admin_access_denied", language),
+                    show_alert=True,
+                )
+            else:
+                await message_or_callback.answer(t("admin_access_denied", language))
+            return
+
+        try:
+            async with get_session() as session:
+                counts = await SupportService(
+                    SupportRepository(session)
+                ).get_staff_ticket_counts(
+                    tenant_id=tenant_id,
+                    staff_user_id=admin_user_id,
+                    statuses={"open", "in_progress", "resolved"},
+                )
+
+                await EventRepository(session).create_event(
+                    event_type="support_menu",
+                    tenant_id=tenant_id,
+                    user_id=admin_user_id,
+                    entity_type="support_ticket",
+                    entity_id=None,
+                    payload={
+                        "source": "support_staff_menu",
+                        "counts": counts,
+                    },
+                    platform="telegram",
+                )
+                await session.commit()
+        except SupportServiceError as exc:
+            if isinstance(message_or_callback, CallbackQuery):
+                await message_or_callback.answer(str(exc), show_alert=True)
+            else:
+                await message_or_callback.answer(str(exc))
+            return
+
+        await target_message.answer(
+            format_support_staff_menu(counts, language),
+            reply_markup=support_staff_menu_keyboard(
+                language,
+                show_role_switch=show_role_switch,
+            ),
+        )
+
+        if isinstance(message_or_callback, CallbackQuery):
+            await message_or_callback.answer()
+        return
+
     panel_roles = effective_panel_roles(
         roles,
-        role_context.active_role if role_context else None,
+        active_role,
     )
     panel_text = t("admin_panel_title", language)
+
     if not (
         panel_roles.intersection(ADMIN_MODERATION_MENU_ROLES)
         or panel_roles.intersection(ADMIN_PAYMENT_MENU_ROLES)
         or panel_roles.intersection(ADMIN_ROLE_MENU_ROLES)
         or panel_roles.intersection(ADMIN_LOG_MENU_ROLES)
         or panel_roles.intersection(ADMIN_SUPPORT_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_SUPPORT_STATS_ROLES)
     ):
         panel_text = t("admin_no_available_actions", language)
 
@@ -925,7 +1231,15 @@ async def admin_logs_panel(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
     admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
 
-    if not admin_user_id or not roles.intersection(ADMIN_LOG_MENU_ROLES):
+    async with get_session() as session:
+        role_context = await UserService(session).get_role_switch_context(callback.from_user.id)
+        active_role = role_context.active_role if role_context else None
+
+    if (
+        active_role == "support"
+        or not admin_user_id
+        or not roles.intersection(ADMIN_LOG_MENU_ROLES)
+    ):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
 
@@ -963,13 +1277,193 @@ async def admin_logs_panel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_SUPPORT")
-async def list_support_tickets(callback: CallbackQuery, state: FSMContext):
+async def open_support_staff_menu(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
     admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
 
     if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
+
+    async with get_session() as session:
+        role_context = await UserService(session).get_role_switch_context(callback.from_user.id)
+        show_role_switch = bool(
+            role_context and len(role_context.available_roles) > 1
+        )
+
+        try:
+            counts = await SupportService(
+                SupportRepository(session)
+            ).get_staff_ticket_counts(
+                tenant_id=tenant_id,
+                staff_user_id=admin_user_id,
+                statuses={"open", "in_progress", "resolved"},
+            )
+        except SupportServiceError as exc:
+            await callback.answer(str(exc), show_alert=True)
+            return
+
+        await EventRepository(session).create_event(
+            event_type="support_menu",
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            entity_type="support_ticket",
+            entity_id=None,
+            payload={
+                "source": "support_staff_menu",
+                "counts": counts,
+            },
+            platform="telegram",
+        )
+        await session.commit()
+
+    await state.clear()
+    await callback.message.answer(
+        format_support_staff_menu(counts, language),
+        reply_markup=support_staff_menu_keyboard(
+            language,
+            show_role_switch=show_role_switch,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_SUPPORT_SEARCH")
+async def ask_support_ticket_search(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    await state.set_state(AdminModerationFSM.entering_support_search)
+    await callback.message.answer(
+        t("support_staff_search_prompt", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("support_staff_back_to_panel", language),
+                        callback_data="ADM_SUPPORT",
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.message(AdminModerationFSM.entering_support_search)
+async def receive_support_ticket_search(message: Message, state: FSMContext):
+    language = normalize_language(message.from_user.language_code)
+    query = (message.text or "").strip()
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+        await message.answer(t("admin_access_denied", language))
+        await state.clear()
+        return
+
+    try:
+        async with get_session() as session:
+            tickets = await SupportService(
+                SupportRepository(session)
+            ).search_staff_tickets(
+                tenant_id=tenant_id,
+                staff_user_id=admin_user_id,
+                query=query,
+                limit=SUPPORT_STAFF_PAGE_SIZE,
+                offset=0,
+            )
+
+            await EventRepository(session).create_event(
+                event_type="ticket_search",
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                entity_type="support_ticket",
+                entity_id=None,
+                payload={
+                    "query": query,
+                    "count": len(tickets),
+                },
+                platform="telegram",
+            )
+            await session.commit()
+    except SupportServiceError as exc:
+        await message.answer(t("support_error", language).format(error=str(exc)))
+        return
+
+    await state.update_data(
+        admin_support_ticket_ids=[str(ticket.id) for ticket in tickets],
+        admin_support_view="search",
+        admin_support_page=0,
+    )
+
+    await message.answer(
+        format_support_staff_search_header(
+            tickets,
+            query=query,
+            language=language,
+        )
+    )
+
+    for index, ticket in enumerate(tickets):
+        await message.answer(
+            format_support_staff_ticket_card(
+                ticket,
+                number=index + 1,
+                language=language,
+            ),
+            reply_markup=support_staff_ticket_card_keyboard(
+                index=index,
+                ticket=ticket,
+                language=language,
+            ),
+        )
+
+    await message.answer(
+        t("support_staff_list_actions", language),
+        reply_markup=support_staff_ticket_actions_keyboard(
+            view="open",
+            page=0,
+            has_next=False,
+            language=language,
+        ),
+    )
+
+    await state.set_state(None)
+
+@admin_router.callback_query(F.data == "ADM_SUPPORT_FILTERS")
+async def show_support_ticket_filters(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("support_staff_filters_title", language),
+        reply_markup=support_staff_filters_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data.startswith("ADM_SUPPORT_VIEW:"))
+async def list_support_tickets_by_status(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+
+    try:
+        _, view, page_raw = (callback.data or "").split(":", 2)
+        page = max(0, int(page_raw))
+    except (TypeError, ValueError):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    statuses = support_staff_status_filter(view)
 
     try:
         async with get_session() as session:
@@ -978,27 +1472,135 @@ async def list_support_tickets(callback: CallbackQuery, state: FSMContext):
             ).list_staff_tickets(
                 tenant_id=tenant_id,
                 staff_user_id=admin_user_id,
-                statuses={"open", "in_progress"},
-                limit=10,
+                statuses=statuses,
+                limit=SUPPORT_STAFF_PAGE_SIZE + 1,
+                offset=page * SUPPORT_STAFF_PAGE_SIZE,
             )
+
+            visible_tickets = tickets[:SUPPORT_STAFF_PAGE_SIZE]
+            has_next = len(tickets) > SUPPORT_STAFF_PAGE_SIZE
+
+            await EventRepository(session).create_event(
+                event_type="ticket_list",
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                entity_type="support_ticket",
+                entity_id=None,
+                payload={
+                    "source": "support_staff",
+                    "view": view,
+                    "page": page,
+                    "count": len(visible_tickets),
+                    "has_next": has_next,
+                },
+                platform="telegram",
+            )
+            await session.commit()
     except SupportServiceError as exc:
         await callback.answer(str(exc), show_alert=True)
         return
 
-    if not tickets:
-        await state.clear()
-        await callback.message.answer(
-            t("admin_no_support_tickets", language),
-            reply_markup=admin_panel_keyboard(language, roles),
+    await state.update_data(
+        admin_support_ticket_ids=[str(ticket.id) for ticket in visible_tickets],
+        admin_support_view=view,
+        admin_support_page=page,
+    )
+
+    await callback.message.answer(
+        format_support_staff_ticket_header(
+            visible_tickets,
+            view=view,
+            page=page,
+            has_next=has_next,
+            language=language,
         )
-        await callback.answer()
+    )
+
+    for index, ticket in enumerate(visible_tickets):
+        number = page * SUPPORT_STAFF_PAGE_SIZE + index + 1
+        await callback.message.answer(
+            format_support_staff_ticket_card(
+                ticket,
+                number=number,
+                language=language,
+            ),
+            reply_markup=support_staff_ticket_card_keyboard(
+                index=index,
+                ticket=ticket,
+                language=language,
+            ),
+        )
+
+    await callback.message.answer(
+        t("support_staff_list_actions", language),
+        reply_markup=support_staff_ticket_actions_keyboard(
+            view=view,
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data.startswith("ADM_SUP_TAKE:"))
+async def take_support_ticket(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    ids = data.get("admin_support_ticket_ids") or []
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+    except (TypeError, ValueError):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
         return
 
-    await state.update_data(
-        admin_support_ticket_ids=[str(ticket.id) for ticket in tickets],
-    )
-    await show_support_ticket(callback, state, index=0)
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
 
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    ticket_id = UUID(ids[index])
+
+    try:
+        async with get_session() as session:
+            ticket = await SupportService(
+                SupportRepository(session)
+            ).update_ticket_status(
+                tenant_id=tenant_id,
+                staff_user_id=admin_user_id,
+                ticket_id=ticket_id,
+                status="in_progress",
+            )
+
+            await ModerationRepository(session).log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="ticket_assigned",
+                entity_type="support_ticket",
+                entity_id=ticket.id,
+                payload={
+                    "status": ticket.status,
+                },
+            )
+            await session.commit()
+    except SupportServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await callback.message.answer(
+        t("support_staff_ticket_taken", language),
+            reply_markup=support_staff_ticket_actions_keyboard(
+                view=data.get("admin_support_view") or "open",
+                page=int(data.get("admin_support_page") or 0),
+                has_next=False,
+                language=language,
+            ),
+    )
+    await callback.answer()
 
 async def show_support_ticket(callback: CallbackQuery, state: FSMContext, index: int):
     data = await state.get_data()
@@ -1111,6 +1713,18 @@ async def receive_support_reply(message: Message, state: FSMContext):
                 account = await UserRepository(session).get_telegram_account_by_user_id(
                     ticket.user_id
                 )
+            await ModerationRepository(session).log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="reply",
+                entity_type="support_ticket",
+                entity_id=UUID(ticket_id),
+                payload={
+                    "source": "support_staff",
+                    "message_length": len(message.text or ""),
+                },
+            )
+            await session.commit()
     except SupportServiceError as exc:
         await message.answer(t("support_error", language).format(error=str(exc)))
         return
@@ -1130,12 +1744,20 @@ async def receive_support_reply(message: Message, state: FSMContext):
                 ticket_id,
             )
 
-    await message.answer(t("admin_support_reply_sent", language))
+    await message.answer(
+        t("admin_support_reply_sent", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("support_staff_back_to_queue", language),
+                        callback_data="ADM_SUPPORT",
+                    )
+                ]
+            ]
+        ),
+    )
     await state.set_state(None)
-
-    fake_callback = None
-    await message.answer(t("admin_support_back_hint", language))
-
 
 async def update_support_ticket_status_from_admin(
     callback: CallbackQuery,
@@ -1188,17 +1810,154 @@ async def update_support_ticket_status_from_admin(
                 entity_id=ticket_id,
                 payload={"status": status},
             )
+            if status == "resolved":
+                await ModerationRepository(session).log_event(
+                    tenant_id=tenant_id,
+                    user_id=admin_user_id,
+                    event_type="resolved",
+                    entity_type="support_ticket",
+                    entity_id=ticket_id,
+                    payload={
+                        "source": "support_staff",
+                        "status": status,
+                    },
+                )
             await session.commit()
     except SupportServiceError as exc:
         await callback.answer(str(exc), show_alert=True)
         return
 
+    view = data.get("admin_support_view") or "in_progress"
+    page = int(data.get("admin_support_page") or 0)
+
     await callback.message.answer(
         t("admin_support_status_updated", language).format(status=status),
-        reply_markup=admin_panel_keyboard(language, roles),
+        reply_markup=support_staff_ticket_actions_keyboard(
+            view=view,
+            page=page,
+            has_next=False,
+            language=language,
+        ),
     )
     await callback.answer()
 
+@admin_router.callback_query(F.data.startswith("ADM_SUP_ASSIGN:"))
+async def assign_support_ticket(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    ids = data.get("admin_support_ticket_ids") or []
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+    except (TypeError, ValueError):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    ticket_id = UUID(ids[index])
+
+    try:
+        async with get_session() as session:
+            ticket = await SupportService(
+                SupportRepository(session)
+            ).assign_ticket(
+                tenant_id=tenant_id,
+                staff_user_id=admin_user_id,
+                ticket_id=ticket_id,
+            )
+
+            await ModerationRepository(session).log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="ticket_assigned",
+                entity_type="support_ticket",
+                entity_id=ticket.id,
+                payload={"status": ticket.status},
+            )
+            await session.commit()
+    except SupportServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await callback.message.answer(t("support_staff_ticket_taken", language))
+    await callback.answer()
+
+@admin_router.callback_query(F.data.startswith("ADM_SUP_ESCALATE:"))
+async def ask_support_ticket_escalation_reason(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(callback.from_user.language_code)
+    ids = data.get("admin_support_ticket_ids") or []
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+    except (TypeError, ValueError):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    if index < 0 or index >= len(ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(
+        admin_support_ticket_id=ids[index],
+        admin_support_ticket_index=index,
+    )
+    await state.set_state(AdminModerationFSM.entering_support_escalation_reason)
+    await callback.message.answer(t("admin_support_escalate_reason_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_support_escalation_reason)
+async def receive_support_ticket_escalation_reason(message: Message, state: FSMContext):
+    data = await state.get_data()
+    language = normalize_language(message.from_user.language_code)
+
+    ticket_id = data.get("admin_support_ticket_id")
+    if not ticket_id:
+        await message.answer(t("admin_item_not_found", language))
+        await state.clear()
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+        await message.answer(t("admin_access_denied", language))
+        await state.clear()
+        return
+
+    try:
+        async with get_session() as session:
+            ticket = await SupportService(
+                SupportRepository(session)
+            ).escalate_ticket_to_admin(
+                tenant_id=tenant_id,
+                staff_user_id=admin_user_id,
+                ticket_id=UUID(ticket_id),
+                reason=message.text or "",
+            )
+
+            await ModerationRepository(session).log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="ticket_escalated",
+                entity_type="support_ticket",
+                entity_id=ticket.id,
+                payload={"priority": ticket.priority},
+            )
+            await session.commit()
+    except SupportServiceError as exc:
+        await message.answer(t("support_error", language).format(error=str(exc)))
+        return
+
+    await state.clear()
+    await message.answer(t("admin_support_escalated", language))
 
 @admin_router.callback_query(F.data.startswith("ADM_SUP_RESOLVE:"))
 async def resolve_support_ticket(callback: CallbackQuery, state: FSMContext):
@@ -1215,6 +1974,53 @@ async def close_support_ticket(callback: CallbackQuery, state: FSMContext):
         callback,
         state,
         status="closed",
+    )
+
+@admin_router.callback_query(F.data == "ADM_SUPPORT_STATS")
+async def show_support_staff_stats(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_STATS_ROLES):
+        await callback.answer(t("admin_access_denied", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            stats = await SupportService(
+                SupportRepository(session)
+            ).get_staff_ticket_stats(
+                tenant_id=tenant_id,
+                staff_user_id=admin_user_id,
+            )
+
+            await EventRepository(session).create_event(
+                event_type="stats_viewed",
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                entity_type="support_ticket",
+                entity_id=None,
+                payload={"source": "support_staff_stats"},
+                platform="telegram",
+            )
+            await session.commit()
+    except SupportServiceError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+
+    await callback.message.answer(
+        format_support_staff_stats(stats, language),
+        reply_markup=support_staff_stats_keyboard(language),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data.in_({"ADM_SUPPORT_STATS_PERIOD", "ADM_SUPPORT_STATS_CATEGORY"}))
+async def support_staff_stats_filter_pending(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+    await callback.answer(
+        t("support_staff_stats_filter_later", language),
+        show_alert=True,
     )
 
 @admin_router.callback_query(F.data == "ADM_ROLE_GRANT")

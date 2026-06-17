@@ -796,7 +796,12 @@ def test_specialist_registration_s7_contact_visibility_matches_tz10_contract():
         1,
     )[0]
 
-    assert "await state.set_state(SpecialistForm.choosing_contact_visibility)" in enter_contact_block
+    assert 'contact_visibility=data.get("contact_visibility") or "platform_only"' in enter_contact_block
+    assert "allow_requests=True" in enter_contact_block
+    assert "await show_registration_summary(message, state, language)" in enter_contact_block
+    assert "await state.set_state(SpecialistForm.choosing_contact_visibility)" not in enter_contact_block
+    assert "spec_contact_visibility_prompt" not in enter_contact_block
+    assert "contact_visibility_keyboard(" not in enter_contact_block
     assert "return" in enter_contact_block
 
 def test_specialist_registration_s8_confirmation_matches_tz10_contract():

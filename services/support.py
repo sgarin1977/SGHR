@@ -85,6 +85,7 @@ class SupportService:
         staff_user_id: UUID,
         statuses: set[str] | None = None,
         limit: int = 20,
+        offset: int = 0,
     ) -> list[SupportTicket]:
         await self._ensure_staff_access(
             tenant_id=tenant_id,
@@ -102,6 +103,73 @@ class SupportService:
             tenant_id=tenant_id,
             statuses=normalized_statuses,
             limit=limit,
+            offset=offset,
+        )
+
+    async def search_staff_tickets(
+        self,
+        *,
+        tenant_id: UUID,
+        staff_user_id: UUID,
+        query: str,
+        limit: int = 5,
+        offset: int = 0,
+    ) -> list[SupportTicket]:
+        await self._ensure_staff_access(
+            tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
+        )
+
+        search_query = (query or "").strip().lstrip("#")
+        if len(search_query) < 2:
+            raise SupportServiceError("Search query must be at least 2 characters.")
+        if len(search_query) > 100:
+            raise SupportServiceError("Search query is too long.")
+
+        return await self.repository.search_staff_tickets(
+            tenant_id=tenant_id,
+            query=search_query,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def get_staff_ticket_counts(
+        self,
+        *,
+        tenant_id: UUID,
+        staff_user_id: UUID,
+        statuses: set[str] | None = None,
+    ) -> dict[str, int]:
+        await self._ensure_staff_access(
+            tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
+        )
+
+        normalized_statuses = None
+        if statuses is not None:
+            normalized_statuses = {
+                self._validate_status(status)
+                for status in statuses
+            }
+
+        return await self.repository.get_staff_ticket_counts(
+            tenant_id=tenant_id,
+            statuses=normalized_statuses,
+        )
+
+    async def get_staff_ticket_stats(
+        self,
+        *,
+        tenant_id: UUID,
+        staff_user_id: UUID,
+    ) -> dict:
+        await self._ensure_staff_access(
+            tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
+        )
+
+        return await self.repository.get_staff_ticket_stats(
+            tenant_id=tenant_id,
         )
 
     async def get_user_ticket_view(
@@ -270,6 +338,65 @@ class SupportService:
         )
         if not ticket:
             raise SupportServiceError("Support ticket not found.")
+
+        await self.repository.session.commit()
+        return ticket
+
+    async def assign_ticket(
+        self,
+        *,
+        tenant_id: UUID,
+        staff_user_id: UUID,
+        ticket_id: UUID,
+    ) -> SupportTicket:
+        return await self.update_ticket_status(
+            tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
+            ticket_id=ticket_id,
+            status="in_progress",
+        )
+
+    async def escalate_ticket_to_admin(
+        self,
+        *,
+        tenant_id: UUID,
+        staff_user_id: UUID,
+        ticket_id: UUID,
+        reason: str,
+    ) -> SupportTicket:
+        await self._ensure_staff_access(
+            tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
+        )
+
+        reason_text = self._validate_message_text(reason)
+
+        ticket = await self.repository.get_ticket(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+        )
+        if not ticket:
+            raise SupportServiceError("Support ticket not found.")
+
+        if ticket.status in {"resolved", "closed", "rejected"}:
+            raise SupportServiceError("Support ticket is already closed.")
+
+        ticket = await self.repository.update_ticket_priority(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            priority="P1",
+        )
+        if not ticket:
+            raise SupportServiceError("Support ticket not found.")
+
+        await self.repository.add_message(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            sender_user_id=staff_user_id,
+            sender_role="support",
+            message_text=f"Escalated to admin: {reason_text}",
+            is_internal=True,
+        )
 
         await self.repository.session.commit()
         return ticket

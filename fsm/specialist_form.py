@@ -1399,8 +1399,8 @@ async def enter_description(message: Message, state: FSMContext):
         return
 
     await state.update_data(short_description=description)
-    await message.answer(t("spec_contact_prompt", language))
-    await state.set_state(SpecialistForm.entering_contact)
+    await message.answer(t("spec_price_prompt", language))
+    await state.set_state(SpecialistForm.entering_price)
 @specialist_form_router.message(SpecialistForm.entering_price)
 async def enter_price(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -1516,14 +1516,7 @@ async def enter_contact(message: Message, state: FSMContext):
         allow_requests=True,
     )
 
-    await message.answer(
-        t("spec_contact_visibility_prompt", language),
-        reply_markup=contact_visibility_keyboard(
-            selected="platform_only",
-            language=language,
-        ),
-    )
-    await state.set_state(SpecialistForm.choosing_contact_visibility)
+    await show_registration_summary(message, state, language)
     return
 
 async def show_registration_summary(
@@ -1569,29 +1562,17 @@ async def show_registration_summary(
     }.get(data.get("work_format") or "mixed", "search_work_mixed")
     work_format_text = t(work_format_key, language)
 
-    contact_visibility_key = {
-        "platform_only": "spec_contact_visibility_platform_only",
-        "public_limited": "spec_contact_visibility_public_limited",
-        "private": "spec_contact_visibility_private",
-    }.get(
-        data.get("contact_visibility") or "platform_only",
-        "spec_contact_visibility_platform_only",
-    )
 
-    summary = (
-        t("spec_summary", language).format(
-            category=category_summary,
-            profession=profession_summary,
-            location=data.get("city_name"),
-            display_name=data.get("display_name"),
-            description=data.get("short_description"),
-            price=price_text,
-            languages=", ".join(data.get("languages") or ["ru"]),
-            contact=data.get("contact_text"),
-            work_format=work_format_text,
-        )
-        + "\n"
-        + f"{t('spec_contact_visibility_summary', language)}: {t(contact_visibility_key, language)}"
+    summary = t("spec_summary", language).format(
+        category=category_summary,
+        profession=profession_summary,
+        location=data.get("city_name"),
+        display_name=data.get("display_name"),
+        description=data.get("short_description"),
+        price=price_text,
+        languages=", ".join(data.get("languages") or ["ru"]),
+        contact=data.get("contact_text"),
+        work_format=work_format_text,
     )
 
     target = event.message if isinstance(event, CallbackQuery) else event

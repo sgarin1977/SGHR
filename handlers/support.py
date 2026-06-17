@@ -26,7 +26,6 @@ SUPPORT_CATEGORIES = [
     "other",
 ]
 
-SUPPORT_PRIORITIES = ["P1", "P2", "P3", "P4"]
 SUPPORT_TICKETS_PAGE_SIZE = 5
 SUPPORT_ACTIVE_STATUSES = {"open", "in_progress"}
 SUPPORT_RESOLVED_STATUSES = {"resolved", "closed", "rejected"}
@@ -66,6 +65,30 @@ def support_menu_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
+def support_empty_tickets_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("support_create_btn", language),
+                    callback_data="SUPPORT_CREATE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("support_back_to_settings_btn", language),
+                    callback_data="SUPPORT_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
+    )
+
 def support_category_keyboard(language: str) -> InlineKeyboardMarkup:
     rows = []
     for category in SUPPORT_CATEGORIES:
@@ -83,29 +106,6 @@ def support_category_keyboard(language: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text=t("support_back_to_settings_btn", language),
                 callback_data="SUPPORT_MENU",
-            )
-        ]
-    )
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def support_priority_keyboard(language: str) -> InlineKeyboardMarkup:
-    rows = []
-    for priority in SUPPORT_PRIORITIES:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t(f"support_priority_{priority.lower()}", language),
-                    callback_data=f"SUPPORT_PRI:{priority}",
-                )
-            ]
-        )
-
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("support_back_to_settings_btn", language),
-                callback_data="SUPPORT_CREATE",
             )
         ]
     )
@@ -135,32 +135,42 @@ def support_ticket_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-def format_support_tickets_list(tickets, language: str, *, page: int) -> str:
-    if not tickets:
-        return t("support_no_tickets", language)
+def support_ticket_view_label(view: str, language: str) -> str:
+    key = (
+        "support_tickets_resolved_btn"
+        if view == "resolved"
+        else "support_tickets_active_btn"
+    )
+    return t(key, language)
 
-    lines = [t("support_tickets_title", language), ""]
-    start_number = page * SUPPORT_TICKETS_PAGE_SIZE + 1
 
-    for number, ticket in enumerate(tickets, start=start_number):
-        lines.append(
-            t("support_ticket_list_item", language).format(
-                number=number,
-                ticket_id=str(ticket.id)[:8],
-                category=t(f"support_category_{ticket.category}", language),
-                status=t(f"support_status_{ticket.status}", language),
-                updated_at=ticket.updated_at.strftime("%Y-%m-%d") if ticket.updated_at else "-",
-            )
-        )
-
-    return "\n\n".join(lines)
-
-def support_tickets_keyboard(
+def format_support_tickets_header(
     tickets,
     language: str,
     *,
     view: str,
-    page: int,
+) -> str:
+    return (
+        f"{t('support_tickets_title', language)}\n"
+        f"{support_ticket_view_label(view, language)} ({len(tickets)})"
+    )
+
+
+def format_support_ticket_card(ticket, language: str, *, number: int) -> str:
+    return t("support_ticket_card", language).format(
+        number=number,
+        ticket_id=str(ticket.id)[:8],
+        category=t(f"support_category_{ticket.category or 'other'}", language),
+        status=t(f"support_status_{ticket.status}", language),
+        updated_at=ticket.updated_at.strftime("%Y-%m-%d") if ticket.updated_at else "-",
+    )
+def support_tickets_keyboard(
+    tickets,
+    language: str,
+    *,
+    view: str = "active",
+    page: int = 0,
+    has_next: bool = False,
 ) -> InlineKeyboardMarkup:
     rows = [
         [
@@ -174,17 +184,6 @@ def support_tickets_keyboard(
             ),
         ]
     ]
-
-    for index, ticket in enumerate(tickets):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{index + 1}. {t('client_request_open', language)}",
-                    callback_data=f"SUPPORT_VIEW:{index}",
-                                    )
-                                ]
-                            )
-
     pagination = []
     if page > 0:
         pagination.append(
@@ -193,7 +192,7 @@ def support_tickets_keyboard(
                 callback_data=f"SUPPORT_MY_TICKETS:{view}:{page - 1}",
             )
         )
-    if len(tickets) >= SUPPORT_TICKETS_PAGE_SIZE:
+    if has_next:
         pagination.append(
             InlineKeyboardButton(
                 text=">",
@@ -231,6 +230,22 @@ def support_tickets_keyboard(
     )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def support_ticket_card_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"{index + 1}. {t('client_request_open', language)}",
+                    callback_data=f"SUPPORT_VIEW:{index}",
+                )
+            ]
+        ]
+    )
 
 def support_ticket_view_keyboard(
     *,
@@ -286,18 +301,24 @@ def format_support_ticket_view(view, language: str) -> str:
             ticket_id=str(ticket.id)[:8],
         ),
         "",
-        f"{t('admin_status', language)}: {ticket.status}",
-        f"{t('admin_support_priority', language)}: {ticket.priority}",
-        f"{t('admin_support_category', language)}: {ticket.category or '-'}",
+        f"{t('admin_status', language)}: {t(f'support_status_{ticket.status}', language)}",
+        f"{t('admin_support_category', language)}: {t(f'support_category_{ticket.category or 'other'}', language)}",
         "",
         t("admin_support_messages", language),
     ]
 
     for message in view.messages[-10:]:
+        sender_role = message.sender_role or "system"
+        sender_label = t(f"support_sender_{sender_role}", language)
+
+        text = (message.message_text or "").strip()
+        if text == "[deleted by user request]":
+            text = t("support_message_deleted_by_user", language)
+
         lines.append(
             t("support_message_line", language).format(
-                sender_role=message.sender_role,
-                message=message.message_text[:700],
+                sender_role=sender_label,
+                message=text[:700],
             )
         )
 
@@ -305,12 +326,10 @@ def format_support_ticket_view(view, language: str) -> str:
 
 def format_support_ticket_draft(data: dict, language: str) -> str:
     category = data.get("support_category") or "other"
-    priority = data.get("support_priority") or "P3"
     message_text = (data.get("support_message_text") or "").strip()
 
     return t("support_ticket_draft", language).format(
         category=t(f"support_category_{category}", language),
-        priority=priority,
         message=message_text,
     )
 
@@ -383,7 +402,7 @@ async def choose_support_category(callback: CallbackQuery, state: FSMContext):
 
 
 @support_router.callback_query(F.data.startswith("SUPPORT_CAT:"))
-async def choose_support_priority(callback: CallbackQuery, state: FSMContext):
+async def choose_support_category(callback: CallbackQuery, state: FSMContext):
     fallback_language = normalize_language(callback.from_user.language_code)
     category = (callback.data or "").split(":", 1)[1]
 
@@ -396,7 +415,11 @@ async def choose_support_priority(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await state.update_data(support_category=category)
+    await state.update_data(
+        support_category=category,
+        support_priority="P3",
+    )
+
     async with get_session() as session:
         await EventRepository(session).create_event(
             event_type="ticket_category",
@@ -410,33 +433,10 @@ async def choose_support_priority(callback: CallbackQuery, state: FSMContext):
             platform="telegram",
         )
         await session.commit()
-    await callback.message.answer(
-        t("support_priority_prompt", language),
-        reply_markup=support_priority_keyboard(language),
-    )
-    await callback.answer()
 
-
-@support_router.callback_query(F.data.startswith("SUPPORT_PRI:"))
-async def ask_support_message(callback: CallbackQuery, state: FSMContext):
-    fallback_language = normalize_language(callback.from_user.language_code)
-    priority = (callback.data or "").split(":", 1)[1]
-
-    user, language = await get_support_user_context(
-        callback.from_user.id,
-        fallback_language,
-    )
-
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    await state.update_data(support_priority=priority)
     await state.set_state(SupportFSM.entering_message)
-
     await callback.message.answer(t("support_message_prompt", language))
     await callback.answer()
-
 
 @support_router.message(SupportFSM.entering_message)
 async def receive_support_message(message: Message, state: FSMContext):
@@ -520,6 +520,10 @@ async def send_support_ticket(callback: CallbackQuery, state: FSMContext):
     category = data.get("support_category")
     priority = data.get("support_priority") or "P3"
     message_text = (data.get("support_message_text") or "").strip()
+
+    if not message_text:
+        await callback.answer(t("support_ticket_already_sent", language), show_alert=True)
+        return
 
     if len(message_text) < 10:
         await state.set_state(SupportFSM.entering_message)
@@ -624,6 +628,8 @@ async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
             limit=SUPPORT_TICKETS_PAGE_SIZE,
             offset=page * SUPPORT_TICKETS_PAGE_SIZE,
         )
+        visible_tickets = tickets[:SUPPORT_TICKETS_PAGE_SIZE]
+        has_next = len(tickets) > SUPPORT_TICKETS_PAGE_SIZE
 
         await EventRepository(session).create_event(
             event_type="ticket_list",
@@ -634,33 +640,57 @@ async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
             payload={
                 "view": view,
                 "page": page,
-                "count": len(tickets),
+                "count": len(visible_tickets),
+                "has_next": has_next,
             },
             platform="telegram",
         )
         await session.commit()
 
-    if not tickets:
+    if not visible_tickets:
         await callback.message.answer(
             t("support_no_tickets", language),
-            reply_markup=support_menu_keyboard(language),
+            reply_markup=support_empty_tickets_keyboard(language),
         )
         await callback.answer()
         return
 
     await state.update_data(
-        support_ticket_ids=[str(ticket.id) for ticket in tickets],
+        support_ticket_ids=[str(ticket.id) for ticket in visible_tickets],
         support_tickets_view=view,
         support_tickets_page=page,
     )
 
     await callback.message.answer(
-        format_support_tickets_list(tickets, language, page=page),
+        format_support_tickets_header(
+            visible_tickets,
+            language,
+            view=view,
+        )
+    )
+
+    start_number = page * SUPPORT_TICKETS_PAGE_SIZE + 1
+    for index, ticket in enumerate(visible_tickets):
+        await callback.message.answer(
+            format_support_ticket_card(
+                ticket,
+                language,
+                number=start_number + index,
+            ),
+            reply_markup=support_ticket_card_keyboard(
+                index=index,
+                language=language,
+            ),
+        )
+
+    await callback.message.answer(
+        t("dialog_list_actions_title", language),
         reply_markup=support_tickets_keyboard(
-            tickets,
+            visible_tickets,
             language,
             view=view,
             page=page,
+            has_next=has_next,
         ),
     )
     await callback.answer()

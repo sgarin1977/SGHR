@@ -1,10 +1,10 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import SupportMessage, SupportTicket, UserRoleMapping
+from database.models import SupportMessage, SupportTicket, UserAccount, UserRoleMapping
 
 
 SUPPORT_TICKET_STATUSES = {
@@ -168,6 +168,7 @@ class SupportRepository:
         tenant_id: UUID,
         statuses: set[str] | None = None,
         limit: int = 20,
+        offset: int = 0,
     ) -> list[SupportTicket]:
         allowed_statuses = statuses or {"open", "in_progress"}
 
@@ -183,8 +184,105 @@ class SupportRepository:
                 SupportTicket.created_at.desc(),
             )
             .limit(max(1, min(int(limit), 100)))
+            .offset(max(0, int(offset)))
         )
         return list(result.scalars().all())
+
+    async def search_staff_tickets(
+        self,
+        *,
+        tenant_id: UUID,
+        query: str,
+        limit: int = 5,
+        offset: int = 0,
+    ) -> list[SupportTicket]:
+        search = f"%{query}%"
+        id_prefix = f"{query}%"
+
+        result = await self.session.execute(
+            select(SupportTicket)
+            .outerjoin(UserAccount, UserAccount.user_id == SupportTicket.user_id)
+            .where(
+                SupportTicket.tenant_id == tenant_id,
+                or_(
+                    cast(SupportTicket.id, String).ilike(id_prefix),
+                    UserAccount.username.ilike(search),
+                    UserAccount.platform_user_id.ilike(search),
+                    SupportTicket.category.ilike(search),
+                    SupportTicket.status.ilike(search),
+                ),
+            )
+            .order_by(
+                SupportTicket.updated_at.desc(),
+                SupportTicket.created_at.desc(),
+            )
+            .distinct()
+            .limit(max(1, min(int(limit), 50)))
+            .offset(max(0, int(offset)))
+        )
+        return list(result.scalars().all())
+
+    async def get_staff_ticket_counts(
+        self,
+        *,
+        tenant_id: UUID,
+        statuses: set[str] | None = None,
+    ) -> dict[str, int]:
+        allowed_statuses = statuses or {"open", "in_progress", "resolved"}
+
+        result = await self.session.execute(
+            select(SupportTicket.status, func.count(SupportTicket.id))
+            .where(
+                SupportTicket.tenant_id == tenant_id,
+                SupportTicket.status.in_(allowed_statuses),
+            )
+            .group_by(SupportTicket.status)
+        )
+
+        return {status: count for status, count in result.all()}
+
+    async def get_staff_ticket_stats(
+        self,
+        *,
+        tenant_id: UUID,
+    ) -> dict:
+        counts = await self.get_staff_ticket_counts(
+            tenant_id=tenant_id,
+            statuses={"open", "in_progress", "resolved", "closed", "rejected"},
+        )
+
+        first_response_result = await self.session.execute(
+            select(
+                SupportTicket.created_at,
+                func.min(SupportMessage.created_at),
+            )
+            .join(SupportMessage, SupportMessage.ticket_id == SupportTicket.id)
+            .where(
+                SupportTicket.tenant_id == tenant_id,
+                SupportMessage.sender_role.in_(("support", "admin")),
+                SupportMessage.is_internal.is_(False),
+            )
+            .group_by(SupportTicket.id, SupportTicket.created_at)
+        )
+
+        response_minutes = []
+        for created_at, first_response_at in first_response_result.all():
+            if created_at and first_response_at and first_response_at >= created_at:
+                response_minutes.append(
+                    (first_response_at - created_at).total_seconds() / 60
+                )
+
+        avg_response_minutes = None
+        if response_minutes:
+            avg_response_minutes = round(
+                sum(response_minutes) / len(response_minutes)
+            )
+
+        return {
+            "counts": counts,
+            "total": sum(counts.values()),
+            "avg_response_minutes": avg_response_minutes,
+        }
 
     async def list_ticket_messages(
         self,
@@ -265,6 +363,26 @@ class SupportRepository:
             ticket.assigned_user_id = assigned_user_id
         if status in {"resolved", "closed", "rejected"}:
             ticket.resolved_at = now
+
+        await self.session.flush()
+        return ticket
+    async def update_ticket_priority(
+        self,
+        *,
+        tenant_id: UUID,
+        ticket_id: UUID,
+        priority: str,
+    ) -> SupportTicket | None:
+        ticket = await self.get_ticket(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+        )
+        if not ticket:
+            return None
+
+        now = datetime.utcnow()
+        ticket.priority = priority
+        ticket.updated_at = now
 
         await self.session.flush()
         return ticket

@@ -3915,13 +3915,34 @@ async def receive_thread_message(message: Message, state: FSMContext):
         )
 
     except ContactChatError as exc:
+        error_text = str(exc)
+
         logger.warning(
             "contact_thread_message_failed telegram_id=%s thread_id=%s error=%s",
             message.from_user.id,
             thread_id,
             exc,
         )
-        await message.answer(t("contact_request_error", language).format(error=str(exc)))
+
+        if "read-only for blacklisted users" in error_text:
+            await message.answer(
+                t("contact_thread_read_only_blacklisted", language),
+                reply_markup=contact_thread_keyboard_for_role(
+                    language,
+                    data.get("active_thread_role"),
+                ),
+            )
+            await state.set_state(SpecialistSearchFSM.viewing_results)
+            return
+
+        await message.answer(
+            t("contact_thread_message_error", language).format(error=error_text),
+            reply_markup=contact_thread_keyboard_for_role(
+                language,
+                data.get("active_thread_role"),
+            ),
+        )
+        await state.set_state(SpecialistSearchFSM.viewing_results)
         return
 
     receiver_chat_id = telegram_chat_id(receiver_platform_user_id)

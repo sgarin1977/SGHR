@@ -233,3 +233,43 @@ def test_support_static_contract():
 
     for fragment in required_service_fragments:
         assert fragment in service
+
+    admin_handler = open("handlers/admin.py", encoding="utf-8").read()
+    support_handler = open("handlers/support.py", encoding="utf-8").read()
+    support_service = open("services/support.py", encoding="utf-8").read()
+    support_repository = open("database/repositories/support.py", encoding="utf-8").read()
+
+    assert 'ADMIN_SUPPORT_MENU_ROLES = {"support"}' in admin_handler
+    assert 'ADMIN_SUPPORT_STATS_ROLES = {"support", "admin", "super_admin"}' in admin_handler
+
+    assert 'callback_data="ADM_SUPPORT_VIEW:open:0"' in admin_handler
+    assert 'callback_data="ADM_SUPPORT_VIEW:in_progress:0"' in admin_handler
+    assert 'callback_data="ADM_SUPPORT_VIEW:resolved:0"' in admin_handler
+    assert 'callback_data="ADM_SUPPORT_SEARCH"' in admin_handler
+    assert 'callback_data="ADM_SUPPORT_STATS"' in admin_handler
+    assert 'callback_data="ROLE_SWITCH_MENU"' in admin_handler
+
+    assert "async def list_staff_tickets" in support_service
+    assert "async def search_staff_tickets" in support_service
+    assert "async def get_staff_ticket_stats" in support_service
+    assert "async def assign_ticket" in support_service
+    assert "async def escalate_ticket_to_admin" in support_service
+
+    assert "async def list_staff_tickets" in support_repository
+    assert "async def search_staff_tickets" in support_repository
+    assert "async def get_staff_ticket_counts" in support_repository
+    assert "async def get_staff_ticket_stats" in support_repository
+
+    assert 'event_type="support_menu"' in admin_handler
+    assert 'event_type="ticket_search"' in admin_handler
+    assert 'event_type="ticket_assigned"' in admin_handler
+    assert 'event_type="reply"' in admin_handler
+    assert 'event_type="resolved"' in admin_handler
+    assert 'event_type="stats_viewed"' in admin_handler
+
+    assert 'event_type="support_opened"' in support_handler
+    assert 'event_type="ticket_category"' in support_handler
+    assert 'event_type="ticket_created"' in support_handler
+    assert 'event_type="ticket_list"' in support_handler
+    assert 'event_type="ticket_message"' in support_handler
+    assert 'event_type="closed"' in support_handler

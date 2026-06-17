@@ -2592,9 +2592,9 @@ translations = {
         "pt": "Não há chamados de suporte abertos.",
     },
     "admin_support_ticket_title": {
-        "ru": "Обращение в поддержку {index}/{total}",
-        "en": "Support ticket {index}/{total}",
-        "pt": "Chamado de suporte {index}/{total}",
+        "ru": "Обращение #{ticket_id} ({index}/{total})",
+        "en": "Ticket #{ticket_id} ({index}/{total})",
+        "pt": "Chamado #{ticket_id} ({index}/{total})",
     },
     "admin_support_priority": {
         "ru": "Приоритет",
@@ -3699,24 +3699,21 @@ translations = {
         "pt": "Dialogo",
     },
     "support_ticket_draft": {
-    "ru": (
-        "Проверьте обращение:\n\n"
-        "Категория: {category}\n"
-        "Приоритет: {priority}\n"
-        "Сообщение: {message}"
-    ),
-    "en": (
-        "Check the ticket:\n\n"
-        "Category: {category}\n"
-        "Priority: {priority}\n"
-        "Message: {message}"
-    ),
-    "pt": (
-        "Verifique o pedido:\n\n"
-        "Categoria: {category}\n"
-        "Prioridade: {priority}\n"
-        "Mensagem: {message}"
-    ),
+        "ru": (
+            "Проверьте обращение:\n\n"
+            "Категория: {category}\n"
+            "Сообщение: {message}"
+        ),
+        "en": (
+            "Check the ticket:\n\n"
+            "Category: {category}\n"
+            "Message: {message}"
+        ),
+        "pt": (
+            "Verifique o chamado:\n\n"
+            "Categoria: {category}\n"
+            "Mensagem: {message}"
+        ),
     },
     "support_send_btn": {
         "ru": "Отправить",
@@ -4042,6 +4039,265 @@ translations = {
         "ru": "Архив",
         "en": "Archive",
         "pt": "Arquivo",
+    },
+    "support_staff_menu_title": {
+        "ru": "Кабинет Support\n\nОткрытые: {open_count}\nВ работе: {in_progress_count}\nРешённые: {resolved_count}",
+        "en": "Support cabinet\n\nOpen: {open_count}\nIn progress: {in_progress_count}\nResolved: {resolved_count}",
+        "pt": "Painel de suporte\n\nAbertos: {open_count}\nEm andamento: {in_progress_count}\nResolvidos: {resolved_count}",
+    },
+    "support_staff_open_btn": {
+        "ru": "Открытые",
+        "en": "Open",
+        "pt": "Abertos",
+    },
+    "support_staff_in_progress_btn": {
+        "ru": "В работе",
+        "en": "In progress",
+        "pt": "Em andamento",
+    },
+    "support_staff_resolved_btn": {
+        "ru": "Решённые",
+        "en": "Resolved",
+        "pt": "Resolvidos",
+    },
+    "support_staff_search_btn": {
+        "ru": "Поиск",
+        "en": "Search",
+        "pt": "Pesquisar",
+    },
+    "support_staff_stats_btn": {
+        "ru": "Статистика",
+        "en": "Stats",
+        "pt": "Estatísticas",
+    },
+    "contact_thread_message_error": {
+        "ru": "Не удалось отправить сообщение: {error}",
+        "en": "Could not send message: {error}",
+        "pt": "Não foi possível enviar a mensagem: {error}",
+    },
+    "contact_thread_read_only_blacklisted": {
+        "ru": "Диалог доступен только для просмотра. Отправка сообщений заблокирована.",
+        "en": "This chat is read-only. Sending messages is blocked.",
+        "pt": "Este chat está disponível apenas para leitura. O envio de mensagens está bloqueado.",
+    },
+    "support_staff_list_title": {
+        "ru": "Очередь Support",
+        "en": "Support queue",
+        "pt": "Fila de suporte",
+    },
+    "support_staff_ticket_card": {
+        "ru": "{number}. #{ticket_id} | {user} | {status}\nКатегория: {category}\nПриоритет: {priority}\nВозраст: {age}",
+        "en": "{number}. #{ticket_id} | {user} | {status}\nCategory: {category}\nPriority: {priority}\nAge: {age}",
+        "pt": "{number}. #{ticket_id} | {user} | {status}\nCategoria: {category}\nPrioridade: {priority}\nIdade: {age}",
+    },
+    "support_staff_shown_range": {
+    "ru": "Показано {start}-{end}",
+    "en": "Shown {start}-{end}",
+    "pt": "Mostrado {start}-{end}",
+    },
+    "support_staff_list_actions": {
+        "ru": "Действия со списком",
+        "en": "List actions",
+        "pt": "Ações da lista",
+    },
+    "support_staff_open_ticket_btn": {
+        "ru": "{index}. Открыть",
+        "en": "{index}. Open",
+        "pt": "{index}. Abrir",
+    },
+    "support_staff_take_ticket_btn": {
+        "ru": "{index}. Взять",
+        "en": "{index}. Take",
+        "pt": "{index}. Assumir",
+    },
+    "support_staff_filter_btn": {
+        "ru": "Фильтр",
+        "en": "Filter",
+        "pt": "Filtro",
+    },
+    "support_staff_ticket_taken": {
+        "ru": "Обращение взято в работу.",
+        "en": "Ticket taken into work.",
+        "pt": "Chamado assumido.",
+    },
+    "support_message_too_short": {
+        "ru": "Опишите проблему минимум 10 символами.",
+        "en": "Describe the issue using at least 10 characters.",
+        "pt": "Descreva o problema com pelo menos 10 caracteres.",
+    },
+    "support_ticket_card": {
+        "ru": "{number}. #{ticket_id} | {category} | {status}\nОбновлено: {updated_at}",
+        "en": "{number}. #{ticket_id} | {category} | {status}\nUpdated: {updated_at}",
+        "pt": "{number}. #{ticket_id} | {category} | {status}\nAtualizado: {updated_at}",
+    },
+    "admin_support_assign": {
+        "ru": "Назначить",
+        "en": "Assign",
+        "pt": "Atribuir",
+    },
+    "admin_support_escalate": {
+        "ru": "Эскалировать Admin",
+        "en": "Escalate Admin",
+        "pt": "Escalar para Admin",
+    },
+    "admin_support_no_messages": {
+        "ru": "Сообщений пока нет.",
+        "en": "No messages yet.",
+        "pt": "Ainda não há mensagens.",
+    },
+    "admin_support_escalate_reason_prompt": {
+        "ru": "Укажите причину эскалации администратору.",
+        "en": "Enter the reason for escalation to admin.",
+        "pt": "Informe o motivo da escalação para o admin.",
+    },
+    "admin_support_escalated": {
+        "ru": "Обращение эскалировано администратору.",
+        "en": "Ticket escalated to admin.",
+        "pt": "Chamado escalado para o admin.",
+    },
+    "support_staff_back_to_queue": {
+        "ru": "К очереди Support",
+        "en": "Back to Support queue",
+        "pt": "Voltar à fila de suporte",
+    },
+    "support_sender_user": {
+        "ru": "Пользователь",
+        "en": "User",
+        "pt": "Usuário",
+    },
+    "support_sender_support": {
+        "ru": "Support",
+        "en": "Support",
+        "pt": "Suporte",
+    },
+    "support_sender_admin": {
+        "ru": "Администратор",
+        "en": "Admin",
+        "pt": "Admin",
+    },
+    "support_sender_system": {
+        "ru": "Система",
+        "en": "System",
+        "pt": "Sistema",
+    },
+    "support_message_deleted_by_user": {
+        "ru": "Сообщение удалено по запросу пользователя.",
+        "en": "Message deleted by user request.",
+        "pt": "Mensagem removida a pedido do usuário.",
+    },
+    "support_staff_search_prompt": {
+        "ru": "Введите номер обращения, username, Telegram ID, категорию или статус.",
+        "en": "Enter ticket number, username, Telegram ID, category, or status.",
+        "pt": "Digite o número do chamado, username, Telegram ID, categoria ou status.",
+    },
+    "support_staff_search_results": {
+        "ru": "Результаты поиска\nЗапрос: {query}\nНайдено: {count}",
+        "en": "Search results\nQuery: {query}\nFound: {count}",
+        "pt": "Resultados da pesquisa\nConsulta: {query}\nEncontrado: {count}",
+    },
+    "support_staff_search_empty": {
+        "ru": "По запросу «{query}» обращения не найдены.",
+        "en": "No tickets found for “{query}”.",
+        "pt": "Nenhum chamado encontrado para “{query}”.",
+    },
+    "support_panel_title": {
+        "ru": "Панель поддержки",
+        "en": "Support panel",
+        "pt": "Painel de suporte",
+    },
+    "support_staff_filters_title": {
+        "ru": "Выберите фильтр обращений:",
+        "en": "Choose ticket filter:",
+        "pt": "Escolha o filtro de chamados:",
+    },
+    "support_staff_stats_title": {
+        "ru": (
+            "Статистика Support\n\n"
+            "Открытые: {open_count}\n"
+            "В работе: {in_progress_count}\n"
+            "Решённые: {resolved_count}\n"
+            "Закрытые: {closed_count}\n"
+            "Всего: {total_count}\n\n"
+            "Средний ответ: {avg_response}"
+        ),
+        "en": (
+            "Support stats\n\n"
+            "Open: {open_count}\n"
+            "In progress: {in_progress_count}\n"
+            "Resolved: {resolved_count}\n"
+            "Closed: {closed_count}\n"
+            "Total: {total_count}\n\n"
+            "Average response: {avg_response}"
+        ),
+        "pt": (
+            "Estatísticas do suporte\n\n"
+            "Abertos: {open_count}\n"
+            "Em andamento: {in_progress_count}\n"
+            "Resolvidos: {resolved_count}\n"
+            "Fechados: {closed_count}\n"
+            "Total: {total_count}\n\n"
+            "Resposta média: {avg_response}"
+        ),
+    },
+    "support_staff_stats_avg_minutes": {
+        "ru": "{minutes} мин.",
+        "en": "{minutes} min.",
+        "pt": "{minutes} min.",
+    },
+    "support_staff_stats_no_response": {
+        "ru": "пока нет данных",
+        "en": "no data yet",
+        "pt": "sem dados ainda",
+    },
+    "support_staff_stats_period_btn": {
+        "ru": "Период",
+        "en": "Period",
+        "pt": "Período",
+    },
+    "support_staff_stats_category_btn": {
+        "ru": "Категория",
+        "en": "Category",
+        "pt": "Categoria",
+    },
+    "support_staff_stats_filter_later": {
+        "ru": "Фильтр будет добавлен после накопления статистики. Сейчас показаны общие метрики.",
+        "en": "Filter will be added after enough stats are collected. General metrics are shown now.",
+        "pt": "O filtro será adicionado após acumular estatísticas. Agora são exibidas métricas gerais.",
+    },
+    "support_staff_back_to_panel": {
+        "ru": "К панели поддержки",
+        "en": "Back to Support panel",
+        "pt": "Voltar ao painel de suporte",
+    },
+    "support_ticket_already_sent": {
+        "ru": "Обращение уже отправлено. Откройте его в разделе «Мои обращения» или создайте новое.",
+        "en": "The ticket has already been sent. Open it in My tickets or create a new one.",
+        "pt": "O chamado já foi enviado. Abra-o em Meus chamados ou crie um novo.",
+    },
+    "support_staff_empty_list": {
+        "ru": "{view}: обращений нет.",
+        "en": "{view}: no tickets.",
+        "pt": "{view}: sem chamados.",
+    },
+    "admin_support_history": {
+        "ru": "История:",
+        "en": "History:",
+        "pt": "Histórico:",
+    },
+    "admin_support_created_at": {
+        "ru": "Создано: {value}",
+        "en": "Created: {value}",
+        "pt": "Criado: {value}",
+    },
+    "admin_support_updated_at": {
+        "ru": "Обновлено: {value}",
+        "en": "Updated: {value}",
+        "pt": "Atualizado: {value}",
+    },
+    "admin_support_resolved_at": {
+        "ru": "Завершено: {value}",
+        "en": "Resolved: {value}",
+        "pt": "Resolvido: {value}",
     },
     }
 def t(key: str, lang: str = "ru") -> str:
