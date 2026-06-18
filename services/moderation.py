@@ -218,6 +218,12 @@ class ModerationService:
     ) -> Complaint:
         normalized_reason = self._require_reason(reason)
         normalized_target_type = self._normalize_target_type(target_type)
+        normalized_comment = (comment or "").strip() or None
+
+        if normalized_reason == "other" and not normalized_comment:
+            raise ModerationError(
+                "Comment is required for the other complaint reason."
+            )
 
         if self.rate_limit_service is not None:
             try:
@@ -228,6 +234,18 @@ class ModerationService:
             except RateLimitError as exc:
                 raise ModerationError(str(exc)) from exc
 
+        has_duplicate = await self.repository.has_active_complaint(
+            tenant_id=tenant_id,
+            reporter_user_id=reporter_user_id,
+            target_type=normalized_target_type,
+            target_id=target_id,
+            reason=normalized_reason,
+        )
+        if has_duplicate:
+            raise ModerationError(
+                "An active complaint with this reason already exists."
+            )
+
         try:
             complaint = await self.repository.create_complaint(
                 tenant_id=tenant_id,
@@ -235,7 +253,7 @@ class ModerationService:
                 target_type=normalized_target_type,
                 target_id=target_id,
                 reason=normalized_reason,
-                comment=(comment or "").strip() or None,
+                comment=normalized_comment,
             )
             await self.repository.session.commit()
         except Exception:
@@ -243,6 +261,25 @@ class ModerationService:
             raise
 
         return complaint
+
+    async def confirm_complaint(
+        self,
+        *,
+        reporter_user_id: UUID,
+        complaint_id: UUID,
+    ) -> Complaint:
+        try:
+            complaint = await self.repository.confirm_complaint(
+                reporter_user_id=reporter_user_id,
+                complaint_id=complaint_id,
+            )
+            await self.repository.session.commit()
+        except ModerationNotFoundError as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return complaint
+
 
     async def list_open_complaints(
         self,

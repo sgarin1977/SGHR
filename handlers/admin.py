@@ -318,27 +318,54 @@ def pending_specialist_keyboard(index: int, total: int, language: str) -> Inline
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def complaint_keyboard(index: int, total: int, language: str) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=t("admin_resolve_complaint", language),
-                callback_data=f"ADM_CP_RESOLVE:{index}",
-            ),
-            InlineKeyboardButton(
-                text=t("admin_reject_complaint", language),
-                callback_data=f"ADM_CP_REJECT:{index}",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("admin_block_user", language),
-                callback_data=f"ADM_CP_BLOCK:{index}",
-            )
-        ],
-    ]
+def complaint_keyboard(
+    index: int,
+    total: int,
+    status: str,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    if status == "new":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_review_complaint", language),
+                    callback_data=f"ADM_CP_REVIEW:{index}",
+                ),
+                InlineKeyboardButton(
+                    text=t("admin_reject_complaint", language),
+                    callback_data=f"ADM_CP_REJECT:{index}",
+                ),
+            ]
+        )
+
+    elif status == "in_review":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_resolve_complaint", language),
+                    callback_data=f"ADM_CP_RESOLVE:{index}",
+                ),
+                InlineKeyboardButton(
+                    text=t("admin_reject_complaint", language),
+                    callback_data=f"ADM_CP_REJECT:{index}",
+                ),
+            ]
+        )
+
+    if status in {"new", "in_review"}:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_block_user", language),
+                    callback_data=f"ADM_CP_BLOCK:{index}",
+                )
+            ]
+        )
 
     nav = []
+
     if index > 0:
         nav.append(
             InlineKeyboardButton(
@@ -346,6 +373,7 @@ def complaint_keyboard(index: int, total: int, language: str) -> InlineKeyboardM
                 callback_data=f"ADM_CP_VIEW:{index - 1}",
             )
         )
+
     if index + 1 < total:
         nav.append(
             InlineKeyboardButton(
@@ -353,6 +381,7 @@ def complaint_keyboard(index: int, total: int, language: str) -> InlineKeyboardM
                 callback_data=f"ADM_CP_VIEW:{index + 1}",
             )
         )
+
     if nav:
         rows.append(nav)
 
@@ -364,6 +393,7 @@ def complaint_keyboard(index: int, total: int, language: str) -> InlineKeyboardM
             )
         ]
     )
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def review_keyboard(index: int, total: int, language: str) -> InlineKeyboardMarkup:
@@ -2395,7 +2425,12 @@ async def show_complaint(callback: CallbackQuery, state: FSMContext, index: int)
             total=len(ids),
             language=language,
         ),
-        reply_markup=complaint_keyboard(index, len(ids), language),
+        reply_markup=complaint_keyboard(
+            index=index,
+            total=len(ids),
+            status=complaint.status,
+            language=language,
+        ),
     )
     await callback.answer()
 
@@ -2645,6 +2680,16 @@ async def view_complaint(callback: CallbackQuery, state: FSMContext):
     index = int(callback.data.split(":", 1)[1])
     await show_complaint(callback, state, index=index)
 
+@admin_router.callback_query(F.data.startswith("ADM_CP_REVIEW:"))
+async def ask_review_complaint_reason(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await prepare_complaint_resolution(
+        callback,
+        state,
+        status="in_review",
+    )
 
 @admin_router.callback_query(F.data.startswith("ADM_CP_RESOLVE:"))
 async def ask_resolve_complaint_reason(callback: CallbackQuery, state: FSMContext):

@@ -585,7 +585,13 @@ def format_dialog_card(
     profession = item.profession_name or "-"
     status = client_dialog_status_label(item.status, language)
     unread = item.unread_count or 0
-    last_text = compact_dialog_text(item.last_message_text, limit=48)
+    if item.last_message_text == "[deleted by user request]":
+        last_text = t("dialog_message_deleted", language)
+    else:
+        last_text = compact_dialog_text(
+            item.last_message_text,
+            limit=48,
+        )
 
     unread_part = (
         f" | {t('dialog_unread_badge', language).format(count=unread)}"

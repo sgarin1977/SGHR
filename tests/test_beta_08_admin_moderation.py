@@ -592,10 +592,20 @@ async def test_admin_resolves_complaint_and_logs_action(db_session):
             reason="abuse",
             comment="Bad behavior",
         )
+        complaint_id = complaint.id
+
+        review_result = await service.resolve_complaint(
+            admin_user_id=admin_user_id,
+            complaint_id=complaint_id,
+            status="in_review",
+            reason="taken for review",
+        )
+
+        assert review_result.status == "in_review"
 
         result = await service.resolve_complaint(
             admin_user_id=admin_user_id,
-            complaint_id=complaint.id,
+            complaint_id=complaint_id,
             status="resolved",
             reason="confirmed",
         )
@@ -621,6 +631,49 @@ async def test_admin_resolves_complaint_and_logs_action(db_session):
         await cleanup_user(db_session, reporter_platform_user_id)
         await cleanup_user(db_session, admin_platform_user_id)
 
+async def test_duplicate_active_complaint_is_rejected(db_session):
+    reporter_platform_user_id, reporter_user_id, tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+    specialist_platform_user_id, _, _, specialist = (
+        await create_pending_specialist(db_session)
+    )
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        await service.create_complaint(
+            tenant_id=tenant_id,
+            reporter_user_id=reporter_user_id,
+            target_type="specialist",
+            target_id=specialist.id,
+            reason="fake",
+            comment="First complaint",
+        )
+
+        with pytest.raises(
+            ModerationError,
+            match="active complaint",
+        ):
+            await service.create_complaint(
+                tenant_id=tenant_id,
+                reporter_user_id=reporter_user_id,
+                target_type="specialist",
+                target_id=specialist.id,
+                reason="fake",
+                comment="Duplicate complaint",
+            )
+    finally:
+        await cleanup_user(
+            db_session,
+            specialist_platform_user_id,
+        )
+        await cleanup_user(
+            db_session,
+            reporter_platform_user_id,
+        )
 
 async def test_admin_blocks_user_and_creates_blacklist(db_session):
     admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
@@ -796,3 +849,176 @@ def test_admin_panel_uses_active_role_context_for_visible_menu():
     assert "panel_roles.intersection(ADMIN_MODERATION_MENU_ROLES)" in show_panel_block
     assert "panel_roles.intersection(ADMIN_SUPPORT_MENU_ROLES)" in show_panel_block
     assert "reply_markup=admin_panel_keyboard(" in show_panel_block
+
+async def test_other_complaint_requires_comment(db_session):
+    reporter_platform_user_id, reporter_user_id, tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+    specialist_platform_user_id, _, _, specialist = (
+        await create_pending_specialist(db_session)
+    )
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        with pytest.raises(
+            ModerationError,
+            match="Comment is required",
+        ):
+            await service.create_complaint(
+                tenant_id=tenant_id,
+                reporter_user_id=reporter_user_id,
+                target_type="specialist",
+                target_id=specialist.id,
+                reason="other",
+                comment=None,
+            )
+    finally:
+        await cleanup_user(
+            db_session,
+            specialist_platform_user_id,
+        )
+        await cleanup_user(
+            db_session,
+            reporter_platform_user_id,
+        )
+
+async def test_complaint_confirmation_creates_audit_event(db_session):
+    reporter_platform_user_id, reporter_user_id, tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+    specialist_platform_user_id, _, _, specialist = (
+        await create_pending_specialist(db_session)
+    )
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        complaint = await service.create_complaint(
+            tenant_id=tenant_id,
+            reporter_user_id=reporter_user_id,
+            target_type="specialist",
+            target_id=specialist.id,
+            reason="contact",
+            comment=None,
+        )
+
+        confirmed = await service.confirm_complaint(
+            reporter_user_id=reporter_user_id,
+            complaint_id=complaint.id,
+        )
+
+        assert confirmed.id == complaint.id
+        assert confirmed.status == "new"
+
+        event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type == "complaint_confirmed",
+                    EventLog.entity_type == "complaint",
+                    EventLog.entity_id == complaint.id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert event is not None
+        assert event.payload["complaint_number"] == (
+            str(complaint.id).split("-", 1)[0]
+        )
+        assert "severity" not in event.payload
+    finally:
+        await cleanup_user(
+            db_session,
+            specialist_platform_user_id,
+        )
+        await cleanup_user(
+            db_session,
+            reporter_platform_user_id,
+        )
+
+async def test_complaint_status_transitions_are_strict(db_session):
+    admin_platform_user_id, admin_user_id, tenant_id = (
+        await create_admin_user(
+            db_session,
+            role="admin",
+        )
+    )
+    reporter_platform_user_id, reporter_user_id, tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+    specialist_platform_user_id, _, _, specialist = (
+        await create_pending_specialist(db_session)
+    )
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        complaint = await service.create_complaint(
+            tenant_id=tenant_id,
+            reporter_user_id=reporter_user_id,
+            target_type="specialist",
+            target_id=specialist.id,
+            reason="abuse",
+            comment="Status transition test",
+        )
+
+        complaint_id = complaint.id
+
+        with pytest.raises(
+            ModerationError,
+            match="not allowed",
+        ):
+            await service.resolve_complaint(
+                admin_user_id=admin_user_id,
+                complaint_id=complaint_id,
+                status="resolved",
+                reason="Cannot resolve new complaint",
+            )
+
+        review_result = await service.resolve_complaint(
+            admin_user_id=admin_user_id,
+            complaint_id=complaint_id,
+            status="in_review",
+            reason="Taken for review",
+        )
+
+        assert review_result.status == "in_review"
+
+        resolved_result = await service.resolve_complaint(
+            admin_user_id=admin_user_id,
+            complaint_id=complaint_id,
+            status="resolved",
+            reason="Complaint confirmed",
+        )
+
+        assert resolved_result.status == "resolved"
+
+        with pytest.raises(
+            ModerationError,
+            match="not allowed",
+        ):
+            await service.resolve_complaint(
+                admin_user_id=admin_user_id,
+                complaint_id=complaint_id,
+                status="rejected",
+                reason="Final status cannot change",
+            )
+    finally:
+        await cleanup_user(
+            db_session,
+            specialist_platform_user_id,
+        )
+        await cleanup_user(
+            db_session,
+            reporter_platform_user_id,
+        )
+        await cleanup_user(
+            db_session,
+            admin_platform_user_id,
+        )

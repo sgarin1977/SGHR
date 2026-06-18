@@ -4299,6 +4299,109 @@ translations = {
         "en": "Resolved: {value}",
         "pt": "Resolvido: {value}",
     },
+    "complaint_target_specialist": {
+        "ru": "Специалист",
+        "en": "Specialist",
+        "pt": "Especialista",
+    },
+    "complaint_target_review": {
+        "ru": "Отзыв",
+        "en": "Review",
+        "pt": "Avaliação",
+    },
+    "complaint_target_portfolio": {
+        "ru": "Портфолио",
+        "en": "Portfolio item",
+        "pt": "Item do portfólio",
+    },
+    "complaint_target_dialog": {
+        "ru": "Диалог",
+        "en": "Dialog",
+        "pt": "Diálogo",
+    },
+    "complaint_target_message": {
+        "ru": "Сообщение",
+        "en": "Message",
+        "pt": "Mensagem",
+    },
+    "complaint_comment_not_set": {
+        "ru": "Не указан",
+        "en": "Not provided",
+        "pt": "Não informado",
+    },
+    "complaint_draft": {
+        "ru": "Проверьте жалобу:\n\nОбъект: {target}\nПричина: {reason}\nКомментарий: {comment}",
+        "en": "Check the complaint:\n\nTarget: {target}\nReason: {reason}\nComment: {comment}",
+        "pt": "Verifique a denúncia:\n\nObjeto: {target}\nMotivo: {reason}\nComentário: {comment}",
+    },
+    "complaint_add_comment_btn": {
+        "ru": "Комментарий",
+        "en": "Comment",
+        "pt": "Comentário",
+    },
+    "complaint_send_btn": {
+        "ru": "Отправить",
+        "en": "Send",
+        "pt": "Enviar",
+    },
+    "complaint_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "complaint_reason_required": {
+        "ru": "Сначала выберите причину жалобы.",
+        "en": "Choose a complaint reason first.",
+        "pt": "Escolha primeiro o motivo da denúncia.",
+    },
+    "complaint_other_comment_required": {
+        "ru": "Для причины «Другое» комментарий обязателен.",
+        "en": "A comment is required for the Other reason.",
+        "pt": "É obrigatório informar um comentário para o motivo Outro.",
+    },
+    "complaint_cancelled": {
+        "ru": "Создание жалобы отменено.",
+        "en": "Complaint creation cancelled.",
+        "pt": "Criação da denúncia cancelada.",
+    },
+    "complaint_confirmed": {
+        "ru": (
+            "Жалоба отправлена.\n"
+            "Номер обращения: #{complaint_number}"
+        ),
+        "en": (
+            "Complaint submitted.\n"
+            "Reference number: #{complaint_number}"
+        ),
+        "pt": (
+            "Denúncia enviada.\n"
+            "Número de referência: #{complaint_number}"
+        ),
+    },
+    "dialog_message_deleted": {
+        "ru": "Сообщение удалено пользователем",
+        "en": "Message deleted by the user",
+        "pt": "Mensagem removida pelo usuário",
+    },
+    "admin_review_complaint": {
+        "ru": "Взять в работу",
+        "en": "Take for review",
+        "pt": "Assumir análise",
+    },
+    "complaint_duplicate_active": {
+        "ru": (
+            "Активная жалоба на этот объект "
+            "с такой причиной уже существует."
+        ),
+        "en": (
+            "An active complaint for this target "
+            "with the same reason already exists."
+        ),
+        "pt": (
+            "Já existe uma denúncia ativa para este objeto "
+            "com o mesmo motivo."
+        ),
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

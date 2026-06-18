@@ -368,6 +368,30 @@ class ModerationRepository:
         await self.session.flush()
         return specialist
 
+    async def has_active_complaint(
+        self,
+        *,
+        tenant_id: UUID,
+        reporter_user_id: UUID,
+        target_type: str,
+        target_id: UUID,
+        reason: str,
+    ) -> bool:
+        result = await self.session.execute(
+            select(Complaint.id)
+            .where(
+                Complaint.tenant_id == tenant_id,
+                Complaint.reporter_user_id == reporter_user_id,
+                Complaint.target_type == target_type,
+                Complaint.target_id == target_id,
+                Complaint.reason == reason,
+                Complaint.status.in_(COMPLAINT_OPEN_STATUSES),
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+
     async def create_complaint(
         self,
         *,
@@ -419,6 +443,30 @@ class ModerationRepository:
         await self.session.flush()
         return complaint
 
+    async def confirm_complaint(
+        self,
+        *,
+        reporter_user_id: UUID,
+        complaint_id: UUID,
+    ) -> Complaint:
+        complaint = await self.session.get(Complaint, complaint_id)
+
+        if not complaint or complaint.reporter_user_id != reporter_user_id:
+            raise ModerationNotFoundError("Complaint not found.")
+
+        await self.log_event(
+            tenant_id=complaint.tenant_id,
+            user_id=reporter_user_id,
+            event_type="complaint_confirmed",
+            entity_type="complaint",
+            entity_id=complaint.id,
+            payload={
+                "complaint_number": str(complaint.id).split("-", 1)[0],
+            },
+        )
+        await self.session.flush()
+        return complaint
+    
     async def list_open_complaints(
         self,
         *,
@@ -447,12 +495,28 @@ class ModerationRepository:
     ) -> Complaint:
         await self.require_admin_role(admin_user_id)
 
-        if status not in {"resolved", "rejected"}:
-            raise ValueError("Unsupported complaint resolution status.")
-
         complaint = await self.session.get(Complaint, complaint_id)
         if not complaint:
             raise ModerationNotFoundError("Complaint not found.")
+
+        allowed_transitions = {
+            "new": {"in_review", "rejected"},
+            "in_review": {"resolved", "rejected"},
+            "resolved": set(),
+            "rejected": set(),
+        }
+
+        allowed_statuses = allowed_transitions.get(complaint.status)
+        if allowed_statuses is None:
+            raise ValueError(
+                f"Unsupported complaint status: {complaint.status}."
+            )
+
+        if status not in allowed_statuses:
+            raise ValueError(
+                f"Complaint transition from {complaint.status} "
+                f"to {status} is not allowed."
+            )
 
         before_state = self._complaint_audit_state(complaint)
 

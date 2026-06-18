@@ -58,6 +58,7 @@ class SpecialistSearchFSM(StatesGroup):
     confirming_contact_message = State()
     entering_thread_message = State()
     entering_report_comment = State()
+    confirming_report = State()
     choosing_review_rating = State()
     entering_review_text = State()
 
@@ -874,6 +875,110 @@ async def render_public_portfolio(
         )
 
     await callback.answer()
+
+async def store_complaint_target_summary(
+    state: FSMContext,
+    language: str,
+) -> None:
+    data = await state.get_data()
+    specialist_id = data.get("selected_specialist_id")
+    target_type = data.get("pending_report_target_type") or "specialist"
+
+    target_labels = {
+        "specialist": t("complaint_target_specialist", language),
+        "review": t("complaint_target_review", language),
+        "portfolio_item": t("complaint_target_portfolio", language),
+        "thread": t("complaint_target_dialog", language),
+        "message": t("complaint_target_message", language),
+    }
+    target_label = target_labels.get(target_type, target_type)
+
+    specialist_name = None
+
+    if specialist_id:
+        async with get_session() as session:
+            card = await GeoSearchService(
+                SpecialistSearchRepository(session)
+            ).get_public_card(
+                specialist_id=UUID(specialist_id),
+                log_event=False,
+                language=language,
+            )
+
+        if card:
+            specialist_name = card.display_name
+
+    target_summary = (
+        f"{target_label}: {specialist_name}"
+        if specialist_name
+        else target_label
+    )
+
+    await state.update_data(
+        pending_report_target_summary=target_summary,
+    )
+
+def complaint_reason_label(reason: str, language: str) -> str:
+    labels = {
+        "fake": t("complaint_reason_fake", language),
+        "contact": t("complaint_reason_contact", language),
+        "abuse": t("complaint_reason_abuse", language),
+        "other": t("complaint_reason_other", language),
+    }
+    return labels.get(reason, reason)
+
+
+def complaint_draft_text(data: dict, language: str) -> str:
+    target_type = data.get("pending_report_target_type") or "specialist"
+    target_labels = {
+        "specialist": t("complaint_target_specialist", language),
+        "review": t("complaint_target_review", language),
+        "portfolio_item": t("complaint_target_portfolio", language),
+        "thread": t("complaint_target_dialog", language),
+        "message": t("complaint_target_message", language),
+    }
+
+    reason = data.get("pending_report_reason") or "-"
+    comment = data.get("pending_report_comment") or t(
+        "complaint_comment_not_set",
+        language,
+    )
+
+    target_summary = (
+        data.get("pending_report_target_summary")
+        or target_labels.get(target_type, target_type)
+    )
+
+    return t("complaint_draft", language).format(
+        target=target_summary,
+        reason=complaint_reason_label(reason, language),
+        comment=comment,
+    )
+
+
+def complaint_draft_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("complaint_add_comment_btn", language),
+                    callback_data="search_report_comment",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("complaint_send_btn", language),
+                    callback_data="search_report_send",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("complaint_cancel_btn", language),
+                    callback_data="search_report_cancel",
+                )
+            ],
+        ]
+    )
 
 def complaint_reason_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -3203,6 +3308,10 @@ async def report_public_portfolio_item(callback: CallbackQuery, state: FSMContex
         pending_report_target_type="portfolio_item",
         pending_report_target_id=item_ids[page],
     )
+    await store_complaint_target_summary(
+        state,
+        language,
+    )
 
     await show_callback_message(
         callback,
@@ -3316,6 +3425,10 @@ async def report_public_review(callback: CallbackQuery, state: FSMContext):
     await state.update_data(
         pending_report_target_type="review",
         pending_report_target_id=review_ids[index],
+    )
+    await store_complaint_target_summary(
+        state,
+        language,
     )
 
     await show_callback_message(
@@ -4034,6 +4147,11 @@ async def report_pending(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
 
+    await store_complaint_target_summary(
+        state,
+        language,
+    )
+
     await show_callback_message(
         callback,
         t("complaint_reason_prompt", language),
@@ -4056,21 +4174,91 @@ async def choose_report_reason(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
 
-    await state.update_data(pending_report_reason=reason)
+    await state.update_data(
+        pending_report_reason=reason,
+        pending_report_comment=None,
+    )
+    await state.set_state(SpecialistSearchFSM.confirming_report)
 
-    if reason == "other":
-        await state.set_state(SpecialistSearchFSM.entering_report_comment)
-        await callback.message.answer(t("complaint_comment_prompt", language))
-        await callback.answer()
+    data = await state.get_data()
+    await show_callback_message(
+        callback,
+        complaint_draft_text(data, language),
+        complaint_draft_keyboard(language),
+    )
+    await callback.answer()
+
+@search_router.callback_query(F.data == "search_report_comment")
+async def ask_report_comment(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+
+    await state.set_state(SpecialistSearchFSM.entering_report_comment)
+    await callback.message.answer(t("complaint_comment_prompt", language))
+    await callback.answer()
+
+@search_router.callback_query(F.data == "search_report_send")
+async def send_report(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+
+    reason = data.get("pending_report_reason")
+    comment = data.get("pending_report_comment")
+
+    if not reason:
+        await callback.answer(
+            t("complaint_reason_required", language),
+            show_alert=True,
+        )
+        return
+
+    if reason == "other" and not comment:
+        await callback.answer(
+            t("complaint_other_comment_required", language),
+            show_alert=True,
+        )
         return
 
     await create_search_complaint(
         event=callback,
         state=state,
         reason=reason,
-        comment=None,
+        comment=comment,
     )
 
+@search_router.callback_query(F.data == "search_report_cancel")
+async def cancel_report(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+
+    await state.update_data(
+        pending_report_reason=None,
+        pending_report_comment=None,
+        pending_report_target_type=None,
+        pending_report_target_id=None,
+        pending_report_target_summary=None,
+    )
+    await state.set_state(SpecialistSearchFSM.viewing_results)
+
+    await callback.message.answer(
+        t("complaint_cancelled", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("search_back_to_filters", language),
+                        callback_data="search_filters",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="search_menu",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
 
 @search_router.message(SpecialistSearchFSM.entering_report_comment)
 async def receive_report_comment(message: Message, state: FSMContext):
@@ -4082,15 +4270,14 @@ async def receive_report_comment(message: Message, state: FSMContext):
         await message.answer(t("complaint_comment_too_short", language))
         return
 
-    reason = data.get("pending_report_reason") or "other"
+    await state.update_data(pending_report_comment=comment)
+    await state.set_state(SpecialistSearchFSM.confirming_report)
 
-    await create_search_complaint(
-        event=message,
-        state=state,
-        reason=reason,
-        comment=comment,
+    data = await state.get_data()
+    await message.answer(
+        complaint_draft_text(data, language),
+        reply_markup=complaint_draft_keyboard(language),
     )
-
 
 async def create_search_complaint(
     *,
@@ -4128,9 +4315,10 @@ async def create_search_complaint(
 
     try:
         async with get_session() as session:
-            await ModerationService(
+            moderation_service = ModerationService(
                 ModerationRepository(session)
-            ).create_complaint(
+            )
+            complaint = await moderation_service.create_complaint(
                 tenant_id=tenant_id,
                 reporter_user_id=reporter_user_id,
                 target_type=target_type,
@@ -4138,6 +4326,12 @@ async def create_search_complaint(
                 reason=reason,
                 comment=comment,
             )
+            await moderation_service.confirm_complaint(
+                reporter_user_id=reporter_user_id,
+                complaint_id=complaint.id,
+            )
+
+        complaint_number = str(complaint.id).split("-", 1)[0]
 
         logger.info(
             "complaint_created telegram_id=%s reporter_user_id=%s target_type=%s target_id=%s reason=%s",
@@ -4148,6 +4342,13 @@ async def create_search_complaint(
             reason,
         )
     except ModerationError as exc:
+        error_text = str(exc)
+
+        if "active complaint with this reason already exists" in error_text.lower():
+            error_text = t(
+                "complaint_duplicate_active",
+                language,
+            )
         logger.warning(
             "complaint_create_failed telegram_id=%s target_type=%s target_id=%s reason=%s error=%s",
             event.from_user.id,
@@ -4157,28 +4358,34 @@ async def create_search_complaint(
             exc,
         )
         if isinstance(event, CallbackQuery):
-            await event.answer(str(exc), show_alert=True)
+            await event.answer(
+                error_text,
+                show_alert=True,
+            )
         else:
-            await event.answer(str(exc))
+            await event.answer(error_text)
         return
 
     await state.update_data(
         pending_report_reason=None,
+        pending_report_comment=None,
         pending_report_target_type=None,
         pending_report_target_id=None,
+        pending_report_target_summary=None,
         page=data.get("page") or 0,
     )
     await state.set_state(SpecialistSearchFSM.viewing_results)
-
     target_message = event.message if isinstance(event, CallbackQuery) else event
     await target_message.answer(
-        t("complaint_created", language),
+        t("complaint_confirmed", language).format(
+            complaint_number=complaint_number,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("search_back_to_filters", language),
-                        callback_data="search_filters",
+                        text=t("support_my_tickets_btn", language),
+                        callback_data="SUPPORT_MY_TICKETS",
                     )
                 ],
                 [
