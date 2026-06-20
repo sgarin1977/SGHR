@@ -269,30 +269,50 @@ class PortfolioRepository:
         *,
         tenant_id: UUID,
         moderator_user_id: UUID,
-        limit: int = 20,
-    ) -> list[tuple[SpecialistPortfolioItem, FileStorageObject]]:
+        limit: int = 6,
+        offset: int = 0,
+    ) -> list[
+        tuple[
+            SpecialistPortfolioItem,
+            FileStorageObject,
+        ]
+    ]:
         await self.require_moderator(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
         )
 
+        normalized_limit = max(1, min(int(limit), 20))
+        normalized_offset = max(0, int(offset))
+
         result = await self.session.execute(
-            select(SpecialistPortfolioItem, FileStorageObject)
+            select(
+                SpecialistPortfolioItem,
+                FileStorageObject,
+            )
             .join(
                 FileStorageObject,
-                FileStorageObject.id == SpecialistPortfolioItem.file_id,
+                FileStorageObject.id
+                == SpecialistPortfolioItem.file_id,
             )
             .where(
                 SpecialistPortfolioItem.tenant_id == tenant_id,
-                SpecialistPortfolioItem.status == "pending_moderation",
+                SpecialistPortfolioItem.status
+                == "pending_moderation",
                 FileStorageObject.tenant_id == tenant_id,
+                FileStorageObject.owner_user_id
+                != moderator_user_id,
             )
-            .order_by(SpecialistPortfolioItem.created_at.asc())
-            .limit(max(1, min(int(limit), 50)))
+            .order_by(
+                SpecialistPortfolioItem.created_at.asc(),
+                SpecialistPortfolioItem.id.asc(),
+            )
+            .offset(normalized_offset)
+            .limit(normalized_limit)
         )
 
         return list(result.tuples().all())
-
+    
     async def list_rejected_items(
         self,
         *,
@@ -329,7 +349,11 @@ class PortfolioRepository:
         moderator_user_id: UUID,
         item_id: UUID,
         status: str,
-    ) -> tuple[SpecialistPortfolioItem, FileStorageObject]:
+    ) -> tuple[
+        SpecialistPortfolioItem,
+        FileStorageObject,
+        str,
+    ]:
         await self.require_moderator(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
@@ -341,15 +365,26 @@ class PortfolioRepository:
             )
 
         result = await self.session.execute(
-            select(SpecialistPortfolioItem, FileStorageObject)
+            select(
+                SpecialistPortfolioItem,
+                FileStorageObject,
+                Specialist.user_id,
+            )
             .join(
                 FileStorageObject,
-                FileStorageObject.id == SpecialistPortfolioItem.file_id,
+                FileStorageObject.id
+                == SpecialistPortfolioItem.file_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == SpecialistPortfolioItem.specialist_id,
             )
             .where(
                 SpecialistPortfolioItem.id == item_id,
                 SpecialistPortfolioItem.tenant_id == tenant_id,
                 FileStorageObject.tenant_id == tenant_id,
+                Specialist.tenant_id == tenant_id,
             )
             .with_for_update()
         )
@@ -360,28 +395,33 @@ class PortfolioRepository:
                 "Portfolio item not found."
             )
 
-        item, storage_object = row
+        item, storage_object, owner_user_id = row
 
-        if item.status not in {
-            "pending_moderation",
-            "rejected",
-            "active",
-        }:
+        if owner_user_id == moderator_user_id:
             raise PortfolioRepositoryError(
-                "Portfolio item cannot be moderated."
+                "You cannot moderate your own portfolio item."
             )
 
+        if item.status != "pending_moderation":
+            raise PortfolioRepositoryError(
+                "Portfolio item is no longer pending moderation."
+            )
+
+        before_status = item.status
         item.status = status
 
         if status == "active":
             storage_object.retention_until = None
         else:
             storage_object.retention_until = (
-                datetime.now(timezone.utc) + timedelta(days=90)
+                datetime.now(timezone.utc)
+                + timedelta(days=90)
             )
 
         await self.session.flush()
-        return item, storage_object
+
+        return item, storage_object, before_status
+    
     async def mark_owner_item_deleted(
         self,
         *,

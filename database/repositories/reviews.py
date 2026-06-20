@@ -4,17 +4,52 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import ContactRequest, ReputationScore, Review, Specialist
+from database.models import (
+    ContactRequest,
+    ReputationScore,
+    Review,
+    Specialist,
+    UserRoleMapping,
+)
 
 
 class ReviewError(Exception):
     pass
 
+REVIEW_MODERATION_ROLES = {
+    "moderator",
+    "admin",
+    "super_admin",
+}
 
 class ReviewRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def require_moderator(
+        self,
+        *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+    ) -> set[str]:
+        result = await self.session.execute(
+            select(UserRoleMapping.role).where(
+                UserRoleMapping.tenant_id == tenant_id,
+                UserRoleMapping.user_id == moderator_user_id,
+                UserRoleMapping.status == "active",
+                UserRoleMapping.role.in_(
+                    REVIEW_MODERATION_ROLES
+                ),
+            )
+        )
+        roles = set(result.scalars().all())
+
+        if not roles:
+            raise ReviewError(
+                "Review moderation access denied."
+            )
+
+        return roles
 
     async def get_specialist_reputation(
         self,
@@ -178,17 +213,81 @@ class ReviewRepository:
     async def list_pending_reviews(
         self,
         *,
-        limit: int = 10,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+        limit: int = 6,
         offset: int = 0,
     ) -> list[Review]:
+        await self.require_moderator(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+        )
+
+        normalized_limit = max(1, min(int(limit), 20))
+        normalized_offset = max(0, int(offset))
+
         result = await self.session.execute(
             select(Review)
-            .where(Review.status == "pending_moderation")
-            .order_by(Review.created_at.asc())
-            .offset(max(int(offset), 0))
-            .limit(max(1, min(int(limit), 20)))
+            .where(
+                Review.tenant_id == tenant_id,
+                Review.status == "pending_moderation",
+            )
+            .order_by(
+                Review.created_at.asc(),
+                Review.id.asc(),
+            )
+            .offset(normalized_offset)
+            .limit(normalized_limit)
         )
+
         return list(result.scalars().all())
+    
+    async def get_pending_review_for_moderation(
+        self,
+        *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+        review_id: UUID,
+    ) -> Review:
+        await self.require_moderator(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+        )
+
+        result = await self.session.execute(
+            select(Review).where(
+                Review.id == review_id,
+                Review.tenant_id == tenant_id,
+                Review.status == "pending_moderation",
+            )
+        )
+        review = result.scalar_one_or_none()
+
+        if not review:
+            raise ReviewError(
+                "Review is no longer pending moderation."
+            )
+
+        return review
+
+    async def get_review_target_name(
+        self,
+        *,
+        tenant_id: UUID,
+        target_type: str,
+        target_id: UUID,
+    ) -> str | None:
+        if target_type != "specialist":
+            return None
+
+        result = await self.session.execute(
+            select(Specialist.display_name).where(
+                Specialist.id == target_id,
+                Specialist.tenant_id == tenant_id,
+            )
+        )
+
+        return result.scalar_one_or_none()
 
     async def hide_review(
         self,
@@ -213,19 +312,61 @@ class ReviewRepository:
     async def set_review_status(
         self,
         *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
         review_id: UUID,
         status: str,
-    ) -> Review:
-        if status not in {"published", "rejected", "hidden"}:
-            raise ReviewError("Unsupported review moderation status.")
+    ) -> tuple[Review, str]:
+        await self.require_moderator(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+        )
 
-        if status == "published":
-            return await self.publish_review(review_id=review_id)
-        if status == "rejected":
-            return await self.reject_review(review_id=review_id)
+        if status not in {"published", "hidden"}:
+            raise ReviewError(
+                "Unsupported review moderation status."
+            )
 
-        return await self.hide_review(review_id=review_id)
+        result = await self.session.execute(
+            select(Review)
+            .where(
+                Review.id == review_id,
+                Review.tenant_id == tenant_id,
+            )
+            .with_for_update()
+        )
+        review = result.scalar_one_or_none()
 
+        if not review:
+            raise ReviewError("Review not found.")
+
+        if review.status != "pending_moderation":
+            raise ReviewError(
+                "Review is no longer pending moderation."
+            )
+
+        before_status = review.status
+        review.status = status
+        review.updated_at = datetime.utcnow()
+
+        if (
+            status == "published"
+            and review.context_type == "contact_request"
+            and review.context_id
+        ):
+            contact_request = await self.session.get(
+                ContactRequest,
+                review.context_id,
+            )
+
+            if contact_request:
+                contact_request.status = "reviewed"
+                contact_request.updated_at = datetime.utcnow()
+
+        await self.session.flush()
+
+        return review, before_status
+    
     async def add_specialist_reply(
         self,
         *,

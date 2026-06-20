@@ -3,7 +3,7 @@ from uuid import UUID
 
 from database.models import ReputationScore, Review
 from database.repositories.reviews import ReviewError, ReviewRepository
-
+from database.repositories.moderation import ModerationRepository
 
 class ReviewServiceError(Exception):
     pass
@@ -13,6 +13,12 @@ class ReviewServiceError(Exception):
 class ReviewResult:
     review: Review
     reputation: ReputationScore | None = None
+
+@dataclass(frozen=True)
+class ReviewModerationCard:
+    review: Review
+    author_label: str
+    target_name: str | None
 
 @dataclass(frozen=True)
 class PublicReviewPage:
@@ -76,20 +82,69 @@ class ReviewService:
         except ReviewError as exc:
             await self.repository.session.rollback()
             raise ReviewServiceError(str(exc)) from exc
+        
     async def list_pending_reviews(
         self,
         *,
-        limit: int = 10,
-        offset: int = 0,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+        page: int = 0,
+        page_size: int = 5,
     ) -> list[Review]:
-        return await self.repository.list_pending_reviews(
-            limit=limit,
-            offset=offset,
+        normalized_page = max(int(page), 0)
+        normalized_page_size = max(
+            1,
+            min(int(page_size), 10),
         )
 
+        try:
+            return await self.repository.list_pending_reviews(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
+                limit=normalized_page_size + 1,
+                offset=normalized_page * normalized_page_size,
+            )
+        except ReviewError as exc:
+            raise ReviewServiceError(str(exc)) from exc
+
+    async def get_pending_review_for_moderation(
+        self,
+        *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+        review_id: UUID,
+    ) -> ReviewModerationCard:
+        try:
+            review = await self.repository.get_pending_review_for_moderation(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
+                review_id=review_id,
+            )
+
+            target_name = await self.repository.get_review_target_name(
+                tenant_id=tenant_id,
+                target_type=review.target_type,
+                target_id=review.target_id,
+            )
+
+            author_token = str(
+                review.reviewer_user_id
+            ).replace("-", "")[:8]
+
+            return ReviewModerationCard(
+                review=review,
+                author_label=f"user-{author_token}",
+                target_name=target_name,
+            )
+
+        except ReviewError as exc:
+            raise ReviewServiceError(str(exc)) from exc
+        
     async def moderate_review(
         self,
         *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
         review_id: UUID,
         status: str,
         reason: str,
@@ -97,24 +152,60 @@ class ReviewService:
         normalized_reason = self._normalize_reason(reason)
 
         try:
-            review = await self.repository.set_review_status(
+            review, before_status = await self.repository.set_review_status(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
                 review_id=review_id,
                 status=status,
             )
-            reputation = None
-            if review.status in {"published", "hidden"}:
-                reputation = await self.repository.recalculate_reputation(
-                    tenant_id=review.tenant_id,
-                    target_type=review.target_type,
-                    target_id=review.target_id,
-                )
+
+            reputation = await self.repository.recalculate_reputation(
+                tenant_id=review.tenant_id,
+                target_type=review.target_type,
+                target_id=review.target_id,
+            )
+
+            decision = "shown" if status == "published" else "hidden"
+            moderation_repository = ModerationRepository(
+                self.repository.session
+            )
+
+            await moderation_repository.log_admin_action(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                action_type="moderate_review",
+                target_type="review",
+                target_id=review.id,
+                before_state={"status": before_status},
+                after_state={"status": review.status},
+                reason=normalized_reason,
+            )
+
+            await moderation_repository.log_event(
+                tenant_id=tenant_id,
+                user_id=moderator_user_id,
+                event_type="review_moderated",
+                entity_type="review",
+                entity_id=review.id,
+                payload={
+                    "decision": decision,
+                    "reason": normalized_reason,
+                    "before_status": before_status,
+                    "after_status": review.status,
+                },
+            )
 
             await self.repository.session.commit()
-            return ReviewResult(review=review, reputation=reputation)
+
+            return ReviewResult(
+                review=review,
+                reputation=reputation,
+            )
+
         except ReviewError as exc:
             await self.repository.session.rollback()
             raise ReviewServiceError(str(exc)) from exc
-
+        
     async def add_specialist_reply(
         self,
         *,

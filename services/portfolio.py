@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from uuid import UUID, uuid4
 
 from database.models import FileStorageObject, SpecialistPortfolioItem
+from database.repositories.moderation import (
+    ModerationAccessError,
+    ModerationNotFoundError,
+    ModerationRepository,
+)
 from database.repositories.portfolio import (
     PortfolioRepository,
     PortfolioRepositoryError,
@@ -187,18 +192,29 @@ class PortfolioService:
         *,
         tenant_id: UUID,
         moderator_user_id: UUID,
-        limit: int = 20,
+        page: int = 0,
+        page_size: int = 5,
     ) -> list[PortfolioItemView]:
+        normalized_page = max(int(page), 0)
+        normalized_page_size = max(
+            1,
+            min(int(page_size), 10),
+        )
+
         try:
             rows = await self.repository.list_pending_items(
                 tenant_id=tenant_id,
                 moderator_user_id=moderator_user_id,
-                limit=limit,
+                limit=normalized_page_size + 1,
+                offset=normalized_page * normalized_page_size,
             )
             return await self._create_views(rows)
-        except (PortfolioRepositoryError, PortfolioStorageError) as exc:
+        except (
+            PortfolioRepositoryError,
+            PortfolioStorageError,
+        ) as exc:
             raise PortfolioServiceError(str(exc)) from exc
-
+        
     async def list_rejected_items(
         self,
         *,
@@ -222,12 +238,14 @@ class PortfolioService:
         tenant_id: UUID,
         moderator_user_id: UUID,
         item_id: UUID,
+        reason: str,
     ) -> SpecialistPortfolioItem:
         return await self._moderate_item(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
             item_id=item_id,
             status="active",
+            reason=reason,
         )
 
     async def reject_item(
@@ -236,13 +254,98 @@ class PortfolioService:
         tenant_id: UUID,
         moderator_user_id: UUID,
         item_id: UUID,
+        reason: str,
     ) -> SpecialistPortfolioItem:
         return await self._moderate_item(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
             item_id=item_id,
             status="rejected",
+            reason=reason,
         )
+
+    async def reject_forbidden_item(
+        self,
+        *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+        item_id: UUID,
+        reason: str,
+    ) -> SpecialistPortfolioItem:
+        normalized_reason = (reason or "").strip()
+
+        if len(normalized_reason) < 3:
+            raise PortfolioServiceError(
+                "Moderation reason is required."
+            )
+
+        try:
+            (
+                item,
+                _storage_object,
+                before_status,
+            ) = await self.repository.moderate_item(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
+                item_id=item_id,
+                status="rejected",
+            )
+
+            moderation_repository = ModerationRepository(
+                self.repository.session
+            )
+
+            await moderation_repository.create_portfolio_risk_flag(
+                moderator_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                item_id=item.id,
+                reason=normalized_reason,
+            )
+
+            await moderation_repository.log_admin_action(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                action_type="moderate_portfolio_item",
+                target_type="specialist_portfolio_item",
+                target_id=item.id,
+                before_state={
+                    "status": before_status,
+                },
+                after_state={
+                    "status": item.status,
+                    "risk_flagged": True,
+                    "risk_code": (
+                        "forbidden_portfolio_content"
+                    ),
+                },
+                reason=normalized_reason,
+            )
+
+            await moderation_repository.log_event(
+                tenant_id=tenant_id,
+                user_id=moderator_user_id,
+                event_type="portfolio_moderated",
+                entity_type="specialist_portfolio_item",
+                entity_id=item.id,
+                payload={
+                    "decision": "rejected",
+                    "reason": normalized_reason,
+                    "before_status": before_status,
+                    "after_status": item.status,
+                    "risk_flagged": True,
+                },
+            )
+
+            await self.repository.session.commit()
+            return item
+
+        except (
+            PortfolioRepositoryError,
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise PortfolioServiceError(str(exc)) from exc
 
     async def delete_owner_item(
         self,
@@ -300,22 +403,69 @@ class PortfolioService:
         moderator_user_id: UUID,
         item_id: UUID,
         status: str,
+        reason: str,
     ) -> SpecialistPortfolioItem:
-        try:
-            item, _storage_object = (
-                await self.repository.moderate_item(
-                    tenant_id=tenant_id,
-                    moderator_user_id=moderator_user_id,
-                    item_id=item_id,
-                    status=status,
-                )
+        normalized_reason = (reason or "").strip()
+
+        if len(normalized_reason) < 3:
+            raise PortfolioServiceError(
+                "Moderation reason is required."
             )
+
+        try:
+            (
+                item,
+                _storage_object,
+                before_status,
+            ) = await self.repository.moderate_item(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
+                item_id=item_id,
+                status=status,
+            )
+
+            moderation_repository = ModerationRepository(
+                self.repository.session
+            )
+
+            decision = (
+                "approved"
+                if status == "active"
+                else "rejected"
+            )
+
+            await moderation_repository.log_admin_action(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                action_type="moderate_portfolio_item",
+                target_type="specialist_portfolio_item",
+                target_id=item.id,
+                before_state={"status": before_status},
+                after_state={"status": item.status},
+                reason=normalized_reason,
+            )
+
+            await moderation_repository.log_event(
+                tenant_id=tenant_id,
+                user_id=moderator_user_id,
+                event_type="portfolio_moderated",
+                entity_type="specialist_portfolio_item",
+                entity_id=item.id,
+                payload={
+                    "decision": decision,
+                    "reason": normalized_reason,
+                    "before_status": before_status,
+                    "after_status": item.status,
+                },
+            )
+
             await self.repository.session.commit()
             return item
+
         except PortfolioRepositoryError as exc:
             await self.repository.session.rollback()
             raise PortfolioServiceError(str(exc)) from exc
-
+        
     async def _create_views(
         self,
         rows: list[

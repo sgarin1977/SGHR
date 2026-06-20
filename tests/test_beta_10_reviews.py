@@ -1,14 +1,22 @@
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
-from database.models import ContactRequest, ReputationScore, Review, Specialist
-from database.repositories.reviews import ReviewRepository
-from services.reviews import ReviewService, ReviewServiceError
-from tests.test_beta_04_specialist_registration import cleanup_test_user
+from database.models import (
+    AdminAction,
+    ContactRequest,
+    ReputationScore,
+    Review,
+    Specialist,
+    EventLog,
+)
 from tests.test_beta_08_admin_moderation import (
+    create_admin_user,
     create_pending_specialist,
     create_user_with_accepted_consents,
 )
+from database.repositories.reviews import ReviewRepository
+from services.reviews import ReviewService, ReviewServiceError
+from tests.test_beta_04_specialist_registration import cleanup_test_user
 
 
 pytestmark = pytest.mark.asyncio
@@ -225,6 +233,17 @@ async def test_review_moderation_lists_pending_and_requires_reason(db_session):
         contact_request_id,
     ) = await create_completed_contact_request(db_session)
 
+    (
+        moderator_platform_user_id,
+        moderator_user_id,
+        moderator_tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    assert moderator_tenant_id == tenant_id
+
     try:
         service = ReviewService(ReviewRepository(db_session))
 
@@ -236,20 +255,49 @@ async def test_review_moderation_lists_pending_and_requires_reason(db_session):
             text="Needs moderation",
         )
 
-        pending_reviews = await service.list_pending_reviews(limit=10)
+        pending_reviews = await service.list_pending_reviews(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            page=0,
+            page_size=10,
+        )
+
         assert any(item.id == review.id for item in pending_reviews)
 
         with pytest.raises(ReviewServiceError):
             await service.moderate_review(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
                 review_id=review.id,
                 status="published",
                 reason="",
             )
-    finally:
-        await cleanup_reviews_for_specialist(db_session, specialist_id)
-        await cleanup_test_user(db_session, client_platform_user_id)
-        await cleanup_test_user(db_session, specialist_platform_user_id)
 
+    finally:
+        await db_session.rollback()
+        await db_session.execute(
+            delete(AdminAction).where(
+                AdminAction.admin_user_id == moderator_user_id,
+            )
+        )
+        await db_session.commit()
+
+        await cleanup_reviews_for_specialist(
+            db_session,
+            specialist_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            moderator_platform_user_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            client_platform_user_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_user_id,
+        )
 
 async def test_review_moderation_can_publish_and_hide_review(db_session):
     (
@@ -262,43 +310,150 @@ async def test_review_moderation_can_publish_and_hide_review(db_session):
         contact_request_id,
     ) = await create_completed_contact_request(db_session)
 
+    (
+        moderator_platform_user_id,
+        moderator_user_id,
+        moderator_tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    assert moderator_tenant_id == tenant_id
+
     try:
         service = ReviewService(ReviewRepository(db_session))
 
-        review = await service.create_contact_review(
+        published_review = await service.create_contact_review(
             tenant_id=tenant_id,
             reviewer_user_id=client_user_id,
             contact_request_id=contact_request_id,
-            rating=2,
-            text="Publish then hide",
+            rating=4,
+            text="Visible review",
+        )
+
+        second_contact_request = ContactRequest(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist_id,
+            message="second review moderation test",
+            original_language="ru",
+            status="completed",
+        )
+        db_session.add(second_contact_request)
+        await db_session.commit()
+
+        hidden_review = await service.create_contact_review(
+            tenant_id=tenant_id,
+            reviewer_user_id=client_user_id,
+            contact_request_id=second_contact_request.id,
+            rating=1,
+            text="Hidden review",
         )
 
         published = await service.moderate_review(
-            review_id=review.id,
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            review_id=published_review.id,
             status="published",
             reason="valid user review",
         )
+
         assert published.review.status == "published"
         assert published.reputation is not None
         assert published.reputation.review_count == 1
 
         hidden = await service.moderate_review(
-            review_id=review.id,
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            review_id=hidden_review.id,
             status="hidden",
             reason="hidden after moderation",
         )
+
         assert hidden.review.status == "hidden"
         assert hidden.reputation is not None
-        assert hidden.reputation.review_count == 0
+        assert hidden.reputation.review_count == 1
 
-        refreshed_specialist = await db_session.get(Specialist, specialist_id)
-        assert refreshed_specialist.reviews_count == 0
-        assert float(refreshed_specialist.rating) == 0.0
+        refreshed_specialist = await db_session.get(
+            Specialist,
+            specialist_id,
+        )
+
+        assert refreshed_specialist.reviews_count == 1
+        assert float(refreshed_specialist.rating) == 4.0
+
+        stored_hidden_review = await db_session.get(
+            Review,
+            hidden_review.id,
+        )
+
+        assert stored_hidden_review is not None
+        assert stored_hidden_review.status == "hidden"
+
+        events_result = await db_session.execute(
+            select(EventLog)
+            .where(
+                EventLog.user_id == moderator_user_id,
+                EventLog.event_type == "review_moderated",
+                EventLog.entity_id.in_(
+                    [
+                        published_review.id,
+                        hidden_review.id,
+                    ]
+                ),
+            )
+            .order_by(EventLog.created_at.asc())
+        )
+        events = list(events_result.scalars().all())
+
+        assert len(events) == 2
+        assert events[0].payload["decision"] == "shown"
+        assert events[0].payload["after_status"] == "published"
+        assert events[1].payload["decision"] == "hidden"
+        assert events[1].payload["after_status"] == "hidden"
+
+        actions_result = await db_session.execute(
+            select(AdminAction).where(
+                AdminAction.admin_user_id == moderator_user_id,
+                AdminAction.target_id.in_(
+                    [
+                        published_review.id,
+                        hidden_review.id,
+                    ]
+                ),
+                AdminAction.action_type == "moderate_review",
+            )
+        )
+        actions = list(actions_result.scalars().all())
+
+        assert len(actions) == 2
+
     finally:
-        await cleanup_reviews_for_specialist(db_session, specialist_id)
-        await cleanup_test_user(db_session, client_platform_user_id)
-        await cleanup_test_user(db_session, specialist_platform_user_id)
+        await db_session.rollback()
+        await db_session.execute(
+            delete(AdminAction).where(
+                AdminAction.admin_user_id == moderator_user_id,
+            )
+        )
+        await db_session.commit()
 
+        await cleanup_reviews_for_specialist(
+            db_session,
+            specialist_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            moderator_platform_user_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            client_platform_user_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_user_id,
+        )
 
 async def test_public_reviews_list_only_published_visible_reviews(db_session):
     (
@@ -411,18 +566,19 @@ def test_beta_10_reviews_static_contract():
     for fragment in [
         "ADM_REVIEWS",
         "ADM_RV_APPROVE:",
-        "ADM_RV_REJECT:",
         "ADM_RV_HIDE:",
         "ReviewService(",
         "ReviewRepository(session)",
-        "publish_review",
-        "hide_review",
-        "reject_review",
-        "review_published",
-        "review_hidden",
-        "review_rejected",
+        "tenant_id=tenant_id",
+        "moderator_user_id=admin_user_id",
+        "status=\"published\"",
+        "status=\"hidden\"",
+        "entering_review_hide_reason",
     ]:
         assert fragment in admin_source
+
+    assert "ADM_RV_REJECT:" not in admin_source
+    assert "entering_review_reject_reason" not in admin_source
     for fragment in [
         "review_start:",
         "review_rating:",

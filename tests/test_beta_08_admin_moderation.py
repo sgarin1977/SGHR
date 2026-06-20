@@ -1,11 +1,10 @@
 import uuid
-
+from uuid import uuid4
 import pytest
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, text
 from database.models import (
     AdminAction,
     Blacklist,
-    Complaint,
     EventLog,
     LegalDocument,
     RiskFlag,
@@ -14,6 +13,8 @@ from database.models import (
     UserAccount,
     UserConsent,
     UserRoleMapping,
+    Complaint,
+    Tenant,
 )
 from database.repositories.legal import LegalRepository
 from database.repositories.moderation import (
@@ -34,7 +35,6 @@ from tests.test_beta_04_specialist_registration import (
 )
 
 
-pytestmark = pytest.mark.asyncio
 @pytest.fixture(autouse=True)
 async def cleanup_test_legal_documents_after_admin_tests(db_session):
     yield
@@ -244,10 +244,8 @@ def test_beta_08_admin_moderation_static_contract():
         "ADM_REVIEWS",
         "ADM_RV_VIEW:",
         "ADM_RV_APPROVE:",
-        "ADM_RV_REJECT:",
         "ADM_RV_HIDE:",
         "admin_review_ids",
-        "entering_review_reject_reason",
         "entering_review_hide_reason",
         "ADM_ROLES",
         "ADM_ROLE_GRANT",
@@ -260,7 +258,11 @@ def test_beta_08_admin_moderation_static_contract():
         "ADM_SP_REJECT:",
         "ADM_CP_RESOLVE:",
         "ADM_CP_REJECT:",
-        "ADM_CP_BLOCK:",
+        "ADM_CP_SCOPED_BLOCK:",
+        "ADM_CP_ADMIN:",
+        "ADM_SCOPED_BLACKLIST",
+        "ADM_BL_REVOKE:",
+        "ADM_BL_ADD",
     ]:
         assert fragment in admin_handler_source
         assert fragment in admin_handler_source
@@ -460,6 +462,7 @@ async def test_admin_approves_pending_specialist_and_logs_audit(db_session):
 
         result = await service.approve_specialist(
             admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
             specialist_id=specialist.id,
             reason="profile is valid",
         )
@@ -483,12 +486,17 @@ async def test_admin_approves_pending_specialist_and_logs_audit(db_session):
         event = (
             await db_session.execute(
                 select(EventLog).where(
-                    EventLog.event_type == "specialist_approved",
+                    EventLog.event_type == "profile_moderated",
                     EventLog.entity_id == specialist.id,
                 )
             )
         ).scalar_one_or_none()
+
         assert event is not None
+        assert event.payload["decision"] == "approved"
+        assert event.payload["reason"] == "profile is valid"
+        assert event.payload["before_status"] == "pending_moderation"
+        assert event.payload["after_status"] == "active"
     finally:
         await cleanup_user(db_session, specialist_platform_user_id)
         await cleanup_user(db_session, admin_platform_user_id)
@@ -508,6 +516,7 @@ async def test_admin_rejects_pending_specialist_and_saves_reason(db_session):
 
         result = await service.reject_specialist(
             admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
             specialist_id=specialist.id,
             reason="missing documents",
         )
@@ -527,10 +536,195 @@ async def test_admin_rejects_pending_specialist_and_saves_reason(db_session):
             )
         ).scalar_one_or_none()
         assert action is not None
+        event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type == "profile_moderated",
+                    EventLog.entity_id == specialist.id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert event is not None
+        assert event.payload["decision"] == "rejected"
+        assert event.payload["reason"] == "missing documents"
+        assert event.payload["before_status"] == "pending_moderation"
+        assert event.payload["after_status"] == "rejected"
     finally:
         await cleanup_user(db_session, specialist_platform_user_id)
         await cleanup_user(db_session, admin_platform_user_id)
 
+async def test_moderator_returns_specialist_profile_for_changes(db_session):
+    moderator_platform_user_id, moderator_user_id, tenant_id = (
+        await create_admin_user(
+            db_session,
+            role="moderator",
+        )
+    )
+    (
+        specialist_platform_user_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_pending_specialist(db_session)
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        result = await service.request_specialist_changes(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            specialist_id=specialist.id,
+            reason="Update profile description",
+        )
+
+        await db_session.refresh(specialist)
+
+        assert result.status == "draft"
+        assert specialist.status == "draft"
+        assert (
+            specialist.moderation_comment
+            == "Update profile description"
+        )
+
+        action = (
+            await db_session.execute(
+                select(AdminAction).where(
+                    AdminAction.action_type
+                    == "request_specialist_changes",
+                    AdminAction.target_id == specialist.id,
+                    AdminAction.admin_user_id
+                    == moderator_user_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert action is not None
+        assert action.reason == "Update profile description"
+
+        event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type == "profile_moderated",
+                    EventLog.entity_id == specialist.id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert event is not None
+        assert event.payload["decision"] == "changes_requested"
+        assert event.payload["reason"] == "Update profile description"
+        assert event.payload["before_status"] == "pending_moderation"
+        assert event.payload["after_status"] == "draft"
+
+    finally:
+        await cleanup_user(
+            db_session,
+            specialist_platform_user_id,
+        )
+        await cleanup_user(
+            db_session,
+            moderator_platform_user_id,
+        )
+
+async def test_moderator_cannot_moderate_own_specialist_profile(
+    db_session,
+):
+    (
+        moderator_platform_user_id,
+        moderator_user_id,
+        tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    refs = await get_reference_data(db_session)
+    registration_data = build_registration_data(
+        moderator_user_id,
+        tenant_id,
+        refs,
+    )
+
+    specialist_service = SpecialistRegistrationService(
+        SpecialistRepository(db_session)
+    )
+    specialist = await specialist_service.create_pending_profile(
+        registration_data
+    )
+    await db_session.commit()
+
+    # Зберігаємо UUID до rollback усередині moderation service.
+    specialist_id = specialist.id
+
+    try:
+        moderation_service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        queue = (
+            await moderation_service.open_pending_specialists_queue(
+                moderator_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                page=0,
+                page_size=5,
+            )
+        )
+
+        assert specialist_id not in {
+            item.specialist_id for item in queue
+        }
+
+        with pytest.raises(
+            ModerationError,
+            match="own profile",
+        ):
+            await moderation_service.get_moderator_specialist_card(
+                moderator_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+
+        with pytest.raises(
+            ModerationError,
+            match="own profile",
+        ):
+            await moderation_service.approve_specialist(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                reason="Approve own profile",
+            )
+
+        with pytest.raises(
+            ModerationError,
+            match="own profile",
+        ):
+            await moderation_service.reject_specialist(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                reason="Reject own profile",
+            )
+
+        with pytest.raises(
+            ModerationError,
+            match="own profile",
+        ):
+            await moderation_service.request_specialist_changes(
+                moderator_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                reason="Change own profile",
+            )
+
+    finally:
+        await cleanup_user(
+            db_session,
+            moderator_platform_user_id,
+        )
 
 async def test_complaint_creates_risk_flag(db_session):
     reporter_platform_user_id, reporter_user_id, tenant_id = (
@@ -596,6 +790,7 @@ async def test_admin_resolves_complaint_and_logs_action(db_session):
 
         review_result = await service.resolve_complaint(
             admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
             complaint_id=complaint_id,
             status="in_review",
             reason="taken for review",
@@ -605,6 +800,7 @@ async def test_admin_resolves_complaint_and_logs_action(db_session):
 
         result = await service.resolve_complaint(
             admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
             complaint_id=complaint_id,
             status="resolved",
             reason="confirmed",
@@ -675,6 +871,92 @@ async def test_duplicate_active_complaint_is_rejected(db_session):
             reporter_platform_user_id,
         )
 
+async def test_moderator_adds_tenant_scoped_blacklist_without_global_block(
+    db_session,
+):
+    (
+        moderator_platform_user_id,
+        moderator_user_id,
+        tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    (
+        specialist_platform_user_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_pending_specialist(db_session)
+
+    specialist_id = specialist.id
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        result = await service.add_specialist_owner_scoped_blacklist(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+            reason="Tenant policy violation",
+        )
+
+        blacklist_id = result.entity_id
+
+        user = await db_session.get(User, specialist_user_id)
+        blacklist = await db_session.get(Blacklist, blacklist_id)
+
+        assert result.status == "active"
+        assert user is not None
+        assert user.status == "active"
+
+        assert blacklist is not None
+        assert blacklist.tenant_id == tenant_id
+        assert blacklist.user_id == specialist_user_id
+        assert blacklist.status == "active"
+        assert blacklist.reason == "Tenant policy violation"
+        assert blacklist.created_by == moderator_user_id
+
+        event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type
+                    == "scoped_blacklist_changed",
+                    EventLog.entity_id == specialist_user_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert event is not None
+        assert event.payload["action"] == "added"
+        assert event.payload["scope"] == "tenant"
+        assert event.payload["reason"] == "Tenant policy violation"
+        assert event.payload["blacklist_id"] == str(blacklist_id)
+
+        with pytest.raises(
+            ModerationError,
+            match="already blacklisted",
+        ):
+            await service.add_specialist_owner_scoped_blacklist(
+                moderator_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                reason="Duplicate tenant block",
+            )
+
+    finally:
+        await cleanup_user(
+            db_session,
+            specialist_platform_user_id,
+        )
+        await cleanup_user(
+            db_session,
+            moderator_platform_user_id,
+        )
+
 async def test_admin_blocks_user_and_creates_blacklist(db_session):
     admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
         db_session,
@@ -729,9 +1011,11 @@ async def test_moderator_can_review_but_cannot_block_user(db_session):
         roles = await service.get_admin_roles(moderator_user_id)
         assert "moderator" in roles
 
-        await service.list_pending_specialists(
-            admin_user_id=moderator_user_id,
-            limit=5,
+        await service.open_pending_specialists_queue(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            page=0,
+            page_size=5,
         )
 
         with pytest.raises(ModerationError):
@@ -772,12 +1056,13 @@ def test_admin_callbacks_are_compact_and_do_not_use_uuid_payloads():
         "callback_data=f\"ADM_CP_RESOLVE:{index}\"",
         "admin_review_ids",
         "callback_data=f\"ADM_RV_APPROVE:{index}\"",
-        "callback_data=f\"ADM_RV_REJECT:{index}\"",
         "callback_data=f\"ADM_RV_HIDE:{index}\"",
     ]
 
     for fragment in required_fragments:
         assert fragment in source
+    assert "ADM_RV_REJECT:" not in source
+    assert "entering_review_reject_reason" not in source
 
 def test_admin_rbac_full_beta_contract_is_covered():
     moderation_repo = open(
@@ -976,6 +1261,7 @@ async def test_complaint_status_transitions_are_strict(db_session):
         ):
             await service.resolve_complaint(
                 admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
                 complaint_id=complaint_id,
                 status="resolved",
                 reason="Cannot resolve new complaint",
@@ -983,6 +1269,7 @@ async def test_complaint_status_transitions_are_strict(db_session):
 
         review_result = await service.resolve_complaint(
             admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
             complaint_id=complaint_id,
             status="in_review",
             reason="Taken for review",
@@ -992,6 +1279,7 @@ async def test_complaint_status_transitions_are_strict(db_session):
 
         resolved_result = await service.resolve_complaint(
             admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
             complaint_id=complaint_id,
             status="resolved",
             reason="Complaint confirmed",
@@ -1005,6 +1293,7 @@ async def test_complaint_status_transitions_are_strict(db_session):
         ):
             await service.resolve_complaint(
                 admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
                 complaint_id=complaint_id,
                 status="rejected",
                 reason="Final status cannot change",
@@ -1021,4 +1310,163 @@ async def test_complaint_status_transitions_are_strict(db_session):
         await cleanup_user(
             db_session,
             admin_platform_user_id,
+        )
+
+async def test_moderator_cannot_resolve_complaint_from_another_tenant(
+    db_session,
+):
+    (
+        moderator_platform_id,
+        moderator_user_id,
+        tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    (
+        reporter_platform_id,
+        reporter_user_id,
+        _,
+    ) = await create_user_with_accepted_consents(
+        db_session
+    )
+
+    tenant_token = uuid4().hex[:8]
+    other_tenant_id = uuid4()
+
+    await db_session.execute(
+        text("""
+            insert into tenants (
+                id,
+                name,
+                slug,
+                status
+            )
+            values (
+                :id,
+                :name,
+                :slug,
+                'active'
+            )
+        """),
+        {
+            "id": other_tenant_id,
+            "name": f"MOD7 foreign tenant {tenant_token}",
+            "slug": f"mod7-foreign-{tenant_token}",
+        },
+    )
+
+    complaint = Complaint(
+        tenant_id=other_tenant_id,
+        reporter_user_id=reporter_user_id,
+        target_type="user",
+        target_id=reporter_user_id,
+        reason="abuse",
+        comment="Foreign tenant complaint",
+        status="in_review",
+    )
+    db_session.add(complaint)
+    await db_session.commit()
+
+    complaint_id = complaint.id
+
+    service = ModerationService(
+        ModerationRepository(db_session)
+    )
+
+    try:
+        with pytest.raises(
+            ModerationError,
+            match="Complaint not found",
+        ):
+            await service.resolve_complaint(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                complaint_id=complaint_id,
+                status="resolved",
+                reason="Must not cross tenant boundary",
+            )
+
+        stored_complaint = await db_session.get(
+            Complaint,
+            complaint_id,
+        )
+
+        assert stored_complaint is not None
+        assert stored_complaint.status == "in_review"
+
+    finally:
+        await cleanup_user(
+            db_session,
+            moderator_platform_id,
+        )
+        await cleanup_user(
+            db_session,
+            reporter_platform_id,
+        )
+
+        await db_session.execute(
+            delete(Tenant).where(
+                Tenant.id == other_tenant_id,
+            )
+        )
+        await db_session.commit()
+
+
+async def test_moderator_specialist_card_includes_open_risk_flags(
+    db_session,
+):
+    (
+        moderator_platform_id,
+        moderator_user_id,
+        tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_pending_specialist(
+        db_session
+    )
+
+    risk_flag = RiskFlag(
+        tenant_id=tenant_id,
+        entity_type="specialist",
+        entity_id=specialist.id,
+        flag_code="mod3_test_risk",
+        severity="medium",
+        status="open",
+        details={"source": "MOD3 test"},
+    )
+    db_session.add(risk_flag)
+    await db_session.commit()
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        card = await service.get_moderator_specialist_card(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            specialist_id=specialist.id,
+        )
+
+        assert card.complaints_count >= 0
+        assert card.open_risk_flags_count == 1
+
+    finally:
+        await cleanup_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_user(
+            db_session,
+            moderator_platform_id,
         )

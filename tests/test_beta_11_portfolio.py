@@ -17,11 +17,15 @@ from services.portfolio_storage import (
 )
 from tests.test_beta_04_specialist_registration import cleanup_test_user
 from tests.test_beta_08_admin_moderation import (
+    cleanup_user,
     create_admin_user,
     create_pending_specialist,
 )
 from database.models import (
+    AdminAction,
+    EventLog,
     FileStorageObject,
+    RiskFlag,
     SpecialistPortfolioItem,
     UserAccount,
 )
@@ -404,8 +408,30 @@ async def test_portfolio_moderation_and_delete_lifecycle(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
             item_id=item_id,
+            reason="Portfolio content is valid",
         )
         assert approved.status == "active"
+
+        approved_event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type == "portfolio_moderated",
+                    EventLog.entity_id == item_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert approved_event is not None
+        assert approved_event.payload["decision"] == "approved"
+        assert (
+            approved_event.payload["reason"]
+            == "Portfolio content is valid"
+        )
+        assert (
+            approved_event.payload["before_status"]
+            == "pending_moderation"
+        )
+        assert approved_event.payload["after_status"] == "active"
 
         active_items = await service.list_active_items(
             tenant_id=tenant_id,
@@ -425,12 +451,47 @@ async def test_portfolio_moderation_and_delete_lifecycle(
         assert active_item.storage_object.file_type == "pdf"
         assert active_item.signed_url is not None
 
+        item_to_reject = await service.upload_item(
+            tenant_id=tenant_id,
+            owner_user_id=user_id,
+            filename="rejected-certificate.pdf",
+            mime_type="application/pdf",
+            content=b"%PDF-1.7 rejected test certificate",
+            title="Rejected certificate",
+        )
+
+        rejected_item_id = item_to_reject.id
+        rejected_file_id = item_to_reject.file_id
+
         rejected = await service.reject_item(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
-            item_id=item_id,
+            item_id=rejected_item_id,
+            reason="Portfolio content requires rejection",
         )
+
         assert rejected.status == "rejected"
+
+        rejected_event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type == "portfolio_moderated",
+                    EventLog.entity_id == rejected_item_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert rejected_event is not None
+        assert rejected_event.payload["decision"] == "rejected"
+        assert (
+            rejected_event.payload["reason"]
+            == "Portfolio content requires rejection"
+        )
+        assert (
+            rejected_event.payload["before_status"]
+            == "pending_moderation"
+        )
+        assert rejected_event.payload["after_status"] == "rejected"
 
         rejected_items = await service.list_rejected_items(
             tenant_id=tenant_id,
@@ -441,7 +502,7 @@ async def test_portfolio_moderation_and_delete_lifecycle(
             (
                 view
                 for view in rejected_items
-                if view.item.id == item_id
+                if view.item.id == rejected_item_id
             ),
             None,
         )
@@ -450,14 +511,14 @@ async def test_portfolio_moderation_and_delete_lifecycle(
         assert rejected_item.item.status == "rejected"
         assert rejected_item.signed_url is not None
 
-        storage_object = await db_session.get(
+        rejected_storage_object = await db_session.get(
             FileStorageObject,
-            file_id,
+            rejected_file_id,
         )
 
-        assert storage_object is not None
-        assert storage_object.retention_until is not None
-        assert storage_object.retention_until > (
+        assert rejected_storage_object is not None
+        assert rejected_storage_object.retention_until is not None
+        assert rejected_storage_object.retention_until > (
             datetime.now(timezone.utc) + timedelta(days=89)
         )
 
@@ -467,9 +528,16 @@ async def test_portfolio_moderation_and_delete_lifecycle(
         )
 
         assert all(
-            view.item.id != item_id
+            view.item.id != rejected_item_id
             for view in active_items
         )
+
+        storage_object = await db_session.get(
+            FileStorageObject,
+            file_id,
+        )
+        assert storage_object is not None
+
 
         deleted = await service.delete_owner_item(
             tenant_id=tenant_id,
@@ -504,11 +572,92 @@ async def test_portfolio_moderation_and_delete_lifecycle(
             platform_user_id=platform_user_id,
             specialist_id=specialist_id,
         )
-        await cleanup_test_user(
+        await cleanup_user(
             db_session,
             moderator_platform_user_id,
         )
 
+async def test_moderator_cannot_moderate_own_portfolio_item(
+    db_session,
+):
+    (
+        moderator_platform_user_id,
+        moderator_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_pending_specialist(db_session)
+
+    specialist_id = specialist.id
+
+    from database.models import UserRoleMapping
+
+    db_session.add(
+        UserRoleMapping(
+            user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            role="moderator",
+            status="active",
+        )
+    )
+    await db_session.commit()
+
+    storage = FakePortfolioStorage()
+    service = PortfolioService(
+        PortfolioRepository(db_session),
+        storage=storage,
+    )
+
+    try:
+        item = await service.upload_item(
+            tenant_id=tenant_id,
+            owner_user_id=moderator_user_id,
+            filename="own-item.pdf",
+            mime_type="application/pdf",
+            content=b"%PDF-1.7 own moderator item",
+            title="Own moderator item",
+        )
+
+        item_id = item.id
+
+        queue = await service.list_pending_items(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            page=0,
+            page_size=5,
+        )
+
+        assert item_id not in {
+            view.item.id for view in queue
+        }
+
+        with pytest.raises(
+            PortfolioServiceError,
+            match="own portfolio item",
+        ):
+            await service.approve_item(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
+                item_id=item_id,
+                reason="Approve own item",
+            )
+
+        with pytest.raises(
+            PortfolioServiceError,
+            match="own portfolio item",
+        ):
+            await service.reject_item(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
+                item_id=item_id,
+                reason="Reject own item",
+            )
+
+    finally:
+        await cleanup_portfolio_specialist(
+            db_session,
+            platform_user_id=moderator_platform_user_id,
+            specialist_id=specialist_id,
+        )
 
 async def test_portfolio_beta_limits(
     db_session,
@@ -727,3 +876,167 @@ def test_public_portfolio_screen_matches_tz10_c19_contract():
         assert fragment in service_source
 
     assert '"portfolio_item"' in moderation_source
+
+async def test_forbidden_portfolio_rejection_creates_risk_flag(
+    db_session,
+):
+    (
+        owner_platform_id,
+        owner_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_pending_specialist(db_session)
+
+    (
+        moderator_platform_id,
+        moderator_user_id,
+        moderator_tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    assert moderator_tenant_id == tenant_id
+
+    specialist_id = specialist.id
+    forbidden_item_id = None
+    regular_item_id = None
+
+    service = PortfolioService(
+        PortfolioRepository(db_session),
+        storage=FakePortfolioStorage(),
+    )
+
+    try:
+        forbidden_item = await service.upload_item(
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+            filename="forbidden.pdf",
+            mime_type="application/pdf",
+            content=b"%PDF-1.7 forbidden content test",
+            title="Forbidden content",
+        )
+        forbidden_item_id = forbidden_item.id
+
+        rejected = await service.reject_forbidden_item(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            item_id=forbidden_item_id,
+            reason="Contains prohibited material",
+        )
+
+        assert rejected.status == "rejected"
+
+        risk_flag = (
+            await db_session.execute(
+                select(RiskFlag).where(
+                    RiskFlag.tenant_id == tenant_id,
+                    RiskFlag.entity_type == "portfolio_item",
+                    RiskFlag.entity_id == forbidden_item_id,
+                    RiskFlag.flag_code
+                    == "forbidden_portfolio_content",
+                    RiskFlag.status == "open",
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert risk_flag is not None
+        assert risk_flag.severity == "high"
+        assert (
+            risk_flag.details["reason"]
+            == "Contains prohibited material"
+        )
+
+        risk_event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type
+                    == "portfolio_risk_flagged",
+                    EventLog.entity_id == forbidden_item_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert risk_event is not None
+        assert risk_event.payload["severity"] == "high"
+
+        moderation_event = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.event_type
+                    == "portfolio_moderated",
+                    EventLog.entity_id == forbidden_item_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert moderation_event is not None
+        assert moderation_event.payload["decision"] == "rejected"
+        assert moderation_event.payload["risk_flagged"] is True
+
+        regular_item = await service.upload_item(
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+            filename="regular-reject.pdf",
+            mime_type="application/pdf",
+            content=b"%PDF-1.7 regular rejection test",
+            title="Regular rejection",
+        )
+        regular_item_id = regular_item.id
+
+        await service.reject_item(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            item_id=regular_item_id,
+            reason="Caption needs correction",
+        )
+
+        regular_risk = (
+            await db_session.execute(
+                select(RiskFlag).where(
+                    RiskFlag.tenant_id == tenant_id,
+                    RiskFlag.entity_type == "portfolio_item",
+                    RiskFlag.entity_id == regular_item_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        assert regular_risk is None
+
+    finally:
+        item_ids = [
+            item_id
+            for item_id in {
+                forbidden_item_id,
+                regular_item_id,
+            }
+            if item_id is not None
+        ]
+
+        if item_ids:
+            await db_session.execute(
+                delete(RiskFlag).where(
+                    RiskFlag.entity_id.in_(item_ids)
+                )
+            )
+            await db_session.execute(
+                delete(EventLog).where(
+                    EventLog.entity_id.in_(item_ids)
+                )
+            )
+            await db_session.execute(
+                delete(AdminAction).where(
+                    AdminAction.target_id.in_(item_ids)
+                )
+            )
+            await db_session.commit()
+
+        await cleanup_portfolio_specialist(
+            db_session,
+            platform_user_id=owner_platform_id,
+            specialist_id=specialist_id,
+        )
+        await cleanup_user(
+            db_session,
+            moderator_platform_id,
+        )

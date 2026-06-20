@@ -4402,6 +4402,902 @@ translations = {
             "com o mesmo motivo."
         ),
     },
+    "moderator_menu_text": {
+        "ru": (
+            "Кабинет Moderator\n\n"
+            "Очереди модерации:\n"
+            "Специалисты: {profiles}\n"
+            "Портфолио: {portfolio}\n"
+            "Отзывы: {reviews}\n"
+            "Жалобы: {complaints}\n"
+            "Blacklist: {blacklist}"
+        ),
+        "en": (
+            "Moderator cabinet\n\n"
+            "Moderation queues:\n"
+            "Specialists: {profiles}\n"
+            "Portfolio: {portfolio}\n"
+            "Reviews: {reviews}\n"
+            "Complaints: {complaints}\n"
+            "Blacklist: {blacklist}"
+        ),
+        "pt": (
+            "Painel do moderador\n\n"
+            "Filas de moderacao:\n"
+            "Especialistas: {profiles}\n"
+            "Portfolio: {portfolio}\n"
+            "Avaliacoes: {reviews}\n"
+            "Denuncias: {complaints}\n"
+            "Blacklist: {blacklist}"
+        ),
+    },
+    "moderator_profiles_btn": {
+        "ru": "Специалисты ({count})",
+        "en": "Specialists ({count})",
+        "pt": "Especialistas ({count})",
+    },
+    "moderator_portfolio_btn": {
+        "ru": "Портфолио ({count})",
+        "en": "Portfolio ({count})",
+        "pt": "Portfolio ({count})",
+    },
+    "moderator_reviews_btn": {
+        "ru": "Отзывы ({count})",
+        "en": "Reviews ({count})",
+        "pt": "Avaliacoes ({count})",
+    },
+    "moderator_complaints_btn": {
+        "ru": "Жалобы ({count})",
+        "en": "Complaints ({count})",
+        "pt": "Denuncias ({count})",
+    },
+    "moderator_blacklist_btn": {
+        "ru": "Blacklist ({count})",
+        "en": "Blacklist ({count})",
+        "pt": "Blacklist ({count})",
+    },
+    "moderator_profiles_header": {
+        "ru": "Профили на модерации\nСтраница: {page}\nПоказано: {count}",
+        "en": "Pending profiles\nPage: {page}\nShown: {count}",
+        "pt": "Perfis pendentes\nPagina: {page}\nExibidos: {count}",
+    },
+    "moderator_profile_queue_item": {
+        "ru": (
+            "{number}. {name}\n"
+            "Профессия: {profession}\n"
+            "Город: {city}\n"
+            "Дата: {date}"
+        ),
+        "en": (
+            "{number}. {name}\n"
+            "Profession: {profession}\n"
+            "City: {city}\n"
+            "Date: {date}"
+        ),
+        "pt": (
+            "{number}. {name}\n"
+            "Profissao: {profession}\n"
+            "Cidade: {city}\n"
+            "Data: {date}"
+        ),
+    },
+    "moderator_city_not_set": {
+        "ru": "Не указан",
+        "en": "Not specified",
+        "pt": "Nao indicada",
+    },
+    "moderator_open_btn": {
+        "ru": "Открыть",
+        "en": "Open",
+        "pt": "Abrir",
+    },
+    "moderator_back_btn": {
+        "ru": "Назад",
+        "en": "Back",
+        "pt": "Voltar",
+    },
+    "moderator_queue_actions": {
+        "ru": "Действия с очередью",
+        "en": "Queue actions",
+        "pt": "Acoes da fila",
+    },
+    "moderator_profile_card": {
+        "ru": (
+            "Профиль специалиста\n\n"
+            "Имя: {name}\n"
+            "Профессия: {profession}\n"
+            "Город: {city}\n"
+            "Статус: {status}\n"
+            "Контакт: {contact}\n"
+            "Жалобы: {complaints}\n\n"
+            "Открытые risk flags: {risk_flags}\n\n"
+            "Описание:\n{description}\n\n"
+            "Услуги:\n{services}"
+        ),
+        "en": (
+            "Specialist profile\n\n"
+            "Name: {name}\n"
+            "Profession: {profession}\n"
+            "City: {city}\n"
+            "Status: {status}\n"
+            "Contact: {contact}\n"
+            "Complaints: {complaints}\n\n"
+            "Open risk flags: {risk_flags}\n\n"
+            "Description:\n{description}\n\n"
+            "Services:\n{services}"
+        ),
+        "pt": (
+            "Perfil do especialista\n\n"
+            "Nome: {name}\n"
+            "Profissao: {profession}\n"
+            "Cidade: {city}\n"
+            "Status: {status}\n"
+            "Contato: {contact}\n"
+            "Denuncias: {complaints}\n\n"
+            "Risk flags abertos: {risk_flags}\n\n"
+            "Descricao:\n{description}\n\n"
+            "Servicos:\n{services}"
+        ),
+    },
+    "moderator_no_services": {
+        "ru": "Услуги не добавлены",
+        "en": "No services added",
+        "pt": "Nenhum servico adicionado",
+    },
+    "moderator_request_changes_btn": {
+        "ru": "Правки",
+        "en": "Request changes",
+        "pt": "Solicitar alteracoes",
+    },
+    "moderator_scoped_blacklist_btn": {
+        "ru": "Scoped blacklist",
+        "en": "Scoped blacklist",
+        "pt": "Scoped blacklist",
+    },
+    "moderator_back_to_profiles_btn": {
+        "ru": "Назад к профилям",
+        "en": "Back to profiles",
+        "pt": "Voltar aos perfis",
+    },
+    "moderator_changes_reason_prompt": {
+        "ru": "Опишите, что специалист должен исправить. Минимум 3 символа.",
+        "en": "Describe what the specialist must correct. Minimum 3 characters.",
+        "pt": "Descreva o que o especialista deve corrigir. Minimo de 3 caracteres.",
+    },
+    "moderator_changes_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "moderator_changes_confirmation": {
+        "ru": (
+            "Подтвердите возврат профиля на правки:\n\n"
+            "Причина: {reason}\n\n"
+            "Статус будет изменён:\n"
+            "pending_moderation → draft"
+        ),
+        "en": (
+            "Confirm returning the profile for changes:\n\n"
+            "Reason: {reason}\n\n"
+            "Status will change:\n"
+            "pending_moderation → draft"
+        ),
+        "pt": (
+            "Confirme o retorno do perfil para correcoes:\n\n"
+            "Motivo: {reason}\n\n"
+            "O estado sera alterado:\n"
+            "pending_moderation → draft"
+        ),
+    },
+    "moderator_changes_confirm_btn": {
+        "ru": "Подтвердить",
+        "en": "Confirm",
+        "pt": "Confirmar",
+    },
+    "moderator_changes_edit_btn": {
+        "ru": "Изменить причину",
+        "en": "Edit reason",
+        "pt": "Alterar motivo",
+    },
+    "moderator_changes_submitted": {
+        "ru": "Профиль возвращён специалисту на правки.",
+        "en": "The profile was returned to the specialist for changes.",
+        "pt": "O perfil foi devolvido ao especialista para correcoes.",
+    },
+    "moderator_changes_cancelled": {
+        "ru": "Возврат профиля на правки отменён.",
+        "en": "Returning the profile for changes was cancelled.",
+        "pt": "O retorno do perfil para correcoes foi cancelado.",
+    },
+    "moderator_back_to_queue_btn": {
+        "ru": "К профилям на модерации",
+        "en": "Back to moderation queue",
+        "pt": "Voltar a fila de moderacao",
+    },
+    "moderator_decision_reason_prompt": {
+        "ru": "Укажите причину решения. Минимум 3 символа.",
+        "en": "Enter the decision reason. Minimum 3 characters.",
+        "pt": "Informe o motivo da decisao. Minimo de 3 caracteres.",
+    },
+    "moderator_approve_confirmation": {
+        "ru": (
+            "Подтвердите одобрение профиля:\n\n"
+            "Причина: {reason}\n\n"
+            "Статус будет изменён:\n"
+            "pending_moderation → active"
+        ),
+        "en": (
+            "Confirm profile approval:\n\n"
+            "Reason: {reason}\n\n"
+            "Status will change:\n"
+            "pending_moderation → active"
+        ),
+        "pt": (
+            "Confirme a aprovacao do perfil:\n\n"
+            "Motivo: {reason}\n\n"
+            "O estado sera alterado:\n"
+            "pending_moderation → active"
+        ),
+    },
+    "moderator_reject_confirmation": {
+        "ru": (
+            "Подтвердите отклонение профиля:\n\n"
+            "Причина: {reason}\n\n"
+            "Статус будет изменён:\n"
+            "pending_moderation → rejected"
+        ),
+        "en": (
+            "Confirm profile rejection:\n\n"
+            "Reason: {reason}\n\n"
+            "Status will change:\n"
+            "pending_moderation → rejected"
+        ),
+        "pt": (
+            "Confirme a rejeicao do perfil:\n\n"
+            "Motivo: {reason}\n\n"
+            "O estado sera alterado:\n"
+            "pending_moderation → rejected"
+        ),
+    },
+    "moderator_decision_confirm_btn": {
+        "ru": "Подтвердить",
+        "en": "Confirm",
+        "pt": "Confirmar",
+    },
+    "moderator_decision_edit_btn": {
+        "ru": "Изменить причину",
+        "en": "Edit reason",
+        "pt": "Alterar motivo",
+    },
+    "moderator_decision_approved": {
+        "ru": "Профиль одобрен.",
+        "en": "Profile approved.",
+        "pt": "Perfil aprovado.",
+    },
+    "moderator_decision_rejected": {
+        "ru": "Профиль отклонён.",
+        "en": "Profile rejected.",
+        "pt": "Perfil rejeitado.",
+    },
+    "moderator_decision_cancelled": {
+        "ru": "Решение отменено.",
+        "en": "Decision cancelled.",
+        "pt": "Decisao cancelada.",
+    },
+    "moderator_scoped_block_reason_prompt": {
+        "ru": (
+            "Укажите причину блокировки пользователя "
+            "в рамках текущего tenant. Минимум 3 символа."
+        ),
+        "en": (
+            "Enter the reason for blocking the user "
+            "inside the current tenant. Minimum 3 characters."
+        ),
+        "pt": (
+            "Informe o motivo do bloqueio do utilizador "
+            "no tenant atual. Minimo de 3 caracteres."
+        ),
+    },
+    "moderator_scoped_block_confirmation": {
+        "ru": (
+            "Подтвердите scoped blacklist:\n\n"
+            "Причина: {reason}\n\n"
+            "Блокировка действует только внутри текущего tenant.\n"
+            "Глобальный статус пользователя не изменится."
+        ),
+        "en": (
+            "Confirm scoped blacklist:\n\n"
+            "Reason: {reason}\n\n"
+            "The block applies only inside the current tenant.\n"
+            "The global user status will not change."
+        ),
+        "pt": (
+            "Confirme a blacklist limitada:\n\n"
+            "Motivo: {reason}\n\n"
+            "O bloqueio aplica-se apenas ao tenant atual.\n"
+            "O estado global do utilizador nao sera alterado."
+        ),
+    },
+    "moderator_scoped_block_confirm_btn": {
+        "ru": "Подтвердить блокировку",
+        "en": "Confirm block",
+        "pt": "Confirmar bloqueio",
+    },
+    "moderator_scoped_block_edit_btn": {
+        "ru": "Изменить причину",
+        "en": "Edit reason",
+        "pt": "Alterar motivo",
+    },
+    "moderator_scoped_block_created": {
+        "ru": "Пользователь добавлен в blacklist текущего tenant.",
+        "en": "The user was added to the current tenant blacklist.",
+        "pt": "O utilizador foi adicionado a blacklist do tenant atual.",
+    },
+    "moderator_scoped_block_cancelled": {
+        "ru": "Scoped blacklist отменён.",
+        "en": "Scoped blacklist cancelled.",
+        "pt": "Blacklist limitada cancelada.",
+    },
+    "moderator_portfolio_reason_prompt": {
+        "ru": "Укажите причину решения. Минимум 3 символа.",
+        "en": "Enter the decision reason. Minimum 3 characters.",
+        "pt": "Informe o motivo da decisao. Minimo de 3 caracteres.",
+    },
+    "moderator_portfolio_approve_confirmation": {
+        "ru": (
+            "Подтвердите одобрение portfolio item:\n\n"
+            "Причина: {reason}"
+        ),
+        "en": (
+            "Confirm portfolio item approval:\n\n"
+            "Reason: {reason}"
+        ),
+        "pt": (
+            "Confirme a aprovacao do item:\n\n"
+            "Motivo: {reason}"
+        ),
+    },
+    "moderator_portfolio_reject_confirmation": {
+        "ru": (
+            "Подтвердите отклонение portfolio item:\n\n"
+            "Причина: {reason}"
+        ),
+        "en": (
+            "Confirm portfolio item rejection:\n\n"
+            "Reason: {reason}"
+        ),
+        "pt": (
+            "Confirme a rejeicao do item:\n\n"
+            "Motivo: {reason}"
+        ),
+    },
+    "moderator_portfolio_confirm_btn": {
+        "ru": "Подтвердить",
+        "en": "Confirm",
+        "pt": "Confirmar",
+    },
+    "moderator_portfolio_edit_reason_btn": {
+        "ru": "Изменить причину",
+        "en": "Edit reason",
+        "pt": "Alterar motivo",
+    },
+    "moderator_portfolio_cancelled": {
+        "ru": "Решение по portfolio item отменено.",
+        "en": "Portfolio item decision cancelled.",
+        "pt": "Decisao do item cancelada.",
+    },
+    "moderator_portfolio_approved": {
+        "ru": "Portfolio item одобрен.",
+        "en": "Portfolio item approved.",
+        "pt": "Item do portfolio aprovado.",
+    },
+    "moderator_portfolio_rejected": {
+        "ru": "Portfolio item отклонён.",
+        "en": "Portfolio item rejected.",
+        "pt": "Item do portfolio rejeitado.",
+    },
+    "moderator_portfolio_card": {
+        "ru": (
+            "Портфолио на модерации\n"
+            "Страница: {page} | Элемент: {number}\n\n"
+            "Тип: {file_type}\n"
+            "MIME: {mime_type}\n"
+            "Владелец: {owner}\n"
+            "Размер: {size_kb} KB\n"
+            "Подпись: {caption}"
+        ),
+        "en": (
+            "Portfolio moderation\n"
+            "Page: {page} | Item: {number}\n\n"
+            "Type: {file_type}\n"
+            "MIME: {mime_type}\n"
+            "Owner: {owner}\n"
+            "Size: {size_kb} KB\n"
+            "Caption: {caption}"
+        ),
+        "pt": (
+            "Moderacao do portfolio\n"
+            "Pagina: {page} | Item: {number}\n\n"
+            "Tipo: {file_type}\n"
+            "MIME: {mime_type}\n"
+            "Proprietario: {owner}\n"
+            "Tamanho: {size_kb} KB\n"
+            "Legenda: {caption}"
+        ),
+    },
+    "moderator_portfolio_no_caption": {
+        "ru": "Без подписи",
+        "en": "No caption",
+        "pt": "Sem legenda",
+    },
+    "admin_no_pending_portfolio": {
+        "ru": "Портфолио на модерации пока нет.",
+        "en": "There are no portfolio items pending moderation.",
+        "pt": "Nao existem itens de portfolio pendentes.",
+    },
+    "moderator_portfolio_load_failed": {
+        "ru": (
+            "Не удалось временно открыть файл портфолио. "
+            "Попробуйте ещё раз."
+        ),
+        "en": (
+            "The portfolio file could not be opened temporarily. "
+            "Please try again."
+        ),
+        "pt": (
+            "Nao foi possivel abrir temporariamente o ficheiro. "
+            "Tente novamente."
+        ),
+    },
+    "admin_show_review": {
+        "ru": "Показать",
+        "en": "Show",
+        "pt": "Mostrar",
+    },
+    "admin_review_author": {
+        "ru": "Автор",
+        "en": "Author",
+        "pt": "Autor",
+    },
+    "admin_review_target_unavailable": {
+        "ru": "Объект недоступен",
+        "en": "Target unavailable",
+        "pt": "Objeto indisponível",
+    },
+    "admin_review_status_published": {
+        "ru": "показан",
+        "en": "shown",
+        "pt": "mostrado",
+    },
+    "admin_review_status_hidden": {
+        "ru": "скрыт",
+        "en": "hidden",
+        "pt": "oculto",
+    },
+    "admin_review_already_processed": {
+        "ru": "Отзыв уже обработан. Обновите очередь.",
+        "en": "The review has already been processed. Refresh the queue.",
+        "pt": "A avaliação já foi processada. Atualize a fila.",
+    },
+    "moderator_complaint_queue_title": {
+        "ru": "Жалобы\nПоказано: {count}",
+        "en": "Complaints\nShown: {count}",
+        "pt": "Denúncias\nMostradas: {count}",
+    },
+    "moderator_complaint_queue_item": {
+        "ru": (
+            "{number}. Автор: {reporter}\n"
+            "Цель: {target}\n"
+            "Причина: {reason}\n"
+            "Статус: {status}\n"
+            "Дата: {date}{escalation}"
+        ),
+        "en": (
+            "{number}. Reporter: {reporter}\n"
+            "Target: {target}\n"
+            "Reason: {reason}\n"
+            "Status: {status}\n"
+            "Date: {date}{escalation}"
+        ),
+        "pt": (
+            "{number}. Autor: {reporter}\n"
+            "Alvo: {target}\n"
+            "Motivo: {reason}\n"
+            "Status: {status}\n"
+            "Data: {date}{escalation}"
+        ),
+    },
+    "moderator_complaint_admin_target": {
+        "ru": "Требуется эскалация Admin",
+        "en": "Admin escalation required",
+        "pt": "Requer encaminhamento ao Admin",
+    },
+    "moderator_complaint_filter_btn": {
+        "ru": "Фильтр",
+        "en": "Filter",
+        "pt": "Filtro",
+    },
+    "moderator_complaint_filter_title": {
+        "ru": "Выберите статус жалоб:",
+        "en": "Select complaint status:",
+        "pt": "Selecione o status das denúncias:",
+    },
+    "moderator_complaint_filter_open": {
+        "ru": "Открытые",
+        "en": "Open",
+        "pt": "Abertas",
+    },
+    "moderator_complaint_filter_new": {
+        "ru": "Новые",
+        "en": "New",
+        "pt": "Novas",
+    },
+    "moderator_complaint_filter_review": {
+        "ru": "В работе",
+        "en": "In review",
+        "pt": "Em análise",
+    },
+    "moderator_complaint_filter_resolved": {
+        "ru": "Решённые",
+        "en": "Resolved",
+        "pt": "Resolvidas",
+    },
+    "moderator_complaint_filter_rejected": {
+        "ru": "Отклонённые",
+        "en": "Rejected",
+        "pt": "Rejeitadas",
+    },
+    "moderator_complaint_take_btn": {
+        "ru": "Взять",
+        "en": "Take",
+        "pt": "Assumir",
+    },
+    "moderator_complaint_taken": {
+        "ru": "Жалоба взята в работу.",
+        "en": "Complaint taken for review.",
+        "pt": "Denúncia assumida para análise.",
+    },
+    "moderator_complaint_take_unavailable": {
+        "ru": "Жалоба уже взята или требует эскалации Admin.",
+        "en": "The complaint is already assigned or requires Admin escalation.",
+        "pt": "A denúncia já foi atribuída ou requer encaminhamento ao Admin.",
+    },
+    "moderator_complaint_card": {
+        "ru": (
+            "Жалоба {index}/{total}\n\n"
+            "Автор: {reporter}\n"
+            "Объект: {target}\n"
+            "Тип объекта: {target_type}\n"
+            "Статус: {status}\n"
+            "Дата: {date}\n\n"
+            "Причина:\n{reason}\n\n"
+            "Комментарий:\n{comment}\n\n"
+            "История:\n{history}"
+            "{escalation}"
+        ),
+        "en": (
+            "Complaint {index}/{total}\n\n"
+            "Reporter: {reporter}\n"
+            "Target: {target}\n"
+            "Target type: {target_type}\n"
+            "Status: {status}\n"
+            "Date: {date}\n\n"
+            "Reason:\n{reason}\n\n"
+            "Comment:\n{comment}\n\n"
+            "History:\n{history}"
+            "{escalation}"
+        ),
+        "pt": (
+            "Denúncia {index}/{total}\n\n"
+            "Autor: {reporter}\n"
+            "Alvo: {target}\n"
+            "Tipo do alvo: {target_type}\n"
+            "Status: {status}\n"
+            "Data: {date}\n\n"
+            "Motivo:\n{reason}\n\n"
+            "Comentário:\n{comment}\n\n"
+            "Histórico:\n{history}"
+            "{escalation}"
+        ),
+    },
+    "moderator_complaint_history_empty": {
+        "ru": "История действий пока пуста.",
+        "en": "The action history is empty.",
+        "pt": "O histórico de ações está vazio.",
+    },
+    "moderator_complaint_resolve_btn": {
+        "ru": "Решить",
+        "en": "Resolve",
+        "pt": "Resolver",
+    },
+    "moderator_complaint_reject_btn": {
+        "ru": "Отклонить",
+        "en": "Reject",
+        "pt": "Rejeitar",
+    },
+    "moderator_complaint_back_queue_btn": {
+        "ru": "К очереди жалоб",
+        "en": "Back to complaints",
+        "pt": "Voltar às denúncias",
+    },
+    "moderator_complaint_admin_btn": {
+        "ru": "Эскалировать Admin",
+        "en": "Escalate to Admin",
+        "pt": "Encaminhar ao Admin",
+    },
+    "moderator_complaint_admin_reason_prompt": {
+        "ru": (
+            "Укажите причину эскалации жалобы Admin. "
+            "Минимум 3 символа."
+        ),
+        "en": (
+            "Enter the reason for escalating the complaint "
+            "to Admin. Minimum 3 characters."
+        ),
+        "pt": (
+            "Informe o motivo para encaminhar a denúncia "
+            "ao Admin. Mínimo de 3 caracteres."
+        ),
+    },
+    "moderator_complaint_admin_confirmation": {
+        "ru": (
+            "Подтвердите эскалацию жалобы Admin:\n\n"
+            "Причина: {reason}\n\n"
+            "Статус жалобы не изменится."
+        ),
+        "en": (
+            "Confirm complaint escalation to Admin:\n\n"
+            "Reason: {reason}\n\n"
+            "The complaint status will not change."
+        ),
+        "pt": (
+            "Confirme o encaminhamento da denúncia ao Admin:\n\n"
+            "Motivo: {reason}\n\n"
+            "O estado da denúncia não será alterado."
+        ),
+    },
+    "moderator_complaint_admin_confirm_btn": {
+        "ru": "Подтвердить эскалацию",
+        "en": "Confirm escalation",
+        "pt": "Confirmar encaminhamento",
+    },
+    "moderator_complaint_admin_cancelled": {
+        "ru": "Эскалация жалобы отменена.",
+        "en": "Complaint escalation cancelled.",
+        "pt": "Encaminhamento da denúncia cancelado.",
+    },
+    "moderator_complaint_admin_completed": {
+        "ru": "Жалоба эскалирована Admin.",
+        "en": "Complaint escalated to Admin.",
+        "pt": "Denúncia encaminhada ao Admin.",
+    },
+    "moderator_blacklist_queue_title": {
+        "ru": "Scoped blacklist\nРаздел: {view}\nПоказано: {count}",
+        "en": "Scoped blacklist\nView: {view}\nShown: {count}",
+        "pt": "Blacklist limitada\nSecção: {view}\nMostrados: {count}",
+    },
+    "moderator_blacklist_card": {
+        "ru": (
+            "{number}. Пользователь: {user}\n"
+            "Scope: {scope}\n"
+            "Причина: {reason}\n"
+            "Комментарий: {comment}\n"
+            "Статус: {status}\n"
+            "Дата: {date}"
+            "{revoke_line}"
+        ),
+        "en": (
+            "{number}. User: {user}\n"
+            "Scope: {scope}\n"
+            "Reason: {reason}\n"
+            "Comment: {comment}\n"
+            "Status: {status}\n"
+            "Date: {date}"
+            "{revoke_line}"
+        ),
+        "pt": (
+            "{number}. Utilizador: {user}\n"
+            "Scope: {scope}\n"
+            "Motivo: {reason}\n"
+            "Comentário: {comment}\n"
+            "Status: {status}\n"
+            "Data: {date}"
+            "{revoke_line}"
+        ),
+    },
+    "moderator_blacklist_active_btn": {
+        "ru": "Активные",
+        "en": "Active",
+        "pt": "Ativos",
+    },
+    "moderator_blacklist_history_btn": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Histórico",
+    },
+    "moderator_blacklist_active_title": {
+        "ru": "Активные",
+        "en": "Active",
+        "pt": "Ativos",
+    },
+    "moderator_blacklist_history_title": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Histórico",
+    },
+    "moderator_blacklist_no_comment": {
+        "ru": "не указан",
+        "en": "not specified",
+        "pt": "não indicado",
+    },
+    "moderator_blacklist_empty": {
+        "ru": "Записей scoped blacklist нет.",
+        "en": "There are no scoped blacklist records.",
+        "pt": "Não existem registos na blacklist limitada.",
+    },
+    "moderator_blacklist_actions_title": {
+        "ru": "Действия со списком",
+        "en": "List actions",
+        "pt": "Ações da lista",
+    },
+    "moderator_blacklist_revoke_btn": {
+        "ru": "Снять scoped",
+        "en": "Remove scoped block",
+        "pt": "Remover bloqueio limitado",
+    },
+    "moderator_blacklist_revoke_reason_prompt": {
+        "ru": (
+            "Укажите причину снятия scoped blacklist. "
+            "Минимум 3 символа."
+        ),
+        "en": (
+            "Enter the reason for removing the scoped block. "
+            "Minimum 3 characters."
+        ),
+        "pt": (
+            "Informe o motivo para remover o bloqueio limitado. "
+            "Mínimo de 3 caracteres."
+        ),
+    },
+    "moderator_blacklist_revoke_forbidden": {
+        "ru": (
+            "Эту блокировку Moderator снять не может."
+        ),
+        "en": (
+            "Moderator cannot remove this block."
+        ),
+        "pt": (
+            "O moderador não pode remover este bloqueio."
+        ),
+    },
+    "moderator_blacklist_revoke_confirmation": {
+        "ru": (
+            "Подтвердите снятие scoped blacklist:\n\n"
+            "Причина: {reason}\n\n"
+            "Глобальный статус пользователя не изменится."
+        ),
+        "en": (
+            "Confirm removal of the scoped blacklist:\n\n"
+            "Reason: {reason}\n\n"
+            "The global user status will not change."
+        ),
+        "pt": (
+            "Confirme a remoção da blacklist limitada:\n\n"
+            "Motivo: {reason}\n\n"
+            "O estado global do utilizador não será alterado."
+        ),
+    },
+    "moderator_blacklist_revoke_confirm_btn": {
+        "ru": "Подтвердить снятие",
+        "en": "Confirm removal",
+        "pt": "Confirmar remoção",
+    },
+    "moderator_blacklist_revoke_cancelled": {
+        "ru": "Снятие scoped blacklist отменено.",
+        "en": "Scoped blacklist removal cancelled.",
+        "pt": "Remoção da blacklist limitada cancelada.",
+    },
+    "moderator_blacklist_revoked": {
+        "ru": "Scoped blacklist снят.",
+        "en": "Scoped blacklist removed.",
+        "pt": "Blacklist limitada removida.",
+    },
+    "moderator_blacklist_revoke_reason_line": {
+        "ru": "Причина снятия: {reason}",
+        "en": "Removal reason: {reason}",
+        "pt": "Motivo da remoção: {reason}",
+    },
+    "moderator_blacklist_no_revoke_reason": {
+        "ru": "не указана",
+        "en": "not specified",
+        "pt": "não indicado",
+    },
+    "moderator_blacklist_add_btn": {
+        "ru": "Добавить",
+        "en": "Add",
+        "pt": "Adicionar",
+    },
+    "moderator_blacklist_add_user_prompt": {
+        "ru": (
+            "Введите Telegram ID пользователя, которого "
+            "нужно добавить в scoped blacklist."
+        ),
+        "en": (
+            "Enter the Telegram ID of the user to add "
+            "to the scoped blacklist."
+        ),
+        "pt": (
+            "Introduza o Telegram ID do utilizador a adicionar "
+            "à blacklist limitada."
+        ),
+    },
+    "moderator_blacklist_invalid_user": {
+        "ru": "Telegram ID должен содержать только цифры.",
+        "en": "Telegram ID must contain only digits.",
+        "pt": "O Telegram ID deve conter apenas números.",
+    },
+    "moderator_blacklist_add_confirmation": {
+        "ru": (
+            "Подтвердите добавление в scoped blacklist:\n\n"
+            "Telegram ID: {telegram_id}\n"
+            "Причина: {reason}\n\n"
+            "Блокировка действует только внутри текущего tenant."
+        ),
+        "en": (
+            "Confirm adding to the scoped blacklist:\n\n"
+            "Telegram ID: {telegram_id}\n"
+            "Reason: {reason}\n\n"
+            "The block applies only inside the current tenant."
+        ),
+        "pt": (
+            "Confirme a adição à blacklist limitada:\n\n"
+            "Telegram ID: {telegram_id}\n"
+            "Motivo: {reason}\n\n"
+            "O bloqueio aplica-se apenas ao tenant atual."
+        ),
+    },
+    "moderator_blacklist_add_confirm_btn": {
+        "ru": "Подтвердить добавление",
+        "en": "Confirm addition",
+        "pt": "Confirmar adição",
+    },
+    "moderator_blacklist_add_cancelled": {
+        "ru": "Добавление в scoped blacklist отменено.",
+        "en": "Adding to the scoped blacklist was cancelled.",
+        "pt": "A adição à blacklist limitada foi cancelada.",
+    },
+    "moderator_portfolio_reject_type_prompt": {
+        "ru": "Выберите тип отклонения:",
+        "en": "Select rejection type:",
+        "pt": "Selecione o tipo de rejeição:",
+    },
+    "moderator_portfolio_regular_reject_btn": {
+        "ru": "Обычная причина",
+        "en": "Regular reason",
+        "pt": "Motivo normal",
+    },
+    "moderator_portfolio_forbidden_btn": {
+        "ru": "Запрещённый контент",
+        "en": "Forbidden content",
+        "pt": "Conteúdo proibido",
+    },
+    "moderator_portfolio_forbidden_confirmation": {
+        "ru": (
+            "Подтвердите отклонение запрещённого контента:\n\n"
+            "Причина: {reason}\n\n"
+            "Будет создан risk flag."
+        ),
+        "en": (
+            "Confirm forbidden-content rejection:\n\n"
+            "Reason: {reason}\n\n"
+            "A risk flag will be created."
+        ),
+        "pt": (
+            "Confirme a rejeição de conteúdo proibido:\n\n"
+            "Motivo: {reason}\n\n"
+            "Será criado um risk flag."
+        ),
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
