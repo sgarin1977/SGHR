@@ -5298,6 +5298,864 @@ translations = {
             "Será criado um risk flag."
         ),
     },
+    "admin_menu_text": {
+        "ru": (
+            "Кабинет Admin\n\n"
+            "Пользователи: {users}\n"
+            "Специалисты: {specialists}\n"
+            "Support: {tickets}\n"
+            "Жалобы: {complaints}\n"
+            "Global Blacklist: {blacklist}\n"
+            "Audit alerts: {audit_alerts}"
+        ),
+        "en": (
+            "Admin cabinet\n\n"
+            "Users: {users}\n"
+            "Specialists: {specialists}\n"
+            "Support: {tickets}\n"
+            "Complaints: {complaints}\n"
+            "Global Blacklist: {blacklist}\n"
+            "Audit alerts: {audit_alerts}"
+        ),
+        "pt": (
+            "Gabinete Admin\n\n"
+            "Utilizadores: {users}\n"
+            "Especialistas: {specialists}\n"
+            "Support: {tickets}\n"
+            "Denuncias: {complaints}\n"
+            "Global Blacklist: {blacklist}\n"
+            "Alertas de auditoria: {audit_alerts}"
+        ),
+    },
+    "admin_users_btn": {
+        "ru": "Пользователи ({count})",
+        "en": "Users ({count})",
+        "pt": "Utilizadores ({count})",
+    },
+    "admin_specialists_btn": {
+        "ru": "Специалисты ({count})",
+        "en": "Specialists ({count})",
+        "pt": "Especialistas ({count})",
+    },
+    "admin_support_btn": {
+        "ru": "Support ({count})",
+        "en": "Support ({count})",
+        "pt": "Support ({count})",
+    },
+    "admin_moderation_btn": {
+        "ru": "Moderation ({count})",
+        "en": "Moderation ({count})",
+        "pt": "Moderacao ({count})",
+    },
+    "admin_global_blacklist_btn": {
+        "ru": "Global Blacklist ({count})",
+        "en": "Global Blacklist ({count})",
+        "pt": "Global Blacklist ({count})",
+    },
+    "admin_audit_btn": {
+        "ru": "Audit ({count})",
+        "en": "Audit ({count})",
+        "pt": "Auditoria ({count})",
+    },
+    "admin_user_search_prompt": {
+        "ru": (
+            "Введите Telegram ID, username или номер пользователя.\n\n"
+            "Примеры:\n"
+            "483721727\n"
+            "@username\n"
+            "user-49ba690f"
+        ),
+        "en": (
+            "Enter Telegram ID, username or user number.\n\n"
+            "Examples:\n"
+            "483721727\n"
+            "@username\n"
+            "user-49ba690f"
+        ),
+        "pt": (
+            "Introduza o Telegram ID, username ou numero do utilizador.\n\n"
+            "Exemplos:\n"
+            "483721727\n"
+            "@username\n"
+            "user-49ba690f"
+        ),
+    },
+    "admin_user_search_results": {
+        "ru": "Найдено пользователей: {count}",
+        "en": "Users found: {count}",
+        "pt": "Utilizadores encontrados: {count}",
+    },
+    "admin_user_search_card": {
+        "ru": (
+            "{number}. Пользователь {user_number}\n"
+            "Имя: {display_name}\n"
+            "Username: {username}\n"
+            "Telegram ID: {telegram_id}\n"
+            "Статус: {status}"
+        ),
+        "en": (
+            "{number}. User {user_number}\n"
+            "Name: {display_name}\n"
+            "Username: {username}\n"
+            "Telegram ID: {telegram_id}\n"
+            "Status: {status}"
+        ),
+        "pt": (
+            "{number}. Utilizador {user_number}\n"
+            "Nome: {display_name}\n"
+            "Username: {username}\n"
+            "Telegram ID: {telegram_id}\n"
+            "Estado: {status}"
+        ),
+    },
+    "admin_user_open_btn": {
+        "ru": "Открыть",
+        "en": "Open",
+        "pt": "Abrir",
+    },
+    "admin_user_search_again_btn": {
+        "ru": "Найти ещё",
+        "en": "Search again",
+        "pt": "Pesquisar novamente",
+    },
+    "admin_user_search_actions": {
+        "ru": "Действия с результатами",
+        "en": "Result actions",
+        "pt": "Acoes dos resultados",
+    },
+    "admin_user_search_empty": {
+        "ru": "Пользователь не найден.",
+        "en": "User not found.",
+        "pt": "Utilizador nao encontrado.",
+    },
+    "admin_user_search_error": {
+        "ru": "Не удалось выполнить поиск: {error}",
+        "en": "Search failed: {error}",
+        "pt": "Falha na pesquisa: {error}",
+    },
+    "admin_user_details": {
+        "ru": (
+            "Карточка пользователя\n\n"
+            "Номер: {user_number}\n"
+            "Имя: {display_name}\n"
+            "Username: {username}\n"
+            "Роли: {roles}\n"
+            "Статус: {status}\n"
+            "Последняя активность: {last_seen}\n"
+            "Жалобы: {complaints}\n"
+            "Global blacklist: {blacklist}"
+        ),
+        "en": (
+            "User card\n\n"
+            "Number: {user_number}\n"
+            "Name: {display_name}\n"
+            "Username: {username}\n"
+            "Roles: {roles}\n"
+            "Status: {status}\n"
+            "Last activity: {last_seen}\n"
+            "Complaints: {complaints}\n"
+            "Global blacklist: {blacklist}"
+        ),
+        "pt": (
+            "Cartao do utilizador\n\n"
+            "Numero: {user_number}\n"
+            "Nome: {display_name}\n"
+            "Username: {username}\n"
+            "Funcoes: {roles}\n"
+            "Estado: {status}\n"
+            "Ultima atividade: {last_seen}\n"
+            "Denuncias: {complaints}\n"
+            "Global blacklist: {blacklist}"
+        ),
+    },
+    "admin_user_no_roles": {
+        "ru": "нет активных ролей",
+        "en": "no active roles",
+        "pt": "sem funcoes ativas",
+    },
+    "admin_user_global_blocked": {
+        "ru": "заблокирован",
+        "en": "blocked",
+        "pt": "bloqueado",
+    },
+    "admin_user_not_global_blocked": {
+        "ru": "не заблокирован",
+        "en": "not blocked",
+        "pt": "nao bloqueado",
+    },
+    "admin_user_roles_btn": {
+        "ru": "Роли",
+        "en": "Roles",
+        "pt": "Funcoes",
+    },
+    "admin_user_history_btn": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Historico",
+    },
+    "admin_user_global_block_btn": {
+        "ru": "Global blacklist",
+        "en": "Global blacklist",
+        "pt": "Global blacklist",
+    },
+    "admin_user_global_unblock_btn": {
+        "ru": "Снять global",
+        "en": "Remove global block",
+        "pt": "Remover bloqueio global",
+    },
+    "admin_user_not_found": {
+        "ru": "Пользователь не найден или результат устарел.",
+        "en": "User not found or search result expired.",
+        "pt": "Utilizador nao encontrado ou resultado expirado.",
+    },
+    "admin_user_history_title": {
+        "ru": (
+            "История пользователя {user_number}\n"
+            "Показано событий: {count}"
+        ),
+        "en": (
+            "User history {user_number}\n"
+            "Events shown: {count}"
+        ),
+        "pt": (
+            "Historico do utilizador {user_number}\n"
+            "Eventos apresentados: {count}"
+        ),
+    },
+    "admin_user_history_item": {
+        "ru": (
+            "{number}. {date}\n"
+            "Действие: {action}\n"
+            "Actor: {actor}\n"
+            "Причина: {reason}\n"
+            "Источник: {source}"
+        ),
+        "en": (
+            "{number}. {date}\n"
+            "Action: {action}\n"
+            "Actor: {actor}\n"
+            "Reason: {reason}\n"
+            "Source: {source}"
+        ),
+        "pt": (
+            "{number}. {date}\n"
+            "Acao: {action}\n"
+            "Actor: {actor}\n"
+            "Motivo: {reason}\n"
+            "Origem: {source}"
+        ),
+    },
+    "admin_user_history_empty": {
+        "ru": "История пользователя пока пуста.",
+        "en": "User history is empty.",
+        "pt": "O historico do utilizador esta vazio.",
+    },
+    "admin_user_history_actions": {
+        "ru": "Действия с историей",
+        "en": "History actions",
+        "pt": "Acoes do historico",
+    },
+    "admin_user_back_to_card_btn": {
+        "ru": "Назад к пользователю",
+        "en": "Back to user",
+        "pt": "Voltar ao utilizador",
+    },
+    "admin_user_global_block_reason_prompt": {
+        "ru": "Укажите причину global-блокировки. Минимум 3 символа.",
+        "en": "Enter the global block reason. Minimum 3 characters.",
+        "pt": "Indique o motivo do bloqueio global. Minimo 3 caracteres.",
+    },
+    "admin_user_global_block_confirmation": {
+        "ru": (
+            "Подтвердите global-блокировку:\n\n"
+            "Пользователь: {user_number}\n"
+            "Причина: {reason}\n\n"
+            "Пользователь потеряет доступ ко всей платформе."
+        ),
+        "en": (
+            "Confirm global block:\n\n"
+            "User: {user_number}\n"
+            "Reason: {reason}\n\n"
+            "The user will lose access to the whole platform."
+        ),
+        "pt": (
+            "Confirme o bloqueio global:\n\n"
+            "Utilizador: {user_number}\n"
+            "Motivo: {reason}\n\n"
+            "O utilizador perdera acesso a toda a plataforma."
+        ),
+    },
+    "admin_user_global_block_confirm_btn": {
+        "ru": "Подтвердить global-блокировку",
+        "en": "Confirm global block",
+        "pt": "Confirmar bloqueio global",
+    },
+    "admin_user_change_reason_btn": {
+        "ru": "Изменить причину",
+        "en": "Change reason",
+        "pt": "Alterar motivo",
+    },
+    "admin_user_global_block_completed": {
+        "ru": "Global-блокировка установлена. Статус: {status}",
+        "en": "Global block applied. Status: {status}",
+        "pt": "Bloqueio global aplicado. Estado: {status}",
+    },
+    "admin_user_global_block_cancelled": {
+        "ru": "Global-блокировка отменена.",
+        "en": "Global block cancelled.",
+        "pt": "Bloqueio global cancelado.",
+    },
+    "admin_user_global_unblock_reason_prompt": {
+        "ru": "Укажите причину снятия global-блокировки. Минимум 3 символа.",
+        "en": "Enter the reason for removing the global block. Minimum 3 characters.",
+        "pt": "Indique o motivo da remocao do bloqueio global. Minimo 3 caracteres.",
+    },
+    "admin_user_global_unblock_confirmation": {
+        "ru": (
+            "Подтвердите снятие global-блокировки:\n\n"
+            "Пользователь: {user_number}\n"
+            "Причина: {reason}\n\n"
+            "Доступ к платформе будет восстановлен."
+        ),
+        "en": (
+            "Confirm removal of the global block:\n\n"
+            "User: {user_number}\n"
+            "Reason: {reason}\n\n"
+            "Platform access will be restored."
+        ),
+        "pt": (
+            "Confirme a remocao do bloqueio global:\n\n"
+            "Utilizador: {user_number}\n"
+            "Motivo: {reason}\n\n"
+            "O acesso a plataforma sera restaurado."
+        ),
+    },
+    "admin_user_global_unblock_confirm_btn": {
+        "ru": "Подтвердить снятие",
+        "en": "Confirm removal",
+        "pt": "Confirmar remocao",
+    },
+    "admin_user_global_unblock_completed": {
+        "ru": "Global-блокировка снята. Статус: {status}",
+        "en": "Global block removed. Status: {status}",
+        "pt": "Bloqueio global removido. Estado: {status}",
+    },
+    "admin_user_global_unblock_cancelled": {
+        "ru": "Снятие global-блокировки отменено.",
+        "en": "Global block removal cancelled.",
+        "pt": "Remocao do bloqueio global cancelada.",
+    },
+    "admin_user_roles_text": {
+        "ru": (
+            "Роли пользователя {user_number}\n\n"
+            "{roles}\n\n"
+            "Изменение системных ролей доступно только Super Admin."
+        ),
+        "en": (
+            "User roles {user_number}\n\n"
+            "{roles}\n\n"
+            "System role management is available only to Super Admin."
+        ),
+        "pt": (
+            "Funcoes do utilizador {user_number}\n\n"
+            "{roles}\n\n"
+            "A gestao de funcoes do sistema esta disponivel apenas para Super Admin."
+        ),
+    },
+    "admin_specialists_header": {
+        "ru": (
+            "Специалисты Admin\n"
+            "Статус: {status}\n"
+            "Страница: {page}\n"
+            "Показано: {count}"
+        ),
+        "en": (
+            "Admin specialists\n"
+            "Status: {status}\n"
+            "Page: {page}\n"
+            "Shown: {count}"
+        ),
+        "pt": (
+            "Especialistas Admin\n"
+            "Estado: {status}\n"
+            "Pagina: {page}\n"
+            "Apresentados: {count}"
+        ),
+    },
+    "admin_specialist_item": {
+        "ru": (
+            "{number}. {name}\n"
+            "Профессия: {profession}\n"
+            "Город: {city}\n"
+            "Статус: {status}\n"
+            "Дата: {date}"
+        ),
+        "en": (
+            "{number}. {name}\n"
+            "Profession: {profession}\n"
+            "City: {city}\n"
+            "Status: {status}\n"
+            "Date: {date}"
+        ),
+        "pt": (
+            "{number}. {name}\n"
+            "Profissao: {profession}\n"
+            "Cidade: {city}\n"
+            "Estado: {status}\n"
+            "Data: {date}"
+        ),
+    },
+    "admin_specialist_city_not_set": {
+        "ru": "не указан",
+        "en": "not specified",
+        "pt": "nao indicada",
+    },
+    "admin_specialists_empty": {
+        "ru": "Специалистов с таким статусом нет.",
+        "en": "No specialists with this status.",
+        "pt": "Nao existem especialistas com este estado.",
+    },
+    "admin_specialists_actions": {
+        "ru": "Действия со списком",
+        "en": "List actions",
+        "pt": "Acoes da lista",
+    },
+    "admin_specialist_filter_btn": {
+        "ru": "Фильтр",
+        "en": "Filter",
+        "pt": "Filtro",
+    },
+    "admin_specialist_filter_title": {
+        "ru": "Выберите статус специалистов:",
+        "en": "Select specialist status:",
+        "pt": "Selecione o estado dos especialistas:",
+    },
+    "admin_specialist_filter_all": {
+        "ru": "Все",
+        "en": "All",
+        "pt": "Todos",
+    },
+    "admin_specialist_filter_active": {
+        "ru": "Активные",
+        "en": "Active",
+        "pt": "Ativos",
+    },
+    "admin_specialist_filter_pending": {
+        "ru": "На модерации",
+        "en": "Pending moderation",
+        "pt": "Em moderacao",
+    },
+    "admin_specialist_filter_draft": {
+        "ru": "Черновики",
+        "en": "Drafts",
+        "pt": "Rascunhos",
+    },
+    "admin_specialist_filter_paused": {
+        "ru": "На паузе",
+        "en": "Paused",
+        "pt": "Em pausa",
+    },
+    "admin_specialist_filter_rejected": {
+        "ru": "Отклонённые",
+        "en": "Rejected",
+        "pt": "Rejeitados",
+    },
+    "admin_specialist_filter_blocked": {
+        "ru": "Заблокированные",
+        "en": "Blocked",
+        "pt": "Bloqueados",
+    },
+    "admin_specialist_filter_deleted": {
+        "ru": "Удалённые",
+        "en": "Deleted",
+        "pt": "Eliminados",
+    },
+    "admin_specialist_read_only_btn": {
+        "ru": "Профиль уже обработан",
+        "en": "Profile already processed",
+        "pt": "Perfil ja processado",
+    },
+    "admin_specialist_read_only_notice": {
+        "ru": (
+            "Модерационные действия доступны только "
+            "для профиля со статусом pending_moderation."
+        ),
+        "en": (
+            "Moderation actions are available only "
+            "for profiles with pending_moderation status."
+        ),
+        "pt": (
+            "As acoes de moderacao estao disponiveis apenas "
+            "para perfis com estado pending_moderation."
+        ),
+    },
+    "admin_escalated_tickets_header": {
+        "ru": (
+            "Эскалации Support\n"
+            "Страница: {page}\n"
+            "Показано: {count}"
+        ),
+        "en": (
+            "Support escalations\n"
+            "Page: {page}\n"
+            "Shown: {count}"
+        ),
+        "pt": (
+            "Escalacoes Support\n"
+            "Pagina: {page}\n"
+            "Apresentados: {count}"
+        ),
+    },
+    "admin_escalated_ticket_card": {
+        "ru": (
+            "{number}. Обращение #{ticket_number}\n"
+            "Пользователь: {user_number}\n"
+            "Категория: {category}\n"
+            "Приоритет: {priority}\n"
+            "Статус: {status}\n"
+            "Обновлено: {updated_at}"
+        ),
+        "en": (
+            "{number}. Ticket #{ticket_number}\n"
+            "User: {user_number}\n"
+            "Category: {category}\n"
+            "Priority: {priority}\n"
+            "Status: {status}\n"
+            "Updated: {updated_at}"
+        ),
+        "pt": (
+            "{number}. Pedido #{ticket_number}\n"
+            "Utilizador: {user_number}\n"
+            "Categoria: {category}\n"
+            "Prioridade: {priority}\n"
+            "Estado: {status}\n"
+            "Atualizado: {updated_at}"
+        ),
+    },
+    "admin_escalated_tickets_empty": {
+        "ru": "Критических или эскалированных обращений нет.",
+        "en": "No critical or escalated tickets.",
+        "pt": "Nao existem pedidos criticos ou escalados.",
+    },
+    "admin_escalated_tickets_actions": {
+        "ru": "Действия с эскалациями",
+        "en": "Escalation actions",
+        "pt": "Acoes das escalacoes",
+    },
+    "admin_ticket_action_reason_prompt": {
+        "ru": "Укажите причину действия «{action}». Минимум 3 символа.",
+        "en": "Enter the reason for “{action}”. Minimum 3 characters.",
+        "pt": "Indique o motivo da acao “{action}”. Minimo 3 caracteres.",
+    },
+    "admin_ticket_action_assign": {
+        "ru": "Назначить",
+        "en": "Assign",
+        "pt": "Atribuir",
+    },
+    "admin_ticket_action_resolve": {
+        "ru": "Решить",
+        "en": "Resolve",
+        "pt": "Resolver",
+    },
+    "admin_ticket_action_completed": {
+        "ru": "Действие «{action}» выполнено. Статус: {status}",
+        "en": "Action “{action}” completed. Status: {status}",
+        "pt": "Acao “{action}” concluida. Estado: {status}",
+    },
+    "admin_global_blacklist_queue_title": {
+        "ru": "Global Blacklist\nРаздел: {view}\nПоказано: {count}",
+        "en": "Global Blacklist\nView: {view}\nShown: {count}",
+        "pt": "Global Blacklist\nSecção: {view}\nMostrados: {count}",
+    },
+    "admin_global_blacklist_card": {
+        "ru": (
+            "{number}. Пользователь: {user}\n"
+            "Причина: {reason}\n"
+            "Комментарий: {comment}\n"
+            "Статус: {status}\n"
+            "Администратор: {actor}\n"
+            "Дата: {date}"
+        ),
+        "en": (
+            "{number}. User: {user}\n"
+            "Reason: {reason}\n"
+            "Comment: {comment}\n"
+            "Status: {status}\n"
+            "Administrator: {actor}\n"
+            "Date: {date}"
+        ),
+        "pt": (
+            "{number}. Utilizador: {user}\n"
+            "Motivo: {reason}\n"
+            "Comentário: {comment}\n"
+            "Estado: {status}\n"
+            "Administrador: {actor}\n"
+            "Data: {date}"
+        ),
+    },
+    "admin_global_blacklist_active_btn": {
+        "ru": "Активные",
+        "en": "Active",
+        "pt": "Ativos",
+    },
+    "admin_global_blacklist_history_btn": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Histórico",
+    },
+    "admin_global_blacklist_active_title": {
+        "ru": "Активные",
+        "en": "Active",
+        "pt": "Ativos",
+    },
+    "admin_global_blacklist_history_title": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Histórico",
+    },
+    "admin_global_blacklist_add_btn": {
+        "ru": "Добавить",
+        "en": "Add",
+        "pt": "Adicionar",
+    },
+    "admin_global_blacklist_revoke_btn": {
+        "ru": "Снять global",
+        "en": "Remove global block",
+        "pt": "Remover bloqueio global",
+    },
+    "admin_global_blacklist_no_comment": {
+        "ru": "не указан",
+        "en": "not specified",
+        "pt": "não indicado",
+    },
+    "admin_global_blacklist_empty": {
+        "ru": "Записей Global Blacklist нет.",
+        "en": "There are no Global Blacklist records.",
+        "pt": "Não existem registos na Global Blacklist.",
+    },
+    "admin_global_blacklist_actions_title": {
+        "ru": "Действия со списком",
+        "en": "List actions",
+        "pt": "Ações da lista",
+    },
+    "admin_audit_queue_title": {
+        "ru": (
+            "Audit\n"
+            "Фильтр: {filter}\n"
+            "Страница: {page}\n"
+            "Показано: {count}"
+        ),
+        "en": (
+            "Audit\n"
+            "Filter: {filter}\n"
+            "Page: {page}\n"
+            "Shown: {count}"
+        ),
+        "pt": (
+            "Auditoria\n"
+            "Filtro: {filter}\n"
+            "Página: {page}\n"
+            "Mostrados: {count}"
+        ),
+    },
+    "admin_audit_card": {
+        "ru": (
+            "{number}. {date}\n"
+            "Actor: {actor}\n"
+            "Действие: {action}\n"
+            "Объект: {target}\n"
+            "Причина: {reason}\n"
+            "Источник: {source}"
+        ),
+        "en": (
+            "{number}. {date}\n"
+            "Actor: {actor}\n"
+            "Action: {action}\n"
+            "Target: {target}\n"
+            "Reason: {reason}\n"
+            "Source: {source}"
+        ),
+        "pt": (
+            "{number}. {date}\n"
+            "Actor: {actor}\n"
+            "Ação: {action}\n"
+            "Objeto: {target}\n"
+            "Motivo: {reason}\n"
+            "Fonte: {source}"
+        ),
+    },
+    "admin_audit_empty": {
+        "ru": "Событий Audit пока нет.",
+        "en": "There are no Audit events yet.",
+        "pt": "Ainda não existem eventos de auditoria.",
+    },
+    "admin_audit_actions_title": {
+        "ru": "Действия с журналом",
+        "en": "Audit actions",
+        "pt": "Ações da auditoria",
+    },
+    "admin_audit_filter_btn": {
+        "ru": "Фильтр",
+        "en": "Filter",
+        "pt": "Filtro",
+    },
+    "admin_audit_filter_title": {
+        "ru": "Выберите фильтр Audit:",
+        "en": "Select an Audit filter:",
+        "pt": "Selecione um filtro de auditoria:",
+    },
+    "admin_audit_filter_all": {
+        "ru": "Все",
+        "en": "All",
+        "pt": "Todos",
+    },
+    "admin_audit_filter_users": {
+        "ru": "Пользователи",
+        "en": "Users",
+        "pt": "Utilizadores",
+    },
+    "admin_audit_filter_specialists": {
+        "ru": "Специалисты",
+        "en": "Specialists",
+        "pt": "Especialistas",
+    },
+    "admin_audit_filter_support": {
+        "ru": "Support",
+        "en": "Support",
+        "pt": "Support",
+    },
+    "admin_audit_filter_complaints": {
+        "ru": "Жалобы",
+        "en": "Complaints",
+        "pt": "Denúncias",
+    },
+    "admin_audit_filter_reviews": {
+        "ru": "Отзывы",
+        "en": "Reviews",
+        "pt": "Avaliações",
+    },
+    "admin_audit_filter_portfolio": {
+        "ru": "Портфолио",
+        "en": "Portfolio",
+        "pt": "Portfólio",
+    },
+    "admin_audit_filter_blacklist": {
+        "ru": "Blacklist",
+        "en": "Blacklist",
+        "pt": "Blacklist",
+    },
+    "admin_audit_open_btn": {
+        "ru": "Открыть",
+        "en": "Open",
+        "pt": "Abrir",
+    },
+    "admin_audit_back_to_list_btn": {
+        "ru": "Назад к Audit",
+        "en": "Back to Audit",
+        "pt": "Voltar à auditoria",
+    },
+    "admin_audit_not_found": {
+        "ru": "Событие Audit не найдено.",
+        "en": "Audit event not found.",
+        "pt": "Evento de auditoria não encontrado.",
+    },
+    "admin_audit_details": {
+        "ru": (
+            "Событие Audit\n\n"
+            "Дата: {date}\n"
+            "Actor: {actor}\n"
+            "Действие: {action}\n"
+            "Тип объекта: {target_type}\n"
+            "Объект: {target}\n"
+            "Причина: {reason}\n"
+            "Источник: {source}\n\n"
+            "Режим: только чтение"
+        ),
+        "en": (
+            "Audit event\n\n"
+            "Date: {date}\n"
+            "Actor: {actor}\n"
+            "Action: {action}\n"
+            "Target type: {target_type}\n"
+            "Target: {target}\n"
+            "Reason: {reason}\n"
+            "Source: {source}\n\n"
+            "Mode: read-only"
+        ),
+        "pt": (
+            "Evento de auditoria\n\n"
+            "Data: {date}\n"
+            "Actor: {actor}\n"
+            "Ação: {action}\n"
+            "Tipo de objeto: {target_type}\n"
+            "Objeto: {target}\n"
+            "Motivo: {reason}\n"
+            "Fonte: {source}\n\n"
+            "Modo: apenas leitura"
+        ),
+    },
+    "admin_user_global_block_final_confirmation": {
+        "ru": (
+            "Финальное подтверждение\n\n"
+            "Пользователь: {user_number}\n"
+            "Причина: {reason}\n\n"
+            "После подтверждения пользователь будет полностью "
+            "заблокирован на платформе.\n\n"
+            "Это действие будет записано в Audit."
+        ),
+        "en": (
+            "Final confirmation\n\n"
+            "User: {user_number}\n"
+            "Reason: {reason}\n\n"
+            "After confirmation, the user will be fully blocked "
+            "on the platform.\n\n"
+            "This action will be recorded in Audit."
+        ),
+        "pt": (
+            "Confirmação final\n\n"
+            "Utilizador: {user_number}\n"
+            "Motivo: {reason}\n\n"
+            "Após a confirmação, o utilizador será completamente "
+            "bloqueado na plataforma.\n\n"
+            "Esta ação será registada na auditoria."
+        ),
+    },
+    "admin_user_global_block_final_confirm_btn": {
+        "ru": "Да, заблокировать окончательно",
+        "en": "Yes, apply global block",
+        "pt": "Sim, aplicar bloqueio global",
+    },
+    "admin_user_global_unblock_final_confirmation": {
+        "ru": (
+            "Финальное подтверждение\n\n"
+            "Пользователь: {user_number}\n"
+            "Причина: {reason}\n\n"
+            "После подтверждения глобальная блокировка будет снята, "
+            "а доступ к платформе восстановлен.\n\n"
+            "Это действие будет записано в Audit."
+        ),
+        "en": (
+            "Final confirmation\n\n"
+            "User: {user_number}\n"
+            "Reason: {reason}\n\n"
+            "After confirmation, the global block will be removed "
+            "and platform access restored.\n\n"
+            "This action will be recorded in Audit."
+        ),
+        "pt": (
+            "Confirmação final\n\n"
+            "Utilizador: {user_number}\n"
+            "Motivo: {reason}\n\n"
+            "Após a confirmação, o bloqueio global será removido "
+            "e o acesso à plataforma será restaurado.\n\n"
+            "Esta ação será registada na auditoria."
+        ),
+    },
+    "admin_user_global_unblock_final_confirm_btn": {
+        "ru": "Да, снять global-блокировку",
+        "en": "Yes, remove global block",
+        "pt": "Sim, remover bloqueio global",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

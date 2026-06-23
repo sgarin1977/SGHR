@@ -4,7 +4,13 @@ from uuid import UUID
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import SupportMessage, SupportTicket, UserAccount, UserRoleMapping
+from database.models import (
+    EventLog,
+    SupportMessage,
+    SupportTicket,
+    UserAccount,
+    UserRoleMapping,
+)
 
 
 SUPPORT_TICKET_STATUSES = {
@@ -65,6 +71,26 @@ class SupportRepository:
                 UserRoleMapping.tenant_id == tenant_id,
                 UserRoleMapping.status == "active",
                 UserRoleMapping.role.in_(SUPPORT_STAFF_ROLES),
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def user_has_admin_support_access(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+    ) -> bool:
+        result = await self.session.execute(
+            select(UserRoleMapping.id)
+            .where(
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.tenant_id == tenant_id,
+                UserRoleMapping.status == "active",
+                UserRoleMapping.role.in_(
+                    {"admin", "super_admin"}
+                ),
             )
             .limit(1)
         )
@@ -160,6 +186,32 @@ class SupportRepository:
             stmt = stmt.where(SupportTicket.status.in_(statuses))
 
         result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_admin_escalated_tickets(
+        self,
+        *,
+        tenant_id: UUID,
+        limit: int = 5,
+        offset: int = 0,
+    ) -> list[SupportTicket]:
+        result = await self.session.execute(
+            select(SupportTicket)
+            .where(
+                SupportTicket.tenant_id == tenant_id,
+                SupportTicket.priority == "P1",
+                SupportTicket.status.in_(
+                    {"open", "in_progress"}
+                ),
+            )
+            .order_by(
+                SupportTicket.updated_at.desc(),
+                SupportTicket.created_at.desc(),
+                SupportTicket.id.asc(),
+            )
+            .offset(max(0, int(offset)))
+            .limit(max(1, min(int(limit), 20)))
+        )
         return list(result.scalars().all())
 
     async def list_staff_tickets(
@@ -307,6 +359,31 @@ class SupportRepository:
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def log_admin_ticket_event(
+        self,
+        *,
+        tenant_id: UUID,
+        admin_user_id: UUID,
+        ticket_id: UUID | None,
+        action: str,
+        payload: dict | None = None,
+    ) -> EventLog:
+        event = EventLog(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="admin_ticket",
+            entity_type="support_ticket",
+            entity_id=ticket_id,
+            payload={
+                "action": action,
+                **(payload or {}),
+            },
+            platform="telegram",
+        )
+        self.session.add(event)
+        await self.session.flush()
+        return event
 
     async def add_message(
         self,

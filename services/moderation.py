@@ -3,7 +3,9 @@ from uuid import UUID
 
 from database.models import AdminAction, Complaint, EventLog, Specialist, User
 from database.repositories.moderation import (
+    AdminSpecialistQueueItem,
     ModerationAccessError,
+    AdminUserSearchRow,
     ModerationNotFoundError,
     ModerationRepository,
     PendingSpecialistQueueItem,
@@ -11,6 +13,10 @@ from database.repositories.moderation import (
     ComplaintQueueItem,
     ComplaintModerationDetails,
     ScopedBlacklistQueueItem,
+    GlobalBlacklistQueueItem,
+    AdminUserDetailsRow,
+    AdminUserHistoryRow,
+    AdminAuditQueueItem,
 )
 from database.repositories.rate_limit import RateLimitRepository
 from services.rate_limit import RateLimitError, RateLimitService
@@ -26,12 +32,57 @@ class ModerationActionResult:
     message: str
 
 @dataclass(frozen=True)
+class AdminUserHistoryCard:
+    date: str
+    actor: str
+    action: str
+    reason: str
+    source: str
+
+@dataclass(frozen=True)
+class AdminUserDetailsCard:
+    user_id: UUID
+    user_number: str
+    display_name: str
+    username: str
+    roles: tuple[str, ...]
+    status: str
+    last_seen: str
+    complaints_count: int
+    is_global_blacklisted: bool
+
+@dataclass(frozen=True)
+class AdminUserSearchCard:
+    user_id: UUID
+    user_number: str
+    telegram_id: str
+    username: str
+    display_name: str
+    status: str
+
+@dataclass(frozen=True)
+class AdminMenuSummary:
+    users: int
+    specialists: int
+    tickets: int
+    complaints: int
+    blacklist: int
+    audit_alerts: int
+
+@dataclass(frozen=True)
 class ModeratorMenuSummary:
     profiles: int
     portfolio: int
     reviews: int
     complaints: int
     blacklist: int
+
+@dataclass(frozen=True)
+class AdminSpecialistPage:
+    items: tuple[AdminSpecialistQueueItem, ...]
+    page: int
+    status: str
+    has_next: bool
 
 @dataclass(frozen=True)
 class ModeratorSpecialistCard:
@@ -69,6 +120,46 @@ class ModeratorScopedBlacklistCard:
     can_revoke: bool
     created_at: object
     revoke_reason: str | None
+
+@dataclass(frozen=True)
+class AdminGlobalBlacklistCard:
+    blacklist_id: UUID
+    user_id: UUID
+    user_label: str
+    actor_label: str
+    reason: str
+    comment: str | None
+    status: str
+    user_status: str
+    created_at: object
+    can_revoke: bool
+
+
+@dataclass(frozen=True)
+class AdminGlobalBlacklistPage:
+    items: tuple[AdminGlobalBlacklistCard, ...]
+    page: int
+    view: str
+    has_next: bool
+
+@dataclass(frozen=True)
+class AdminAuditCard:
+    action_id: UUID
+    date: str
+    actor: str
+    action: str
+    target: str
+    target_type: str
+    reason: str
+    source: str
+
+
+@dataclass(frozen=True)
+class AdminAuditPage:
+    items: tuple[AdminAuditCard, ...]
+    page: int
+    target_type: str
+    has_next: bool
 
 @dataclass(frozen=True)
 class ModeratorComplaintCard:
@@ -200,6 +291,259 @@ class ModerationService:
             message=f"Role {role_mapping.role} revoked.",
         )
 
+    async def list_admin_user_history(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        limit: int = 10,
+    ) -> list[AdminUserHistoryCard]:
+        try:
+            rows = await self.repository.list_admin_user_history(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+                limit=limit,
+            )
+
+            await self.repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="admin_user_view",
+                entity_type="user",
+                entity_id=target_user_id,
+                payload={
+                    "section": "history",
+                    "visible_count": len(rows),
+                },
+            )
+
+            await self.repository.session.commit()
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return [
+            self._build_admin_user_history_card(row)
+            for row in rows
+        ]
+
+    @staticmethod
+    def _build_admin_user_history_card(
+        row: AdminUserHistoryRow,
+    ) -> AdminUserHistoryCard:
+        actor = (
+            f"user-{row.actor_user_id.hex[:8]}"
+            if row.actor_user_id
+            else "system"
+        )
+
+        return AdminUserHistoryCard(
+            date=(
+                row.created_at.strftime("%Y-%m-%d %H:%M")
+                if row.created_at
+                else "-"
+            ),
+            actor=actor,
+            action=row.action,
+            reason=row.reason or "-",
+            source=row.source,
+        )
+
+    async def get_admin_user_details(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+    ) -> AdminUserDetailsCard:
+        try:
+            row = await self.repository.get_admin_user_details(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+            )
+
+            await self.repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="admin_user_view",
+                entity_type="user",
+                entity_id=target_user_id,
+                payload={
+                    "user_number": (
+                        f"user-{target_user_id.hex[:8]}"
+                    ),
+                },
+            )
+
+            await self.repository.session.commit()
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return self._build_admin_user_details_card(row)
+
+    @staticmethod
+    def _build_admin_user_details_card(
+        row: AdminUserDetailsRow,
+    ) -> AdminUserDetailsCard:
+        username = (row.username or "").strip()
+        masked_username = (
+            f"@{username[:3]}***"
+            if username
+            else "-"
+        )
+
+        display_name = " ".join(
+            part
+            for part in (
+                (row.first_name or "").strip(),
+                (row.last_name or "").strip(),
+            )
+            if part
+        ) or "-"
+
+        last_seen = (
+            row.last_seen_at.strftime("%Y-%m-%d %H:%M")
+            if row.last_seen_at
+            else "-"
+        )
+
+        return AdminUserDetailsCard(
+            user_id=row.user_id,
+            user_number=f"user-{row.user_id.hex[:8]}",
+            display_name=display_name,
+            username=masked_username,
+            roles=row.roles,
+            status=row.status,
+            last_seen=last_seen,
+            complaints_count=row.complaints_count,
+            is_global_blacklisted=(
+                row.is_global_blacklisted
+            ),
+        )
+
+    async def search_admin_users(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        query: str,
+    ) -> list[AdminUserSearchCard]:
+        normalized_query = (query or "").strip()
+
+        if len(normalized_query) < 2:
+            raise ModerationError(
+                "Search query must contain at least 2 characters."
+            )
+
+        if len(normalized_query) > 100:
+            raise ModerationError(
+                "Search query is too long."
+            )
+
+        try:
+            rows = await self.repository.search_admin_users(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                query=normalized_query,
+                limit=10,
+            )
+
+            await self.repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="user_search",
+                entity_type="user",
+                entity_id=None,
+                payload={
+                    "results_count": len(rows),
+                    "query_length": len(normalized_query),
+                },
+            )
+
+            await self.repository.session.commit()
+        except ModerationAccessError as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return [
+            self._build_admin_user_search_card(row)
+            for row in rows
+        ]
+
+    @staticmethod
+    def _build_admin_user_search_card(
+        row: AdminUserSearchRow,
+    ) -> AdminUserSearchCard:
+        telegram_id = row.platform_user_id or ""
+        masked_telegram_id = (
+            f"***{telegram_id[-4:]}"
+            if len(telegram_id) > 4
+            else "***"
+        )
+
+        username = (row.username or "").strip()
+        masked_username = (
+            f"@{username[:3]}***"
+            if username
+            else "-"
+        )
+
+        display_name = " ".join(
+            part
+            for part in (
+                (row.first_name or "").strip(),
+                (row.last_name or "").strip(),
+            )
+            if part
+        ) or "-"
+
+        return AdminUserSearchCard(
+            user_id=row.user_id,
+            user_number=f"user-{row.user_id.hex[:8]}",
+            telegram_id=masked_telegram_id,
+            username=masked_username,
+            display_name=display_name,
+            status=row.status,
+        )
+
+    async def open_admin_menu(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+    ) -> AdminMenuSummary:
+        try:
+            counts = await self.repository.get_admin_menu_counts(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+
+            await self.repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="admin_menu",
+                entity_type="admin_dashboard",
+                entity_id=admin_user_id,
+                payload={"counts": counts},
+            )
+
+            await self.repository.session.commit()
+        except ModerationAccessError as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return AdminMenuSummary(**counts)
+
     async def open_moderator_menu(
         self,
         *,
@@ -227,6 +571,86 @@ class ModerationService:
             raise ModerationError(str(exc)) from exc
 
         return ModeratorMenuSummary(**counts)
+
+    async def open_admin_specialists(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        status: str = "active",
+        page: int = 0,
+        page_size: int = 5,
+    ) -> AdminSpecialistPage:
+        allowed_statuses = {
+            "all",
+            "draft",
+            "pending_moderation",
+            "active",
+            "paused",
+            "rejected",
+            "blocked",
+            "deleted",
+        }
+
+        normalized_status = (status or "active").strip().lower()
+
+        if normalized_status not in allowed_statuses:
+            raise ModerationError(
+                "Unsupported specialist status."
+            )
+
+        normalized_page = max(int(page), 0)
+        normalized_page_size = max(
+            1,
+            min(int(page_size), 10),
+        )
+
+        statuses = (
+            allowed_statuses - {"all"}
+            if normalized_status == "all"
+            else {normalized_status}
+        )
+
+        try:
+            rows = await self.repository.list_admin_specialists(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                statuses=statuses,
+                limit=normalized_page_size + 1,
+                offset=(
+                    normalized_page
+                    * normalized_page_size
+                ),
+            )
+
+            visible_rows = rows[:normalized_page_size]
+            has_next = len(rows) > normalized_page_size
+
+            await self.repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="admin_specialists",
+                entity_type="specialist",
+                entity_id=admin_user_id,
+                payload={
+                    "status": normalized_status,
+                    "page": normalized_page,
+                    "visible_count": len(visible_rows),
+                    "has_next": has_next,
+                },
+            )
+
+            await self.repository.session.commit()
+        except ModerationAccessError as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return AdminSpecialistPage(
+            items=tuple(visible_rows),
+            page=normalized_page,
+            status=normalized_status,
+            has_next=has_next,
+        )
 
     async def open_pending_specialists_queue(
         self,
@@ -340,7 +764,7 @@ class ModerationService:
             status=specialist.status,
             message="Specialist approved.",
         )
-    
+
     async def reject_specialist(
         self,
         *,
@@ -695,7 +1119,7 @@ class ModerationService:
             status=complaint.status,
             message="Complaint escalated to Admin.",
         )
-    
+
     async def resolve_complaint(
         self,
         *,
@@ -1026,6 +1450,263 @@ class ModerationService:
             message="Scoped blacklist revoked.",
         )
 
+    async def get_admin_audit_card(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        action_id: UUID,
+    ) -> AdminAuditCard:
+        try:
+            row = await self.repository.get_admin_audit_action(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                action_id=action_id,
+            )
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            raise ModerationError(str(exc)) from exc
+
+        actor = (
+            f"user-{row.actor_user_id.hex[:8]}"
+            if row.actor_user_id
+            else "system"
+        )
+
+        target = (
+            f"{row.target_type}-{row.target_id.hex[:8]}"
+            if row.target_id
+            else row.target_type
+        )
+
+        return AdminAuditCard(
+            action_id=row.action_id,
+            date=row.created_at.strftime("%Y-%m-%d %H:%M"),
+            actor=actor,
+            action=row.action,
+            target=target,
+            target_type=row.target_type,
+            reason=row.reason or "-",
+            source=row.source,
+        )
+
+    async def open_admin_audit(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_type: str,
+        page: int,
+        page_size: int = 5,
+    ) -> AdminAuditPage:
+        normalized_page = max(0, int(page))
+        normalized_page_size = max(
+            1,
+            min(int(page_size), 10),
+        )
+
+        normalized_target_type = (
+            str(target_type or "all").strip().lower()
+        )
+
+        allowed_target_types = {
+            "all",
+            "user",
+            "specialist",
+            "support_ticket",
+            "complaint",
+            "review",
+            "specialist_portfolio_item",
+            "blacklist",
+        }
+
+        if normalized_target_type not in allowed_target_types:
+            normalized_target_type = "all"
+
+        target_types = (
+            None
+            if normalized_target_type == "all"
+            else {normalized_target_type}
+        )
+
+        try:
+            rows = await self.repository.list_admin_audit_actions(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_types=target_types,
+                limit=normalized_page_size + 1,
+                offset=(
+                    normalized_page
+                    * normalized_page_size
+                ),
+            )
+
+            has_next = len(rows) > normalized_page_size
+            visible_rows = rows[:normalized_page_size]
+
+            cards = tuple(
+                AdminAuditCard(
+                    action_id=row.action_id,
+                    date=row.created_at.strftime(
+                        "%Y-%m-%d %H:%M"
+                    ),
+                    actor=(
+                        f"user-{row.actor_user_id.hex[:8]}"
+                        if row.actor_user_id
+                        else "system"
+                    ),
+                    action=row.action,
+                    target=(
+                        f"{row.target_type}-"
+                        f"{row.target_id.hex[:8]}"
+                        if row.target_id
+                        else row.target_type
+                    ),
+                    target_type=row.target_type,
+                    reason=row.reason or "-",
+                    source=row.source,
+                )
+                for row in visible_rows
+            )
+
+            await self.repository.log_event(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="audit_viewed",
+                entity_type="audit",
+                entity_id=admin_user_id,
+                payload={
+                    "page": normalized_page,
+                    "target_type": normalized_target_type,
+                    "count": len(cards),
+                    "has_next": has_next,
+                },
+            )
+            await self.repository.session.commit()
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return AdminAuditPage(
+            items=cards,
+            page=normalized_page,
+            target_type=normalized_target_type,
+            has_next=has_next,
+        )
+
+    async def open_global_blacklist_queue(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        view: str,
+        page: int,
+        page_size: int = 5,
+    ) -> AdminGlobalBlacklistPage:
+        normalized_page = max(0, int(page))
+        normalized_page_size = max(
+            1,
+            min(int(page_size), 10),
+        )
+
+        normalized_view = (
+            "history"
+            if view == "history"
+            else "active"
+        )
+
+        statuses = (
+            {"revoked"}
+            if normalized_view == "history"
+            else {"active"}
+        )
+
+        try:
+            rows = await self.repository.list_global_blacklist(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                statuses=statuses,
+                limit=normalized_page_size + 1,
+                offset=(
+                    normalized_page
+                    * normalized_page_size
+                ),
+            )
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            raise ModerationError(str(exc)) from exc
+
+        has_next = len(rows) > normalized_page_size
+        visible_rows = rows[:normalized_page_size]
+
+        cards = tuple(
+            AdminGlobalBlacklistCard(
+                blacklist_id=row.blacklist_id,
+                user_id=row.user_id,
+                user_label=(
+                    f"user-{row.user_id.hex[:8]}"
+                ),
+                actor_label=(
+                    f"user-{row.created_by.hex[:8]}"
+                ),
+                reason=row.reason,
+                comment=row.comment,
+                status=row.status,
+                user_status=row.user_status,
+                created_at=row.created_at,
+                can_revoke=(
+                    row.status == "active"
+                    and row.user_status == "blocked"
+                    and row.user_id != admin_user_id
+                ),
+            )
+            for row in visible_rows
+        )
+
+        return AdminGlobalBlacklistPage(
+            items=cards,
+            page=normalized_page,
+            view=normalized_view,
+            has_next=has_next,
+        )
+
+    async def unblock_user(
+        self,
+        *,
+        admin_user_id: UUID,
+        user_id: UUID,
+        reason: str,
+    ) -> ModerationActionResult:
+        normalized_reason = self._require_reason(reason)
+
+        try:
+            user = await self.repository.unblock_user(
+                admin_user_id=admin_user_id,
+                user_id=user_id,
+                reason=normalized_reason,
+            )
+            await self.repository.session.commit()
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return ModerationActionResult(
+            entity_id=user.id,
+            status=user.status,
+            message="Global block removed.",
+        )
+
     async def block_user(
         self,
         *,
@@ -1034,6 +1715,10 @@ class ModerationService:
         reason: str,
         comment: str | None = None,
     ) -> ModerationActionResult:
+        if admin_user_id == user_id:
+            raise ModerationError(
+                "Administrator cannot globally block themselves."
+            )
         normalized_reason = self._require_reason(reason)
 
         try:

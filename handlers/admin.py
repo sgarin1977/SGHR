@@ -28,9 +28,16 @@ from handlers.start import get_main_menu_keyboard_for_user, normalize_language, 
 from services.moderation import (
     ModerationError,
     ModerationService,
+    AdminMenuSummary,
     ModeratorComplaintQueueCard,
     ModeratorComplaintCard,
     ModeratorScopedBlacklistCard,
+    AdminUserSearchCard,
+    AdminUserDetailsCard,
+    AdminSpecialistPage,
+    AdminUserHistoryCard,
+    AdminGlobalBlacklistCard,
+    AdminAuditCard,
 )
 from services.billing import BillingError, BillingService
 from services.reviews import (
@@ -40,7 +47,11 @@ from services.reviews import (
 )
 from services.user import UserService
 from services.portfolio import PortfolioService, PortfolioServiceError
-from services.support import SupportService, SupportServiceError
+from services.support import (
+    AdminEscalatedTicketPage,
+    SupportService,
+    SupportServiceError,
+)
 from ui.texts import t
 
 admin_router = Router()
@@ -68,7 +79,12 @@ ADMIN_LOG_MENU_ROLES = {"super_admin", "admin"}
 ADMIN_SUPPORT_MENU_ROLES = {"support"}
 ADMIN_SUPPORT_STATS_ROLES = {"support", "admin", "super_admin"}
 SUPPORT_STAFF_PAGE_SIZE = 5
+ADMIN_ESCALATED_TICKET_PAGE_SIZE = 5
+ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE = 5
+ADMIN_AUDIT_PAGE_SIZE = 5
+ADMIN_GLOBAL_BLACKLIST_ROLES = {"admin", "super_admin"}
 MODERATOR_PROFILE_PAGE_SIZE = 5
+ADMIN_SPECIALIST_PAGE_SIZE = 5
 MODERATOR_PORTFOLIO_PAGE_SIZE = 5
 def effective_panel_roles(
     roles: set[str],
@@ -79,6 +95,13 @@ def effective_panel_roles(
 
     return roles
 class AdminModerationFSM(StatesGroup):
+    entering_admin_user_search = State()
+    entering_admin_user_global_block_reason = State()
+    confirming_admin_user_global_block = State()
+    confirming_admin_user_global_block_final = State()
+    entering_admin_user_global_unblock_reason = State()
+    confirming_admin_user_global_unblock = State()
+    confirming_admin_user_global_unblock_final = State()
     entering_specialist_decision_reason = State()
     confirming_specialist_decision = State()
     entering_specialist_changes_reason = State()
@@ -94,6 +117,7 @@ class AdminModerationFSM(StatesGroup):
     entering_support_reply = State()
     entering_support_search = State()
     entering_support_escalation_reason = State()
+    entering_admin_ticket_action_reason = State()
     confirming_specialist_changes = State()
     entering_specialist_scoped_block_reason = State()
     confirming_specialist_scoped_block = State()
@@ -597,6 +621,302 @@ def complaints_filter_keyboard(
                 InlineKeyboardButton(
                     text=t("moderator_back_btn", language),
                     callback_data="ADM_COMPLAINTS",
+                )
+            ],
+        ]
+    )
+
+def format_global_blacklist_card(
+    card: AdminGlobalBlacklistCard,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    comment = (
+        card.comment
+        or t("admin_global_blacklist_no_comment", language)
+    )
+
+    return t(
+        "admin_global_blacklist_card",
+        language,
+    ).format(
+        number=number,
+        user=card.user_label,
+        reason=card.reason,
+        comment=comment,
+        status=card.status,
+        actor=card.actor_label,
+        date=card.created_at.strftime("%Y-%m-%d"),
+    )
+
+
+def global_blacklist_card_keyboard(
+    *,
+    index: int,
+    can_revoke: bool,
+    language: str,
+) -> InlineKeyboardMarkup | None:
+    if not can_revoke:
+        return None
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_global_blacklist_revoke_btn",
+                        language,
+                    ),
+                    callback_data=f"ADM_USER_GLOBAL_UNBLOCK:{index}",
+                )
+            ]
+        ]
+    )
+
+
+def global_blacklist_queue_keyboard(
+    *,
+    view: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_global_blacklist_active_btn",
+                    language,
+                ),
+                callback_data="ADM_GBL_QUEUE:active:0",
+            ),
+            InlineKeyboardButton(
+                text=t(
+                    "admin_global_blacklist_history_btn",
+                    language,
+                ),
+                callback_data="ADM_GBL_QUEUE:history:0",
+            ),
+        ]
+    ]
+
+    if view == "active":
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_global_blacklist_add_btn",
+                        language,
+                    ),
+                        callback_data="ADM_USERS",
+                )
+            ]
+        )
+
+    navigation = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"ADM_GBL_QUEUE:{view}:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"ADM_GBL_QUEUE:{view}:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def format_admin_audit_card(
+    card: AdminAuditCard,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    return t(
+        "admin_audit_card",
+        language,
+    ).format(
+        number=number,
+        date=card.date,
+        actor=card.actor,
+        action=card.action,
+        target=card.target,
+        reason=card.reason,
+        source=card.source,
+    )
+
+def admin_audit_card_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_open_btn", language),
+                    callback_data=f"ADM_AUDIT_OPEN:{index}",
+                )
+            ]
+        ]
+    )
+
+def admin_audit_details_keyboard(
+    *,
+    target_type: str,
+    page: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_back_to_list_btn", language),
+                    callback_data=(
+                        f"ADM_AUDIT_QUEUE:{target_type}:{page}"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_PANEL",
+                )
+            ],
+        ]
+    )
+
+def admin_audit_queue_keyboard(
+    *,
+    target_type: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_audit_filter_btn", language),
+                callback_data="ADM_AUDIT_FILTER",
+            )
+        ]
+    ]
+
+    navigation = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"ADM_AUDIT_QUEUE:{target_type}:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"ADM_AUDIT_QUEUE:{target_type}:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_audit_filter_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_all", language),
+                    callback_data="ADM_AUDIT_QUEUE:all:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_users", language),
+                    callback_data="ADM_AUDIT_QUEUE:user:0",
+                ),
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_specialists", language),
+                    callback_data="ADM_AUDIT_QUEUE:specialist:0",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_support", language),
+                    callback_data="ADM_AUDIT_QUEUE:support_ticket:0",
+                ),
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_complaints", language),
+                    callback_data="ADM_AUDIT_QUEUE:complaint:0",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_reviews", language),
+                    callback_data="ADM_AUDIT_QUEUE:review:0",
+                ),
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_portfolio", language),
+                    callback_data=(
+                        "ADM_AUDIT_QUEUE:"
+                        "specialist_portfolio_item:0"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_blacklist", language),
+                    callback_data="ADM_AUDIT_QUEUE:blacklist:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_LOGS",
                 )
             ],
         ]
@@ -1688,6 +2008,135 @@ def format_support_staff_search_header(
         count=len(tickets),
     )
 
+def admin_escalated_ticket_card_keyboard(
+    *,
+    index: int,
+    page: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_support_assign", language),
+                    callback_data=(
+                        f"ADM_ADMIN_TICKET_ACTION:assign:{index}"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=t("admin_support_resolve", language),
+                    callback_data=(
+                        f"ADM_ADMIN_TICKET_ACTION:resolve:{index}"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data=f"ADM_ADMIN_SUPPORT:{page}",
+                )
+            ],
+        ]
+    )
+
+def format_admin_escalated_ticket(
+    ticket,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    category = t(
+        f"support_category_{ticket.category or 'other'}",
+        language,
+    )
+    status = t(
+        f"support_status_{ticket.status}",
+        language,
+    )
+    user_number = f"user-{ticket.user_id.hex[:8]}"
+    ticket_number = str(ticket.id).split("-", 1)[0]
+    updated_at = (
+        ticket.updated_at.strftime("%Y-%m-%d %H:%M")
+        if ticket.updated_at
+        else "-"
+    )
+
+    return t(
+        "admin_escalated_ticket_card",
+        language,
+    ).format(
+        number=number,
+        ticket_number=ticket_number,
+        user_number=user_number,
+        category=category,
+        priority=ticket.priority,
+        status=status,
+        updated_at=updated_at,
+    )
+
+
+def admin_escalated_ticket_item_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_user_open_btn", language),
+                    callback_data=(
+                        f"ADM_ADMIN_SUPPORT_OPEN:{index}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+
+def admin_escalated_tickets_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+    navigation = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"ADM_ADMIN_SUPPORT:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"ADM_ADMIN_SUPPORT:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 def format_support_staff_ticket_card(
     ticket,
     *,
@@ -2078,6 +2527,544 @@ def format_portfolio_moderation_card(
         caption=caption[:500],
     )
 
+def admin_specialist_card_keyboard(
+    *,
+    index: int,
+    status: str,
+    page: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    if status == "pending_moderation":
+        rows.extend(
+            [
+                [
+                    InlineKeyboardButton(
+                        text=t("admin_approve", language),
+                        callback_data=f"ADM_SP_APPROVE:{index}",
+                    ),
+                    InlineKeyboardButton(
+                        text=t("admin_reject", language),
+                        callback_data=f"ADM_SP_REJECT:{index}",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_request_changes_btn",
+                            language,
+                        ),
+                        callback_data=f"ADM_SP_CHANGES:{index}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_scoped_blacklist_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"ADM_SP_SCOPED_BLOCK:{index}"
+                        ),
+                    )
+                ],
+            ]
+        )
+    else:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_specialist_read_only_btn",
+                        language,
+                    ),
+                    callback_data="ADMIN_SPECIALIST_READ_ONLY",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data=(
+                    f"ADM_ADMIN_SPECIALISTS:{status}:{page}"
+                ),
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def format_admin_specialist_item(
+    item,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    city = (
+        item.city_name
+        or t("admin_specialist_city_not_set", language)
+    )
+    created_at = (
+        item.created_at.strftime("%Y-%m-%d")
+        if item.created_at
+        else "-"
+    )
+
+    return t("admin_specialist_item", language).format(
+        number=number,
+        name=item.display_name,
+        profession=item.profession_name,
+        city=city,
+        status=item.status,
+        date=created_at,
+    )
+
+
+def admin_specialist_item_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_user_open_btn", language),
+                    callback_data=(
+                        f"ADM_ADMIN_SPECIALIST_OPEN:{index}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+
+def admin_specialists_keyboard(
+    *,
+    status: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_specialist_filter_btn", language),
+                callback_data="ADM_ADMIN_SPECIALIST_FILTER",
+            )
+        ]
+    ]
+
+    navigation = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"ADM_ADMIN_SPECIALISTS:{status}:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"ADM_ADMIN_SPECIALISTS:{status}:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_specialist_filter_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    statuses = (
+        ("all", "admin_specialist_filter_all"),
+        ("active", "admin_specialist_filter_active"),
+        (
+            "pending_moderation",
+            "admin_specialist_filter_pending",
+        ),
+        ("draft", "admin_specialist_filter_draft"),
+        ("paused", "admin_specialist_filter_paused"),
+        ("rejected", "admin_specialist_filter_rejected"),
+        ("blocked", "admin_specialist_filter_blocked"),
+        ("deleted", "admin_specialist_filter_deleted"),
+    )
+
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t(text_key, language),
+                callback_data=(
+                    f"ADM_ADMIN_SPECIALISTS:{status}:0"
+                ),
+            )
+        ]
+        for status, text_key in statuses
+    ]
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("admin_panel_back", language),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def format_admin_user_history_item(
+    card: AdminUserHistoryCard,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    return t(
+        "admin_user_history_item",
+        language,
+    ).format(
+        number=number,
+        date=card.date,
+        actor=card.actor,
+        action=card.action,
+        reason=card.reason,
+        source=card.source,
+    )
+
+
+def admin_user_history_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_user_back_to_card_btn",
+                        language,
+                    ),
+                    callback_data=f"ADM_USER_VIEW:{index}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_USERS",
+                )
+            ],
+        ]
+    )
+
+def format_admin_user_roles(
+    card: AdminUserDetailsCard,
+    language: str,
+) -> str:
+    roles = (
+        "\n".join(
+            f"- {role}"
+            for role in card.roles
+        )
+        if card.roles
+        else t("admin_user_no_roles", language)
+    )
+
+    return t("admin_user_roles_text", language).format(
+        user_number=card.user_number,
+        roles=roles,
+    )
+
+
+def admin_user_roles_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_user_back_to_card_btn",
+                        language,
+                    ),
+                    callback_data=f"ADM_USER_VIEW:{index}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_USERS",
+                )
+            ],
+        ]
+    )
+
+def format_admin_user_details(
+    card: AdminUserDetailsCard,
+    language: str,
+) -> str:
+    roles = (
+        ", ".join(card.roles)
+        if card.roles
+        else t("admin_user_no_roles", language)
+    )
+
+    blacklist = (
+        t("admin_user_global_blocked", language)
+        if card.is_global_blacklisted
+        else t("admin_user_not_global_blocked", language)
+    )
+
+    return t("admin_user_details", language).format(
+        user_number=card.user_number,
+        display_name=card.display_name,
+        username=card.username,
+        roles=roles,
+        status=card.status,
+        last_seen=card.last_seen,
+        complaints=card.complaints_count,
+        blacklist=blacklist,
+    )
+
+
+def admin_user_details_keyboard(
+    *,
+    index: int,
+    is_global_blacklisted: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_user_roles_btn", language),
+                callback_data=f"ADM_USER_ROLES:{index}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_user_history_btn", language),
+                callback_data=f"ADM_USER_HISTORY:{index}",
+            )
+        ],
+    ]
+
+    if is_global_blacklisted:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_user_global_unblock_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        f"ADM_USER_GLOBAL_UNBLOCK:{index}"
+                    ),
+                )
+            ]
+        )
+    else:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_user_global_block_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        f"ADM_USER_GLOBAL_BLOCK:{index}"
+                    ),
+                )
+            ]
+        )
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_USERS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="ADM_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def format_admin_user_search_card(
+    card: AdminUserSearchCard,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    return t("admin_user_search_card", language).format(
+        number=number,
+        user_number=card.user_number,
+        telegram_id=card.telegram_id,
+        username=card.username,
+        display_name=card.display_name,
+        status=card.status,
+    )
+
+
+def admin_user_search_result_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_user_open_btn", language),
+                    callback_data=f"ADM_USER_VIEW:{index}",
+                )
+            ]
+        ]
+    )
+
+
+def admin_user_search_actions_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_user_search_again_btn", language),
+                    callback_data="ADM_USERS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_PANEL",
+                )
+            ],
+        ]
+    )
+
+def format_admin_menu(
+    summary: AdminMenuSummary,
+    language: str,
+) -> str:
+    return t("admin_menu_text", language).format(
+        users=summary.users,
+        specialists=summary.specialists,
+        tickets=summary.tickets,
+        complaints=summary.complaints,
+        blacklist=summary.blacklist,
+        audit_alerts=summary.audit_alerts,
+    )
+
+
+def minimal_admin_menu_keyboard(
+    summary: AdminMenuSummary,
+    language: str,
+    *,
+    show_role_switch: bool,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_users_btn", language).format(
+                    count=summary.users,
+                ),
+                callback_data="ADM_USERS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_specialists_btn", language).format(
+                    count=summary.specialists,
+                ),
+                callback_data="ADM_ADMIN_SPECIALISTS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_support_btn", language).format(
+                    count=summary.tickets,
+                ),
+                callback_data="ADM_ADMIN_SUPPORT",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_moderation_btn", language).format(
+                    count=summary.complaints,
+                ),
+                callback_data="ADM_MODERATION_MENU",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_global_blacklist_btn", language).format(
+                    count=summary.blacklist,
+                ),
+                callback_data="ADM_GLOBAL_BLACKLIST",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_audit_btn", language).format(
+                    count=summary.audit_alerts,
+                ),
+                callback_data="ADM_LOGS",
+            )
+        ],
+    ]
+
+    if show_role_switch:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("switch_profile", language),
+                    callback_data="ROLE_SWITCH_MENU",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="ADM_MENU",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 def format_moderator_menu(summary, language: str) -> str:
     return t("moderator_menu_text", language).format(
         profiles=summary.profiles,
@@ -2093,6 +3080,7 @@ def moderator_menu_keyboard(
     language: str,
     *,
     show_role_switch: bool,
+    back_callback: str = "ADM_MENU",
 ) -> InlineKeyboardMarkup:
     rows = [
         [
@@ -2150,8 +3138,8 @@ def moderator_menu_keyboard(
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("search_menu", language),
-                callback_data="ADM_MENU",
+                text=t("moderator_back_btn", language),
+                callback_data=back_callback,
             )
         ]
     )
@@ -2185,6 +3173,54 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
         role_context and len(role_context.available_roles) > 1
     )
     active_role = role_context.active_role if role_context else None
+
+    if active_role in {"admin", "super_admin"}:
+        if (
+            not tenant_id
+            or not roles.intersection({"admin", "super_admin"})
+        ):
+            if isinstance(message_or_callback, CallbackQuery):
+                await message_or_callback.answer(
+                    t("admin_access_denied", language),
+                    show_alert=True,
+                )
+            else:
+                await message_or_callback.answer(
+                    t("admin_access_denied", language)
+                )
+            return
+
+        try:
+            async with get_session() as session:
+                summary = await ModerationService(
+                    ModerationRepository(session)
+                ).open_admin_menu(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                )
+        except ModerationError as exc:
+            if isinstance(message_or_callback, CallbackQuery):
+                await message_or_callback.answer(
+                    str(exc),
+                    show_alert=True,
+                )
+            else:
+                await message_or_callback.answer(str(exc))
+            return
+
+        await target_message.answer(
+            format_admin_menu(summary, language),
+            reply_markup=minimal_admin_menu_keyboard(
+                summary,
+                language,
+                show_role_switch=show_role_switch,
+            ),
+        )
+
+        if isinstance(message_or_callback, CallbackQuery):
+            await message_or_callback.answer()
+
+        return
 
     if active_role == "support":
         if not tenant_id or "support" not in roles:
@@ -2321,6 +3357,1262 @@ async def admin_command(message: Message, state: FSMContext):
 async def admin_panel_callback(callback: CallbackQuery, state: FSMContext):
     await show_admin_panel(callback, state)
 
+@admin_router.callback_query(
+    F.data == "ADM_MODERATION_MENU"
+)
+async def open_admin_moderation_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            {"admin", "super_admin"}
+        )
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            summary = await ModerationService(
+                ModerationRepository(session)
+            ).open_moderator_menu(
+                moderator_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.clear()
+
+    await callback.message.answer(
+        format_moderator_menu(
+            summary,
+            language,
+        ),
+        reply_markup=moderator_menu_keyboard(
+            summary,
+            language,
+            show_role_switch=False,
+            back_callback="ADM_PANEL",
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_USERS")
+async def ask_admin_user_search(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.clear()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_user_search
+    )
+
+    await callback.message.answer(
+        t("admin_user_search_prompt", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("admin_panel_back", language),
+                        callback_data="ADM_PANEL",
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.message(
+    AdminModerationFSM.entering_admin_user_search
+)
+async def receive_admin_user_search(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    query = (message.text or "").strip()
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(message.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_access_denied", language)
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            cards = await ModerationService(
+                ModerationRepository(session)
+            ).search_admin_users(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                query=query,
+            )
+    except ModerationError as exc:
+        await message.answer(
+            t("admin_user_search_error", language).format(
+                error=str(exc),
+            )
+        )
+        return
+
+    await state.set_state(None)
+
+    if not cards:
+        await state.update_data(
+            admin_user_search_ids=[],
+        )
+        await message.answer(
+            t("admin_user_search_empty", language),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
+        )
+        return
+
+    await state.update_data(
+        admin_user_search_ids=[
+            str(card.user_id)
+            for card in cards
+        ],
+    )
+
+    await message.answer(
+        t("admin_user_search_results", language).format(
+            count=len(cards),
+        )
+    )
+
+    for index, card in enumerate(cards):
+        await message.answer(
+            format_admin_user_search_card(
+                card,
+                number=index + 1,
+                language=language,
+            ),
+            reply_markup=admin_user_search_result_keyboard(
+                index=index,
+                language=language,
+            ),
+        )
+
+    await message.answer(
+        t("admin_user_search_actions", language),
+        reply_markup=admin_user_search_actions_keyboard(
+            language
+        ),
+    )
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_USER_VIEW:")
+)
+async def open_admin_user_details(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if index < 0 or index >= len(user_ids):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_admin_user_details(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_user_selected_index=index,
+    )
+
+    await callback.message.answer(
+        format_admin_user_details(card, language),
+        reply_markup=admin_user_details_keyboard(
+            index=index,
+            is_global_blacklisted=(
+                card.is_global_blacklisted
+            ),
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_USER_GLOBAL_UNBLOCK:")
+)
+async def ask_admin_user_global_unblock_reason(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if index < 0 or index >= len(user_ids):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_user_global_unblock_index=index,
+        admin_user_global_unblock_reason=None,
+    )
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_user_global_unblock_reason
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_user_global_unblock_reason_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_UNBLOCK_CANCEL:{index}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.message(
+    AdminModerationFSM
+    .entering_admin_user_global_unblock_reason
+)
+async def receive_admin_user_global_unblock_reason(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    reason = (message.text or "").strip()
+
+    if len(reason) < 3:
+        await message.answer(
+            t("admin_reason_too_short", language)
+        )
+        return
+
+    data = await state.get_data()
+    index = data.get("admin_user_global_unblock_index")
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if (
+        not isinstance(index, int)
+        or index < 0
+        or index >= len(user_ids)
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_user_not_found", language)
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await state.clear()
+        await message.answer(
+            t("admin_user_not_found", language)
+        )
+        return
+
+    await state.update_data(
+        admin_user_global_unblock_reason=reason,
+    )
+    await state.set_state(
+        AdminModerationFSM
+        .confirming_admin_user_global_unblock
+    )
+
+    await message.answer(
+        t(
+            "admin_user_global_unblock_confirmation",
+            language,
+        ).format(
+            user_number=f"user-{target_user_id.hex[:8]}",
+            reason=reason,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_global_unblock_confirm_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_USER_GLOBAL_UNBLOCK_CONFIRM"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_change_reason_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_UNBLOCK:{index}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_UNBLOCK_CANCEL:{index}"
+                        ),
+                    )
+                ],
+            ]
+        ),
+    )
+
+@admin_router.callback_query(
+    AdminModerationFSM
+    .confirming_admin_user_global_unblock,
+    F.data == "ADM_USER_GLOBAL_UNBLOCK_CONFIRM",
+)
+async def confirm_admin_user_global_unblock_first(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    index = data.get("admin_user_global_unblock_index")
+    reason = data.get("admin_user_global_unblock_reason")
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if (
+        not isinstance(index, int)
+        or index < 0
+        or index >= len(user_ids)
+        or not reason
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        AdminModerationFSM
+        .confirming_admin_user_global_unblock_final
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_user_global_unblock_final_confirmation",
+            language,
+        ).format(
+            user_number=f"user-{target_user_id.hex[:8]}",
+            reason=reason,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_global_unblock_final_confirm_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_USER_GLOBAL_UNBLOCK_FINAL_CONFIRM"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_change_reason_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_UNBLOCK:{index}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_UNBLOCK_CANCEL:{index}"
+                        ),
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    AdminModerationFSM
+    .confirming_admin_user_global_unblock_final,
+    F.data == "ADM_USER_GLOBAL_UNBLOCK_FINAL_CONFIRM",
+)
+async def execute_admin_user_global_unblock(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    index = data.get("admin_user_global_unblock_index")
+    reason = data.get("admin_user_global_unblock_reason")
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if (
+        not isinstance(index, int)
+        or index < 0
+        or index >= len(user_ids)
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).unblock_user(
+                admin_user_id=admin_user_id,
+                user_id=target_user_id,
+                reason=reason,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(None)
+    await state.update_data(
+        admin_user_global_unblock_reason=None,
+        admin_user_global_unblock_index=None,
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_user_global_unblock_completed",
+            language,
+        ).format(status=result.status),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_back_to_card_btn",
+                            language,
+                        ),
+                        callback_data=f"ADM_USER_VIEW:{index}",
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_USER_GLOBAL_UNBLOCK_CANCEL:")
+)
+async def cancel_admin_user_global_unblock(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(callback.data.rsplit(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        index = 0
+
+    await state.set_state(None)
+    await state.update_data(
+        admin_user_global_unblock_reason=None,
+        admin_user_global_unblock_index=None,
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_user_global_unblock_cancelled",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_back_to_card_btn",
+                            language,
+                        ),
+                        callback_data=f"ADM_USER_VIEW:{index}",
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_USER_GLOBAL_BLOCK:")
+)
+async def ask_admin_user_global_block_reason(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if index < 0 or index >= len(user_ids):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_user_global_block_index=index,
+        admin_user_global_block_reason=None,
+    )
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_user_global_block_reason
+    )
+
+    await callback.message.answer(
+        t("admin_user_global_block_reason_prompt", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_BLOCK_CANCEL:{index}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.message(
+    AdminModerationFSM
+    .entering_admin_user_global_block_reason
+)
+async def receive_admin_user_global_block_reason(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    reason = (message.text or "").strip()
+
+    if len(reason) < 3:
+        await message.answer(
+            t("admin_reason_too_short", language)
+        )
+        return
+
+    data = await state.get_data()
+    index = data.get("admin_user_global_block_index")
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if (
+        not isinstance(index, int)
+        or index < 0
+        or index >= len(user_ids)
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_user_not_found", language)
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await state.clear()
+        await message.answer(
+            t("admin_user_not_found", language)
+        )
+        return
+
+    await state.update_data(
+        admin_user_global_block_reason=reason,
+    )
+    await state.set_state(
+        AdminModerationFSM.confirming_admin_user_global_block
+    )
+
+    await message.answer(
+        t("admin_user_global_block_confirmation", language).format(
+            user_number=f"user-{target_user_id.hex[:8]}",
+            reason=reason,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_global_block_confirm_btn",
+                            language,
+                        ),
+                        callback_data="ADM_USER_GLOBAL_BLOCK_CONFIRM",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_change_reason_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_BLOCK:{index}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_BLOCK_CANCEL:{index}"
+                        ),
+                    )
+                ],
+            ]
+        ),
+    )
+
+@admin_router.callback_query(
+    AdminModerationFSM.confirming_admin_user_global_block,
+    F.data == "ADM_USER_GLOBAL_BLOCK_CONFIRM",
+)
+async def confirm_admin_user_global_block_first(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    index = data.get("admin_user_global_block_index")
+    reason = data.get("admin_user_global_block_reason")
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if (
+        not isinstance(index, int)
+        or index < 0
+        or index >= len(user_ids)
+        or not reason
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        AdminModerationFSM
+        .confirming_admin_user_global_block_final
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_user_global_block_final_confirmation",
+            language,
+        ).format(
+            user_number=f"user-{target_user_id.hex[:8]}",
+            reason=reason,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_global_block_final_confirm_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_USER_GLOBAL_BLOCK_FINAL_CONFIRM"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_change_reason_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_BLOCK:{index}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data=(
+                            f"ADM_USER_GLOBAL_BLOCK_CANCEL:{index}"
+                        ),
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    AdminModerationFSM.confirming_admin_user_global_block_final,
+    F.data == "ADM_USER_GLOBAL_BLOCK_FINAL_CONFIRM",
+)
+async def execute_admin_user_global_block(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    index = data.get("admin_user_global_block_index")
+    reason = data.get("admin_user_global_block_reason")
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if (
+        not isinstance(index, int)
+        or index < 0
+        or index >= len(user_ids)
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await state.clear()
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).block_user(
+                admin_user_id=admin_user_id,
+                user_id=target_user_id,
+                reason=reason,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(None)
+    await state.update_data(
+        admin_user_global_block_reason=None,
+    )
+
+    await callback.message.answer(
+        t("admin_user_global_block_completed", language).format(
+            status=result.status,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_back_to_card_btn",
+                            language,
+                        ),
+                        callback_data=f"ADM_USER_VIEW:{index}",
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_USER_GLOBAL_BLOCK_CANCEL:")
+)
+async def cancel_admin_user_global_block(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(callback.data.rsplit(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        index = 0
+
+    await state.set_state(None)
+    await state.update_data(
+        admin_user_global_block_reason=None,
+        admin_user_global_block_index=None,
+    )
+
+    await callback.message.answer(
+        t("admin_user_global_block_cancelled", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_back_to_card_btn",
+                            language,
+                        ),
+                        callback_data=f"ADM_USER_VIEW:{index}",
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_USER_ROLES:")
+)
+async def open_admin_user_roles(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if index < 0 or index >= len(user_ids):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_admin_user_details(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        format_admin_user_roles(card, language),
+        reply_markup=admin_user_roles_keyboard(
+            index=index,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_USER_HISTORY:")
+)
+async def open_admin_user_history(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get("admin_user_search_ids") or []
+
+    if index < 0 or index >= len(user_ids):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            history = await ModerationService(
+                ModerationRepository(session)
+            ).list_admin_user_history(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+                limit=10,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t("admin_user_history_title", language).format(
+            user_number=f"user-{target_user_id.hex[:8]}",
+            count=len(history),
+        )
+    )
+
+    if not history:
+        await callback.message.answer(
+            t("admin_user_history_empty", language),
+            reply_markup=admin_user_history_keyboard(
+                index=index,
+                language=language,
+            ),
+        )
+        await callback.answer()
+        return
+
+    for number, card in enumerate(history, start=1):
+        await callback.message.answer(
+            format_admin_user_history_item(
+                card,
+                number=number,
+                language=language,
+            )
+        )
+
+    await callback.message.answer(
+        t("admin_user_history_actions", language),
+        reply_markup=admin_user_history_keyboard(
+            index=index,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
 @admin_router.callback_query(F.data == "ADM_ROLES")
 async def admin_roles_panel(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
@@ -2338,54 +4630,669 @@ async def admin_roles_panel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_LOGS")
-async def admin_logs_panel(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
-    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+async def admin_audit_panel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await open_admin_audit_queue(
+        callback,
+        state,
+        target_type="all",
+        page=0,
+    )
 
-    async with get_session() as session:
-        role_context = await UserService(session).get_role_switch_context(callback.from_user.id)
-        active_role = role_context.active_role if role_context else None
 
-    if (
-        active_role == "support"
-        or not admin_user_id
-        or not roles.intersection(ADMIN_LOG_MENU_ROLES)
-    ):
-        await callback.answer(t("admin_access_denied", language), show_alert=True)
+@admin_router.callback_query(
+    F.data.startswith("ADM_AUDIT_QUEUE:")
+)
+async def change_admin_audit_queue(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    parts = (callback.data or "").split(":")
+
+    if len(parts) != 3:
+        await callback.answer()
         return
 
-    include_admin_actions = bool(roles.intersection({"super_admin", "admin"}))
+    target_type = parts[1]
+
+    try:
+        page = max(0, int(parts[2]))
+    except ValueError:
+        page = 0
+
+    await open_admin_audit_queue(
+        callback,
+        state,
+        target_type=target_type,
+        page=page,
+    )
+
+
+@admin_router.callback_query(
+    F.data == "ADM_AUDIT_FILTER"
+)
+async def open_admin_audit_filter(
+    callback: CallbackQuery,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            {"admin", "super_admin"}
+        )
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t("admin_audit_filter_title", language),
+        reply_markup=admin_audit_filter_keyboard(language),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_AUDIT_OPEN:")
+)
+async def open_admin_audit_details(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int((callback.data or "").rsplit(":", 1)[1])
+    except (ValueError, IndexError):
+        await callback.answer(
+            t("admin_audit_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    action_ids = data.get("admin_audit_action_ids") or []
+    target_type = data.get("admin_audit_target_type") or "all"
+    page = int(data.get("admin_audit_page") or 0)
+
+    if index < 0 or index >= len(action_ids):
+        await callback.answer(
+            t("admin_audit_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        action_id = UUID(action_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_audit_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            {"admin", "super_admin"}
+        )
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
 
     try:
         async with get_session() as session:
-            service = ModerationService(ModerationRepository(session))
-            events = await service.list_recent_event_logs(
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_admin_audit_card(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
-                limit=5,
+                action_id=action_id,
             )
-            admin_actions = []
-            if include_admin_actions:
-                admin_actions = await service.list_recent_admin_actions(
-                    admin_user_id=admin_user_id,
-                    tenant_id=tenant_id,
-                    limit=5,
-                )
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
-    await state.clear()
     await callback.message.answer(
-        format_logs_message(
-            admin_actions=admin_actions,
-            events=events,
-            include_admin_actions=include_admin_actions,
+        t("admin_audit_details", language).format(
+            date=card.date,
+            actor=card.actor,
+            action=card.action,
+            target=card.target,
+            target_type=card.target_type,
+            reason=card.reason,
+            source=card.source,
+        ),
+        reply_markup=admin_audit_details_keyboard(
+            target_type=target_type,
+            page=page,
             language=language,
         ),
-        reply_markup=admin_panel_keyboard(language, roles),
     )
     await callback.answer()
+
+async def open_admin_audit_queue(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    target_type: str,
+    page: int,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            {"admin", "super_admin"}
+        )
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_audit(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_type=target_type,
+                page=page,
+                page_size=ADMIN_AUDIT_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_audit_action_ids=[
+            str(card.action_id)
+            for card in result.items
+        ],
+        admin_audit_target_type=result.target_type,
+        admin_audit_page=result.page,
+    )
+
+    await callback.message.answer(
+        t("admin_audit_queue_title", language).format(
+            filter=result.target_type,
+            page=result.page + 1,
+            count=len(result.items),
+        )
+    )
+
+    if not result.items:
+        await callback.message.answer(
+            t("admin_audit_empty", language),
+            reply_markup=admin_audit_queue_keyboard(
+                target_type=result.target_type,
+                page=result.page,
+                has_next=False,
+                language=language,
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = (
+        result.page * ADMIN_AUDIT_PAGE_SIZE + 1
+    )
+
+    for offset, card in enumerate(result.items):
+        await callback.message.answer(
+            format_admin_audit_card(
+                card,
+                number=start_number + offset,
+                language=language,
+            ),
+            reply_markup=admin_audit_card_keyboard(
+                index=offset,
+                language=language,
+            ),
+        )
+
+    await callback.message.answer(
+        t("admin_audit_actions_title", language),
+        reply_markup=admin_audit_queue_keyboard(
+            target_type=result.target_type,
+            page=result.page,
+            has_next=result.has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    (F.data == "ADM_ADMIN_SUPPORT")
+    | F.data.startswith("ADM_ADMIN_SUPPORT:")
+)
+async def open_admin_escalated_tickets(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    page = 0
+
+    if callback.data != "ADM_ADMIN_SUPPORT":
+        try:
+            page = max(
+                int(callback.data.split(":", 1)[1]),
+                0,
+            )
+        except (TypeError, ValueError, IndexError):
+            await callback.answer(
+                t("admin_item_not_found", language),
+                show_alert=True,
+            )
+            return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            ticket_page = await SupportService(
+                SupportRepository(session)
+            ).list_admin_escalated_tickets(
+                tenant_id=tenant_id,
+                admin_user_id=admin_user_id,
+                page=page,
+                page_size=(
+                    ADMIN_ESCALATED_TICKET_PAGE_SIZE
+                ),
+            )
+    except SupportServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_support_ticket_ids=[
+            str(ticket.id)
+            for ticket in ticket_page.tickets
+        ],
+        admin_support_view="admin_escalated",
+        admin_support_page=ticket_page.page,
+    )
+
+    await callback.message.answer(
+        t("admin_escalated_tickets_header", language).format(
+            page=ticket_page.page + 1,
+            count=len(ticket_page.tickets),
+        )
+    )
+
+    if not ticket_page.tickets:
+        await callback.message.answer(
+            t("admin_escalated_tickets_empty", language),
+            reply_markup=admin_escalated_tickets_keyboard(
+                page=ticket_page.page,
+                has_next=False,
+                language=language,
+            ),
+        )
+        await callback.answer()
+        return
+
+    for index, ticket in enumerate(ticket_page.tickets):
+        number = (
+            ticket_page.page
+            * ADMIN_ESCALATED_TICKET_PAGE_SIZE
+            + index
+            + 1
+        )
+
+        await callback.message.answer(
+            format_admin_escalated_ticket(
+                ticket,
+                number=number,
+                language=language,
+            ),
+            reply_markup=(
+                admin_escalated_ticket_item_keyboard(
+                    index=index,
+                    language=language,
+                )
+            ),
+        )
+
+    await callback.message.answer(
+        t("admin_escalated_tickets_actions", language),
+        reply_markup=admin_escalated_tickets_keyboard(
+            page=ticket_page.page,
+            has_next=ticket_page.has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_ADMIN_SUPPORT_OPEN:")
+)
+async def open_admin_escalated_ticket_card(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    ticket_ids = data.get("admin_support_ticket_ids") or []
+    page = int(data.get("admin_support_page") or 0)
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if index < 0 or index >= len(ticket_ids):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            view = await SupportService(
+                SupportRepository(session)
+            ).get_admin_escalated_ticket_view(
+                tenant_id=tenant_id,
+                admin_user_id=admin_user_id,
+                ticket_id=UUID(ticket_ids[index]),
+            )
+    except (ValueError, SupportServiceError) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        format_support_ticket_card(
+            view,
+            index=index,
+            total=len(ticket_ids),
+            language=language,
+        ),
+        reply_markup=admin_escalated_ticket_card_keyboard(
+            index=index,
+            page=page,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_ADMIN_TICKET_ACTION:")
+)
+async def ask_admin_ticket_action_reason(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    parts = (callback.data or "").split(":")
+
+    if len(parts) != 3 or parts[1] not in {
+        "assign",
+        "resolve",
+    }:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    action = parts[1]
+
+    try:
+        index = int(parts[2])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    ticket_ids = data.get("admin_support_ticket_ids") or []
+
+    if index < 0 or index >= len(ticket_ids):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_ticket_action=action,
+        admin_ticket_action_index=index,
+        admin_ticket_action_id=ticket_ids[index],
+    )
+    await state.set_state(
+        AdminModerationFSM.entering_admin_ticket_action_reason
+    )
+
+    await callback.message.answer(
+        t("admin_ticket_action_reason_prompt", language).format(
+            action=t(
+                f"admin_ticket_action_{action}",
+                language,
+            ),
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data=(
+                            f"ADM_ADMIN_SUPPORT_OPEN:{index}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.message(
+    AdminModerationFSM.entering_admin_ticket_action_reason
+)
+async def execute_admin_ticket_action(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    reason = (message.text or "").strip()
+
+    if len(reason) < 3:
+        await message.answer(
+            t("admin_reason_too_short", language)
+        )
+        return
+
+    data = await state.get_data()
+    action = data.get("admin_ticket_action")
+    ticket_id = data.get("admin_ticket_action_id")
+    index = int(data.get("admin_ticket_action_index") or 0)
+    page = int(data.get("admin_support_page") or 0)
+
+    if (
+        action not in {"assign", "resolve"}
+        or not ticket_id
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_item_not_found", language)
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(message.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_access_denied", language)
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            service = SupportService(
+                SupportRepository(session)
+            )
+
+            if action == "assign":
+                ticket = (
+                    await service
+                    .assign_admin_escalated_ticket(
+                        tenant_id=tenant_id,
+                        admin_user_id=admin_user_id,
+                        ticket_id=UUID(ticket_id),
+                        reason=reason,
+                    )
+                )
+            else:
+                ticket = (
+                    await service
+                    .resolve_admin_escalated_ticket(
+                        tenant_id=tenant_id,
+                        admin_user_id=admin_user_id,
+                        ticket_id=UUID(ticket_id),
+                        reason=reason,
+                    )
+                )
+    except (ValueError, SupportServiceError) as exc:
+        await message.answer(
+            t("support_error", language).format(
+                error=str(exc),
+            )
+        )
+        return
+
+    await state.set_state(None)
+    await state.update_data(
+        admin_ticket_action=None,
+        admin_ticket_action_id=None,
+        admin_ticket_action_index=None,
+    )
+
+    await message.answer(
+        t("admin_ticket_action_completed", language).format(
+            action=t(
+                f"admin_ticket_action_{action}",
+                language,
+            ),
+            status=t(
+                f"support_status_{ticket.status}",
+                language,
+            ),
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("admin_panel_back", language),
+                        callback_data=(
+                            f"ADM_ADMIN_SUPPORT:{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 @admin_router.callback_query(F.data == "ADM_SUPPORT")
 async def open_support_staff_menu(callback: CallbackQuery, state: FSMContext):
@@ -3248,6 +6155,281 @@ async def receive_role_revoke(message: Message, state: FSMContext):
 @admin_router.callback_query(F.data == "ADM_MENU")
 async def admin_to_menu(callback: CallbackQuery, state: FSMContext):
     await send_global_main_menu(callback, state)
+
+@admin_router.callback_query(
+    (F.data == "ADM_ADMIN_SPECIALISTS")
+    | F.data.startswith("ADM_ADMIN_SPECIALISTS:")
+)
+async def open_admin_specialists_list(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    status = "active"
+    page = 0
+
+    if callback.data != "ADM_ADMIN_SPECIALISTS":
+        parts = (callback.data or "").split(":")
+
+        if len(parts) != 3:
+            await callback.answer(
+                t("admin_item_not_found", language),
+                show_alert=True,
+            )
+            return
+
+        status = parts[1]
+
+        try:
+            page = max(int(parts[2]), 0)
+        except (TypeError, ValueError):
+            await callback.answer(
+                t("admin_item_not_found", language),
+                show_alert=True,
+            )
+            return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            specialist_page = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_specialists(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                status=status,
+                page=page,
+                page_size=ADMIN_SPECIALIST_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_specialist_ids=[
+            str(item.specialist_id)
+            for item in specialist_page.items
+        ],
+        admin_specialist_status=specialist_page.status,
+        admin_specialist_page=specialist_page.page,
+    )
+
+    await callback.message.answer(
+        t("admin_specialists_header", language).format(
+            status=specialist_page.status,
+            page=specialist_page.page + 1,
+            count=len(specialist_page.items),
+        )
+    )
+
+    if not specialist_page.items:
+        await callback.message.answer(
+            t("admin_specialists_empty", language),
+            reply_markup=admin_specialists_keyboard(
+                status=specialist_page.status,
+                page=specialist_page.page,
+                has_next=False,
+                language=language,
+            ),
+        )
+        await callback.answer()
+        return
+
+    for index, item in enumerate(specialist_page.items):
+        number = (
+            specialist_page.page
+            * ADMIN_SPECIALIST_PAGE_SIZE
+            + index
+            + 1
+        )
+
+        await callback.message.answer(
+            format_admin_specialist_item(
+                item,
+                number=number,
+                language=language,
+            ),
+            reply_markup=admin_specialist_item_keyboard(
+                index=index,
+                language=language,
+            ),
+        )
+
+    await callback.message.answer(
+        t("admin_specialists_actions", language),
+        reply_markup=admin_specialists_keyboard(
+            status=specialist_page.status,
+            page=specialist_page.page,
+            has_next=specialist_page.has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_ADMIN_SPECIALIST_OPEN:")
+)
+async def open_admin_specialist_card(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    specialist_ids = data.get("admin_specialist_ids") or []
+    status = (
+        data.get("admin_specialist_status")
+        or "active"
+    )
+    page = int(
+        data.get("admin_specialist_page") or 0
+    )
+
+    try:
+        index = int(callback.data.split(":", 1)[1])
+    except (TypeError, ValueError, IndexError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if index < 0 or index >= len(specialist_ids):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        specialist_id = UUID(specialist_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_moderator_specialist_card(
+                moderator_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    # Existing moderation handlers use this FSM key.
+    await state.update_data(
+        admin_pending_specialist_ids=specialist_ids,
+        admin_pending_specialist_page=page,
+    )
+
+    await callback.message.answer(
+        format_pending_specialist_card(
+            card,
+            language=language,
+        ),
+        reply_markup=admin_specialist_card_keyboard(
+            index=index,
+            status=card.status,
+            page=page,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data == "ADMIN_SPECIALIST_READ_ONLY"
+)
+async def admin_specialist_read_only(
+    callback: CallbackQuery,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await callback.answer(
+        t("admin_specialist_read_only_notice", language),
+        show_alert=True,
+    )
+
+@admin_router.callback_query(
+    F.data == "ADM_ADMIN_SPECIALIST_FILTER"
+)
+async def open_admin_specialist_filter(
+    callback: CallbackQuery,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection({"admin", "super_admin"})
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t("admin_specialist_filter_title", language),
+        reply_markup=admin_specialist_filter_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
 
 @admin_router.callback_query(
     (F.data == "ADM_PENDING")
@@ -4374,6 +7556,188 @@ async def confirm_specialist_scoped_block(
                     )
                 ]
             ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data == "ADM_GLOBAL_BLACKLIST"
+)
+async def open_active_global_blacklist(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await open_global_blacklist_queue(
+        callback,
+        state,
+        view="active",
+        page=0,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_GBL_QUEUE:")
+)
+async def change_global_blacklist_queue(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    parts = (callback.data or "").split(":")
+
+    if len(parts) != 3:
+        await callback.answer()
+        return
+
+    view = parts[1]
+
+    if view not in {"active", "history"}:
+        view = "active"
+
+    try:
+        page = max(0, int(parts[2]))
+    except ValueError:
+        page = 0
+
+    await open_global_blacklist_queue(
+        callback,
+        state,
+        view=view,
+        page=page,
+    )
+
+
+async def open_global_blacklist_queue(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    view: str,
+    page: int,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            ADMIN_GLOBAL_BLACKLIST_ROLES
+        )
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).open_global_blacklist_queue(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                view=view,
+                page=page,
+                page_size=ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_global_blacklist_ids=[
+            str(card.blacklist_id)
+            for card in result.items
+        ],
+        admin_user_search_ids=[
+            str(card.user_id)
+            for card in result.items
+        ],
+        admin_global_blacklist_user_ids=[
+            str(card.user_id)
+            for card in result.items
+        ],
+        admin_global_blacklist_can_revoke=[
+            card.can_revoke
+            for card in result.items
+        ],
+        admin_global_blacklist_view=result.view,
+        admin_global_blacklist_page=result.page,
+    )
+
+    view_label = t(
+        (
+            "admin_global_blacklist_history_title"
+            if result.view == "history"
+            else "admin_global_blacklist_active_title"
+        ),
+        language,
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_global_blacklist_queue_title",
+            language,
+        ).format(
+            view=view_label,
+            count=len(result.items),
+        )
+    )
+
+    if not result.items:
+        await callback.message.answer(
+            t("admin_global_blacklist_empty", language),
+            reply_markup=global_blacklist_queue_keyboard(
+                view=result.view,
+                page=result.page,
+                has_next=False,
+                language=language,
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = (
+        result.page * ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE
+        + 1
+    )
+
+    for offset, card in enumerate(result.items):
+        await callback.message.answer(
+            format_global_blacklist_card(
+                card,
+                number=start_number + offset,
+                language=language,
+            ),
+            reply_markup=global_blacklist_card_keyboard(
+                index=offset,
+                can_revoke=card.can_revoke,
+                language=language,
+            ),
+        )
+
+    await callback.message.answer(
+        t(
+            "admin_global_blacklist_actions_title",
+            language,
+        ),
+        reply_markup=global_blacklist_queue_keyboard(
+            view=result.view,
+            page=result.page,
+            has_next=result.has_next,
+            language=language,
         ),
     )
     await callback.answer()

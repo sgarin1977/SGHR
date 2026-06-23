@@ -1470,3 +1470,272 @@ async def test_moderator_specialist_card_includes_open_risk_flags(
             db_session,
             moderator_platform_id,
         )
+
+@pytest.mark.asyncio
+async def test_admin_menu_returns_counts_and_writes_audit(
+    db_session,
+):
+    (
+        admin_platform_user_id,
+        admin_user_id,
+        tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        summary = await service.open_admin_menu(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+        )
+
+        assert summary.users >= 1
+        assert summary.specialists >= 0
+        assert summary.tickets >= 0
+        assert summary.complaints >= 0
+        assert summary.blacklist >= 0
+        assert summary.audit_alerts >= 0
+
+        event = (
+            await db_session.execute(
+                select(EventLog)
+                .where(
+                    EventLog.tenant_id == tenant_id,
+                    EventLog.user_id == admin_user_id,
+                    EventLog.event_type == "admin_menu",
+                    EventLog.entity_type == "admin_dashboard",
+                )
+                .order_by(EventLog.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+        assert event is not None
+        assert event.entity_id == admin_user_id
+        assert event.payload["counts"]["users"] >= 1
+
+    finally:
+        await cleanup_user(
+            db_session,
+            admin_platform_user_id,
+        )
+
+
+def test_minimal_admin_menu_matches_tz10_a1_contract():
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    service_source = open(
+        "services/moderation.py",
+        encoding="utf-8",
+    ).read()
+    handler_source = open(
+        "handlers/admin.py",
+        encoding="utf-8",
+    ).read()
+
+    assert "async def get_admin_menu_counts" in repository_source
+    assert "class AdminMenuSummary" in service_source
+    assert "async def open_admin_menu" in service_source
+    assert 'event_type="admin_menu"' in service_source
+
+    assert "def format_admin_menu" in handler_source
+    assert "def minimal_admin_menu_keyboard" in handler_source
+
+    for callback_data in (
+        "ADM_USERS",
+        "ADM_ADMIN_SPECIALISTS",
+        "ADM_ADMIN_SUPPORT",
+        "ADM_MODERATION_MENU",
+        "ADM_GLOBAL_BLACKLIST",
+        "ADM_LOGS",
+        "ROLE_SWITCH_MENU",
+    ):
+        assert f'callback_data="{callback_data}"' in handler_source
+
+@pytest.mark.asyncio
+async def test_admin_searches_user_by_supported_identifiers(
+    db_session,
+):
+    (
+        admin_platform_id,
+        admin_user_id,
+        tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    (
+        target_platform_id,
+        target_user_id,
+        target_tenant_id,
+    ) = await create_user_with_accepted_consents(
+        db_session
+    )
+
+    account = (
+        await db_session.execute(
+            select(UserAccount).where(
+                UserAccount.user_id == target_user_id,
+                UserAccount.platform == "telegram",
+            )
+        )
+    ).scalar_one()
+
+    account.username = f"a2user{uuid4().hex[:8]}"
+    account.first_name = "A2"
+    account.last_name = "Search User"
+    await db_session.commit()
+
+    service = ModerationService(
+        ModerationRepository(db_session)
+    )
+
+    try:
+        assert target_tenant_id == tenant_id
+
+        telegram_results = await service.search_admin_users(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            query=target_platform_id,
+        )
+
+        username_results = await service.search_admin_users(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            query=f"@{account.username}",
+        )
+
+        number_results = await service.search_admin_users(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            query=f"user-{target_user_id.hex[:8]}",
+        )
+
+        for results in (
+            telegram_results,
+            username_results,
+            number_results,
+        ):
+            assert len(results) == 1
+
+            card = results[0]
+
+            assert card.user_id == target_user_id
+            assert card.user_number == (
+                f"user-{target_user_id.hex[:8]}"
+            )
+            assert card.display_name == "A2 Search User"
+            assert card.status == "active"
+
+            assert target_platform_id not in card.telegram_id
+            assert card.telegram_id.endswith(
+                target_platform_id[-4:]
+            )
+
+            assert account.username not in card.username
+            assert card.username.startswith(
+                f"@{account.username[:3]}"
+            )
+
+        events = (
+            await db_session.execute(
+                select(EventLog).where(
+                    EventLog.tenant_id == tenant_id,
+                    EventLog.user_id == admin_user_id,
+                    EventLog.event_type == "user_search",
+                )
+            )
+        ).scalars().all()
+
+        assert len(events) >= 3
+
+        for event in events[-3:]:
+            assert event.payload["results_count"] == 1
+            assert "query" not in event.payload
+
+    finally:
+        await cleanup_user(
+            db_session,
+            target_platform_id,
+        )
+        await cleanup_user(
+            db_session,
+            admin_platform_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_moderator_cannot_use_admin_user_search(
+    db_session,
+):
+    (
+        moderator_platform_id,
+        moderator_user_id,
+        tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    try:
+        service = ModerationService(
+            ModerationRepository(db_session)
+        )
+
+        with pytest.raises(
+            ModerationError,
+            match="access",
+        ):
+            await service.search_admin_users(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                query=moderator_platform_id,
+            )
+
+    finally:
+        await cleanup_user(
+            db_session,
+            moderator_platform_id,
+        )
+
+
+def test_admin_user_search_matches_tz10_a2_contract():
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    service_source = open(
+        "services/moderation.py",
+        encoding="utf-8",
+    ).read()
+    handler_source = open(
+        "handlers/admin.py",
+        encoding="utf-8",
+    ).read()
+
+    assert "class AdminUserSearchRow" in repository_source
+    assert "async def search_admin_users" in repository_source
+    assert "UserAccount.platform_user_id" in repository_source
+    assert "UserAccount.username.ilike" in repository_source
+    assert "cast(User.id, String).ilike" in repository_source
+
+    assert "class AdminUserSearchCard" in service_source
+    assert 'event_type="user_search"' in service_source
+    assert "masked_telegram_id" in service_source
+    assert "masked_username" in service_source
+
+    assert (
+        "AdminModerationFSM.entering_admin_user_search"
+        in handler_source
+    )
+    assert 'F.data == "ADM_USERS"' in handler_source
+    assert 'callback_data=f"ADM_USER_VIEW:{index}"' in handler_source
+    assert "admin_user_search_ids" in handler_source

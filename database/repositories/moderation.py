@@ -1,7 +1,16 @@
 from uuid import UUID
 from dataclasses import dataclass
 from datetime import datetime
-from sqlalchemy import func, select
+from sqlalchemy import (
+    String,
+    and_,
+    cast,
+    func,
+    literal,
+    or_,
+    select,
+    union_all,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
@@ -11,6 +20,7 @@ from database.models import (
     EventLog,
     RiskFlag,
     Specialist,
+    SupportTicket,
     User,
     UserAccount,
     UserRoleMapping,
@@ -43,6 +53,44 @@ GRANTABLE_ADMIN_ROLES = {
 LOG_VIEW_ROLES = {"super_admin", "admin", "support"}
 FULL_LOG_VIEW_ROLES = {"super_admin", "admin"}
 COMPLAINT_OPEN_STATUSES = {"new", "in_review"}
+
+@dataclass(frozen=True)
+class AdminUserHistoryRow:
+    created_at: datetime
+    actor_user_id: UUID | None
+    action: str
+    reason: str | None
+    source: str
+
+@dataclass(frozen=True)
+class AdminUserDetailsRow:
+    user_id: UUID
+    username: str | None
+    first_name: str | None
+    last_name: str | None
+    status: str
+    last_seen_at: datetime | None
+    roles: tuple[str, ...]
+    complaints_count: int
+    is_global_blacklisted: bool
+
+@dataclass(frozen=True)
+class AdminUserSearchRow:
+    user_id: UUID
+    platform_user_id: str
+    username: str | None
+    first_name: str | None
+    last_name: str | None
+    status: str
+
+@dataclass(frozen=True)
+class AdminSpecialistQueueItem:
+    specialist_id: UUID
+    display_name: str
+    profession_name: str
+    city_name: str | None
+    status: str
+    created_at: datetime
 
 @dataclass(frozen=True)
 class PendingSpecialistQueueItem:
@@ -105,6 +153,28 @@ class ScopedBlacklistQueueItem:
     created_at: datetime
     created_by: UUID
     revoke_reason: str | None
+
+@dataclass(frozen=True)
+class GlobalBlacklistQueueItem:
+    blacklist_id: UUID
+    user_id: UUID
+    reason: str
+    comment: str | None
+    status: str
+    user_status: str
+    created_at: datetime
+    created_by: UUID
+
+@dataclass(frozen=True)
+class AdminAuditQueueItem:
+    action_id: UUID
+    actor_user_id: UUID | None
+    action: str
+    target_type: str
+    target_id: UUID | None
+    reason: str | None
+    created_at: datetime
+    source: str = "admin_action"
 
 class ModerationAccessError(Exception):
     pass
@@ -178,6 +248,170 @@ class ModerationRepository:
             query.limit(max(1, min(int(limit), 20)))
         )
         return list(result.scalars().all())
+
+    async def list_admin_audit_actions(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_types: set[str] | None,
+        limit: int,
+        offset: int,
+    ) -> list[AdminAuditQueueItem]:
+        await self.require_admin_role(
+            admin_user_id,
+            FULL_LOG_VIEW_ROLES,
+        )
+
+        normalized_limit = max(
+            1,
+            min(int(limit), 11),
+        )
+        normalized_offset = max(
+            0,
+            int(offset),
+        )
+
+        admin_actions_query = select(
+            AdminAction.id.label("record_id"),
+            literal("admin_action").label("source"),
+            AdminAction.admin_user_id.label(
+                "actor_user_id"
+            ),
+            AdminAction.action_type.label("action"),
+            AdminAction.target_type.label("target_type"),
+            AdminAction.target_id.label("target_id"),
+            AdminAction.reason.label("reason"),
+            AdminAction.created_at.label("created_at"),
+        ).where(
+            AdminAction.tenant_id == tenant_id,
+        )
+
+        event_logs_query = select(
+            EventLog.id.label("record_id"),
+            literal("event").label("source"),
+            EventLog.user_id.label("actor_user_id"),
+            EventLog.event_type.label("action"),
+            func.coalesce(
+                EventLog.entity_type,
+                "event",
+            ).label("target_type"),
+            EventLog.entity_id.label("target_id"),
+            EventLog.payload["reason"].astext.label(
+                "reason"
+            ),
+            EventLog.created_at.label("created_at"),
+        ).where(
+            EventLog.tenant_id == tenant_id,
+            EventLog.event_type != "audit_viewed",
+        )
+
+        combined = union_all(
+            admin_actions_query,
+            event_logs_query,
+        ).subquery("admin_audit_records")
+
+        normalized_target_types = {
+            str(target_type).strip()
+            for target_type in (target_types or set())
+            if str(target_type).strip()
+        }
+
+        query = select(combined)
+
+        if normalized_target_types:
+            query = query.where(
+                combined.c.target_type.in_(
+                    normalized_target_types
+                )
+            )
+
+        result = await self.session.execute(
+            query
+            .order_by(
+                combined.c.created_at.desc(),
+                combined.c.record_id.desc(),
+            )
+            .offset(normalized_offset)
+            .limit(normalized_limit)
+        )
+
+        return [
+            AdminAuditQueueItem(
+                action_id=row.record_id,
+                actor_user_id=row.actor_user_id,
+                action=row.action,
+                target_type=row.target_type,
+                target_id=row.target_id,
+                reason=row.reason,
+                created_at=row.created_at,
+                source=row.source,
+            )
+            for row in result.all()
+        ]
+
+    async def get_admin_audit_action(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        action_id: UUID,
+    ) -> AdminAuditQueueItem:
+        await self.require_admin_role(
+            admin_user_id,
+            FULL_LOG_VIEW_ROLES,
+        )
+
+        admin_result = await self.session.execute(
+            select(AdminAction).where(
+                AdminAction.id == action_id,
+                AdminAction.tenant_id == tenant_id,
+            )
+        )
+        admin_action = admin_result.scalar_one_or_none()
+
+        if admin_action:
+            return AdminAuditQueueItem(
+                action_id=admin_action.id,
+                actor_user_id=admin_action.admin_user_id,
+                action=admin_action.action_type,
+                target_type=admin_action.target_type,
+                target_id=admin_action.target_id,
+                reason=admin_action.reason,
+                created_at=admin_action.created_at,
+                source="admin_action",
+            )
+
+        event_result = await self.session.execute(
+            select(EventLog).where(
+                EventLog.id == action_id,
+                EventLog.tenant_id == tenant_id,
+                EventLog.event_type != "audit_viewed",
+            )
+        )
+        event = event_result.scalar_one_or_none()
+
+        if not event:
+            raise ModerationNotFoundError(
+                "Audit record not found."
+            )
+
+        payload = event.payload or {}
+
+        return AdminAuditQueueItem(
+            action_id=event.id,
+            actor_user_id=event.user_id,
+            action=event.event_type,
+            target_type=event.entity_type or "event",
+            target_id=event.entity_id,
+            reason=(
+                str(payload.get("reason")).strip()
+                if payload.get("reason")
+                else None
+            ),
+            created_at=event.created_at,
+            source="event",
+        )
 
     async def get_user_by_telegram_id(self, platform_user_id: int | str) -> User | None:
         result = await self.session.execute(
@@ -332,6 +566,333 @@ class ModerationRepository:
         await self.session.flush()
         return role_mapping
 
+    async def get_admin_menu_counts(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+    ) -> dict[str, int]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"admin", "super_admin"},
+        )
+
+        async def count_rows(model, *conditions) -> int:
+            result = await self.session.execute(
+                select(func.count())
+                .select_from(model)
+                .where(*conditions)
+            )
+            return int(result.scalar_one())
+
+        global_blacklist_result = await self.session.execute(
+            select(
+                func.count(
+                    func.distinct(Blacklist.id)
+                )
+            )
+            .select_from(Blacklist)
+            .join(
+                User,
+                User.id == Blacklist.user_id,
+            )
+            .join(
+                EventLog,
+                and_(
+                    EventLog.tenant_id == Blacklist.tenant_id,
+                    EventLog.entity_type == "user",
+                    EventLog.entity_id == Blacklist.user_id,
+                    EventLog.event_type
+                    == "global_blacklist_changed",
+                    EventLog.payload["action"].as_string()
+                    == "added",
+                    EventLog.payload["scope"].as_string()
+                    == "global",
+                    EventLog.payload["blacklist_id"].as_string()
+                    == cast(Blacklist.id, String),
+                ),
+            )
+            .where(
+                Blacklist.tenant_id == tenant_id,
+                Blacklist.status == "active",
+                User.status == "blocked",
+            )
+        )
+
+        global_blacklist_count = int(
+            global_blacklist_result.scalar_one()
+        )
+
+        return {
+            "users": await count_rows(
+                User,
+                User.tenant_id == tenant_id,
+                User.status != "deleted",
+            ),
+            "specialists": await count_rows(
+                Specialist,
+                Specialist.tenant_id == tenant_id,
+                Specialist.status != "deleted",
+            ),
+            "tickets": await count_rows(
+                SupportTicket,
+                SupportTicket.tenant_id == tenant_id,
+                SupportTicket.status.in_({"open", "in_progress"}),
+            ),
+            "complaints": await count_rows(
+                Complaint,
+                Complaint.tenant_id == tenant_id,
+                Complaint.status.in_(COMPLAINT_OPEN_STATUSES),
+            ),
+            "blacklist": global_blacklist_count,
+            "audit_alerts": await count_rows(
+                RiskFlag,
+                RiskFlag.tenant_id == tenant_id,
+                RiskFlag.status == "open",
+            ),
+        }
+
+    async def list_admin_user_history(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        limit: int = 10,
+    ) -> list[AdminUserHistoryRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"admin", "super_admin"},
+        )
+
+        target_exists = await self.session.execute(
+            select(User.id).where(
+                User.id == target_user_id,
+                User.tenant_id == tenant_id,
+            )
+        )
+
+        if target_exists.scalar_one_or_none() is None:
+            raise ModerationNotFoundError(
+                "User not found."
+            )
+
+        normalized_limit = max(1, min(int(limit), 20))
+
+        event_result = await self.session.execute(
+            select(EventLog)
+            .where(
+                EventLog.tenant_id == tenant_id,
+                or_(
+                    EventLog.entity_id == target_user_id,
+                    EventLog.user_id == target_user_id,
+                ),
+            )
+            .order_by(EventLog.created_at.desc())
+            .limit(normalized_limit)
+        )
+
+        action_result = await self.session.execute(
+            select(AdminAction)
+            .where(
+                AdminAction.tenant_id == tenant_id,
+                AdminAction.target_id == target_user_id,
+            )
+            .order_by(AdminAction.created_at.desc())
+            .limit(normalized_limit)
+        )
+
+        history: list[AdminUserHistoryRow] = []
+
+        for event in event_result.scalars().all():
+            payload = event.payload or {}
+
+            history.append(
+                AdminUserHistoryRow(
+                    created_at=event.created_at,
+                    actor_user_id=event.user_id,
+                    action=event.event_type,
+                    reason=(
+                        str(payload.get("reason")).strip()
+                        if payload.get("reason")
+                        else None
+                    ),
+                    source="event",
+                )
+            )
+
+        for action in action_result.scalars().all():
+            history.append(
+                AdminUserHistoryRow(
+                    created_at=action.created_at,
+                    actor_user_id=action.admin_user_id,
+                    action=action.action_type,
+                    reason=action.reason,
+                    source="admin_action",
+                )
+            )
+
+        history.sort(
+            key=lambda item: item.created_at,
+            reverse=True,
+        )
+
+        return history[:normalized_limit]
+
+    async def get_admin_user_details(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+    ) -> AdminUserDetailsRow:
+        await self.require_admin_role(
+            admin_user_id,
+            {"admin", "super_admin"},
+        )
+
+        user_result = await self.session.execute(
+            select(
+                User.id,
+                User.status,
+                User.last_seen_at,
+                UserAccount.username,
+                UserAccount.first_name,
+                UserAccount.last_name,
+            )
+            .outerjoin(
+                UserAccount,
+                UserAccount.user_id == User.id,
+            )
+            .where(
+                User.id == target_user_id,
+                User.tenant_id == tenant_id,
+            )
+            .order_by(UserAccount.created_at.asc())
+            .limit(1)
+        )
+        user_row = user_result.one_or_none()
+
+        if not user_row:
+            raise ModerationNotFoundError(
+                "User not found."
+            )
+
+        roles_result = await self.session.execute(
+            select(UserRoleMapping.role)
+            .where(
+                UserRoleMapping.user_id == target_user_id,
+                UserRoleMapping.tenant_id == tenant_id,
+                UserRoleMapping.status == "active",
+            )
+            .distinct()
+            .order_by(UserRoleMapping.role)
+        )
+        roles = tuple(roles_result.scalars().all())
+
+        specialist_ids = (
+            select(Specialist.id)
+            .where(
+                Specialist.user_id == target_user_id,
+                Specialist.tenant_id == tenant_id,
+            )
+        )
+
+        complaints_result = await self.session.execute(
+            select(func.count())
+            .select_from(Complaint)
+            .where(
+                Complaint.tenant_id == tenant_id,
+                or_(
+                    (
+                        (Complaint.target_type == "user")
+                        & (Complaint.target_id == target_user_id)
+                    ),
+                    (
+                        Complaint.target_type.in_(
+                            {
+                                "specialist",
+                                "specialist_profile",
+                            }
+                        )
+                        & Complaint.target_id.in_(specialist_ids)
+                    ),
+                ),
+            )
+        )
+
+        return AdminUserDetailsRow(
+            user_id=user_row.id,
+            username=user_row.username,
+            first_name=user_row.first_name,
+            last_name=user_row.last_name,
+            status=user_row.status,
+            last_seen_at=user_row.last_seen_at,
+            roles=roles,
+            complaints_count=int(
+                complaints_result.scalar_one()
+            ),
+            is_global_blacklisted=(
+                user_row.status == "blocked"
+            ),
+        )
+
+    async def search_admin_users(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        query: str,
+        limit: int = 10,
+    ) -> list[AdminUserSearchRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"admin", "super_admin"},
+        )
+
+        normalized_query = query.strip().lstrip("@")
+        user_id_query = normalized_query.removeprefix("user-")
+        contains_query = f"%{normalized_query}%"
+        user_id_prefix = f"{user_id_query}%"
+
+        result = await self.session.execute(
+            select(
+                User.id,
+                UserAccount.platform_user_id,
+                UserAccount.username,
+                UserAccount.first_name,
+                UserAccount.last_name,
+                User.status,
+            )
+            .join(
+                UserAccount,
+                UserAccount.user_id == User.id,
+            )
+            .where(
+                User.tenant_id == tenant_id,
+                UserAccount.platform == "telegram",
+                or_(
+                    UserAccount.platform_user_id == normalized_query,
+                    UserAccount.username.ilike(contains_query),
+                    cast(User.id, String).ilike(user_id_prefix),
+                ),
+            )
+            .order_by(User.created_at.desc())
+            .limit(max(1, min(int(limit), 20)))
+        )
+
+        return [
+            AdminUserSearchRow(
+                user_id=row.id,
+                platform_user_id=row.platform_user_id,
+                username=row.username,
+                first_name=row.first_name,
+                last_name=row.last_name,
+                status=row.status,
+            )
+            for row in result.all()
+        ]
+
     async def get_moderator_menu_counts(
         self,
         *,
@@ -378,6 +939,69 @@ class ModerationRepository:
                 Blacklist.status == "active",
             ),
         }
+
+    async def list_admin_specialists(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        statuses: set[str],
+        limit: int = 5,
+        offset: int = 0,
+    ) -> list[AdminSpecialistQueueItem]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"admin", "super_admin"},
+        )
+
+        result = await self.session.execute(
+            select(
+                Specialist.id,
+                Specialist.display_name,
+                Profession.name,
+                City.name,
+                Specialist.status,
+                Specialist.created_at,
+            )
+            .outerjoin(
+                Profession,
+                Profession.id == Specialist.profession_id,
+            )
+            .outerjoin(
+                City,
+                City.id == Specialist.city_id,
+            )
+            .where(
+                Specialist.tenant_id == tenant_id,
+                Specialist.user_id != admin_user_id,
+                Specialist.status.in_(statuses),
+            )
+            .order_by(
+                Specialist.updated_at.desc(),
+                Specialist.id.asc(),
+            )
+            .offset(max(int(offset), 0))
+            .limit(max(1, min(int(limit), 20)))
+        )
+
+        return [
+            AdminSpecialistQueueItem(
+                specialist_id=specialist_id,
+                display_name=display_name or "-",
+                profession_name=profession_name or "-",
+                city_name=city_name,
+                status=status,
+                created_at=created_at,
+            )
+            for (
+                specialist_id,
+                display_name,
+                profession_name,
+                city_name,
+                status,
+                created_at,
+            ) in result.all()
+        ]
 
     async def list_pending_specialists(
         self,
@@ -864,7 +1488,7 @@ class ModerationRepository:
         )
         await self.session.flush()
         return complaint
-    
+
     async def list_open_complaints(
         self,
         *,
@@ -1423,7 +2047,6 @@ class ModerationRepository:
 
         await self.session.flush()
         return complaint
-    
     async def resolve_complaint(
         self,
         *,
@@ -1975,6 +2598,219 @@ class ModerationRepository:
         await self.session.flush()
         return blacklist
 
+    async def list_global_blacklist(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        statuses: set[str],
+        limit: int,
+        offset: int,
+    ) -> list[GlobalBlacklistQueueItem]:
+        await self.require_admin_role(
+            admin_user_id,
+            BLOCK_USER_ROLES,
+        )
+
+        allowed_statuses = {"active", "revoked"}
+        normalized_statuses = set(statuses) & allowed_statuses
+
+        if not normalized_statuses:
+            normalized_statuses = {"active"}
+
+        normalized_limit = max(1, min(int(limit), 11))
+        normalized_offset = max(0, int(offset))
+
+        result = await self.session.execute(
+            select(
+                Blacklist.id,
+                Blacklist.user_id,
+                Blacklist.reason,
+                Blacklist.comment,
+                Blacklist.status,
+                User.status.label("user_status"),
+                Blacklist.created_at,
+                Blacklist.created_by,
+            )
+            .join(
+                User,
+                User.id == Blacklist.user_id,
+            )
+            .join(
+                EventLog,
+                and_(
+                    EventLog.tenant_id == Blacklist.tenant_id,
+                    EventLog.entity_type == "user",
+                    EventLog.entity_id == Blacklist.user_id,
+                    EventLog.event_type == "global_blacklist_changed",
+                    EventLog.payload["action"].as_string() == "added",
+                    EventLog.payload["scope"].as_string() == "global",
+                    EventLog.payload["blacklist_id"].as_string()
+                    == cast(Blacklist.id, String),
+                ),
+            )
+            .where(
+                Blacklist.tenant_id == tenant_id,
+                Blacklist.status.in_(normalized_statuses),
+            )
+            .order_by(
+                Blacklist.created_at.desc(),
+                Blacklist.id.desc(),
+            )
+            .offset(normalized_offset)
+            .limit(normalized_limit)
+        )
+
+        return [
+            GlobalBlacklistQueueItem(
+                blacklist_id=row.id,
+                user_id=row.user_id,
+                reason=row.reason,
+                comment=row.comment,
+                status=row.status,
+                user_status=row.user_status,
+                created_at=row.created_at,
+                created_by=row.created_by,
+            )
+            for row in result.all()
+        ]
+
+    async def unblock_user(
+        self,
+        *,
+        admin_user_id: UUID,
+        user_id: UUID,
+        reason: str,
+    ) -> User:
+        await self.require_admin_role(
+            admin_user_id,
+            BLOCK_USER_ROLES,
+        )
+
+        user = await self.session.get(User, user_id)
+
+        if not user:
+            raise ModerationNotFoundError(
+                "User not found."
+            )
+
+        if user.status != "blocked":
+            raise ModerationAccessError(
+                "User is not globally blocked."
+            )
+
+        event_result = await self.session.execute(
+            select(EventLog)
+            .where(
+                EventLog.tenant_id == user.tenant_id,
+                EventLog.entity_type == "user",
+                EventLog.entity_id == user.id,
+                EventLog.event_type
+                == "global_blacklist_changed",
+            )
+            .order_by(EventLog.created_at.desc())
+        )
+
+        global_blacklist = None
+
+        for event in event_result.scalars().all():
+            payload = event.payload or {}
+
+            if payload.get("action") != "added":
+                continue
+
+            blacklist_id = payload.get("blacklist_id")
+
+            if not blacklist_id:
+                continue
+
+            try:
+                candidate_id = UUID(str(blacklist_id))
+            except (TypeError, ValueError):
+                continue
+
+            candidate = await self.session.get(
+                Blacklist,
+                candidate_id,
+            )
+
+            if (
+                candidate
+                and candidate.user_id == user.id
+                and candidate.tenant_id == user.tenant_id
+                and candidate.status == "active"
+            ):
+                global_blacklist = candidate
+                break
+
+        if not global_blacklist:
+            raise ModerationNotFoundError(
+                "Active global blacklist record not found."
+            )
+
+        normalized_reason = reason.strip()
+
+        if not normalized_reason:
+            raise ModerationAccessError(
+                "Unblock reason is required."
+            )
+
+        before_state = self._user_audit_state(user)
+
+        user.status = "active"
+        user.updated_at = datetime.utcnow()
+        global_blacklist.status = "revoked"
+
+        await self.session.flush()
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=user.tenant_id,
+            action_type="unblock_user",
+            target_type="user",
+            target_id=user.id,
+            before_state={
+                **before_state,
+                "blacklist_id": str(global_blacklist.id),
+                "blacklist_status": "active",
+            },
+            after_state={
+                **self._user_audit_state(user),
+                "blacklist_id": str(global_blacklist.id),
+                "blacklist_status": "revoked",
+            },
+            reason=normalized_reason,
+        )
+
+        await self.log_event(
+            tenant_id=user.tenant_id,
+            user_id=admin_user_id,
+            event_type="user_unblocked",
+            entity_type="user",
+            entity_id=user.id,
+            payload={
+                "reason": normalized_reason,
+                "blacklist_id": str(global_blacklist.id),
+            },
+        )
+
+        await self.log_event(
+            tenant_id=user.tenant_id,
+            user_id=admin_user_id,
+            event_type="global_blacklist_changed",
+            entity_type="user",
+            entity_id=user.id,
+            payload={
+                "action": "revoked",
+                "scope": "global",
+                "reason": normalized_reason,
+                "blacklist_id": str(global_blacklist.id),
+            },
+        )
+
+        await self.session.flush()
+        return user
+
     async def block_user(
         self,
         *,
@@ -2027,6 +2863,19 @@ class ModerationRepository:
             payload={
                 "reason": reason,
                 "comment": comment,
+                "blacklist_id": str(blacklist.id),
+            },
+        )
+        await self.log_event(
+            tenant_id=user.tenant_id,
+            user_id=admin_user_id,
+            event_type="global_blacklist_changed",
+            entity_type="user",
+            entity_id=user.id,
+            payload={
+                "action": "added",
+                "scope": "global",
+                "reason": reason,
                 "blacklist_id": str(blacklist.id),
             },
         )
@@ -2120,7 +2969,7 @@ class ModerationRepository:
             "active_role": user.active_role,
             "risk_score": user.risk_score,
         }
-    
+
     def _role_audit_state(self, role_mapping: UserRoleMapping | None) -> dict:
         if not role_mapping:
             return {"status": None}

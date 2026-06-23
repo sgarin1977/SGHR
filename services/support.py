@@ -24,6 +24,11 @@ class SupportTicketView:
     ticket: SupportTicket
     messages: list[SupportMessage]
 
+@dataclass(frozen=True)
+class AdminEscalatedTicketPage:
+    tickets: tuple[SupportTicket, ...]
+    page: int
+    has_next: bool
 
 class SupportService:
     def __init__(self, repository: SupportRepository):
@@ -78,6 +83,69 @@ class SupportService:
             limit=limit,
             offset=offset,
         )
+
+    async def list_admin_escalated_tickets(
+        self,
+        *,
+        tenant_id: UUID,
+        admin_user_id: UUID,
+        page: int = 0,
+        page_size: int = 5,
+    ) -> AdminEscalatedTicketPage:
+        has_access = (
+            await self.repository
+            .user_has_admin_support_access(
+                user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
+        if not has_access:
+            raise SupportServiceError(
+                "Admin access denied."
+            )
+
+        normalized_page = max(int(page), 0)
+        normalized_page_size = max(
+            1,
+            min(int(page_size), 10),
+        )
+
+        tickets = (
+            await self.repository
+            .list_admin_escalated_tickets(
+                tenant_id=tenant_id,
+                limit=normalized_page_size + 1,
+                offset=(
+                    normalized_page
+                    * normalized_page_size
+                ),
+            )
+        )
+
+        visible_tickets = tickets[:normalized_page_size]
+        has_next = len(tickets) > normalized_page_size
+
+        await self.repository.log_admin_ticket_event(
+            tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
+            ticket_id=None,
+            action="escalated_list_opened",
+            payload={
+                "page": normalized_page,
+                "visible_count": len(visible_tickets),
+                "has_next": has_next,
+            },
+        )
+
+        await self.repository.session.commit()
+
+        return AdminEscalatedTicketPage(
+            tickets=tuple(visible_tickets),
+            page=normalized_page,
+            has_next=has_next,
+        )
+
     async def list_staff_tickets(
         self,
         *,
@@ -342,6 +410,216 @@ class SupportService:
         await self.repository.session.commit()
         return ticket
 
+    async def get_admin_escalated_ticket_view(
+        self,
+        *,
+        tenant_id: UUID,
+        admin_user_id: UUID,
+        ticket_id: UUID,
+    ) -> SupportTicketView:
+        await self._ensure_admin_support_access(
+            tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
+        )
+
+        ticket = await self.repository.get_ticket(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+        )
+
+        if (
+            not ticket
+            or ticket.tenant_id != tenant_id
+            or ticket.priority != "P1"
+        ):
+            raise SupportServiceError(
+                "Escalated support ticket not found."
+            )
+
+        messages = await self.repository.list_ticket_messages(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            include_internal=True,
+        )
+
+        await self.repository.log_admin_ticket_event(
+            tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
+            ticket_id=ticket.id,
+            action="opened",
+            payload={
+                "status": ticket.status,
+                "priority": ticket.priority,
+            },
+        )
+
+        await self.repository.session.commit()
+
+        return SupportTicketView(
+            ticket=ticket,
+            messages=messages,
+        )
+
+    async def assign_admin_escalated_ticket(
+        self,
+        *,
+        tenant_id: UUID,
+        admin_user_id: UUID,
+        ticket_id: UUID,
+        reason: str,
+    ) -> SupportTicket:
+        await self._ensure_admin_support_access(
+            tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
+        )
+
+        normalized_reason = self._validate_admin_reason(
+            reason
+        )
+
+        ticket = await self.repository.get_ticket(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+        )
+
+        if (
+            not ticket
+            or ticket.tenant_id != tenant_id
+            or ticket.priority != "P1"
+        ):
+            raise SupportServiceError(
+                "Escalated support ticket not found."
+            )
+
+        if ticket.status in {
+            "resolved",
+            "closed",
+            "rejected",
+        }:
+            raise SupportServiceError(
+                "Support ticket is already closed."
+            )
+
+        before_status = ticket.status
+
+        ticket = await self.repository.update_ticket_status(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            status="in_progress",
+            assigned_user_id=admin_user_id,
+        )
+
+        if not ticket:
+            raise SupportServiceError(
+                "Support ticket not found."
+            )
+
+        await self.repository.add_message(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            sender_user_id=admin_user_id,
+            sender_role="admin",
+            message_text=(
+                f"Assigned by Admin: {normalized_reason}"
+            ),
+            is_internal=True,
+        )
+
+        await self.repository.log_admin_ticket_event(
+            tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
+            ticket_id=ticket.id,
+            action="assigned",
+            payload={
+                "before_status": before_status,
+                "after_status": ticket.status,
+                "reason": normalized_reason,
+            },
+        )
+
+        await self.repository.session.commit()
+        return ticket
+
+    async def resolve_admin_escalated_ticket(
+        self,
+        *,
+        tenant_id: UUID,
+        admin_user_id: UUID,
+        ticket_id: UUID,
+        reason: str,
+    ) -> SupportTicket:
+        await self._ensure_admin_support_access(
+            tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
+        )
+
+        normalized_reason = self._validate_admin_reason(
+            reason
+        )
+
+        ticket = await self.repository.get_ticket(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+        )
+
+        if (
+            not ticket
+            or ticket.tenant_id != tenant_id
+            or ticket.priority != "P1"
+        ):
+            raise SupportServiceError(
+                "Escalated support ticket not found."
+            )
+
+        if ticket.status in {
+            "resolved",
+            "closed",
+            "rejected",
+        }:
+            raise SupportServiceError(
+                "Support ticket is already closed."
+            )
+
+        before_status = ticket.status
+
+        await self.repository.add_message(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            sender_user_id=admin_user_id,
+            sender_role="admin",
+            message_text=(
+                f"Resolved by Admin: {normalized_reason}"
+            ),
+            is_internal=True,
+        )
+
+        ticket = await self.repository.update_ticket_status(
+            tenant_id=tenant_id,
+            ticket_id=ticket_id,
+            status="resolved",
+            assigned_user_id=admin_user_id,
+        )
+
+        if not ticket:
+            raise SupportServiceError(
+                "Support ticket not found."
+            )
+
+        await self.repository.log_admin_ticket_event(
+            tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
+            ticket_id=ticket.id,
+            action="resolved",
+            payload={
+                "before_status": before_status,
+                "after_status": ticket.status,
+                "reason": normalized_reason,
+            },
+        )
+
+        await self.repository.session.commit()
+        return ticket
+
     async def assign_ticket(
         self,
         *,
@@ -413,6 +691,43 @@ class SupportService:
         )
         if not has_access:
             raise SupportServiceError("Support access denied.")
+
+    async def _ensure_admin_support_access(
+        self,
+        *,
+        tenant_id: UUID,
+        admin_user_id: UUID,
+    ) -> None:
+        has_access = (
+            await self.repository
+            .user_has_admin_support_access(
+                user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
+        if not has_access:
+            raise SupportServiceError(
+                "Admin access denied."
+            )
+
+    @staticmethod
+    def _validate_admin_reason(
+        reason: str | None,
+    ) -> str:
+        normalized_reason = (reason or "").strip()
+
+        if len(normalized_reason) < 3:
+            raise SupportServiceError(
+                "Reason must contain at least 3 characters."
+            )
+
+        if len(normalized_reason) > 500:
+            raise SupportServiceError(
+                "Reason is too long."
+            )
+
+        return normalized_reason
 
     @staticmethod
     def _validate_priority(priority: str | None) -> str:
