@@ -531,3 +531,8 @@ def test_client_settings_c17_logs_settings_changed_without_new_tables():
 
     assert "{notifications}" in texts_source
     assert "notifications=t(\"settings_enabled\", language)" in source
+
+def test_auto_translate_default_is_disabled_for_controlled_beta():
+    source = open("database/models.py", encoding="utf-8").read()
+
+    assert "auto_translate_enabled: Mapped[bool] = mapped_column(Boolean, default=False)" in source

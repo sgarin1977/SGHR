@@ -301,6 +301,106 @@ async def test_review_moderation_lists_pending_and_requires_reason(db_session):
             specialist_platform_user_id,
         )
 
+async def test_permission_matrix_review_moderation_access(db_session):
+    (
+        client_platform_user_id,
+        client_user_id,
+        specialist_platform_user_id,
+        specialist_user_id,
+        tenant_id,
+        specialist_id,
+        contact_request_id,
+    ) = await create_completed_contact_request(db_session)
+
+    (
+        support_platform_user_id,
+        support_user_id,
+        support_tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    (
+        moderator_platform_user_id,
+        moderator_user_id,
+        moderator_tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+    (
+        admin_platform_user_id,
+        admin_user_id,
+        admin_tenant_id,
+    ) = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    assert support_tenant_id == tenant_id
+    assert moderator_tenant_id == tenant_id
+    assert admin_tenant_id == tenant_id
+
+    try:
+        service = ReviewService(ReviewRepository(db_session))
+
+        review = await service.create_contact_review(
+            tenant_id=tenant_id,
+            reviewer_user_id=client_user_id,
+            contact_request_id=contact_request_id,
+            rating=4,
+            text="Permission matrix review moderation.",
+        )
+
+        moderator_reviews = await service.list_pending_reviews(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            page=0,
+            page_size=10,
+        )
+        assert any(item.id == review.id for item in moderator_reviews)
+
+        admin_reviews = await service.list_pending_reviews(
+            tenant_id=tenant_id,
+            moderator_user_id=admin_user_id,
+            page=0,
+            page_size=10,
+        )
+        assert any(item.id == review.id for item in admin_reviews)
+
+        with pytest.raises(ReviewServiceError):
+            await service.list_pending_reviews(
+                tenant_id=tenant_id,
+                moderator_user_id=support_user_id,
+                page=0,
+                page_size=10,
+            )
+
+    finally:
+        await db_session.rollback()
+        await db_session.execute(
+            delete(AdminAction).where(
+                AdminAction.admin_user_id.in_(
+                    [
+                        support_user_id,
+                        moderator_user_id,
+                        admin_user_id,
+                    ]
+                ),
+            )
+        )
+        await db_session.commit()
+
+        await cleanup_reviews_for_specialist(
+            db_session,
+            specialist_id,
+        )
+        await cleanup_test_user(db_session, support_platform_user_id)
+        await cleanup_test_user(db_session, moderator_platform_user_id)
+        await cleanup_test_user(db_session, admin_platform_user_id)
+        await cleanup_test_user(db_session, client_platform_user_id)
+        await cleanup_test_user(db_session, specialist_platform_user_id)
+
 async def test_review_moderation_can_publish_and_hide_review(db_session):
     (
         client_platform_user_id,

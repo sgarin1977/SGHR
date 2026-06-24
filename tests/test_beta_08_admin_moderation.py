@@ -381,7 +381,7 @@ async def test_admin_cannot_grant_admin_role(db_session):
         await cleanup_user(db_session, target_platform_user_id)
         await cleanup_user(db_session, admin_platform_user_id)
 
-async def test_support_can_view_event_logs_but_not_admin_actions(db_session):
+async def test_support_cannot_view_audit_logs_or_admin_actions(db_session):
     support_platform_user_id, support_user_id, tenant_id = await create_admin_user(
         db_session,
         role="support",
@@ -416,12 +416,12 @@ async def test_support_can_view_event_logs_but_not_admin_actions(db_session):
 
         service = ModerationService(ModerationRepository(db_session))
 
-        events = await service.list_recent_event_logs(
-            admin_user_id=support_user_id,
-            tenant_id=tenant_id,
-            limit=5,
-        )
-        assert any(item.event_type == "test_support_visible_event" for item in events)
+        with pytest.raises(ModerationError):
+            await service.list_recent_event_logs(
+                admin_user_id=support_user_id,
+                tenant_id=tenant_id,
+                limit=5,
+            )
 
         with pytest.raises(ModerationError):
             await service.list_recent_admin_actions(
@@ -432,6 +432,348 @@ async def test_support_can_view_event_logs_but_not_admin_actions(db_session):
 
     finally:
         await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
+
+async def test_permission_matrix_blocks_forbidden_staff_actions(db_session):
+    support_platform_user_id, support_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    moderator_platform_user_id, moderator_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        with pytest.raises(ModerationError):
+            await service.open_moderator_menu(
+                moderator_user_id=support_user_id,
+                tenant_id=tenant_id,
+            )
+
+        with pytest.raises(ModerationError):
+            await service.open_complaints_queue(
+                moderator_user_id=support_user_id,
+                tenant_id=tenant_id,
+                statuses={"new", "in_review"},
+                page=0,
+            )
+
+        with pytest.raises(ModerationError):
+            await service.open_scoped_blacklist_queue(
+                moderator_user_id=support_user_id,
+                tenant_id=tenant_id,
+                view="active",
+                page=0,
+            )
+
+        with pytest.raises(ModerationError):
+            await service.open_global_blacklist_queue(
+                admin_user_id=support_user_id,
+                tenant_id=tenant_id,
+                view="active",
+                page=0,
+            )
+
+        with pytest.raises(ModerationError):
+            await service.open_global_blacklist_queue(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                view="active",
+                page=0,
+            )
+
+        with pytest.raises(ModerationError):
+            await service.open_admin_audit(
+                admin_user_id=support_user_id,
+                tenant_id=tenant_id,
+                target_type="all",
+                page=0,
+            )
+
+    finally:
+        await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, moderator_platform_user_id)
+
+async def test_permission_matrix_complaints_access(db_session):
+    support_platform_user_id, support_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    moderator_platform_user_id, moderator_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+    admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        moderator_items = await service.open_complaints_queue(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            statuses={"new", "in_review"},
+            page=0,
+        )
+        assert isinstance(moderator_items, list)
+
+        admin_items = await service.open_complaints_queue(
+            moderator_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            statuses={"new", "in_review"},
+            page=0,
+        )
+        assert isinstance(admin_items, list)
+
+        with pytest.raises(ModerationError):
+            await service.open_complaints_queue(
+                moderator_user_id=support_user_id,
+                tenant_id=tenant_id,
+                statuses={"new", "in_review"},
+                page=0,
+            )
+
+    finally:
+        await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, moderator_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
+
+async def test_permission_matrix_specialist_moderation_access(db_session):
+    support_platform_user_id, support_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    moderator_platform_user_id, moderator_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+    admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        moderator_items = await service.open_pending_specialists_queue(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            page=0,
+        )
+        assert isinstance(moderator_items, list)
+
+        admin_items = await service.open_pending_specialists_queue(
+            moderator_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            page=0,
+        )
+        assert isinstance(admin_items, list)
+
+        with pytest.raises(ModerationError):
+            await service.open_pending_specialists_queue(
+                moderator_user_id=support_user_id,
+                tenant_id=tenant_id,
+                page=0,
+            )
+
+    finally:
+        await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, moderator_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
+
+async def test_permission_matrix_scoped_blacklist_access(db_session):
+    support_platform_user_id, support_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    moderator_platform_user_id, moderator_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+    admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        moderator_items = await service.open_scoped_blacklist_queue(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            view="active",
+            page=0,
+        )
+        assert isinstance(moderator_items, list)
+
+        admin_items = await service.open_scoped_blacklist_queue(
+            moderator_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            view="active",
+            page=0,
+        )
+        assert isinstance(admin_items, list)
+
+        with pytest.raises(ModerationError):
+            await service.open_scoped_blacklist_queue(
+                moderator_user_id=support_user_id,
+                tenant_id=tenant_id,
+                view="active",
+                page=0,
+            )
+
+    finally:
+        await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, moderator_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
+
+async def test_permission_matrix_global_blacklist_access(db_session):
+    support_platform_user_id, support_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    moderator_platform_user_id, moderator_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+    admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+    target_platform_user_id, target_user_id, target_tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+
+    assert target_tenant_id == tenant_id
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        with pytest.raises(ModerationError):
+            await service.block_user(
+                admin_user_id=support_user_id,
+                user_id=target_user_id,
+                reason="support cannot global block",
+            )
+
+        with pytest.raises(ModerationError):
+            await service.block_user(
+                admin_user_id=moderator_user_id,
+                user_id=target_user_id,
+                reason="moderator cannot global block",
+            )
+
+        blocked = await service.block_user(
+            admin_user_id=admin_user_id,
+            user_id=target_user_id,
+            reason="admin global block",
+        )
+        assert blocked.status == "blocked"
+
+        with pytest.raises(ModerationError):
+            await service.unblock_user(
+                admin_user_id=support_user_id,
+                user_id=target_user_id,
+                reason="support cannot remove global block",
+            )
+
+        with pytest.raises(ModerationError):
+            await service.unblock_user(
+                admin_user_id=moderator_user_id,
+                user_id=target_user_id,
+                reason="moderator cannot remove global block",
+            )
+
+        unblocked = await service.unblock_user(
+            admin_user_id=admin_user_id,
+            user_id=target_user_id,
+            reason="admin remove global block",
+        )
+        assert unblocked.status == "active"
+
+    finally:
+        await cleanup_user(db_session, target_platform_user_id)
+        await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, moderator_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
+
+async def test_permission_matrix_moderator_audit_is_limited_to_complaints(db_session):
+    moderator_platform_user_id, moderator_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+    admin_platform_user_id, admin_user_id, tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+    reporter_platform_user_id, reporter_user_id, reporter_tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+    target_platform_user_id, target_user_id, target_tenant_id = (
+        await create_user_with_accepted_consents(db_session)
+    )
+
+    assert reporter_tenant_id == tenant_id
+    assert target_tenant_id == tenant_id
+
+    try:
+        service = ModerationService(ModerationRepository(db_session))
+
+        complaint = await service.create_complaint(
+            reporter_user_id=reporter_user_id,
+            tenant_id=tenant_id,
+            target_type="user",
+            target_id=target_user_id,
+            reason="abuse",
+            comment="Permission matrix complaint audit.",
+        )
+
+        await service.confirm_complaint(
+            reporter_user_id=reporter_user_id,
+            complaint_id=complaint.id,
+        )
+
+        await service.resolve_complaint(
+            admin_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            complaint_id=complaint.id,
+            status="in_review",
+            reason="limited moderator review",
+        )
+
+        card = await service.get_moderator_complaint_card(
+            moderator_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+            complaint_id=complaint.id,
+        )
+        assert card.complaint_id == complaint.id
+        assert len(card.history) > 0
+
+        with pytest.raises(ModerationError):
+            await service.open_admin_audit(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                target_type="all",
+                page=0,
+            )
+
+        admin_audit = await service.open_admin_audit(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            target_type="all",
+            page=0,
+        )
+        assert admin_audit.items is not None
+
+    finally:
+        await cleanup_user(db_session, reporter_platform_user_id)
+        await cleanup_user(db_session, target_platform_user_id)
+        await cleanup_user(db_session, moderator_platform_user_id)
         await cleanup_user(db_session, admin_platform_user_id)
 
 async def test_client_cannot_use_admin_repository(db_session):

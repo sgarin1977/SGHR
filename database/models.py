@@ -564,7 +564,7 @@ class UserLanguageSetting(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     interface_language: Mapped[str] = mapped_column(String(10), default="ru")
     message_language: Mapped[str] = mapped_column(String(10), default="ru")
-    auto_translate_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    auto_translate_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     show_original_button: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

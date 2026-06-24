@@ -664,7 +664,7 @@ def test_specialist_registration_s4_profession_matches_tz10_contract():
     assert "selected_profession_ids" in source
     assert "selected_professions" in source
     assert "profession_limit_error_key" in source
-    assert "MAX_SPECIALIST_CATEGORIES = 2" in source
+    assert "MAX_SPECIALIST_CATEGORIES = 3" in source
     assert "MAX_PROFESSIONS_PER_CATEGORY = 3" in source
 
     assert "spec_profession_select_one" in source
@@ -832,3 +832,9 @@ def test_specialist_registration_s8_confirmation_matches_tz10_contract():
     assert "spec_draft_missing" in texts_source
     assert "{specialist_id}" not in texts_source
     assert "ID профиля" not in texts_source
+
+def test_acceptance_specialist_category_limit_is_three():
+    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+
+    assert "MAX_SPECIALIST_CATEGORIES = 3" in source
+    assert "MAX_PROFESSIONS_PER_CATEGORY = 3" in source

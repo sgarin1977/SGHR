@@ -59,3 +59,56 @@ def test_legal_gate_has_show_documents_callback():
     assert "LEGAL_SHOW_DOCS" in source
     assert "legal_show_documents_btn" in source
     assert "show_specialist_legal_documents" in source
+
+def test_disabled_beta_sections_use_single_placeholder_contract():
+    admin_source = read("handlers/admin.py")
+    billing_source = read("handlers/billing.py")
+    texts_source = read("ui/texts.py")
+
+    assert '"feature_disabled_beta"' in texts_source
+    assert '"feature_disabled_beta_message"' in texts_source
+
+    assert 'callback_data="ADMIN_BETA_DISABLED:finance"' in admin_source
+    assert 'callback_data="BETA_DISABLED:promotion"' in billing_source
+
+    assert "async def show_admin_beta_disabled_feature" in admin_source
+    assert "async def beta_disabled" in billing_source
+
+    assert 't("feature_disabled_beta", language)' in admin_source
+    assert 't("feature_disabled_beta", language)' in billing_source
+
+    assert 't("feature_disabled_beta_message", language)' in admin_source
+    assert 't("feature_disabled_beta_message", language)' in billing_source
+
+def test_auto_translate_default_is_disabled_for_controlled_beta():
+    source = read("database/models.py")
+
+    assert (
+        "auto_translate_enabled: Mapped[bool] = mapped_column(Boolean, default=False)"
+        in source
+    )
+
+def test_acceptance_stale_callbacks_and_critical_edits_are_guarded():
+    billing_source = read("handlers/billing.py")
+    texts_source = read("ui/texts.py")
+
+    assert "async def block_critical_profile_edit(" in billing_source
+    assert "async def block_critical_profile_edit_message(" in billing_source
+    assert "block_stale_critical_profile_edit_callbacks" in billing_source
+    assert "critical_profile_change_requires_pending_schema" in billing_source
+    assert "cabinet_critical_edit_blocked" in billing_source
+    assert '"cabinet_critical_edit_blocked"' in texts_source
+
+    assert "except (IndexError, TypeError, ValueError)" in billing_source
+    assert "show_alert=True" in billing_source
+    assert "contact_request_not_found" in billing_source
+    assert "contact_thread_not_found" in billing_source
+
+def test_acceptance_external_payment_webhook_is_not_enabled_for_controlled_beta():
+    billing_handler_source = open("handlers/billing.py", encoding="utf-8").read()
+    billing_repository_source = open("database/repositories/billing.py", encoding="utf-8").read()
+
+    assert "@billing_router.post" not in billing_handler_source
+    assert "external_payment_id" not in billing_handler_source
+    assert "provider_payment_id=None" in billing_repository_source
+    assert "Payment.status.in_([\"pending\", \"paid\"])" in billing_repository_source

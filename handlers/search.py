@@ -647,7 +647,7 @@ def format_public_reviews(review_page, language: str) -> str:
         )
     else:
         rating_line = t("public_reviews_summary", language).format(
-            rating="0.0",
+            rating=t("search_no_reviews", language),
             count=0,
         )
 

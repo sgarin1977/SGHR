@@ -36,7 +36,7 @@ class SpecialistSearchFilters:
     work_format: str | None = None
     status: str = "active"
     page: int = 1
-    page_size: int = 10
+    page_size: int = 5
     limit: int | None = None
     offset: int | None = None
     sort_by: str = "distance"
@@ -383,6 +383,7 @@ class SpecialistSearchRepository:
                 Specialist.is_premium.desc(),
                 Specialist.priority_score.desc(),
                 Specialist.rating.desc(),
+                Specialist.is_verified.desc(),
                 Specialist.reviews_count.desc(),
                 Specialist.updated_at.desc(),
                 Specialist.id.asc(),
@@ -513,6 +514,7 @@ class SpecialistSearchRepository:
             Specialist.is_premium.desc(),
             Specialist.priority_score.desc(),
             Specialist.rating.desc(),
+            Specialist.is_verified.desc(),
             Specialist.reviews_count.desc(),
             Specialist.updated_at.desc(),
             Specialist.id.asc(),
@@ -644,15 +646,16 @@ class SpecialistSearchRepository:
         distance_expr <= radius_km,
     )
 
-            stmt = stmt.order_by(
-                Specialist.is_premium.desc(),
-                Specialist.priority_score.desc(),
-                distance_expr.asc().nulls_last(),
-                Specialist.rating.desc(),
-                Specialist.reviews_count.desc(),
-                Specialist.updated_at.desc(),
-                Specialist.id.asc(),
-            ).limit(max(1, int(limit)))
+        stmt = stmt.order_by(
+            Specialist.is_premium.desc(),
+            Specialist.priority_score.desc(),
+            distance_expr.asc().nulls_last(),
+            Specialist.rating.desc(),
+            Specialist.is_verified.desc(),
+            Specialist.reviews_count.desc(),
+            Specialist.updated_at.desc(),
+            Specialist.id.asc(),
+        ).limit(max(1, int(limit)))
 
         result = await self.session.execute(stmt)
 

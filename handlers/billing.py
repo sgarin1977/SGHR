@@ -60,7 +60,7 @@ from sqlalchemy import delete, func, select
 
 billing_router = Router()
 logger = logging.getLogger(__name__)
-MAX_SPECIALIST_CATEGORIES = 2
+MAX_SPECIALIST_CATEGORIES = 3
 MAX_PROFESSIONS_PER_CATEGORY = 3
 SPECIALIST_SERVICES_PAGE_SIZE = 5
 OWNER_PORTFOLIO_PAGE_SIZE = 5
@@ -913,6 +913,11 @@ def format_favorite_card(card: SpecialistPublicCard, language: str) -> str:
     work_format = favorite_work_format_label(card.work_format, language)
     services = ", ".join(card.service_titles) if card.service_titles else t("search_filter_not_set", language)
 
+    if card.reviews_count > 0 and card.rating is not None:
+        rating = f"{float(card.rating):.1f} ({card.reviews_count})"
+    else:
+        rating = t("search_no_reviews", language)
+
     return (
         f"{card.display_name}\n\n"
         f"{t('search_filter_category_label', language)}: {category}\n"
@@ -922,7 +927,7 @@ def format_favorite_card(card: SpecialistPublicCard, language: str) -> str:
         f"{t('search_services_label', language)}: {services}\n"
         f"{t('search_filter_price_label', language)}: {price}\n"
         f"{t('search_filter_language_label', language)}: {languages}\n"
-        f"{t('search_rating', language)}: {card.rating} ({card.reviews_count})\n\n"
+        f"{t('search_rating', language)}: {rating}\n\n"
         f"{card.short_description}\n\n"
         f"{t('search_legal_warning', language)}"
     )
@@ -1657,8 +1662,11 @@ def format_specialist_profile_text(
     if not specialist:
         return t("cabinet_profile_not_found", language)
 
-    rating = specialist.rating or 0
     reviews_count = specialist.reviews_count or 0
+    if reviews_count > 0 and specialist.rating is not None:
+        rating_text = f"{float(specialist.rating):.2f} ({reviews_count})"
+    else:
+        rating_text = t("search_no_reviews", language)
     description = specialist.short_description or t("search_filter_not_set", language)
 
     if specialist.status == "active":
@@ -1672,7 +1680,7 @@ def format_specialist_profile_text(
         f"{t('cabinet_profile_title', language)}\n\n"
         f"👤 {specialist.display_name or '-'}\n\n"
         f"🔧 {profession_text or '-'}\n\n"
-        f"⭐ {rating:.2f} ({reviews_count})\n\n"
+        f"⭐ {rating_text}\n\n"
         f"📍 {location_text or '-'}\n\n"
         f"{status_text}\n\n"
         f"{description}"
@@ -3407,7 +3415,7 @@ def format_specialist_reviews_cabinet(review_page, language: str) -> str:
         rating = f"{float(review_page.reputation.score or 0):.1f}"
         count = review_page.reputation.review_count
     else:
-        rating = "0.0"
+        rating = t("search_no_reviews", language)
         count = 0
 
     lines = [

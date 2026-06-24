@@ -913,6 +913,8 @@ async def test_search_ranking_uses_reviews_activity_and_stable_tiebreak(db_sessi
         specialist.is_premium = False
         specialist.priority_score = 0
         specialist.rating = 4
+        specialist.is_verified = False
+        specialist_2.is_verified = False
         specialist.reviews_count = 1
         specialist.work_format = "at_specialist"
 
@@ -1556,8 +1558,9 @@ def test_search_public_card_has_legal_warning_and_no_technical_fields():
     source = open("handlers/search.py", encoding="utf-8").read()
 
     assert "search_legal_warning" in source
-    assert "search_status_label" in source
     assert "search_price_from" in source
+    assert "search_profile_status" not in source
+    assert "search_status_label" not in source
 
     card_source = source.split("def format_public_card", 1)[1].split(
         "async def show_filters",
@@ -2241,3 +2244,76 @@ def test_remote_work_format_search_ignores_geo_and_shows_remote_label():
     assert 'is_remote = card.work_format == "remote"' in public_card_block
     assert 'work_format_label("remote", language)' in public_card_block
     assert 'distance = "" if is_remote else' in public_card_block
+
+def test_acceptance_no_zero_rating_when_reviews_are_missing():
+    search_source = open("handlers/search.py", encoding="utf-8").read()
+    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+
+    public_reviews_block = search_source.split(
+        "def format_public_reviews",
+        1,
+    )[1].split(
+        "def public_reviews_keyboard",
+        1,
+    )[0]
+
+    specialist_reviews_block = billing_source.split(
+        "def format_specialist_reviews_cabinet",
+        1,
+    )[1].split(
+        "def specialist_reviews_keyboard",
+        1,
+    )[0]
+
+    specialist_profile_block = billing_source.split(
+        "def format_specialist_profile_text",
+        1,
+    )[1].split(
+        "def specialist_profile_status_block",
+        1,
+    )[0]
+
+    favorite_card_block = billing_source.split(
+        "def format_favorite_card",
+        1,
+    )[1].split(
+        "def specialist_profile_keyboard",
+        1,
+    )[0]
+
+    for block in [
+        public_reviews_block,
+        specialist_reviews_block,
+        specialist_profile_block,
+        favorite_card_block,
+    ]:
+        assert '"0.0"' not in block
+        assert "0.00" not in block
+        assert "search_no_reviews" in block
+
+def test_search_filters_default_page_size_is_beta_card_page_size():
+    filters = SpecialistSearchFilters()
+
+    assert filters.page_size == 5
+    assert filters.normalized_page_size == 5
+    assert filters.query_limit == 5
+
+def test_acceptance_ranking_uses_verified_before_tie_breaks():
+    repository_source = open("database/repositories/search.py", encoding="utf-8").read()
+    service_source = open("services/geo_search.py", encoding="utf-8").read()
+
+    assert (
+        "Specialist.rating.desc(),\n"
+        "                Specialist.is_verified.desc(),\n"
+        "                Specialist.reviews_count.desc(),\n"
+        "                Specialist.updated_at.desc(),\n"
+        "                Specialist.id.asc(),"
+    ) in repository_source
+
+    assert (
+        "-float(item.specialist.rating or 0),\n"
+        "                    -int(bool(item.specialist.is_verified)),\n"
+        "                    -int(item.specialist.reviews_count or 0),\n"
+        "                    -self._activity_timestamp(item.specialist),\n"
+        "                    str(item.specialist.id),"
+    ) in service_source

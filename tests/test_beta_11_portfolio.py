@@ -10,6 +10,7 @@ from database.models import (
 from database.repositories.portfolio import PortfolioRepository
 from services.portfolio import PortfolioService, PortfolioServiceError
 from services.portfolio_storage import (
+    ALLOWED_FILES,
     PDF_MAX_SIZE,
     PHOTO_MAX_SIZE,
     PortfolioFileValidationError,
@@ -56,6 +57,29 @@ def test_allowed_portfolio_files(
     assert result.mime_type == mime_type
     assert result.size_bytes == len(content)
 
+def test_portfolio_storage_security_contract_matches_tz10():
+    storage_source = open(
+        "services/portfolio_storage.py",
+        encoding="utf-8",
+    ).read()
+
+    assert '"specialist-portfolio"' in storage_source
+    assert PHOTO_MAX_SIZE == 10 * 1024 * 1024
+    assert PDF_MAX_SIZE == 20 * 1024 * 1024
+
+    assert set(ALLOWED_FILES) == {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".pdf",
+    }
+
+    assert ALLOWED_FILES[".jpg"] == ("photo", "image/jpeg")
+    assert ALLOWED_FILES[".jpeg"] == ("photo", "image/jpeg")
+    assert ALLOWED_FILES[".png"] == ("photo", "image/png")
+    assert ALLOWED_FILES[".webp"] == ("photo", "image/webp")
+    assert ALLOWED_FILES[".pdf"] == ("pdf", "application/pdf")
 
 @pytest.mark.parametrize(
     "filename",
@@ -576,6 +600,73 @@ async def test_portfolio_moderation_and_delete_lifecycle(
             db_session,
             moderator_platform_user_id,
         )
+
+async def test_permission_matrix_portfolio_moderation_access(db_session):
+    specialist_platform_user_id, specialist_user_id, tenant_id, specialist = (
+        await create_pending_specialist(db_session)
+    )
+    specialist.status = "active"
+
+    support_platform_user_id, support_user_id, support_tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    moderator_platform_user_id, moderator_user_id, moderator_tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+    admin_platform_user_id, admin_user_id, admin_tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+
+    assert support_tenant_id == tenant_id
+    assert moderator_tenant_id == tenant_id
+    assert admin_tenant_id == tenant_id
+
+    service = PortfolioService(PortfolioRepository(db_session))
+
+    try:
+        item = await service.upload_item(
+            tenant_id=tenant_id,
+            owner_user_id=specialist_user_id,
+            content=b"%PDF-1.7 permission matrix portfolio",
+            filename="permission-matrix.pdf",
+            mime_type="application/pdf",
+            title="Permission matrix portfolio",
+            description="Portfolio moderation permission matrix.",
+        )
+
+        moderator_items = await service.list_pending_items(
+            tenant_id=tenant_id,
+            moderator_user_id=moderator_user_id,
+            page=0,
+        )
+        assert any(view.item.id == item.id for view in moderator_items)
+
+        admin_items = await service.list_pending_items(
+            tenant_id=tenant_id,
+            moderator_user_id=admin_user_id,
+            page=0,
+        )
+        assert any(view.item.id == item.id for view in admin_items)
+
+        with pytest.raises(PortfolioServiceError):
+            await service.list_pending_items(
+                tenant_id=tenant_id,
+                moderator_user_id=support_user_id,
+                page=0,
+            )
+
+    finally:
+        await cleanup_portfolio_specialist(
+            db_session,
+            platform_user_id=specialist_platform_user_id,
+            specialist_id=specialist.id,
+        )
+        await cleanup_user(db_session, support_platform_user_id)
+        await cleanup_user(db_session, moderator_platform_user_id)
+        await cleanup_user(db_session, admin_platform_user_id)
 
 async def test_moderator_cannot_moderate_own_portfolio_item(
     db_session,

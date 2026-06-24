@@ -600,3 +600,12 @@ async def test_expired_promotions_are_marked_expired(db_session):
     finally:
         await cleanup_billing_for_specialist(db_session, specialist_id)
         await cleanup_test_user(db_session, specialist_platform_user_id)
+
+def test_acceptance_external_payment_webhook_is_not_enabled_for_controlled_beta():
+    billing_handler_source = open("handlers/billing.py", encoding="utf-8").read()
+    billing_repository_source = open("database/repositories/billing.py", encoding="utf-8").read()
+
+    assert "@billing_router.post" not in billing_handler_source
+    assert "external_payment_id" not in billing_handler_source
+    assert "provider_payment_id=None" in billing_repository_source
+    assert "Payment.status.in_([\"pending\", \"paid\"])" in billing_repository_source

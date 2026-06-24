@@ -50,7 +50,7 @@ GRANTABLE_ADMIN_ROLES = {
     "finance_admin",
     "content_manager",
 }
-LOG_VIEW_ROLES = {"super_admin", "admin", "support"}
+LOG_VIEW_ROLES = {"super_admin", "admin"}
 FULL_LOG_VIEW_ROLES = {"super_admin", "admin"}
 COMPLAINT_OPEN_STATUSES = {"new", "in_review"}
 

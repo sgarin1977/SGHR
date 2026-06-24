@@ -36,7 +36,7 @@ from ui.texts import t
 specialist_form_router = Router()
 logger = logging.getLogger(__name__)
 PER_PAGE = 8
-MAX_SPECIALIST_CATEGORIES = 2
+MAX_SPECIALIST_CATEGORIES = 3
 MAX_PROFESSIONS_PER_CATEGORY = 3
 LANGUAGE_OPTIONS = {
     "ru": "Русский",

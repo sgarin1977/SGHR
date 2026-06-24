@@ -186,6 +186,69 @@ async def test_support_access_required_for_staff_actions(db_session):
         await cleanup_test_user(db_session, platform_user_id)
         await cleanup_test_user(db_session, other_platform_user_id)
 
+async def test_permission_matrix_support_tickets_access(db_session):
+    platform_user_id, user_id, tenant_id = await create_support_test_user(db_session)
+    support_platform_user_id, support_user_id, support_tenant_id = await create_admin_user(
+        db_session,
+        role="support",
+    )
+    admin_platform_user_id, admin_user_id, admin_tenant_id = await create_admin_user(
+        db_session,
+        role="admin",
+    )
+    moderator_platform_user_id, moderator_user_id, moderator_tenant_id = await create_admin_user(
+        db_session,
+        role="moderator",
+    )
+
+    assert support_tenant_id == tenant_id
+    assert admin_tenant_id == tenant_id
+    assert moderator_tenant_id == tenant_id
+
+    service = SupportService(SupportRepository(db_session))
+
+    try:
+        ticket = await service.create_ticket(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            subject="Permission matrix support ticket",
+            priority="P3",
+            category="technical",
+            message_text="Permission matrix support ticket check.",
+        )
+
+        support_tickets = await service.list_staff_tickets(
+            tenant_id=tenant_id,
+            staff_user_id=support_user_id,
+            statuses={"open"},
+            limit=5,
+            offset=0,
+        )
+        assert any(item.id == ticket.id for item in support_tickets)
+
+        admin_tickets = await service.list_staff_tickets(
+            tenant_id=tenant_id,
+            staff_user_id=admin_user_id,
+            statuses={"open"},
+            limit=5,
+            offset=0,
+        )
+        assert any(item.id == ticket.id for item in admin_tickets)
+
+        with pytest.raises(SupportServiceError):
+            await service.list_staff_tickets(
+                tenant_id=tenant_id,
+                staff_user_id=moderator_user_id,
+                statuses={"open"},
+                limit=5,
+                offset=0,
+            )
+
+    finally:
+        await cleanup_test_user(db_session, platform_user_id)
+        await cleanup_test_user(db_session, support_platform_user_id)
+        await cleanup_test_user(db_session, admin_platform_user_id)
+        await cleanup_test_user(db_session, moderator_platform_user_id)
 
 def test_support_static_contract():
     models = open("database/models.py", encoding="utf-8").read()
