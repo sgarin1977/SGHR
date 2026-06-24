@@ -2588,7 +2588,6 @@ async def request_specialist_thread_completion(callback: CallbackQuery, state: F
                 tenant_id=tenant_id,
                 thread_id=UUID(thread_id),
                 actor_user_id=user_id,
-                role="specialist",
             )
 
     except ContactChatError as exc:

@@ -47,6 +47,14 @@ class GeoSearchService:
     def __init__(self, repository: SpecialistSearchRepository):
         self.repository = repository
 
+    def _activity_timestamp(self, specialist: Specialist) -> float:
+        activity_at = specialist.updated_at or specialist.created_at
+        if activity_at is None:
+            return 0.0
+        if activity_at.tzinfo is None:
+            activity_at = activity_at.replace(tzinfo=timezone.utc)
+        return activity_at.timestamp()
+
     async def _enrich_search_results(
         self,
         results: list[SpecialistSearchResult],
@@ -96,7 +104,6 @@ class GeoSearchService:
             response_score = 0.3
 
         profile_completion = min(float(profile_completion_score or 0) / 100.0, 1.0)
-        verified_bonus = 1.0 if specialist.is_verified else 0.0
         premium_boost = 1.0 if specialist.is_premium else 0.0
 
         created_at = specialist.created_at
@@ -115,7 +122,6 @@ class GeoSearchService:
             + rating_score * 0.20
             + response_score * 0.15
             + profile_completion * 0.10
-            + verified_bonus * 0.10
             + premium_boost * 0.10
             + freshness_score * 0.05
             - risk_penalty
@@ -261,20 +267,23 @@ class GeoSearchService:
         if filters.sort_by == "relevance":
             results.sort(
                 key=lambda item: (
-                    item.ranking_score,
-                    float(item.specialist.rating or 0),
-                ),
-                reverse=True,
+                    -int(bool(item.specialist.is_premium)),
+                    -float(item.specialist.priority_score or 0),
+                    -float(item.specialist.rating or 0),
+                    -int(item.specialist.reviews_count or 0),
+                    -self._activity_timestamp(item.specialist),
+                    str(item.specialist.id),
+                )
             )
         else:
             results.sort(
                 key=lambda item: (
-                    float(item.specialist.rating or 0),
-                    item.ranking_score,
-                ),
-                reverse=True,
+                    -float(item.specialist.rating or 0),
+                    -int(item.specialist.reviews_count or 0),
+                    -self._activity_timestamp(item.specialist),
+                    str(item.specialist.id),
+                )
             )
-
         paginated_results = results[
             filters.normalized_offset : filters.normalized_offset + filters.normalized_page_size
         ]
@@ -351,6 +360,17 @@ class GeoSearchService:
                     ),
                 )
             )
+
+        results.sort(
+            key=lambda item: (
+                -int(bool(item.specialist.is_premium)),
+                -float(item.specialist.priority_score or 0),
+                -float(item.specialist.rating or 0),
+                -int(item.specialist.reviews_count or 0),
+                -self._activity_timestamp(item.specialist),
+                str(item.specialist.id),
+            )
+        )
 
         results = await self._enrich_search_results(
             results,
@@ -455,21 +475,25 @@ class GeoSearchService:
         if filters.sort_by == "distance":
             results.sort(
                 key=lambda item: (
+                    -int(bool(item.specialist.is_premium)),
+                    -float(item.specialist.priority_score or 0),
                     item.distance_km if item.distance_km is not None else 999999,
-                    -(item.specialist.created_at or datetime.min).timestamp(),
-                    -item.ranking_score,
                     -float(item.specialist.rating or 0),
+                    -int(item.specialist.reviews_count or 0),
+                    -self._activity_timestamp(item.specialist),
                     str(item.specialist.id),
                 )
             )
         else:
             results.sort(
                 key=lambda item: (
-                    item.ranking_score,
-                    -(item.distance_km or 999999),
-                    float(item.specialist.rating or 0),
-                ),
-                reverse=True,
+                    -int(bool(item.specialist.is_premium)),
+                    -float(item.specialist.priority_score or 0),
+                    -float(item.specialist.rating or 0),
+                    -int(item.specialist.reviews_count or 0),
+                    -self._activity_timestamp(item.specialist),
+                    str(item.specialist.id),
+                )
             )
         paginated_results = results[
             filters.normalized_offset : filters.normalized_offset + filters.normalized_page_size

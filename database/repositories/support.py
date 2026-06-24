@@ -135,6 +135,45 @@ class SupportRepository:
 
         return ticket
 
+    async def create_system_ticket(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        subject: str,
+        priority: str,
+        category: str,
+        message_text: str,
+    ) -> SupportTicket:
+        now = datetime.utcnow()
+
+        ticket = SupportTicket(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            subject=subject,
+            priority=priority,
+            category=category,
+            status="open",
+            last_message_at=now,
+            updated_at=now,
+        )
+        self.session.add(ticket)
+        await self.session.flush()
+
+        message = SupportMessage(
+            tenant_id=tenant_id,
+            ticket_id=ticket.id,
+            sender_user_id=user_id,
+            sender_role="system",
+            message_text=message_text,
+            is_internal=False,
+            created_at=now,
+        )
+        self.session.add(message)
+        await self.session.flush()
+
+        return ticket
+
     async def get_ticket(
         self,
         *,

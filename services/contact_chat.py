@@ -2,11 +2,12 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from database.repositories.contact import ContactChatRepository
+from database.repositories.support import SupportRepository
 from database.repositories.contact_detection import ContactDetectionRepository
 from services.contact_detection import ContactDetectionService
 from database.repositories.rate_limit import RateLimitRepository
 from services.rate_limit import RateLimitError, RateLimitService
-from datetime import datetime
+from datetime import datetime, timedelta
 class ContactChatError(Exception):
     pass
 
@@ -68,6 +69,20 @@ class ContactThreadCompletionRequestResult:
     contact_request_id: UUID | None
     notification_id: UUID
     requested_for_user_id: UUID
+
+@dataclass(frozen=True)
+class OverdueCompletionRequest:
+    contact_request_id: UUID
+    tenant_id: UUID
+    client_user_id: UUID
+    specialist_id: UUID
+    requested_at: datetime
+
+@dataclass(frozen=True)
+class CompletionEscalationResult:
+    processed_count: int
+    skipped_count: int
+    support_ticket_ids: tuple[UUID, ...]
 
 @dataclass
 class ContactThreadListItem:
@@ -205,6 +220,7 @@ class ContactChatService:
         tenant_id: UUID,
         from_user_id: UUID,
         specialist_id: UUID,
+        profession_id: UUID | None = None,
         message: str,
         original_language: str | None = None,
     ) -> ContactRequestResult:
@@ -225,10 +241,23 @@ class ContactChatService:
         if specialist.user_id == from_user_id:
             raise ContactChatError("You cannot contact your own specialist profile.")
 
+        resolved_profession_id = (
+            await self.repository.resolve_contact_profession_id(
+                specialist_id=specialist.id,
+                requested_profession_id=profession_id,
+            )
+        )
+
+        if resolved_profession_id is None:
+            raise ContactChatError(
+                "Specialist profession is not available."
+            )
+
         existing_contact_request = await self.repository.get_active_contact_request_for_pair(
             tenant_id=tenant_id,
             from_user_id=from_user_id,
             specialist_id=specialist.id,
+            profession_id=resolved_profession_id,
         )
         if existing_contact_request:
             existing_thread = await self.repository.get_thread_by_contact_request_id(
@@ -257,9 +286,12 @@ class ContactChatService:
                 tenant_id=tenant_id,
                 from_user_id=from_user_id,
                 specialist_id=specialist.id,
+                profession_id=resolved_profession_id,
                 specialist_user_id=specialist.user_id,
                 message=normalized_message,
-                original_language=self._normalize_language(original_language),
+                original_language=self._normalize_language(
+                    original_language,
+                ),
             )
         )
 
@@ -295,7 +327,8 @@ class ContactChatService:
             normalized_reason = (decline_reason or "").strip()
             if len(normalized_reason) < 3:
                 raise ContactChatError("Decline reason is required.")
-            status = "rejected"
+
+            status = "declined"
             thread_status = "closed"
         else:
             raise ContactChatError("Unsupported contact request action.")
@@ -325,17 +358,14 @@ class ContactChatService:
         tenant_id: UUID,
         thread_id: UUID,
         actor_user_id: UUID,
-        role: str = "specialist",
     ) -> ContactThreadCompletionRequestResult:
-        if role not in {"client", "specialist"}:
-            raise ContactChatError("Unsupported completion requester role.")
-
         try:
-            thread, notification = await self.repository.request_thread_completion(
-                tenant_id=tenant_id,
-                thread_id=thread_id,
-                actor_user_id=actor_user_id,
-                role=role,
+            thread, notification = (
+                await self.repository.request_thread_completion(
+                    tenant_id=tenant_id,
+                    thread_id=thread_id,
+                    actor_user_id=actor_user_id,
+                )
             )
         except ValueError as exc:
             raise ContactChatError(str(exc)) from exc
@@ -345,6 +375,172 @@ class ContactChatService:
             contact_request_id=thread.context_id,
             notification_id=notification.id,
             requested_for_user_id=notification.user_id,
+        )
+
+    async def list_overdue_completion_requests(
+        self,
+        *,
+        now: datetime | None = None,
+        delay_days: int = 7,
+        limit: int = 100,
+    ) -> list[OverdueCompletionRequest]:
+        normalized_delay_days = max(1, int(delay_days))
+        current_time = now or datetime.utcnow()
+        deadline = current_time - timedelta(
+            days=normalized_delay_days,
+        )
+
+        candidates = (
+            await self.repository
+            .list_completion_escalation_candidates(
+                limit=limit,
+            )
+        )
+
+        overdue: list[OverdueCompletionRequest] = []
+
+        for contact_request in candidates:
+            metadata = dict(
+                contact_request.extra_metadata or {}
+            )
+            requested_at_raw = metadata.get(
+                "completion_requested_at"
+            )
+
+            if not requested_at_raw:
+                continue
+
+            try:
+                requested_at = datetime.fromisoformat(
+                    str(requested_at_raw)
+                )
+            except (TypeError, ValueError):
+                continue
+
+            if requested_at > deadline:
+                continue
+
+            overdue.append(
+                OverdueCompletionRequest(
+                    contact_request_id=contact_request.id,
+                    tenant_id=contact_request.tenant_id,
+                    client_user_id=contact_request.from_user_id,
+                    specialist_id=contact_request.specialist_id,
+                    requested_at=requested_at,
+                )
+            )
+
+        return overdue
+
+    async def process_overdue_completion_escalations(
+        self,
+        *,
+        now: datetime | None = None,
+        delay_days: int = 7,
+        limit: int = 100,
+    ) -> CompletionEscalationResult:
+        current_time = now or datetime.utcnow()
+        normalized_delay_days = max(1, int(delay_days))
+        deadline = current_time - timedelta(
+            days=normalized_delay_days,
+        )
+
+        overdue = await self.list_overdue_completion_requests(
+            now=current_time,
+            delay_days=normalized_delay_days,
+            limit=limit,
+        )
+
+        support_repository = SupportRepository(
+            self.repository.session
+        )
+
+        ticket_ids: list[UUID] = []
+        skipped_count = 0
+
+        try:
+            for item in overdue:
+                contact_request = (
+                    await self.repository
+                    .get_completion_escalation_candidate_for_update(
+                        contact_request_id=(
+                            item.contact_request_id
+                        ),
+                    )
+                )
+
+                if contact_request is None:
+                    skipped_count += 1
+                    continue
+
+                metadata = dict(
+                    contact_request.extra_metadata or {}
+                )
+
+                if metadata.get(
+                    "completion_escalated_ticket_id"
+                ):
+                    skipped_count += 1
+                    continue
+
+                requested_at_raw = metadata.get(
+                    "completion_requested_at"
+                )
+                if not requested_at_raw:
+                    skipped_count += 1
+                    continue
+
+                try:
+                    requested_at = datetime.fromisoformat(
+                        str(requested_at_raw)
+                    )
+                except (TypeError, ValueError):
+                    skipped_count += 1
+                    continue
+
+                if requested_at > deadline:
+                    skipped_count += 1
+                    continue
+
+                ticket = (
+                    await support_repository
+                    .create_system_ticket(
+                        tenant_id=contact_request.tenant_id,
+                        user_id=contact_request.from_user_id,
+                        subject=(
+                            "Contact request completion overdue"
+                        ),
+                        priority="P1",
+                        category="request",
+                        message_text=(
+                            "Completion confirmation was not "
+                            "received within 7 days. "
+                            "The request was escalated "
+                            "automatically."
+                        ),
+                    )
+                )
+
+                await self.repository.mark_completion_escalated(
+                    contact_request=contact_request,
+                    support_ticket_id=ticket.id,
+                    escalated_at=current_time,
+                )
+
+                ticket_ids.append(ticket.id)
+
+            await self.repository.session.commit()
+
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise ContactChatError(
+                "Failed to escalate overdue completion requests."
+            ) from exc
+
+        return CompletionEscalationResult(
+            processed_count=len(ticket_ids),
+            skipped_count=skipped_count,
+            support_ticket_ids=tuple(ticket_ids),
         )
 
     async def set_contact_request_status_by_token(
@@ -386,6 +582,55 @@ class ContactChatService:
             )
         except ValueError as exc:
             raise ContactChatError(str(exc)) from exc
+
+        return ContactRequestStatusResult(
+            contact_request_id=contact_request.id,
+            thread_id=thread.id,
+            status=contact_request.status,
+            thread_status=thread.status,
+        )
+
+    async def cancel_contact_request_by_admin(
+        self,
+        *,
+        contact_request_id: UUID,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        reason: str,
+    ) -> ContactRequestStatusResult:
+        normalized_reason = (reason or "").strip()
+
+        if len(normalized_reason) < 3:
+            raise ContactChatError(
+                "Cancellation reason is required."
+            )
+
+        if len(normalized_reason) > 500:
+            raise ContactChatError(
+                "Cancellation reason is too long."
+            )
+
+        try:
+            contact_request, thread = (
+                await self.repository
+                .cancel_contact_request_by_admin(
+                    contact_request_id=contact_request_id,
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    reason=normalized_reason,
+                )
+            )
+
+            await self.repository.session.commit()
+
+        except ValueError as exc:
+            await self.repository.session.rollback()
+            raise ContactChatError(str(exc)) from exc
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise ContactChatError(
+                "Failed to cancel contact request."
+            ) from exc
 
         return ContactRequestStatusResult(
             contact_request_id=contact_request.id,

@@ -369,9 +369,6 @@ class SpecialistSearchRepository:
             )
             stmt = stmt.where(language_exists)
 
-        if filters.verified_only:
-            stmt = stmt.where(Specialist.is_verified.is_(True))
-
         if filters.premium_only:
             stmt = stmt.where(Specialist.is_premium.is_(True))
 
@@ -386,7 +383,9 @@ class SpecialistSearchRepository:
                 Specialist.is_premium.desc(),
                 Specialist.priority_score.desc(),
                 Specialist.rating.desc(),
-                Specialist.created_at.desc(),
+                Specialist.reviews_count.desc(),
+                Specialist.updated_at.desc(),
+                Specialist.id.asc(),
             )
             .offset(filters.normalized_offset)
             .limit(filters.query_limit)
@@ -500,8 +499,6 @@ class SpecialistSearchRepository:
             )
             stmt = stmt.where(language_exists)
 
-        if verified_only:
-            stmt = stmt.where(Specialist.is_verified.is_(True))
 
         if premium_only:
             stmt = stmt.where(Specialist.is_premium.is_(True))
@@ -516,7 +513,9 @@ class SpecialistSearchRepository:
             Specialist.is_premium.desc(),
             Specialist.priority_score.desc(),
             Specialist.rating.desc(),
-            Specialist.created_at.desc(),
+            Specialist.reviews_count.desc(),
+            Specialist.updated_at.desc(),
+            Specialist.id.asc(),
         ).limit(max(1, int(limit)))
 
         result = await self.session.execute(stmt)
@@ -623,9 +622,6 @@ class SpecialistSearchRepository:
             )
             stmt = stmt.where(language_exists)
 
-        if verified_only:
-            stmt = stmt.where(Specialist.is_verified.is_(True))
-
         if premium_only:
             stmt = stmt.where(Specialist.is_premium.is_(True))
 
@@ -649,10 +645,14 @@ class SpecialistSearchRepository:
     )
 
             stmt = stmt.order_by(
-    distance_expr.asc().nulls_last(),
-    Specialist.created_at.desc(),
-    Specialist.id.asc(),
-        ).limit(max(1, int(limit)))
+                Specialist.is_premium.desc(),
+                Specialist.priority_score.desc(),
+                distance_expr.asc().nulls_last(),
+                Specialist.rating.desc(),
+                Specialist.reviews_count.desc(),
+                Specialist.updated_at.desc(),
+                Specialist.id.asc(),
+            ).limit(max(1, int(limit)))
 
         result = await self.session.execute(stmt)
 

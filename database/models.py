@@ -421,6 +421,10 @@ class ContactRequest(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     from_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id"), nullable=False)
+    profession_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    ForeignKey("professions.id", ondelete="SET NULL"),
+    nullable=True,
+)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     original_language: Mapped[str] = mapped_column(String(10), default="ru")
     status: Mapped[str] = mapped_column(Text, default="new")

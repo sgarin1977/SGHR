@@ -181,12 +181,6 @@ class ReviewRepository:
         review.status = "published"
         review.updated_at = datetime.utcnow()
 
-        if review.context_type == "contact_request" and review.context_id:
-            contact_request = await self.session.get(ContactRequest, review.context_id)
-            if contact_request:
-                contact_request.status = "reviewed"
-                contact_request.updated_at = datetime.utcnow()
-
         await self.session.flush()
         await self.recalculate_reputation(
             tenant_id=review.tenant_id,
@@ -349,20 +343,6 @@ class ReviewRepository:
         review.status = status
         review.updated_at = datetime.utcnow()
 
-        if (
-            status == "published"
-            and review.context_type == "contact_request"
-            and review.context_id
-        ):
-            contact_request = await self.session.get(
-                ContactRequest,
-                review.context_id,
-            )
-
-            if contact_request:
-                contact_request.status = "reviewed"
-                contact_request.updated_at = datetime.utcnow()
-
         await self.session.flush()
 
         return review, before_status
@@ -374,19 +354,7 @@ class ReviewRepository:
         review_id: UUID,
         reply: str,
     ) -> Review:
-        review = await self.session.get(Review, review_id)
-        if not review:
-            raise ReviewError("Review not found.")
-
-        specialist = await self.session.get(Specialist, review.target_id)
-        if not specialist or specialist.user_id != specialist_user_id:
-            raise ReviewError("Only the reviewed specialist can reply.")
-
-        review.specialist_reply = reply.strip()
-        review.updated_at = datetime.utcnow()
-
-        await self.session.flush()
-        return review
+        raise ReviewError("Review replies are disabled for controlled Beta.")
 
     async def recalculate_reputation(
         self,

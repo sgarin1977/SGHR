@@ -1,6 +1,6 @@
 import uuid
-
-from sqlalchemy import delete, select
+from datetime import datetime, timedelta
+from sqlalchemy import delete, func, select
 
 from database.models import (
     ContactRequest,
@@ -10,9 +10,13 @@ from database.models import (
     Message,
     Notification,
     Specialist,
+    SpecialistProfession,
+    Profession,
     SpecialistLanguage,
     SpecialistLocation,
     SpecialistService,
+    SupportMessage,
+    SupportTicket,
     User,
     UserAccount,
     UserConsent,
@@ -32,9 +36,11 @@ from database.models import (
 from database.repositories.contact import ContactChatRepository
 from database.repositories.legal import LegalRepository
 from database.repositories.specialist import SpecialistRepository
+from database.repositories.support import SupportRepository
 from database.repositories.user import UserRepository
 from services.contact_chat import ContactChatError, ContactChatService
 from services.legal import REQUIRED_SPECIALIST_CONSENTS, LegalService
+from services.support import SupportService, SupportServiceError
 from services.specialist import (
     SpecialistRegistrationData,
     SpecialistService as SpecialistRegistrationService,
@@ -655,15 +661,15 @@ async def test_contact_request_rejects_and_closes_thread(db_session):
         contact_request = await db_session.get(ContactRequest, rejected.contact_request_id)
         thread = await db_session.get(ConversationThread, rejected.thread_id)
 
-        assert contact_request.status == "rejected"
+        assert contact_request.status == "declined"
         assert thread.status == "closed"
-        assert rejected.status == "rejected"
+        assert rejected.status == "declined"
         assert rejected.thread_status == "closed"
 
         events_result = await db_session.execute(
             select(EventLog).where(
                 EventLog.user_id == specialist_user_id,
-                EventLog.event_type == "contact_request_rejected",
+                EventLog.event_type == "contact_request_declined",
             )
         )
         assert events_result.scalar_one_or_none() is not None
@@ -1255,7 +1261,688 @@ async def test_specialist_can_reply_after_accepting_contact_request(db_session):
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
 
-async def test_thread_can_be_completed_by_participant(db_session):
+async def test_only_specialist_can_request_completion_for_accepted_request(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-completion-request-client",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    try:
+        service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Please help with this completion test request.",
+            original_language="en",
+        )
+
+        accepted = await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        completion = await service.request_thread_completion(
+            tenant_id=tenant_id,
+            thread_id=accepted.thread_id,
+            actor_user_id=specialist_user_id,
+        )
+
+        assert completion.thread_id == accepted.thread_id
+        assert (
+            completion.contact_request_id
+            == created.contact_request_id
+        )
+        assert completion.requested_for_user_id == client_user_id
+
+        contact_request = await db_session.get(
+            ContactRequest,
+            created.contact_request_id,
+        )
+        notification = await db_session.get(
+            Notification,
+            completion.notification_id,
+        )
+
+        assert contact_request is not None
+        assert contact_request.status == "accepted"
+        assert contact_request.extra_metadata.get(
+            "completion_requested_at"
+        )
+        assert contact_request.extra_metadata.get(
+            "completion_requested_by_user_id"
+        ) == str(specialist_user_id)
+
+        assert notification is not None
+        assert notification.user_id == client_user_id
+        assert (
+            notification.notification_type
+            == "completion_requested"
+        )
+
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.event_type == "completion_requested",
+                EventLog.entity_type == "contact_request",
+                EventLog.entity_id == created.contact_request_id,
+                EventLog.user_id == specialist_user_id,
+            )
+        )
+        assert event_result.scalar_one_or_none() is not None
+
+        try:
+            await service.request_thread_completion(
+                tenant_id=tenant_id,
+                thread_id=accepted.thread_id,
+                actor_user_id=client_user_id,
+            )
+        except ContactChatError as exc:
+            assert "Only specialist" in str(exc)
+        else:
+            raise AssertionError(
+                "Client was allowed to request completion."
+            )
+
+        try:
+            await service.request_thread_completion(
+                tenant_id=tenant_id,
+                thread_id=accepted.thread_id,
+                actor_user_id=specialist_user_id,
+            )
+        except ContactChatError as exc:
+            assert "already been requested" in str(exc)
+        else:
+            raise AssertionError(
+                "Duplicate completion request was accepted."
+            )
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
+async def test_completion_escalation_starts_after_seven_days(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-completion-seven-days",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    try:
+        service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Request for seven day escalation test.",
+            original_language="en",
+        )
+
+        accepted = await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        await service.request_thread_completion(
+            tenant_id=tenant_id,
+            thread_id=accepted.thread_id,
+            actor_user_id=specialist_user_id,
+        )
+
+        contact_request = await db_session.get(
+            ContactRequest,
+            created.contact_request_id,
+        )
+        assert contact_request is not None
+
+        current_time = datetime.utcnow()
+
+        metadata = dict(contact_request.extra_metadata or {})
+        metadata["completion_requested_at"] = (
+            current_time
+            - timedelta(
+                days=6,
+                hours=23,
+                minutes=59,
+            )
+        ).isoformat()
+        contact_request.extra_metadata = metadata
+        await db_session.commit()
+
+        before_deadline = (
+            await service.list_overdue_completion_requests(
+                now=current_time,
+            )
+        )
+
+        assert all(
+            item.contact_request_id
+            != created.contact_request_id
+            for item in before_deadline
+        )
+
+        metadata = dict(contact_request.extra_metadata or {})
+        metadata["completion_requested_at"] = (
+            current_time - timedelta(days=7)
+        ).isoformat()
+        contact_request.extra_metadata = metadata
+        await db_session.commit()
+
+        at_deadline = (
+            await service.list_overdue_completion_requests(
+                now=current_time,
+            )
+        )
+
+        matching = [
+            item
+            for item in at_deadline
+            if item.contact_request_id
+            == created.contact_request_id
+        ]
+
+        assert len(matching) == 1
+        assert matching[0].tenant_id == tenant_id
+        assert matching[0].client_user_id == client_user_id
+        assert matching[0].specialist_id == specialist.id
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
+async def test_overdue_completion_creates_one_support_ticket(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-completion-escalation",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    try:
+        service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Request for idempotent escalation test.",
+            original_language="en",
+        )
+
+        accepted = await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        await service.request_thread_completion(
+            tenant_id=tenant_id,
+            thread_id=accepted.thread_id,
+            actor_user_id=specialist_user_id,
+        )
+
+        contact_request = await db_session.get(
+            ContactRequest,
+            created.contact_request_id,
+        )
+        assert contact_request is not None
+
+        current_time = datetime.utcnow()
+
+        metadata = dict(
+            contact_request.extra_metadata or {}
+        )
+        metadata["completion_requested_at"] = (
+            current_time - timedelta(days=7)
+        ).isoformat()
+        contact_request.extra_metadata = metadata
+        await db_session.commit()
+
+        first_run = (
+            await service
+            .process_overdue_completion_escalations(
+                now=current_time,
+            )
+        )
+
+        assert first_run.processed_count == 1
+        assert first_run.skipped_count == 0
+        assert len(first_run.support_ticket_ids) == 1
+
+        support_ticket_id = (
+            first_run.support_ticket_ids[0]
+        )
+
+        ticket = await db_session.get(
+            SupportTicket,
+            support_ticket_id,
+        )
+        assert ticket is not None
+        assert ticket.tenant_id == tenant_id
+        assert ticket.user_id == client_user_id
+        assert ticket.priority == "P1"
+        assert ticket.category == "request"
+        assert ticket.status == "open"
+
+        message_result = await db_session.execute(
+            select(SupportMessage).where(
+                SupportMessage.ticket_id
+                == support_ticket_id,
+            )
+        )
+        support_message = (
+            message_result.scalar_one_or_none()
+        )
+
+        assert support_message is not None
+        assert support_message.sender_role == "system"
+
+        await db_session.refresh(contact_request)
+
+        assert (
+            contact_request.extra_metadata.get(
+                "completion_escalated_ticket_id"
+            )
+            == str(support_ticket_id)
+        )
+        assert contact_request.extra_metadata.get(
+            "completion_escalated_at"
+        )
+
+        second_run = (
+            await service
+            .process_overdue_completion_escalations(
+                now=current_time,
+            )
+        )
+
+        assert second_run.processed_count == 0
+        assert second_run.support_ticket_ids == ()
+
+        ticket_count_result = await db_session.execute(
+            select(func.count(SupportTicket.id)).where(
+                SupportTicket.tenant_id == tenant_id,
+                SupportTicket.user_id == client_user_id,
+                SupportTicket.category == "request",
+                SupportTicket.priority == "P1",
+            )
+        )
+        assert ticket_count_result.scalar_one() == 1
+
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.event_type
+                == "completion_escalated",
+                EventLog.entity_type
+                == "contact_request",
+                EventLog.entity_id
+                == created.contact_request_id,
+            )
+        )
+        event = event_result.scalar_one_or_none()
+
+        assert event is not None
+        assert (
+            event.payload["support_ticket_id"]
+            == str(support_ticket_id)
+        )
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
+async def test_admin_completes_contact_request_after_escalation(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-admin-completion-client",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    admin_platform_id, admin_user_id, admin_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-completion-admin",
+        )
+    )
+
+    assert client_tenant_id == tenant_id
+    assert admin_tenant_id == tenant_id
+
+    db_session.add(
+        UserRoleMapping(
+            user_id=admin_user_id,
+            tenant_id=tenant_id,
+            role="admin",
+            status="active",
+        )
+    )
+    await db_session.commit()
+
+    try:
+        contact_service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+
+        created = await contact_service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Request for Admin completion test.",
+            original_language="en",
+        )
+
+        accepted = (
+            await contact_service.set_contact_request_status(
+                contact_request_id=(
+                    created.contact_request_id
+                ),
+                actor_user_id=specialist_user_id,
+                tenant_id=tenant_id,
+                action="accept",
+            )
+        )
+
+        await contact_service.request_thread_completion(
+            tenant_id=tenant_id,
+            thread_id=accepted.thread_id,
+            actor_user_id=specialist_user_id,
+        )
+
+        contact_request = await db_session.get(
+            ContactRequest,
+            created.contact_request_id,
+        )
+        assert contact_request is not None
+
+        escalation_time = datetime.utcnow()
+
+        metadata = dict(
+            contact_request.extra_metadata or {}
+        )
+        metadata["completion_requested_at"] = (
+            escalation_time - timedelta(days=7)
+        ).isoformat()
+        contact_request.extra_metadata = metadata
+        await db_session.commit()
+
+        escalation = (
+            await contact_service
+            .process_overdue_completion_escalations(
+                now=escalation_time,
+            )
+        )
+
+        assert escalation.processed_count == 1
+        support_ticket_id = (
+            escalation.support_ticket_ids[0]
+        )
+
+        support_service = SupportService(
+            SupportRepository(db_session)
+        )
+
+        try:
+            await support_service.resolve_admin_escalated_ticket(
+                tenant_id=tenant_id,
+                admin_user_id=admin_user_id,
+                ticket_id=support_ticket_id,
+                reason="x",
+            )
+        except SupportServiceError as exc:
+            assert "Reason" in str(exc)
+        else:
+            raise AssertionError(
+                "Admin resolved escalation without a reason."
+            )
+
+        await db_session.refresh(contact_request)
+
+        ticket_before = await db_session.get(
+            SupportTicket,
+            support_ticket_id,
+        )
+        thread_before = await db_session.get(
+            ConversationThread,
+            accepted.thread_id,
+        )
+
+        assert contact_request.status == "accepted"
+        assert ticket_before.status == "open"
+        assert thread_before.status != "completed"
+
+        resolution_reason = (
+            "Client did not respond within seven days."
+        )
+
+        resolved_ticket = (
+            await support_service
+            .resolve_admin_escalated_ticket(
+                tenant_id=tenant_id,
+                admin_user_id=admin_user_id,
+                ticket_id=support_ticket_id,
+                reason=resolution_reason,
+            )
+        )
+
+        await db_session.refresh(contact_request)
+        await db_session.refresh(thread_before)
+
+        assert resolved_ticket.status == "resolved"
+        assert resolved_ticket.assigned_user_id == admin_user_id
+
+        assert contact_request.status == "completed"
+        assert thread_before.status == "completed"
+
+        assert (
+            contact_request.extra_metadata[
+                "completion_source"
+            ]
+            == "admin_escalation"
+        )
+        assert (
+            contact_request.extra_metadata[
+                "completion_reason"
+            ]
+            == resolution_reason
+        )
+        assert (
+            contact_request.extra_metadata[
+                "completed_by_user_id"
+            ]
+            == str(admin_user_id)
+        )
+
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.event_type
+                == "request_completed",
+                EventLog.entity_id
+                == created.contact_request_id,
+                EventLog.user_id == admin_user_id,
+            )
+        )
+        completion_event = (
+            event_result.scalar_one_or_none()
+        )
+
+        assert completion_event is not None
+        assert (
+            completion_event.payload[
+                "completion_source"
+            ]
+            == "admin_escalation"
+        )
+        assert (
+            completion_event.payload["reason"]
+            == resolution_reason
+        )
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            admin_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
+async def test_client_cannot_complete_without_specialist_request(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-complete-without-request",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    try:
+        service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Completion must require specialist request.",
+            original_language="en",
+        )
+
+        accepted = await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        try:
+            await service.complete_thread(
+                thread_id=accepted.thread_id,
+                actor_user_id=client_user_id,
+            )
+        except ContactChatError as exc:
+            assert "has not requested completion" in str(exc)
+        else:
+            raise AssertionError(
+                "Client completed request without specialist request."
+            )
+
+        contact_request = await db_session.get(
+            ContactRequest,
+            created.contact_request_id,
+        )
+
+        assert contact_request.status == "accepted"
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
+async def test_thread_can_be_completed_by_client(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
         prefix="test-contact-client-complete",
@@ -1280,6 +1967,12 @@ async def test_thread_can_be_completed_by_participant(db_session):
             actor_user_id=specialist_user_id,
             tenant_id=tenant_id,
             action="accept",
+        )
+
+        await service.request_thread_completion(
+            tenant_id=tenant_id,
+            thread_id=accepted.thread_id,
+            actor_user_id=specialist_user_id,
         )
 
         completed = await service.complete_thread(
@@ -1314,6 +2007,80 @@ async def test_thread_can_be_completed_by_participant(db_session):
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
 
+async def test_specialist_cannot_complete_request_directly(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-specialist-direct-complete",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    try:
+        service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Request for direct completion permission test.",
+            original_language="en",
+        )
+
+        accepted = await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        try:
+            await service.complete_thread(
+                thread_id=accepted.thread_id,
+                actor_user_id=specialist_user_id,
+            )
+        except ContactChatError as exc:
+            assert "Only client" in str(exc)
+        else:
+            raise AssertionError(
+                "Specialist completed request directly."
+            )
+
+        contact_request = await db_session.get(
+            ContactRequest,
+            created.contact_request_id,
+        )
+        thread = await db_session.get(
+            ConversationThread,
+            accepted.thread_id,
+        )
+
+        assert contact_request.status == "accepted"
+        assert thread.status != "completed"
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
 async def test_completed_thread_rejects_new_messages(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
@@ -1341,9 +2108,15 @@ async def test_completed_thread_rejects_new_messages(db_session):
             action="accept",
         )
 
-        await service.complete_thread(
+        await service.request_thread_completion(
+            tenant_id=tenant_id,
             thread_id=accepted.thread_id,
             actor_user_id=specialist_user_id,
+        )
+
+        await service.complete_thread(
+            thread_id=accepted.thread_id,
+            actor_user_id=client_user_id,
         )
 
         try:
@@ -1429,6 +2202,128 @@ async def test_contact_request_rejects_duplicate_active_request(db_session):
         await cleanup_test_user(db_session, client_platform_id)
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
+
+async def test_contact_request_active_uniqueness_is_scoped_by_profession(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-client-profession-scope",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    second_profession = Profession(
+        category_id=specialist.category_id,
+        code=f"test-contact-{uuid.uuid4()}",
+        name="Second contact test profession",
+        name_ru="Вторая тестовая профессия",
+        name_en="Second contact test profession",
+        name_pt="Segunda profissão de teste",
+        normalized_name=f"second-contact-{uuid.uuid4()}",
+        is_active=True,
+        extra_metadata={"source": "test_beta_06"},
+    )
+    db_session.add(second_profession)
+    await db_session.flush()
+
+    second_profession_id = second_profession.id
+
+    db_session.add(
+        SpecialistProfession(
+            specialist_id=specialist.id,
+            category_id=specialist.category_id,
+            profession_id=second_profession_id,
+            is_primary=False,
+            status="active",
+        )
+    )
+    await db_session.commit()
+
+    try:
+        service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+        service.rate_limit_service = None
+
+        primary_profession_id = specialist.profession_id
+
+        first = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            profession_id=primary_profession_id,
+            message="First request for the primary profession.",
+            original_language="en",
+        )
+
+        duplicate = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            profession_id=primary_profession_id,
+            message="Duplicate request for the primary profession.",
+            original_language="en",
+        )
+
+        second = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            profession_id=second_profession_id,
+            message="Request for the second profession.",
+            original_language="en",
+        )
+
+        assert duplicate.was_existing is True
+        assert duplicate.contact_request_id == first.contact_request_id
+        assert duplicate.thread_id == first.thread_id
+
+        assert second.was_existing is False
+        assert second.contact_request_id != first.contact_request_id
+        assert second.thread_id != first.thread_id
+
+        first_request = await db_session.get(
+            ContactRequest,
+            first.contact_request_id,
+        )
+        second_request = await db_session.get(
+            ContactRequest,
+            second.contact_request_id,
+        )
+
+        assert first_request is not None
+        assert second_request is not None
+        assert first_request.profession_id == primary_profession_id
+        assert second_request.profession_id == second_profession_id
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
+        second_profession_row = await db_session.get(
+            Profession,
+            second_profession_id,
+        )
+        if second_profession_row is not None:
+            await db_session.delete(second_profession_row)
+            await db_session.commit()
 
 async def test_contact_request_rate_limit_blocks_excess_requests_and_logs_abuse(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
@@ -2008,6 +2903,44 @@ async def test_thread_visibility_and_unread_are_persisted_per_participant(db_ses
         assert client_participant.last_read_at is not None
         assert client_participant.is_archived is True
         assert client_participant.is_hidden is True
+
+        follow_up = await service.send_thread_message(
+            thread_id=request.thread_id,
+            sender_user_id=specialist_user_id,
+            text="A new reply should return the dialog to active.",
+            original_language="en",
+        )
+
+        client_participant = (
+            await db_session.execute(
+                select(ConversationParticipant).where(
+                    ConversationParticipant.thread_id == request.thread_id,
+                    ConversationParticipant.user_id == client_user_id,
+                )
+            )
+        ).scalar_one()
+
+        specialist_participant = (
+            await db_session.execute(
+                select(ConversationParticipant).where(
+                    ConversationParticipant.thread_id == request.thread_id,
+                    ConversationParticipant.user_id == specialist_user_id,
+                )
+            )
+        ).scalar_one()
+
+        thread = await db_session.get(ConversationThread, request.thread_id)
+
+        assert follow_up.message_id is not None
+        assert thread.status == "in_discussion"
+
+        assert client_participant.unread_count == 1
+        assert client_participant.is_archived is False
+        assert client_participant.archived_at is None
+        assert client_participant.is_hidden is False
+        assert client_participant.hidden_at is None
+
+        assert specialist_participant.unread_count == 0
     finally:
         await cleanup_test_user(db_session, client_platform_id)
         await cleanup_test_user(db_session, specialist_platform_id)
@@ -2113,6 +3046,194 @@ def test_client_requests_c15_backend_is_wired_to_contact_requests():
     assert "client_request_back_to_requests" in texts_source
     assert "complete_thread(" in billing_source
 
+async def test_admin_can_cancel_request_with_reason_without_deleting_chat(
+    db_session,
+):
+    client_platform_id, client_user_id, client_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-admin-cancel-client",
+        )
+    )
+    (
+        specialist_platform_id,
+        specialist_user_id,
+        tenant_id,
+        specialist,
+    ) = await create_active_specialist_for_contact(db_session)
+
+    admin_platform_id, admin_user_id, admin_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-admin-cancel-admin",
+        )
+    )
+    ordinary_platform_id, ordinary_user_id, ordinary_tenant_id = (
+        await create_test_user(
+            db_session,
+            prefix="test-contact-admin-cancel-ordinary",
+        )
+    )
+
+    assert client_tenant_id == tenant_id
+    assert admin_tenant_id == tenant_id
+    assert ordinary_tenant_id == tenant_id
+
+    db_session.add(
+        UserRoleMapping(
+            user_id=admin_user_id,
+            tenant_id=tenant_id,
+            role="admin",
+            status="active",
+        )
+    )
+    await db_session.commit()
+
+    try:
+        service = ContactChatService(
+            ContactChatRepository(db_session)
+        )
+
+        created = await service.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=client_user_id,
+            specialist_id=specialist.id,
+            message="Request must remain stored after Admin cancel.",
+            original_language="en",
+        )
+
+        original_message_result = await db_session.execute(
+            select(Message).where(
+                Message.thread_id == created.thread_id,
+            )
+        )
+        original_message = (
+            original_message_result.scalar_one_or_none()
+        )
+        assert original_message is not None
+        original_message_id = original_message.id
+
+        try:
+            await service.cancel_contact_request_by_admin(
+                contact_request_id=created.contact_request_id,
+                admin_user_id=ordinary_user_id,
+                tenant_id=tenant_id,
+                reason="Unauthorized cancellation attempt.",
+            )
+        except ContactChatError as exc:
+            assert "Admin access denied" in str(exc)
+        else:
+            raise AssertionError(
+                "Ordinary user cancelled request as Admin."
+            )
+
+        try:
+            await service.cancel_contact_request_by_admin(
+                contact_request_id=created.contact_request_id,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                reason="x",
+            )
+        except ContactChatError as exc:
+            assert "reason is required" in str(exc).lower()
+        else:
+            raise AssertionError(
+                "Admin cancelled request without valid reason."
+            )
+
+        cancellation_reason = (
+            "Request cancelled after administrative review."
+        )
+
+        cancelled = (
+            await service.cancel_contact_request_by_admin(
+                contact_request_id=created.contact_request_id,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                reason=cancellation_reason,
+            )
+        )
+
+        assert cancelled.status == "cancelled"
+        assert cancelled.thread_status == "closed"
+
+        contact_request = await db_session.get(
+            ContactRequest,
+            created.contact_request_id,
+        )
+        thread = await db_session.get(
+            ConversationThread,
+            created.thread_id,
+        )
+        stored_message = await db_session.get(
+            Message,
+            original_message_id,
+        )
+
+        assert contact_request is not None
+        assert thread is not None
+        assert stored_message is not None
+
+        assert contact_request.status == "cancelled"
+        assert thread.status == "closed"
+        assert stored_message.thread_id == thread.id
+
+        assert (
+            contact_request.extra_metadata[
+                "cancelled_by"
+            ]
+            == "admin"
+        )
+        assert (
+            contact_request.extra_metadata[
+                "cancelled_by_user_id"
+            ]
+            == str(admin_user_id)
+        )
+        assert (
+            contact_request.extra_metadata[
+                "cancellation_reason"
+            ]
+            == cancellation_reason
+        )
+
+        event_result = await db_session.execute(
+            select(EventLog).where(
+                EventLog.event_type
+                == "request_cancelled",
+                EventLog.entity_id
+                == created.contact_request_id,
+                EventLog.user_id == admin_user_id,
+            )
+        )
+        event = event_result.scalar_one_or_none()
+
+        assert event is not None
+        assert event.payload["cancelled_by"] == "admin"
+        assert event.payload["reason"] == cancellation_reason
+
+    finally:
+        await cleanup_test_user(
+            db_session,
+            ordinary_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            admin_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            client_platform_id,
+        )
+        await cleanup_test_user(
+            db_session,
+            specialist_platform_id,
+        )
+        await cleanup_legal_documents(
+            db_session,
+            tenant_id,
+        )
+
 async def test_client_can_cancel_only_new_or_accepted_contact_request(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
@@ -2139,7 +3260,7 @@ async def test_client_can_cancel_only_new_or_accepted_contact_request(db_session
             tenant_id=tenant_id,
         )
 
-        assert cancelled.status == "rejected"
+        assert cancelled.status == "cancelled"
         assert cancelled.thread_status == "closed"
 
         event_result = await db_session.execute(
@@ -2196,6 +3317,19 @@ async def test_client_can_complete_request_thread_from_request_card_backend(db_s
         assert detail.specialist_name
         assert detail.message == "Hello, please help with this beta service."
 
+        accepted = await service.set_contact_request_status(
+            contact_request_id=created.contact_request_id,
+            actor_user_id=specialist_user_id,
+            tenant_id=tenant_id,
+            action="accept",
+        )
+
+        await service.request_thread_completion(
+            tenant_id=tenant_id,
+            thread_id=accepted.thread_id,
+            actor_user_id=specialist_user_id,
+        )
+
         completed = await service.complete_thread(
             thread_id=detail.thread_id,
             actor_user_id=client_user_id,
@@ -2250,3 +3384,5 @@ def test_specialist_s9_new_requests_screen_is_wired():
     assert "specialist_requests_title" in texts_source
     assert "specialist_requests_empty" in texts_source
     assert "specialist_request_status_updated" in texts_source
+
+

@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from database.models import SupportMessage, SupportTicket
+from database.repositories.contact import ContactChatRepository
 from database.repositories.support import (
     SUPPORT_MESSAGE_SENDER_ROLES,
     SUPPORT_STAFF_ROLES,
@@ -581,45 +583,100 @@ class SupportService:
             )
 
         before_status = ticket.status
-
-        await self.repository.add_message(
-            tenant_id=tenant_id,
-            ticket_id=ticket_id,
-            sender_user_id=admin_user_id,
-            sender_role="admin",
-            message_text=(
-                f"Resolved by Admin: {normalized_reason}"
-            ),
-            is_internal=True,
+        contact_repository = ContactChatRepository(
+            self.repository.session
         )
 
-        ticket = await self.repository.update_ticket_status(
-            tenant_id=tenant_id,
-            ticket_id=ticket_id,
-            status="resolved",
-            assigned_user_id=admin_user_id,
-        )
-
-        if not ticket:
-            raise SupportServiceError(
-                "Support ticket not found."
+        try:
+            contact_request = (
+                await contact_repository
+                .get_contact_request_by_escalated_ticket_id(
+                    tenant_id=tenant_id,
+                    support_ticket_id=ticket_id,
+                )
             )
 
-        await self.repository.log_admin_ticket_event(
-            tenant_id=tenant_id,
-            admin_user_id=admin_user_id,
-            ticket_id=ticket.id,
-            action="resolved",
-            payload={
-                "before_status": before_status,
-                "after_status": ticket.status,
-                "reason": normalized_reason,
-            },
-        )
+            if contact_request is not None:
+                if contact_request.status != "accepted":
+                    raise SupportServiceError(
+                        "Escalated contact request "
+                        "is no longer accepted."
+                    )
 
-        await self.repository.session.commit()
-        return ticket
+                thread = (
+                    await contact_repository
+                    .get_thread_by_contact_request_id(
+                        contact_request.id
+                    )
+                )
+                if not thread:
+                    raise SupportServiceError(
+                        "Conversation thread not found."
+                    )
 
+                await contact_repository.complete_contact_request_by_admin(
+                    contact_request=contact_request,
+                    thread=thread,
+                    admin_user_id=admin_user_id,
+                    reason=normalized_reason,
+                    completed_at=datetime.utcnow(),
+                )
+
+            await self.repository.add_message(
+                tenant_id=tenant_id,
+                ticket_id=ticket_id,
+                sender_user_id=admin_user_id,
+                sender_role="admin",
+                message_text=(
+                    f"Resolved by Admin: "
+                    f"{normalized_reason}"
+                ),
+                is_internal=True,
+            )
+
+            ticket = (
+                await self.repository.update_ticket_status(
+                    tenant_id=tenant_id,
+                    ticket_id=ticket_id,
+                    status="resolved",
+                    assigned_user_id=admin_user_id,
+                )
+            )
+
+            if not ticket:
+                raise SupportServiceError(
+                    "Support ticket not found."
+                )
+
+            await self.repository.log_admin_ticket_event(
+                tenant_id=tenant_id,
+                admin_user_id=admin_user_id,
+                ticket_id=ticket.id,
+                action="resolved",
+                payload={
+                    "before_status": before_status,
+                    "after_status": ticket.status,
+                    "reason": normalized_reason,
+                    "contact_request_id": (
+                        str(contact_request.id)
+                        if contact_request is not None
+                        else None
+                    ),
+                },
+            )
+
+            await self.repository.session.commit()
+            return ticket
+
+        except SupportServiceError:
+            await self.repository.session.rollback()
+            raise
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise SupportServiceError(
+                "Failed to resolve escalated ticket."
+            ) from exc
+        
     async def assign_ticket(
         self,
         *,

@@ -1723,7 +1723,7 @@ def format_specialist_result(result, index: int, language: str) -> str:
     else:
         price = f"💶{t('search_price_not_set', language)}"
 
-    verified = f" | {t('search_verified_label', language)}" if specialist.is_verified else ""
+    verified = ""
     language_label = t("search_filter_language_label", language)
 
     return (
@@ -1740,8 +1740,6 @@ def format_public_card(card: SpecialistPublicCard, language: str) -> str:
         price = f"{t('search_price_from', language)} {card.price_from} {card.currency}"
 
     labels = []
-    if card.is_verified:
-        labels.append(t("search_verified_label", language))
     if card.is_premium:
         labels.append(t("search_premium_label", language))
 
@@ -1761,11 +1759,7 @@ def format_public_card(card: SpecialistPublicCard, language: str) -> str:
     category = card.category_name or t("search_filter_not_set", language)
     profession = card.profession_name or t("search_filter_not_set", language)
     work_format = work_format_label(card.work_format, language)
-    status_line = (
-        f"{t('search_status_label', language)}: {t('search_verified_label', language)}\n"
-        if card.is_verified
-        else ""
-    )
+    status_line = ""
     services = ", ".join(card.service_titles) if card.service_titles else t("search_filter_not_set", language)
     if card.reviews_count > 0:
         rating = f"{float(card.rating):.1f} ({card.reviews_count})"
@@ -3631,6 +3625,7 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = await get_search_language(state, callback)
     specialist_id = data.get("selected_specialist_id")
+    profession_id = data.get("profession_id")
     message_text = (data.get("pending_contact_message") or "").strip()
 
     if not specialist_id:
@@ -3666,6 +3661,11 @@ async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
                 tenant_id=tenant_id,
                 from_user_id=requester_user_id,
                 specialist_id=UUID(specialist_id),
+                profession_id=(
+                    UUID(profession_id)
+                    if profession_id
+                    else None
+                ),
                 message=message_text,
                 original_language=language,
             )

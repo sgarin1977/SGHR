@@ -213,19 +213,7 @@ class ReviewService:
         review_id: UUID,
         reply: str,
     ) -> Review:
-        normalized_reply = self._normalize_reply(reply)
-
-        try:
-            review = await self.repository.add_specialist_reply(
-                specialist_user_id=specialist_user_id,
-                review_id=review_id,
-                reply=normalized_reply,
-            )
-            await self.repository.session.commit()
-            return review
-        except ReviewError as exc:
-            await self.repository.session.rollback()
-            raise ReviewServiceError(str(exc)) from exc
+        raise ReviewServiceError("Review replies are disabled for controlled Beta.")
 
     def _normalize_rating(self, rating: int) -> int:
         try:
@@ -256,13 +244,6 @@ class ReviewService:
             raise ReviewServiceError("Reason is too long.")
         return normalized
 
-    def _normalize_reply(self, reply: str | None) -> str:
-        normalized = (reply or "").strip()
-        if len(normalized) < 2:
-            raise ReviewServiceError("Reply is too short.")
-        if len(normalized) > 1000:
-            raise ReviewServiceError("Reply is too long.")
-        return normalized
     async def list_public_reviews_for_specialist(
         self,
         *,

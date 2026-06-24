@@ -18,13 +18,34 @@ from database.models import (
     SpecialistProfession,
     TranslationJob,
     User,
-    UserAccount
+    UserAccount,
+    UserRoleMapping,
 )
 from database.repositories.translation import TranslationRepository
 
 class ContactChatRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def user_has_contact_admin_access(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+    ) -> bool:
+        result = await self.session.execute(
+            select(UserRoleMapping.id)
+            .where(
+                UserRoleMapping.tenant_id == tenant_id,
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.status == "active",
+                UserRoleMapping.role.in_(
+                    {"admin", "super_admin"}
+                ),
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
 
     def _normalize_translation_language(self, language: str | None) -> str:
         return language if language in {"ru", "en", "pt"} else "ru"
@@ -62,40 +83,58 @@ class ContactChatRepository:
         )
         return result.scalar_one_or_none()
 
+    async def resolve_contact_profession_id(
+        self,
+        *,
+        specialist_id: UUID,
+        requested_profession_id: UUID | None = None,
+    ) -> UUID | None:
+        query = select(SpecialistProfession.profession_id).where(
+            SpecialistProfession.specialist_id == specialist_id,
+            SpecialistProfession.status == "active",
+        )
+
+        if requested_profession_id is not None:
+            query = query.where(
+                SpecialistProfession.profession_id == requested_profession_id,
+            )
+
+        query = query.order_by(
+            SpecialistProfession.is_primary.desc(),
+            SpecialistProfession.created_at.asc(),
+        ).limit(1)
+
+        result = await self.session.execute(query)
+        profession_id = result.scalar_one_or_none()
+
+        if profession_id is not None:
+            return profession_id
+
+        specialist = await self.session.get(Specialist, specialist_id)
+        return specialist.profession_id if specialist else None
+
     async def get_active_contact_request_for_pair(
         self,
         *,
         tenant_id: UUID,
         from_user_id: UUID,
         specialist_id: UUID,
+        profession_id: UUID,
     ) -> ContactRequest | None:
         result = await self.session.execute(
             select(ContactRequest)
-            .join(
-                ConversationThread,
-                (ConversationThread.context_type == "contact_request")
-                & (ConversationThread.context_id == ContactRequest.id),
-            )
             .where(
                 ContactRequest.tenant_id == tenant_id,
                 ContactRequest.from_user_id == from_user_id,
                 ContactRequest.specialist_id == specialist_id,
+                ContactRequest.profession_id == profession_id,
                 ContactRequest.status.in_(["new", "accepted"]),
-                ConversationThread.status.in_(
-                    [
-                        "waiting_specialist",
-                        "waiting_client",
-                        "open",
-                        "in_discussion",
-                        "restricted",
-                        "disputed",
-                    ]
-                ),
             )
             .order_by(ContactRequest.created_at.desc())
             .limit(1)
         )
         return result.scalar_one_or_none()
+    
 
     async def request_thread_completion(
         self,
@@ -103,7 +142,6 @@ class ContactChatRepository:
         tenant_id: UUID,
         thread_id: UUID,
         actor_user_id: UUID,
-        role: str = "specialist",
         platform: str = "telegram",
     ) -> tuple[ConversationThread, Notification]:
         thread = await self.get_thread_for_user(
@@ -111,28 +149,78 @@ class ContactChatRepository:
             user_id=actor_user_id,
         )
 
-        if not thread:
+        if not thread or thread.tenant_id != tenant_id:
             raise ValueError("Conversation thread not found.")
 
-        if thread.status in {"closed", "completed", "restricted", "disputed"}:
-            raise ValueError("Conversation thread completion is not available.")
+        if (
+            thread.context_type != "contact_request"
+            or not thread.context_id
+        ):
+            raise ValueError(
+                "Conversation thread is not linked to a contact request."
+            )
 
-        requested_for_user_id = (
-            thread.client_user_id
-            if role == "specialist"
-            else thread.specialist_user_id
+        specialist = await self.session.get(
+            Specialist,
+            thread.specialist_id,
         )
+        if not specialist or specialist.user_id != actor_user_id:
+            raise ValueError(
+                "Only specialist can request completion."
+            )
+
+        contact_request = await self.session.get(
+            ContactRequest,
+            thread.context_id,
+        )
+        if (
+            not contact_request
+            or contact_request.tenant_id != tenant_id
+        ):
+            raise ValueError("Contact request not found.")
+
+        if contact_request.status != "accepted":
+            raise ValueError(
+                "Only accepted contact request can be completed."
+            )
+
+        if thread.status in {
+            "closed",
+            "completed",
+            "restricted",
+            "disputed",
+        }:
+            raise ValueError(
+                "Conversation thread completion is not available."
+            )
+
+        requested_at = datetime.utcnow()
+
+        metadata = dict(contact_request.extra_metadata or {})
+        if metadata.get("completion_requested_at"):
+            raise ValueError(
+                "Completion has already been requested."
+            )
+
+        metadata["completion_requested_at"] = (
+            requested_at.isoformat()
+        )
+        metadata["completion_requested_by_user_id"] = str(
+            actor_user_id
+        )
+        contact_request.extra_metadata = metadata
+        contact_request.updated_at = requested_at
 
         notification = Notification(
             tenant_id=tenant_id,
-            user_id=requested_for_user_id,
+            user_id=thread.client_user_id,
             notification_type="completion_requested",
-            channel="telegram",
+            channel=platform,
             payload={
                 "thread_id": str(thread.id),
-                "contact_request_id": str(thread.context_id) if thread.context_id else None,
+                "contact_request_id": str(contact_request.id),
                 "requested_by_user_id": str(actor_user_id),
-                "role": role,
+                "requested_at": requested_at.isoformat(),
             },
             status="pending",
         )
@@ -143,12 +231,14 @@ class ContactChatRepository:
                 tenant_id=tenant_id,
                 user_id=actor_user_id,
                 event_type="completion_requested",
-                entity_type="conversation_thread",
-                entity_id=thread.id,
+                entity_type="contact_request",
+                entity_id=contact_request.id,
                 payload={
-                    "contact_request_id": str(thread.context_id) if thread.context_id else None,
-                    "requested_for_user_id": str(requested_for_user_id),
-                    "role": role,
+                    "thread_id": str(thread.id),
+                    "requested_for_user_id": str(
+                        thread.client_user_id
+                    ),
+                    "requested_at": requested_at.isoformat(),
                 },
                 platform=platform,
             )
@@ -156,6 +246,173 @@ class ContactChatRepository:
 
         await self.session.commit()
         return thread, notification
+
+    async def list_completion_escalation_candidates(
+        self,
+        *,
+        limit: int = 100,
+    ) -> list[ContactRequest]:
+        result = await self.session.execute(
+            select(ContactRequest)
+            .where(
+                ContactRequest.status == "accepted",
+                ContactRequest.extra_metadata[
+                    "completion_requested_at"
+                ].astext.isnot(None),
+                ContactRequest.extra_metadata[
+                    "completion_escalated_ticket_id"
+                ].astext.is_(None),
+            )
+            .order_by(ContactRequest.updated_at.asc())
+            .limit(max(1, min(int(limit), 500)))
+        )
+        return list(result.scalars().all())
+
+    async def get_completion_escalation_candidate_for_update(
+        self,
+        *,
+        contact_request_id: UUID,
+    ) -> ContactRequest | None:
+        result = await self.session.execute(
+            select(ContactRequest)
+            .where(
+                ContactRequest.id == contact_request_id,
+                ContactRequest.status == "accepted",
+            )
+            .with_for_update(skip_locked=True)
+        )
+        return result.scalar_one_or_none()
+
+    async def mark_completion_escalated(
+        self,
+        *,
+        contact_request: ContactRequest,
+        support_ticket_id: UUID,
+        escalated_at: datetime,
+    ) -> None:
+        metadata = dict(
+            contact_request.extra_metadata or {}
+        )
+
+        if metadata.get("completion_escalated_ticket_id"):
+            raise ValueError(
+                "Completion request is already escalated."
+            )
+
+        metadata["completion_escalated_ticket_id"] = str(
+            support_ticket_id
+        )
+        metadata["completion_escalated_at"] = (
+            escalated_at.isoformat()
+        )
+
+        contact_request.extra_metadata = metadata
+        contact_request.updated_at = escalated_at
+
+        self.session.add(
+            EventLog(
+                tenant_id=contact_request.tenant_id,
+                user_id=contact_request.from_user_id,
+                event_type="completion_escalated",
+                entity_type="contact_request",
+                entity_id=contact_request.id,
+                platform="system",
+                payload={
+                    "support_ticket_id": str(
+                        support_ticket_id
+                    ),
+                    "escalated_at": (
+                        escalated_at.isoformat()
+                    ),
+                },
+            )
+        )
+
+        await self.session.flush()
+
+    async def get_contact_request_by_escalated_ticket_id(
+        self,
+        *,
+        tenant_id: UUID,
+        support_ticket_id: UUID,
+    ) -> ContactRequest | None:
+        result = await self.session.execute(
+            select(ContactRequest)
+            .where(
+                ContactRequest.tenant_id == tenant_id,
+                ContactRequest.extra_metadata[
+                    "completion_escalated_ticket_id"
+                ].astext == str(support_ticket_id),
+            )
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def complete_contact_request_by_admin(
+        self,
+        *,
+        contact_request: ContactRequest,
+        thread: ConversationThread,
+        admin_user_id: UUID,
+        reason: str,
+        completed_at: datetime,
+        platform: str = "telegram",
+    ) -> None:
+        thread.status = "completed"
+        thread.updated_at = completed_at
+
+        contact_request.status = "completed"
+        contact_request.updated_at = completed_at
+
+        metadata = dict(
+            contact_request.extra_metadata or {}
+        )
+        metadata["completed_at"] = completed_at.isoformat()
+        metadata["completed_by_user_id"] = str(
+            admin_user_id
+        )
+        metadata["completion_source"] = "admin_escalation"
+        metadata["completion_reason"] = reason
+        contact_request.extra_metadata = metadata
+
+        self.session.add_all(
+            [
+                EventLog(
+                    tenant_id=contact_request.tenant_id,
+                    user_id=admin_user_id,
+                    event_type="thread_completed",
+                    entity_type="conversation_thread",
+                    entity_id=thread.id,
+                    platform=platform,
+                    payload={
+                        "contact_request_id": str(
+                            contact_request.id
+                        ),
+                        "completion_source": (
+                            "admin_escalation"
+                        ),
+                        "reason": reason,
+                    },
+                ),
+                EventLog(
+                    tenant_id=contact_request.tenant_id,
+                    user_id=admin_user_id,
+                    event_type="request_completed",
+                    entity_type="contact_request",
+                    entity_id=contact_request.id,
+                    platform=platform,
+                    payload={
+                        "thread_id": str(thread.id),
+                        "completion_source": (
+                            "admin_escalation"
+                        ),
+                        "reason": reason,
+                    },
+                ),
+            ]
+        )
+
+        await self.session.flush()
 
     async def get_thread_by_contact_request_id(
         self,
@@ -208,7 +465,7 @@ class ContactChatRepository:
 
         contact_request.status = status
         thread.status = thread_status
-        if status == "rejected":
+        if status == "declined":
             metadata = dict(contact_request.extra_metadata or {})
             metadata["decline_reason"] = (decline_reason or "").strip()
             metadata["declined_by_user_id"] = str(actor_user_id)
@@ -226,7 +483,11 @@ class ContactChatRepository:
                 payload={
                     "thread_id": str(thread.id),
                     "thread_status": thread_status,
-                    "decline_reason": (decline_reason or "").strip() if status == "rejected" else None,
+                    "decline_reason": (
+                        (decline_reason or "").strip()
+                        if status == "declined"
+                        else None
+                    ),
                 },
             )
         )
@@ -258,7 +519,7 @@ class ContactChatRepository:
             raise ValueError("Conversation thread not found.")
 
         previous_status = contact_request.status
-        contact_request.status = "rejected"
+        contact_request.status = "cancelled"
         contact_request.updated_at = datetime.utcnow()
 
         if thread.status not in {"completed", "closed", "restricted", "disputed"}:
@@ -285,12 +546,102 @@ class ContactChatRepository:
         await self.session.commit()
         return contact_request, thread
 
+    async def cancel_contact_request_by_admin(
+        self,
+        *,
+        contact_request_id: UUID,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        reason: str,
+        platform: str = "telegram",
+    ) -> tuple[ContactRequest, ConversationThread]:
+        has_access = await self.user_has_contact_admin_access(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+        )
+        if not has_access:
+            raise ValueError("Admin access denied.")
+
+        result = await self.session.execute(
+            select(ContactRequest)
+            .where(
+                ContactRequest.id == contact_request_id,
+                ContactRequest.tenant_id == tenant_id,
+            )
+            .with_for_update()
+        )
+        contact_request = result.scalar_one_or_none()
+
+        if not contact_request:
+            raise ValueError("Contact request not found.")
+
+        if contact_request.status not in {
+            "new",
+            "accepted",
+        }:
+            raise ValueError(
+                "Contact request cannot be cancelled."
+            )
+
+        thread = await self.get_thread_by_contact_request_id(
+            contact_request.id
+        )
+        if not thread:
+            raise ValueError("Conversation thread not found.")
+
+        cancelled_at = datetime.utcnow()
+        previous_status = contact_request.status
+
+        contact_request.status = "cancelled"
+        contact_request.updated_at = cancelled_at
+
+        metadata = dict(
+            contact_request.extra_metadata or {}
+        )
+        metadata["cancelled_at"] = cancelled_at.isoformat()
+        metadata["cancelled_by_user_id"] = str(
+            admin_user_id
+        )
+        metadata["cancelled_by"] = "admin"
+        metadata["cancellation_reason"] = reason
+        contact_request.extra_metadata = metadata
+
+        if thread.status not in {
+            "completed",
+            "closed",
+            "restricted",
+            "disputed",
+        }:
+            thread.status = "closed"
+            thread.updated_at = cancelled_at
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=admin_user_id,
+                event_type="request_cancelled",
+                entity_type="contact_request",
+                entity_id=contact_request.id,
+                platform=platform,
+                payload={
+                    "thread_id": str(thread.id),
+                    "previous_status": previous_status,
+                    "cancelled_by": "admin",
+                    "reason": reason,
+                },
+            )
+        )
+
+        await self.session.flush()
+        return contact_request, thread
+
     async def create_contact_request_with_thread(
         self,
         *,
         tenant_id: UUID,
         from_user_id: UUID,
         specialist_id: UUID,
+        profession_id: UUID,
         specialist_user_id: UUID,
         message: str,
         original_language: str,
@@ -302,6 +653,7 @@ class ContactChatRepository:
             tenant_id=tenant_id,
             from_user_id=from_user_id,
             specialist_id=specialist_id,
+            profession_id=profession_id,
             message=message,
             original_language=original_language,
             status="new",
@@ -878,8 +1230,13 @@ class ContactChatRepository:
 
         if receiver_participant:
             receiver_participant.unread_count += 1
+
+            receiver_participant.is_archived = False
+            receiver_participant.archived_at = None
+
             receiver_participant.is_hidden = False
             receiver_participant.hidden_at = None
+
             receiver_participant.updated_at = datetime.utcnow()
 
         await self._create_translation_job_if_needed(
@@ -1059,15 +1416,62 @@ class ContactChatRepository:
         if not thread:
             raise ValueError("Conversation thread not found.")
 
-        if thread.status in {"closed", "completed", "restricted", "disputed"}:
-            raise ValueError("Conversation thread cannot be completed.")
+        if actor_user_id != thread.client_user_id:
+            raise ValueError(
+                "Only client can confirm request completion."
+            )
+
+        if (
+            thread.context_type != "contact_request"
+            or not thread.context_id
+        ):
+            raise ValueError(
+                "Conversation thread is not linked to a contact request."
+            )
+
+        contact_request = await self.session.get(
+            ContactRequest,
+            thread.context_id,
+        )
+        if not contact_request:
+            raise ValueError("Contact request not found.")
+
+        if contact_request.status != "accepted":
+            raise ValueError(
+                "Only accepted contact request can be completed."
+            )
+
+        metadata = dict(
+            contact_request.extra_metadata or {}
+        )
+        if not metadata.get("completion_requested_at"):
+            raise ValueError(
+                "Specialist has not requested completion."
+            )
+
+        if thread.status in {
+            "closed",
+            "completed",
+            "restricted",
+            "disputed",
+        }:
+            raise ValueError(
+                "Conversation thread cannot be completed."
+            )
+
+        completed_at = datetime.utcnow()
 
         thread.status = "completed"
-        if thread.context_type == "contact_request" and thread.context_id:
-            contact_request = await self.session.get(ContactRequest, thread.context_id)
-            if contact_request and contact_request.status != "reviewed":
-                contact_request.status = "completed"
-                contact_request.updated_at = datetime.utcnow()
+        thread.updated_at = completed_at
+
+        contact_request.status = "completed"
+        contact_request.updated_at = completed_at
+
+        metadata["completed_at"] = completed_at.isoformat()
+        metadata["completed_by_user_id"] = str(actor_user_id)
+        metadata["completion_source"] = "client"
+        contact_request.extra_metadata = metadata
+
         self.session.add_all(
             [
                 EventLog(
@@ -1077,17 +1481,22 @@ class ContactChatRepository:
                     entity_type="conversation_thread",
                     entity_id=thread.id,
                     platform=platform,
-                    payload={},
+                    payload={
+                        "contact_request_id": str(
+                            contact_request.id
+                        ),
+                    },
                 ),
                 EventLog(
                     tenant_id=thread.tenant_id,
                     user_id=actor_user_id,
                     event_type="request_completed",
                     entity_type="contact_request",
-                    entity_id=thread.context_id,
+                    entity_id=contact_request.id,
                     platform=platform,
                     payload={
                         "thread_id": str(thread.id),
+                        "completion_source": "client",
                     },
                 ),
             ]
@@ -1095,7 +1504,7 @@ class ContactChatRepository:
 
         await self.session.commit()
         return thread
-
+    
     async def mark_message_read(
         self,
         *,

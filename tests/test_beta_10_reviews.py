@@ -180,14 +180,14 @@ async def test_published_review_recalculates_reputation_and_specialist_rating(db
         assert refreshed_specialist.reviews_count == 1
 
         refreshed_contact = await db_session.get(ContactRequest, contact_request_id)
-        assert refreshed_contact.status == "reviewed"
+        assert refreshed_contact.status == "completed"
     finally:
         await cleanup_reviews_for_specialist(db_session, specialist_id)
         await cleanup_test_user(db_session, client_platform_user_id)
         await cleanup_test_user(db_session, specialist_platform_user_id)
 
 
-async def test_specialist_can_reply_to_published_review(db_session):
+async def test_specialist_reply_to_review_is_disabled(db_session):
     (
         client_platform_user_id,
         client_user_id,
@@ -210,13 +210,15 @@ async def test_specialist_can_reply_to_published_review(db_session):
         )
         await service.publish_review(review_id=review.id)
 
-        replied = await service.add_specialist_reply(
-            specialist_user_id=specialist_user_id,
-            review_id=review.id,
-            reply="Thank you!",
-        )
+        with pytest.raises(ReviewServiceError):
+            await service.add_specialist_reply(
+                specialist_user_id=specialist_user_id,
+                review_id=review.id,
+                reply="Thank you!",
+            )
 
-        assert replied.specialist_reply == "Thank you!"
+        refreshed_review = await db_session.get(Review, review.id)
+        assert refreshed_review.specialist_reply is None
     finally:
         await cleanup_reviews_for_specialist(db_session, specialist_id)
         await cleanup_test_user(db_session, client_platform_user_id)

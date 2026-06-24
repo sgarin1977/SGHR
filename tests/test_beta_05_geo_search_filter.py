@@ -621,7 +621,6 @@ def test_search_callback_literals_fit_telegram_limit():
         "search_profession_all",
         "search_radius:",
         "search_lang:",
-        "search_verified_toggle",
         "search_show_results",
         "search_price:",
         "search_premium_toggle",
@@ -670,8 +669,6 @@ def test_search_visible_texts_are_i18n_ready():
         "Настройте фильтры",
         "Показать результаты",
         "Любой язык",
-        "Только проверенные",
-        "Все специалисты",
         "Любая цена",
         "До 50 EUR",
         "От 100 EUR",
@@ -706,13 +703,13 @@ def test_public_card_model_does_not_expose_pii_fields():
 
     for fragment in forbidden_fragments:
         assert fragment not in card_source
-async def test_search_filters_price_language_verified_premium_work_format(db_session):
+async def test_search_filters_price_language_premium_work_format(db_session):
     platform_user_id, user_id, tenant_id, specialist, refs = (
         await create_active_search_specialist(db_session)
     )
 
     try:
-        specialist.is_verified = True
+        specialist.is_verified = False
         specialist.is_premium = True
         specialist.work_format = "remote"
         await db_session.commit()
@@ -735,7 +732,7 @@ async def test_search_filters_price_language_verified_premium_work_format(db_ses
         result_ids = {item.specialist.id for item in results}
 
         assert specialist.id in result_ids
-        assert all(item.specialist.is_verified for item in results)
+        assert any(item.specialist.is_verified is False for item in results)
         assert all(item.specialist.is_premium for item in results)
         assert all(item.specialist.work_format == "remote" for item in results)
 
@@ -829,7 +826,7 @@ async def test_search_radius_clamps_to_100_km(db_session):
         await cleanup_test_user(db_session, platform_user_id)
         await cleanup_legal_documents(db_session, tenant_id)
 
-async def test_search_ranking_orders_verified_premium_rating_and_risk(db_session):
+async def test_search_ranking_orders_premium_rating_and_risk_without_verified_bonus(db_session):
     platform_user_id, user_id, tenant_id, specialist, refs = (
         await create_active_search_specialist(db_session)
     )
@@ -889,6 +886,96 @@ async def test_search_ranking_orders_verified_premium_rating_and_risk(db_session
             for item in results
         }
         assert result_by_id[specialist_2.id].ranking_score > result_by_id[specialist.id].ranking_score
+
+    finally:
+        await cleanup_test_user(db_session, platform_user_id)
+        await cleanup_test_user(db_session, platform_user_id_2)
+        await cleanup_legal_documents(db_session, tenant_id)
+        await cleanup_legal_documents(db_session, tenant_id_2)
+
+async def test_search_ranking_uses_reviews_activity_and_stable_tiebreak(db_session):
+    platform_user_id, user_id, tenant_id, specialist, refs = (
+        await create_active_search_specialist(db_session)
+    )
+    platform_user_id_2, user_id_2, tenant_id_2, specialist_2, refs_2 = (
+        await create_active_search_specialist(db_session)
+    )
+
+    try:
+        specialist.display_name = "Lower tie-break specialist"
+        specialist.category_id = refs["category_id"]
+        specialist.profession_id = refs["profession_id"]
+        specialist.country_id = refs["country_id"]
+        specialist.city_id = refs["city_id"]
+        specialist.latitude = refs["city_latitude"]
+        specialist.longitude = refs["city_longitude"]
+        specialist.is_verified = True
+        specialist.is_premium = False
+        specialist.priority_score = 0
+        specialist.rating = 4
+        specialist.reviews_count = 1
+        specialist.work_format = "at_specialist"
+
+        specialist_2.display_name = "Higher tie-break specialist"
+        specialist_2.category_id = refs["category_id"]
+        specialist_2.profession_id = refs["profession_id"]
+        specialist_2.country_id = refs["country_id"]
+        specialist_2.city_id = refs["city_id"]
+        specialist_2.latitude = refs["city_latitude"]
+        specialist_2.longitude = refs["city_longitude"]
+        specialist_2.is_verified = False
+        specialist_2.is_premium = False
+        specialist_2.priority_score = 0
+        specialist_2.rating = 4
+        specialist_2.reviews_count = 3
+        specialist_2.work_format = "at_specialist"
+
+        await db_session.commit()
+
+        search_service = GeoSearchService(SpecialistSearchRepository(db_session))
+
+        results = await search_service.search_by_radius(
+            latitude=float(refs["city_latitude"]),
+            longitude=float(refs["city_longitude"]),
+            radius_km=5,
+            category_id=refs["category_id"],
+            profession_id=refs["profession_id"],
+            sort_by="distance",
+            limit=10,
+            offset=0,
+            work_format="at_specialist",
+        )
+
+        result_ids = [item.specialist.id for item in results]
+
+        assert specialist.id in result_ids
+        assert specialist_2.id in result_ids
+        assert result_ids.index(specialist_2.id) < result_ids.index(specialist.id)
+
+        specialist_2.reviews_count = specialist.reviews_count
+        specialist.updated_at = specialist_2.updated_at
+
+        await db_session.commit()
+
+        results = await search_service.search_by_radius(
+            latitude=float(refs["city_latitude"]),
+            longitude=float(refs["city_longitude"]),
+            radius_km=5,
+            category_id=refs["category_id"],
+            profession_id=refs["profession_id"],
+            sort_by="distance",
+            limit=10,
+            offset=0,
+            work_format="at_specialist",
+        )
+
+        result_ids = [
+            item.specialist.id
+            for item in results
+            if item.specialist.id in {specialist.id, specialist_2.id}
+        ]
+
+        assert result_ids == sorted(result_ids, key=str)
 
     finally:
         await cleanup_test_user(db_session, platform_user_id)
@@ -1050,7 +1137,6 @@ def test_search_callback_registry_exists_for_beta_05():
         "CB_SEARCH_PRICE",
         "CB_SEARCH_RATING",
         "CB_SEARCH_WORK",
-        "CB_SEARCH_VERIFIED_TOGGLE",
         "CB_SEARCH_PREMIUM_TOGGLE",
         "CB_SEARCH_SHOW_RESULTS",
         "CB_SEARCH_CONTACT_PENDING",
@@ -1106,7 +1192,6 @@ def test_beta_05_tz_static_contract_is_covered():
         "rating_score * 0.20",
         "response_score * 0.15",
         "profile_completion * 0.10",
-        "verified_bonus * 0.10",
         "premium_boost * 0.10",
         "freshness_score * 0.05",
         "- risk_penalty",
@@ -1965,7 +2050,7 @@ def test_search_result_cards_match_tz10_c9_requirements():
     assert "search_price_not_set" in result_card_source
     assert "result.languages" in result_card_source
     assert "work_format_label" in result_card_source
-    assert "search_verified_label" in result_card_source
+    assert "search_verified_label" not in result_card_source
 
     assert "if specialist.price_from and specialist.price_to" in result_card_source
     assert "elif specialist.price_from" in result_card_source
@@ -2010,7 +2095,7 @@ def test_specialist_public_profile_matches_tz10_c10_requirements():
     )[0]
 
     assert "card.display_name" in profile_formatter
-    assert "search_verified_label" in profile_formatter
+    assert "search_verified_label" not in profile_formatter
     assert "card.category_name" in profile_formatter
     assert "card.profession_name" in profile_formatter
     assert "card.city_name" in profile_formatter
