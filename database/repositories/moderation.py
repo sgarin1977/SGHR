@@ -4,18 +4,21 @@ from datetime import datetime
 from sqlalchemy import (
     String,
     and_,
+    case,
     cast,
     func,
     literal,
     or_,
     select,
     union_all,
+    text,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
     AdminAction,
     Blacklist,
+    RoleScope,
     Complaint,
     EventLog,
     RiskFlag,
@@ -28,6 +31,7 @@ from database.models import (
     SpecialistPortfolioItem,
     City,
     Profession,
+    Country,
     SpecialistService,
 )
 
@@ -50,6 +54,26 @@ GRANTABLE_ADMIN_ROLES = {
     "finance_admin",
     "content_manager",
 }
+SUPER_ADMIN_GRANTABLE_ROLES = {
+    "admin",
+    "moderator",
+    "support",
+    "finance_admin",
+    "content_manager",
+    "super_admin",
+}
+
+SUPER_ADMIN_PERMISSION_ROLES = {
+    "client",
+    "specialist",
+    "support",
+    "moderator",
+    "admin",
+    "super_admin",
+    "finance_admin",
+    "content_manager",
+}
+
 LOG_VIEW_ROLES = {"super_admin", "admin"}
 FULL_LOG_VIEW_ROLES = {"super_admin", "admin"}
 COMPLAINT_OPEN_STATUSES = {"new", "in_review"}
@@ -82,6 +106,51 @@ class AdminUserSearchRow:
     first_name: str | None
     last_name: str | None
     status: str
+
+@dataclass(frozen=True)
+class SuperAdminUserSearchRow:
+    user_id: UUID
+    platform_user_id: str | None
+    username: str | None
+    first_name: str | None
+    display_name: str | None
+    status: str
+    roles: str | None
+
+@dataclass(frozen=True)
+class SuperAdminUserDetailsRow:
+    user_id: UUID
+    platform_user_id: str | None
+    username: str | None
+    first_name: str | None
+    display_name: str | None
+    status: str
+    active_role: str | None
+    last_seen_at: datetime | None
+    risk_score: int | None
+    roles: str | None
+    complaints_count: int
+    blacklist_count: int
+
+@dataclass(frozen=True)
+class SuperAdminUserRoleRow:
+    role_id: UUID
+    role: str
+    status: str
+    tenant_id: UUID | None
+    granted_by: UUID | None
+    granted_at: datetime | None
+
+@dataclass(frozen=True)
+class SuperAdminPermissionMatrixRow:
+    permission_id: UUID
+    role: str
+    permission_code: str
+    description: str | None
+    scope: str
+    status: str
+    granted_by: str | None
+    created_at: datetime | None
 
 @dataclass(frozen=True)
 class AdminSpecialistQueueItem:
@@ -166,6 +235,20 @@ class GlobalBlacklistQueueItem:
     created_by: UUID
 
 @dataclass(frozen=True)
+class SuperAdminRoleScopeRow:
+    scope_id: UUID
+    user_id: UUID
+    role: str
+    scope_type: str
+    scope_value: str
+    status: str
+    reason: str
+    created_by: UUID
+    created_at: datetime
+    revoked_by: UUID | None
+    revoked_at: datetime | None
+
+@dataclass(frozen=True)
 class AdminAuditQueueItem:
     action_id: UUID
     actor_user_id: UUID | None
@@ -175,6 +258,28 @@ class AdminAuditQueueItem:
     reason: str | None
     created_at: datetime
     source: str = "admin_action"
+
+@dataclass(frozen=True)
+class SuperAdminAuditEventDetailRow:
+    action_id: UUID
+    actor_user_id: UUID | None
+    action: str
+    target_type: str
+    target_id: UUID | None
+    reason: str | None
+    before_state: dict
+    after_state: dict
+    payload: dict
+    created_at: datetime
+    source: str
+    correlation_id: str | None
+
+@dataclass(frozen=True)
+class SuperAdminSystemStatusRow:
+    db_status: str
+    db_version: str
+    migration_version: str
+    migrations_table_exists: bool
 
 class ModerationAccessError(Exception):
     pass
@@ -350,6 +455,99 @@ class ModerationRepository:
             for row in result.all()
         ]
 
+    async def list_super_admin_audit_actions(
+        self,
+        *,
+        admin_user_id: UUID,
+        target_types: set[str] | None,
+        limit: int,
+        offset: int,
+    ) -> list[AdminAuditQueueItem]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        normalized_limit = max(
+            1,
+            min(int(limit), 11),
+        )
+        normalized_offset = max(
+            0,
+            int(offset),
+        )
+
+        admin_actions_query = select(
+            AdminAction.id.label("record_id"),
+            literal("admin_action").label("source"),
+            AdminAction.admin_user_id.label("actor_user_id"),
+            AdminAction.action_type.label("action"),
+            AdminAction.target_type.label("target_type"),
+            AdminAction.target_id.label("target_id"),
+            AdminAction.reason.label("reason"),
+            AdminAction.created_at.label("created_at"),
+        )
+
+        event_logs_query = select(
+            EventLog.id.label("record_id"),
+            literal("event").label("source"),
+            EventLog.user_id.label("actor_user_id"),
+            EventLog.event_type.label("action"),
+            func.coalesce(
+                EventLog.entity_type,
+                "event",
+            ).label("target_type"),
+            EventLog.entity_id.label("target_id"),
+            EventLog.payload["reason"].astext.label("reason"),
+            EventLog.created_at.label("created_at"),
+        ).where(
+            EventLog.event_type != "audit_viewed",
+        )
+
+        combined = union_all(
+            admin_actions_query,
+            event_logs_query,
+        ).subquery("super_admin_audit_records")
+
+        normalized_target_types = {
+            str(target_type).strip()
+            for target_type in (target_types or set())
+            if str(target_type).strip()
+        }
+
+        query = select(combined)
+
+        if normalized_target_types:
+            query = query.where(
+                combined.c.target_type.in_(
+                    normalized_target_types
+                )
+            )
+
+        result = await self.session.execute(
+            query
+            .order_by(
+                combined.c.created_at.desc(),
+                combined.c.record_id.desc(),
+            )
+            .offset(normalized_offset)
+            .limit(normalized_limit)
+        )
+
+        return [
+            AdminAuditQueueItem(
+                action_id=row.record_id,
+                actor_user_id=row.actor_user_id,
+                action=row.action,
+                target_type=row.target_type,
+                target_id=row.target_id,
+                reason=row.reason,
+                created_at=row.created_at,
+                source=row.source,
+            )
+            for row in result.all()
+        ]
+
     async def get_admin_audit_action(
         self,
         *,
@@ -411,6 +609,131 @@ class ModerationRepository:
             ),
             created_at=event.created_at,
             source="event",
+        )
+
+    async def get_super_admin_audit_event_detail(
+        self,
+        *,
+        admin_user_id: UUID,
+        action_id: UUID,
+    ) -> SuperAdminAuditEventDetailRow:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        admin_result = await self.session.execute(
+            select(AdminAction).where(
+                AdminAction.id == action_id,
+            )
+        )
+        admin_action = admin_result.scalar_one_or_none()
+
+        if admin_action:
+            return SuperAdminAuditEventDetailRow(
+                action_id=admin_action.id,
+                actor_user_id=admin_action.admin_user_id,
+                action=admin_action.action_type,
+                target_type=admin_action.target_type,
+                target_id=admin_action.target_id,
+                reason=admin_action.reason,
+                before_state=admin_action.before_state or {},
+                after_state=admin_action.after_state or {},
+                payload={},
+                created_at=admin_action.created_at,
+                source="admin_action",
+                correlation_id=None,
+            )
+
+        event_result = await self.session.execute(
+            select(EventLog).where(
+                EventLog.id == action_id,
+                EventLog.event_type != "audit_viewed",
+            )
+        )
+        event = event_result.scalar_one_or_none()
+
+        if not event:
+            raise ModerationNotFoundError("Audit event not found.")
+
+        payload = event.payload or {}
+
+        return SuperAdminAuditEventDetailRow(
+            action_id=event.id,
+            actor_user_id=event.user_id,
+            action=event.event_type,
+            target_type=event.entity_type or "event",
+            target_id=event.entity_id,
+            reason=(
+                str(payload.get("reason")).strip()
+                if payload.get("reason")
+                else None
+            ),
+            before_state={},
+            after_state={},
+            payload=payload,
+            created_at=event.created_at,
+            source="event",
+            correlation_id=event.trace_id,
+        )
+
+    async def get_super_admin_system_status(
+        self,
+        *,
+        admin_user_id: UUID,
+    ) -> SuperAdminSystemStatusRow:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        db_status = "ok"
+        db_version = "unknown"
+
+        try:
+            version_result = await self.session.execute(
+                text("SELECT version() AS db_version")
+            )
+            db_version = str(
+                version_result.scalar_one_or_none() or "unknown"
+            )
+        except Exception:
+            db_status = "error"
+
+        migrations_table_result = await self.session.execute(
+            text("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                      AND table_name = 'alembic_version'
+                )
+            """)
+        )
+        migrations_table_exists = bool(
+            migrations_table_result.scalar_one()
+        )
+
+        migration_version = "not configured"
+
+        if migrations_table_exists:
+            migration_result = await self.session.execute(
+                text("""
+                    SELECT version_num
+                    FROM alembic_version
+                    LIMIT 1
+                """)
+            )
+            migration_version = str(
+                migration_result.scalar_one_or_none()
+                or "empty"
+            )
+
+        return SuperAdminSystemStatusRow(
+            db_status=db_status,
+            db_version=db_version,
+            migration_version=migration_version,
+            migrations_table_exists=migrations_table_exists,
         )
 
     async def get_user_by_telegram_id(self, platform_user_id: int | str) -> User | None:
@@ -566,6 +889,259 @@ class ModerationRepository:
         await self.session.flush()
         return role_mapping
 
+    async def grant_super_admin_user_role(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        role: str,
+        reason: str,
+    ) -> UserRoleMapping:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        normalized_role = (role or "").strip().lower()
+
+        if normalized_role == "root":
+            raise ValueError("Root role is disabled outside recovery flow.")
+
+        if normalized_role not in SUPER_ADMIN_GRANTABLE_ROLES:
+            raise ValueError("Unsupported role for Super Admin grant.")
+
+        target_user = await self.session.get(User, target_user_id)
+
+        if not target_user or target_user.tenant_id != tenant_id:
+            raise ModerationNotFoundError("Target user not found.")
+
+        existing = (
+            await self.session.execute(
+                select(UserRoleMapping)
+                .where(
+                    UserRoleMapping.user_id == target_user.id,
+                    UserRoleMapping.role == normalized_role,
+                )
+                .order_by(UserRoleMapping.granted_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+        before_state = self._role_audit_state(existing)
+
+        if existing:
+            existing.status = "active"
+            existing.tenant_id = target_user.tenant_id
+            existing.granted_by = admin_user_id
+            existing.granted_at = datetime.utcnow()
+            role_mapping = existing
+        else:
+            role_mapping = UserRoleMapping(
+                user_id=target_user.id,
+                tenant_id=target_user.tenant_id,
+                role=normalized_role,
+                status="active",
+                granted_by=admin_user_id,
+            )
+            self.session.add(role_mapping)
+
+        await self.session.flush()
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type="user_role_changed",
+            target_type="user",
+            target_id=target_user.id,
+            before_state=before_state,
+            after_state=self._role_audit_state(role_mapping),
+            reason=reason,
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="user_role_changed",
+            entity_type="user",
+            entity_id=target_user.id,
+            payload={
+                "action": "granted",
+                "role": normalized_role,
+                "reason": reason,
+            },
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="role_change_confirmed",
+            entity_type="user",
+            entity_id=target_user.id,
+            payload={
+                "action": "granted",
+                "role": normalized_role,
+            },
+        )
+
+        await self.session.flush()
+        return role_mapping
+
+    async def revoke_super_admin_user_role(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        role: str,
+        reason: str,
+    ) -> UserRoleMapping:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        normalized_role = (role or "").strip().lower()
+
+        if normalized_role == "root":
+            raise ValueError("Root role is disabled outside recovery flow.")
+
+        if normalized_role not in SUPER_ADMIN_GRANTABLE_ROLES:
+            raise ValueError("Unsupported role for Super Admin revoke.")
+
+        target_user = await self.session.get(User, target_user_id)
+
+        if not target_user or target_user.tenant_id != tenant_id:
+            raise ModerationNotFoundError("Target user not found.")
+
+        role_mapping = (
+            await self.session.execute(
+                select(UserRoleMapping)
+                .where(
+                    UserRoleMapping.user_id == target_user.id,
+                    UserRoleMapping.role == normalized_role,
+                    UserRoleMapping.status == "active",
+                )
+                .order_by(UserRoleMapping.granted_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+        if not role_mapping:
+            raise ModerationNotFoundError("Active role not found.")
+
+        if normalized_role == "super_admin":
+            active_super_admins = await self.session.scalar(
+                select(func.count(UserRoleMapping.id)).where(
+                    UserRoleMapping.role == "super_admin",
+                    UserRoleMapping.status == "active",
+                    UserRoleMapping.tenant_id == tenant_id,
+                )
+            )
+
+            if int(active_super_admins or 0) <= 1:
+                raise ValueError(
+                    "Cannot revoke the last Super Admin without Root recovery flow."
+                )
+
+        before_state = self._role_audit_state(role_mapping)
+
+        role_mapping.status = "revoked"
+        await self.session.flush()
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type="user_role_changed",
+            target_type="user",
+            target_id=target_user.id,
+            before_state=before_state,
+            after_state=self._role_audit_state(role_mapping),
+            reason=reason,
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="user_role_changed",
+            entity_type="user",
+            entity_id=target_user.id,
+            payload={
+                "action": "revoked",
+                "role": normalized_role,
+                "reason": reason,
+            },
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="role_change_confirmed",
+            entity_type="user",
+            entity_id=target_user.id,
+            payload={
+                "action": "revoked",
+                "role": normalized_role,
+            },
+        )
+
+        await self.session.flush()
+        return role_mapping
+
+    async def log_super_admin_impersonation_view(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        target_role: str | None,
+        action: str,
+        reason: str,
+    ) -> None:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        target_user = await self.session.get(User, target_user_id)
+
+        if not target_user or target_user.tenant_id != tenant_id:
+            raise ModerationNotFoundError("Target user not found.")
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type=f"impersonation_view_{action}",
+            entity_type="user",
+            entity_id=target_user_id,
+            payload={
+                "target_user": f"user-{target_user_id.hex[:8]}",
+                "target_role": target_role,
+                "read_only": True,
+                "reason": reason,
+            },
+        )
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type=f"impersonation_view_{action}",
+            target_type="user",
+            target_id=target_user_id,
+            before_state={
+                "read_only": True,
+                "target_role": target_role,
+            },
+            after_state={
+                "read_only": True,
+                "target_role": target_role,
+                "action": action,
+            },
+            reason=reason,
+        )
+
+        await self.session.flush()
+
     async def get_admin_menu_counts(
         self,
         *,
@@ -650,6 +1226,61 @@ class ModerationRepository:
                 RiskFlag.tenant_id == tenant_id,
                 RiskFlag.status == "open",
             ),
+        }
+
+    async def get_super_admin_menu_counts(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+    ) -> dict:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        users_count = await self.session.scalar(
+            select(func.count(User.id))
+            .where(User.tenant_id == tenant_id)
+        )
+
+        specialists_count = await self.session.scalar(
+            select(func.count(Specialist.id))
+            .where(Specialist.tenant_id == tenant_id)
+        )
+
+        tickets_count = await self.session.scalar(
+            select(func.count(SupportTicket.id))
+            .where(SupportTicket.tenant_id == tenant_id)
+        )
+
+        complaints_count = await self.session.scalar(
+            select(func.count(Complaint.id))
+            .where(Complaint.tenant_id == tenant_id)
+        )
+
+        global_blacklist_count = await self.session.scalar(
+            select(func.count(Blacklist.id))
+            .where(
+                Blacklist.tenant_id == tenant_id,
+                Blacklist.status == "active",
+            )
+        )
+
+        audit_alerts_count = await self.session.scalar(
+            select(func.count(AdminAction.id))
+            .where(AdminAction.tenant_id == tenant_id)
+        )
+
+        return {
+            "users": int(users_count or 0),
+            "specialists": int(specialists_count or 0),
+            "tickets": int(tickets_count or 0),
+            "complaints": int(complaints_count or 0),
+            "global_blacklist": int(global_blacklist_count or 0),
+            "system_alerts": 0,
+            "finance_alerts": 0,
+            "audit_alerts": int(audit_alerts_count or 0),
         }
 
     async def list_admin_user_history(
@@ -892,6 +1523,901 @@ class ModerationRepository:
             )
             for row in result.all()
         ]
+
+    async def search_super_admin_users(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        query: str,
+        limit: int = 10,
+    ) -> list[SuperAdminUserSearchRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        normalized_query = (query or "").strip()
+        normalized_search_query = normalized_query.lstrip("@").lower()
+        normalized_like = f"%{normalized_search_query}%"
+
+        roles_subquery = (
+            select(
+                UserRoleMapping.user_id.label("user_id"),
+                func.string_agg(
+                    UserRoleMapping.role,
+                    ",",
+                ).label("roles"),
+            )
+            .where(UserRoleMapping.status == "active")
+            .group_by(UserRoleMapping.user_id)
+            .subquery()
+        )
+
+        result = await self.session.execute(
+            select(
+                User.id.label("user_id"),
+                UserAccount.platform_user_id,
+                UserAccount.username,
+                UserAccount.first_name,
+                UserAccount.display_name,
+                User.status,
+                roles_subquery.c.roles,
+            )
+            .join(
+                UserAccount,
+                UserAccount.user_id == User.id,
+            )
+            .outerjoin(
+                roles_subquery,
+                roles_subquery.c.user_id == User.id,
+            )
+            .where(
+                User.tenant_id == tenant_id,
+                UserAccount.platform == "telegram",
+                or_(
+                    func.lower(UserAccount.platform_user_id).like(
+                        normalized_like,
+                    ),
+                    func.lower(UserAccount.username).like(
+                        normalized_like,
+                    ),
+                    func.lower(
+                        func.concat(
+                            "@",
+                            UserAccount.username,
+                        )
+                    ).like(
+                        f"%{normalized_query.lower()}%",
+                    ),
+                    func.lower(UserAccount.display_name).like(
+                        normalized_like,
+                    ),
+                    func.lower(
+                        func.concat(
+                            "user-",
+                            func.substr(
+                                cast(User.id, String),
+                                1,
+                                8,
+                            ),
+                        )
+                    ).like(normalized_like),
+                ),
+            )
+            .order_by(User.updated_at.desc())
+            .limit(limit)
+        )
+
+        return [
+            SuperAdminUserSearchRow(**row._mapping)
+            for row in result.all()
+        ]
+
+    async def get_super_admin_user_details(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+    ) -> SuperAdminUserDetailsRow:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        roles_subquery = (
+            select(
+                UserRoleMapping.user_id.label("user_id"),
+                func.string_agg(
+                    UserRoleMapping.role,
+                    ",",
+                ).label("roles"),
+            )
+            .where(UserRoleMapping.status == "active")
+            .group_by(UserRoleMapping.user_id)
+            .subquery()
+        )
+
+        complaints_subquery = (
+            select(
+                Complaint.reporter_user_id.label("user_id"),
+                func.count(Complaint.id).label("complaints_count"),
+            )
+            .where(Complaint.tenant_id == tenant_id)
+            .group_by(Complaint.reporter_user_id)
+            .subquery()
+        )
+
+        blacklist_subquery = (
+            select(
+                Blacklist.user_id.label("user_id"),
+                func.count(Blacklist.id).label("blacklist_count"),
+            )
+            .where(
+                Blacklist.tenant_id == tenant_id,
+                Blacklist.status == "active",
+            )
+            .group_by(Blacklist.user_id)
+            .subquery()
+        )
+
+        result = await self.session.execute(
+            select(
+                User.id.label("user_id"),
+                UserAccount.platform_user_id,
+                UserAccount.username,
+                UserAccount.first_name,
+                UserAccount.display_name,
+                User.status,
+                User.active_role,
+                User.last_seen_at,
+                User.risk_score,
+                roles_subquery.c.roles,
+                func.coalesce(
+                    complaints_subquery.c.complaints_count,
+                    0,
+                ).label("complaints_count"),
+                func.coalesce(
+                    blacklist_subquery.c.blacklist_count,
+                    0,
+                ).label("blacklist_count"),
+            )
+            .join(
+                UserAccount,
+                UserAccount.user_id == User.id,
+            )
+            .outerjoin(
+                roles_subquery,
+                roles_subquery.c.user_id == User.id,
+            )
+            .outerjoin(
+                complaints_subquery,
+                complaints_subquery.c.user_id == User.id,
+            )
+            .outerjoin(
+                blacklist_subquery,
+                blacklist_subquery.c.user_id == User.id,
+            )
+            .where(
+                User.tenant_id == tenant_id,
+                User.id == target_user_id,
+                UserAccount.platform == "telegram",
+            )
+            .order_by(UserAccount.created_at.asc())
+            .limit(1)
+        )
+
+        row = result.one_or_none()
+
+        if not row:
+            raise ModerationNotFoundError("User not found.")
+
+        return SuperAdminUserDetailsRow(**row._mapping)
+
+    async def list_super_admin_user_roles(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+    ) -> list[SuperAdminUserRoleRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        target_user = await self.session.get(User, target_user_id)
+
+        if not target_user or target_user.tenant_id != tenant_id:
+            raise ModerationNotFoundError("User not found.")
+
+        result = await self.session.execute(
+            select(
+                UserRoleMapping.id.label("role_id"),
+                UserRoleMapping.role,
+                UserRoleMapping.status,
+                UserRoleMapping.tenant_id,
+                UserRoleMapping.granted_by,
+                UserRoleMapping.granted_at,
+            )
+            .where(UserRoleMapping.user_id == target_user_id)
+            .order_by(
+                UserRoleMapping.status.asc(),
+                UserRoleMapping.role.asc(),
+                UserRoleMapping.granted_at.desc(),
+            )
+        )
+
+        return [
+            SuperAdminUserRoleRow(**row._mapping)
+            for row in result.all()
+        ]
+
+    async def list_super_admin_role_scopes(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        user_id: UUID | None,
+        statuses: set[str],
+        limit: int,
+        offset: int,
+    ) -> list[SuperAdminRoleScopeRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin", "root"},
+        )
+
+        allowed_statuses = {"active", "revoked"}
+        normalized_statuses = set(statuses) & allowed_statuses
+
+        if not normalized_statuses:
+            normalized_statuses = {"active"}
+
+        normalized_limit = max(1, min(int(limit), 11))
+        normalized_offset = max(0, int(offset))
+
+        country_name = func.coalesce(
+            Country.name,
+            cast(RoleScope.scope_id, String),
+        )
+        city_name = func.coalesce(
+            City.name,
+            cast(RoleScope.scope_id, String),
+        )
+
+        scope_value = case(
+            (
+                RoleScope.scope_type == "country",
+                country_name,
+            ),
+            (
+                RoleScope.scope_type == "city",
+                city_name,
+            ),
+            else_=cast(RoleScope.scope_id, String),
+        )
+
+        conditions = [
+            RoleScope.tenant_id == tenant_id,
+            RoleScope.status.in_(normalized_statuses),
+        ]
+
+        if user_id:
+            conditions.append(RoleScope.user_id == user_id)
+
+        result = await self.session.execute(
+            select(
+                RoleScope.id.label("scope_id"),
+                RoleScope.user_id,
+                RoleScope.role,
+                RoleScope.scope_type,
+                scope_value.label("scope_value"),
+                RoleScope.status,
+                RoleScope.reason,
+                RoleScope.created_by,
+                RoleScope.created_at,
+                RoleScope.revoked_by,
+                RoleScope.revoked_at,
+            )
+            .outerjoin(
+                Country,
+                and_(
+                    RoleScope.scope_type == "country",
+                    Country.id == RoleScope.scope_id,
+                ),
+            )
+            .outerjoin(
+                City,
+                and_(
+                    RoleScope.scope_type == "city",
+                    City.id == RoleScope.scope_id,
+                ),
+            )
+            .where(*conditions)
+            .order_by(
+                RoleScope.created_at.desc(),
+                RoleScope.id.desc(),
+            )
+            .offset(normalized_offset)
+            .limit(normalized_limit)
+        )
+
+        return [
+            SuperAdminRoleScopeRow(**row._mapping)
+            for row in result.all()
+        ]
+
+    async def add_super_admin_role_scope(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        user_id: UUID,
+        role: str,
+        scope_type: str,
+        scope_value: str,
+        reason: str,
+    ) -> RoleScope:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin", "root"},
+        )
+
+        normalized_role = (role or "").strip().lower()
+        normalized_scope_type = (scope_type or "").strip().lower()
+        normalized_scope_value = (scope_value or "").strip()
+        normalized_reason = (reason or "").strip()
+
+        if not normalized_role:
+            raise ValueError("Role is required.")
+
+        if normalized_scope_type not in {
+            "country",
+            "city",
+            "region",
+            "agency",
+            "community",
+        }:
+            raise ValueError("Unsupported scope type.")
+
+        if not normalized_scope_value:
+            raise ValueError("Scope value is required.")
+
+        if len(normalized_reason) < 3:
+            raise ValueError("Reason is required.")
+
+        target_user = await self.session.get(User, user_id)
+
+        if not target_user or target_user.tenant_id != tenant_id:
+            raise ModerationNotFoundError("User not found.")
+
+        if admin_user_id == user_id:
+            raise ModerationAccessError(
+                "Regional role cannot change its own scope."
+            )
+
+        role_result = await self.session.execute(
+            select(UserRoleMapping)
+            .where(
+                UserRoleMapping.tenant_id == tenant_id,
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.role == normalized_role,
+                UserRoleMapping.status == "active",
+            )
+            .order_by(UserRoleMapping.granted_at.desc())
+            .limit(1)
+        )
+        user_role = role_result.scalar_one_or_none()
+
+        if not user_role:
+            raise ModerationNotFoundError(
+                "Active role not found for this user."
+            )
+
+        scope_id = await self._resolve_role_scope_id(
+            scope_type=normalized_scope_type,
+            scope_value=normalized_scope_value,
+        )
+
+        existing_result = await self.session.execute(
+            select(RoleScope)
+            .where(
+                RoleScope.tenant_id == tenant_id,
+                RoleScope.user_id == user_id,
+                RoleScope.role == normalized_role,
+                RoleScope.scope_type == normalized_scope_type,
+                RoleScope.scope_id == scope_id,
+                RoleScope.status == "active",
+            )
+            .limit(1)
+        )
+        existing = existing_result.scalar_one_or_none()
+
+        if existing:
+            raise ModerationAccessError(
+                "Active scope already exists."
+            )
+
+        role_scope = RoleScope(
+            tenant_id=tenant_id,
+            user_role_id=user_role.id,
+            user_id=user_id,
+            role=normalized_role,
+            scope_type=normalized_scope_type,
+            scope_id=scope_id,
+            status="active",
+            reason=normalized_reason,
+            created_by=admin_user_id,
+        )
+        self.session.add(role_scope)
+        await self.session.flush()
+
+        after_state = {
+            "scope_id": str(role_scope.id),
+            "tenant_id": str(tenant_id),
+            "user_id": str(user_id),
+            "role": normalized_role,
+            "scope_type": normalized_scope_type,
+            "scope_value": normalized_scope_value,
+            "scope_entity_id": str(scope_id),
+            "status": "active",
+        }
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type="scope_changed",
+            target_type="role_scope",
+            target_id=role_scope.id,
+            before_state={},
+            after_state=after_state,
+            reason=normalized_reason,
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="scope_changed",
+            entity_type="role_scope",
+            entity_id=role_scope.id,
+            payload={
+                "action": "added",
+                "user": f"user-{user_id.hex[:8]}",
+                "role": normalized_role,
+                "scope_type": normalized_scope_type,
+                "scope_value": normalized_scope_value,
+                "reason": normalized_reason,
+            },
+        )
+
+        await self.session.flush()
+        return role_scope
+
+    async def revoke_super_admin_role_scope(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        scope_id: UUID,
+        reason: str,
+    ) -> RoleScope:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin", "root"},
+        )
+
+        normalized_reason = (reason or "").strip()
+
+        if len(normalized_reason) < 3:
+            raise ValueError("Reason is required.")
+
+        role_scope = await self.session.get(RoleScope, scope_id)
+
+        if not role_scope or role_scope.tenant_id != tenant_id:
+            raise ModerationNotFoundError("Role scope not found.")
+
+        if role_scope.status != "active":
+            raise ModerationAccessError(
+                "Role scope is not active."
+            )
+
+        if admin_user_id == role_scope.user_id:
+            raise ModerationAccessError(
+                "Regional role cannot change its own scope."
+            )
+
+        before_state = {
+            "scope_id": str(role_scope.id),
+            "tenant_id": str(role_scope.tenant_id),
+            "user_id": str(role_scope.user_id),
+            "role": role_scope.role,
+            "scope_type": role_scope.scope_type,
+            "scope_entity_id": str(role_scope.scope_id),
+            "status": role_scope.status,
+            "reason": role_scope.reason,
+        }
+
+        role_scope.status = "revoked"
+        role_scope.revoked_by = admin_user_id
+        role_scope.revoked_at = datetime.utcnow()
+
+        after_state = {
+            **before_state,
+            "status": "revoked",
+            "revoked_by": str(admin_user_id),
+            "revoked_at": (
+                role_scope.revoked_at.isoformat()
+                if role_scope.revoked_at
+                else None
+            ),
+            "revoke_reason": normalized_reason,
+        }
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type="scope_changed",
+            target_type="role_scope",
+            target_id=role_scope.id,
+            before_state=before_state,
+            after_state=after_state,
+            reason=normalized_reason,
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="scope_changed",
+            entity_type="role_scope",
+            entity_id=role_scope.id,
+            payload={
+                "action": "revoked",
+                "user": f"user-{role_scope.user_id.hex[:8]}",
+                "role": role_scope.role,
+                "scope_type": role_scope.scope_type,
+                "scope_id": str(role_scope.scope_id),
+                "reason": normalized_reason,
+            },
+        )
+
+        await self.session.flush()
+        return role_scope
+
+    async def _resolve_role_scope_id(
+        self,
+        *,
+        scope_type: str,
+        scope_value: str,
+    ) -> UUID:
+        normalized_scope_type = (scope_type or "").strip().lower()
+        normalized_scope_value = (scope_value or "").strip()
+        normalized_lookup = normalized_scope_value.lower()
+
+        if normalized_scope_type == "country":
+            result = await self.session.execute(
+                select(Country.id)
+                .where(
+                    or_(
+                        func.lower(Country.code) == normalized_lookup,
+                        func.lower(Country.name) == normalized_lookup,
+                        func.lower(Country.name_ru) == normalized_lookup,
+                        func.lower(Country.name_en) == normalized_lookup,
+                        func.lower(Country.name_pt) == normalized_lookup,
+                    )
+                )
+                .limit(1)
+            )
+            scope_id = result.scalar_one_or_none()
+
+            if not scope_id:
+                raise ModerationNotFoundError("Country scope not found.")
+
+            return scope_id
+
+        if normalized_scope_type == "city":
+            result = await self.session.execute(
+                select(City.id)
+                .where(
+                    or_(
+                        func.lower(City.name) == normalized_lookup,
+                        func.lower(City.name_ru) == normalized_lookup,
+                        func.lower(City.name_en) == normalized_lookup,
+                        func.lower(City.name_pt) == normalized_lookup,
+                    )
+                )
+                .order_by(City.name.asc())
+                .limit(1)
+            )
+            scope_id = result.scalar_one_or_none()
+
+            if not scope_id:
+                raise ModerationNotFoundError("City scope not found.")
+
+            return scope_id
+
+        try:
+            return UUID(normalized_scope_value)
+        except (TypeError, ValueError) as exc:
+            raise ModerationNotFoundError(
+                "Scope id must be UUID for this scope type."
+            ) from exc
+
+    async def list_super_admin_permission_matrix(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        query: str = "",
+        limit: int = 10,
+    ) -> list[SuperAdminPermissionMatrixRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        normalized_query = (query or "").strip().lower()
+        normalized_limit = max(1, min(int(limit), 25))
+
+        result = await self.session.execute(
+            text("""
+                SELECT
+                    rp.id AS permission_id,
+                    rp.role AS role,
+                    rp.permission_code AS permission_code,
+                    p.description AS description,
+                    'global' AS scope,
+                    'active' AS status,
+                    NULL AS granted_by,
+                    rp.created_at AS created_at
+                FROM role_permissions rp
+                LEFT JOIN permissions p
+                    ON p.code = rp.permission_code
+                WHERE
+                    :query = ''
+                    OR lower(rp.role) LIKE :like_query
+                    OR lower(rp.permission_code) LIKE :like_query
+                    OR lower(COALESCE(p.description, '')) LIKE :like_query
+                ORDER BY
+                    rp.role ASC,
+                    rp.permission_code ASC,
+                    rp.created_at DESC
+                LIMIT :limit
+            """),
+            {
+                "query": normalized_query,
+                "like_query": f"%{normalized_query}%",
+                "limit": normalized_limit,
+            },
+        )
+
+        return [
+            SuperAdminPermissionMatrixRow(**row._mapping)
+            for row in result.all()
+        ]
+
+    def _permission_audit_state(
+        self,
+        row,
+    ) -> dict:
+        if not row:
+            return {}
+
+        return {
+            "id": str(row["id"]),
+            "role": row["role"],
+            "permission_code": row["permission_code"],
+            "created_at": (
+                row["created_at"].isoformat()
+                if row["created_at"]
+                else None
+            ),
+        }
+
+    async def grant_super_admin_permission(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        role: str,
+        permission_code: str,
+        reason: str,
+    ) -> UUID:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        normalized_role = (role or "").strip().lower()
+        normalized_permission = (permission_code or "").strip()
+
+        if normalized_role not in SUPER_ADMIN_PERMISSION_ROLES:
+            raise ValueError("Unsupported role for permission grant.")
+
+        if not normalized_permission:
+            raise ValueError("Permission code is required.")
+
+        permission_result = await self.session.execute(
+            text("""
+                SELECT id
+                FROM permissions
+                WHERE code = :permission_code
+                LIMIT 1
+            """),
+            {
+                "permission_code": normalized_permission,
+            },
+        )
+        permission_row = permission_result.mappings().one_or_none()
+
+        if not permission_row:
+            raise ModerationNotFoundError("Permission not found.")
+
+        existing_result = await self.session.execute(
+            text("""
+                SELECT id, role, permission_code, created_at
+                FROM role_permissions
+                WHERE role = :role
+                  AND permission_code = :permission_code
+                LIMIT 1
+            """),
+            {
+                "role": normalized_role,
+                "permission_code": normalized_permission,
+            },
+        )
+        existing = existing_result.mappings().one_or_none()
+
+        before_state = self._permission_audit_state(existing)
+
+        if existing:
+            permission_role_id = existing["id"]
+            after_state = self._permission_audit_state(existing)
+            action = "grant_existing"
+        else:
+            insert_result = await self.session.execute(
+                text("""
+                    INSERT INTO role_permissions (
+                        id,
+                        role,
+                        permission_code,
+                        created_at
+                    )
+                    VALUES (
+                        gen_random_uuid(),
+                        :role,
+                        :permission_code,
+                        now()
+                    )
+                    RETURNING id, role, permission_code, created_at
+                """),
+                {
+                    "role": normalized_role,
+                    "permission_code": normalized_permission,
+                },
+            )
+            inserted = insert_result.mappings().one()
+            permission_role_id = inserted["id"]
+            after_state = self._permission_audit_state(inserted)
+            action = "granted"
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type="permission_changed",
+            target_type="permission",
+            target_id=permission_role_id,
+            before_state=before_state,
+            after_state=after_state,
+            reason=reason,
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="permission_changed",
+            entity_type="permission",
+            entity_id=permission_role_id,
+            payload={
+                "action": action,
+                "role": normalized_role,
+                "permission_code": normalized_permission,
+                "reason": reason,
+            },
+        )
+
+        await self.session.flush()
+        return permission_role_id
+
+    async def revoke_super_admin_permission(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        role: str,
+        permission_code: str,
+        reason: str,
+    ) -> UUID:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin"},
+        )
+
+        normalized_role = (role or "").strip().lower()
+        normalized_permission = (permission_code or "").strip()
+
+        if normalized_role not in SUPER_ADMIN_PERMISSION_ROLES:
+            raise ValueError("Unsupported role for permission revoke.")
+
+        if not normalized_permission:
+            raise ValueError("Permission code is required.")
+
+        existing_result = await self.session.execute(
+            text("""
+                SELECT id, role, permission_code, created_at
+                FROM role_permissions
+                WHERE role = :role
+                  AND permission_code = :permission_code
+                LIMIT 1
+            """),
+            {
+                "role": normalized_role,
+                "permission_code": normalized_permission,
+            },
+        )
+        existing = existing_result.mappings().one_or_none()
+
+        if not existing:
+            raise ModerationNotFoundError(
+                "Permission is not granted to this role."
+            )
+
+        permission_role_id = existing["id"]
+        before_state = self._permission_audit_state(existing)
+        after_state = {
+            "role": normalized_role,
+            "permission_code": normalized_permission,
+            "status": "revoked",
+        }
+
+        await self.session.execute(
+            text("""
+                DELETE FROM role_permissions
+                WHERE id = :permission_role_id
+            """),
+            {
+                "permission_role_id": permission_role_id,
+            },
+        )
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type="permission_changed",
+            target_type="permission",
+            target_id=permission_role_id,
+            before_state=before_state,
+            after_state=after_state,
+            reason=reason,
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="permission_changed",
+            entity_type="permission",
+            entity_id=permission_role_id,
+            payload={
+                "action": "revoked",
+                "role": normalized_role,
+                "permission_code": normalized_permission,
+                "reason": reason,
+            },
+        )
+
+        await self.session.flush()
+        return permission_role_id
 
     async def get_moderator_menu_counts(
         self,
@@ -2673,6 +4199,80 @@ class ModerationRepository:
                 created_by=row.created_by,
             )
             for row in result.all()
+        ]
+
+    async def list_super_admin_global_blacklist(
+        self,
+        *,
+        admin_user_id: UUID,
+        statuses: set[str],
+        limit: int,
+        offset: int,
+    ) -> list[GlobalBlacklistQueueItem]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin", "root"},
+        )
+
+        allowed_statuses = {"active", "revoked"}
+        normalized_statuses = set(statuses) & allowed_statuses
+
+        if not normalized_statuses:
+            normalized_statuses = {"active"}
+
+        normalized_limit = max(1, min(int(limit), 11))
+        normalized_offset = max(0, int(offset))
+
+        result = await self.session.execute(
+            select(
+                Blacklist.id,
+                Blacklist.user_id,
+                Blacklist.reason,
+                Blacklist.comment,
+                Blacklist.status,
+                User.status.label("user_status"),
+                Blacklist.created_at,
+                Blacklist.created_by,
+            )
+            .join(
+                User,
+                User.id == Blacklist.user_id,
+            )
+            .join(
+                EventLog,
+                and_(
+                    EventLog.entity_type == "user",
+                    EventLog.entity_id == Blacklist.user_id,
+                    EventLog.event_type == "global_blacklist_changed",
+                    EventLog.payload["action"].as_string() == "added",
+                    EventLog.payload["scope"].as_string() == "global",
+                    EventLog.payload["blacklist_id"].as_string()
+                    == cast(Blacklist.id, String),
+                ),
+            )
+            .where(
+                Blacklist.status.in_(normalized_statuses),
+            )
+            .order_by(
+                Blacklist.created_at.desc(),
+                Blacklist.id.desc(),
+            )
+            .offset(normalized_offset)
+            .limit(normalized_limit)
+        )
+
+        return [
+            GlobalBlacklistQueueItem(
+                blacklist_id=row.id,
+                user_id=row.user_id,
+                reason=row.reason,
+                comment=row.comment,
+                status=row.status,
+                user_status=row.user_status,
+                created_at=row.created_at,
+                created_by=row.created_by,
+            )
+            for row in result
         ]
 
     async def unblock_user(

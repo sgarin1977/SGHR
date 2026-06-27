@@ -2081,3 +2081,475 @@ def test_admin_user_search_matches_tz10_a2_contract():
     assert 'F.data == "ADM_USERS"' in handler_source
     assert 'callback_data=f"ADM_USER_VIEW:{index}"' in handler_source
     assert "admin_user_search_ids" in handler_source
+
+def test_super_admin_cabinet_matches_part2_sa1_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminMenuSummary" in service_source
+    assert "async def open_super_admin_menu" in service_source
+    assert "get_super_admin_menu_counts" in service_source
+    assert 'event_type="super_admin_menu_opened"' in service_source
+
+    assert "async def get_super_admin_menu_counts" in repository_source
+    assert '{"super_admin"}' in repository_source
+
+    assert "def format_super_admin_menu" in admin_source
+    assert "def super_admin_menu_keyboard" in admin_source
+    assert 'active_role == "super_admin"' in admin_source
+
+    assert "super_admin_menu_text" in texts_source
+    assert "super_admin_users_btn" in texts_source
+    assert "super_admin_roles_btn" in texts_source
+    assert "super_admin_permissions_btn" in texts_source
+    assert "super_admin_scopes_btn" in texts_source
+    assert "super_admin_system_btn" in texts_source
+    assert "super_admin_audit_btn" in texts_source
+    assert "super_admin_finance_btn" in texts_source
+    assert "super_admin_regions_btn" in texts_source
+    assert "super_admin_smoke_tests_btn" in texts_source
+
+def test_super_admin_user_search_matches_part2_sa2_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminUserSearchCard" in service_source
+    assert "async def search_super_admin_users" in service_source
+    assert 'event_type="super_admin_user_search"' in service_source
+    assert '"query_length": len(normalized_query)' in service_source
+    assert '"result_count": len(rows)' in service_source
+    assert "masked_telegram_id" in service_source
+    assert "masked_username" in service_source
+    assert "user_number=f\"user-{row.user_id.hex[:8]}\"" in service_source
+
+    assert "class SuperAdminUserSearchRow" in repository_source
+    assert "async def search_super_admin_users" in repository_source
+    assert '{"super_admin"}' in repository_source
+    assert "UserAccount.platform_user_id" in repository_source
+    assert "UserAccount.username" in repository_source
+    assert "func.string_agg" in repository_source
+
+    assert "waiting_super_admin_user_search" in admin_source
+    assert '@admin_router.callback_query(F.data == "SA_USERS")' in admin_source
+    assert "format_super_admin_user_search_results" in admin_source
+    assert "super_admin_user_search_keyboard" in admin_source
+    assert "SA_USER_OPEN:" in admin_source
+
+    assert "super_admin_user_search_prompt" in texts_source
+    assert "super_admin_user_not_found" in texts_source
+    assert "super_admin_user_search_card" in texts_source
+
+def test_super_admin_user_card_matches_part2_sa3_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminUserDetailsRow" in repository_source
+    assert "async def get_super_admin_user_details" in repository_source
+    assert '{"super_admin"}' in repository_source
+    assert "complaints_count" in repository_source
+    assert "blacklist_count" in repository_source
+
+    assert "class SuperAdminUserDetailsCard" in service_source
+    assert "async def get_super_admin_user_details" in service_source
+    assert 'event_type="super_admin_user_viewed"' in service_source
+    assert "masked_telegram_id" in service_source
+    assert "masked_username" in service_source
+    assert "risk_flags" in service_source
+
+    assert "def format_super_admin_user_card" in admin_source
+    assert "def super_admin_user_card_keyboard" in admin_source
+    assert 'F.data.startswith("SA_USER_OPEN:")' in admin_source
+    assert "super_admin_selected_user_id" in admin_source
+    assert "await state.set_state(None)" in admin_source
+
+    assert "super_admin_user_card" in texts_source
+    assert "super_admin_user_profile_btn" in texts_source
+    assert "super_admin_user_roles_btn" in texts_source
+    assert "super_admin_user_scopes_btn" in texts_source
+    assert "super_admin_user_audit_btn" in texts_source
+    assert "super_admin_impersonate_btn" in texts_source
+
+def test_super_admin_user_roles_matches_part2_sa4_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminUserRoleRow" in repository_source
+    assert "async def list_super_admin_user_roles" in repository_source
+    assert '{"super_admin"}' in repository_source
+    assert "UserRoleMapping.role" in repository_source
+    assert "UserRoleMapping.status" in repository_source
+    assert "UserRoleMapping.granted_by" in repository_source
+    assert "UserRoleMapping.granted_at" in repository_source
+
+    assert "class SuperAdminUserRoleCard" in service_source
+    assert "async def list_super_admin_user_roles" in service_source
+    assert 'event_type="super_admin_user_roles_viewed"' in service_source
+    assert "role_number=f\"role-{row.role_id.hex[:8]}\"" in service_source
+
+    assert "def format_super_admin_user_roles" in admin_source
+    assert "def super_admin_user_roles_keyboard" in admin_source
+    assert '@admin_router.callback_query(F.data == "SA_USER_ROLES")' in admin_source
+    assert "super_admin_selected_user_id" in admin_source
+
+    assert "super_admin_user_roles_title" in texts_source
+    assert "super_admin_user_role_card" in texts_source
+    assert "super_admin_user_roles_empty" in texts_source
+    assert "super_admin_role_grant_btn" in texts_source
+    assert "super_admin_role_revoke_btn" in texts_source
+    assert "super_admin_role_scope_btn" in texts_source
+    assert "super_admin_role_history_btn" in texts_source
+
+def test_super_admin_role_change_matches_part2_sa41_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "SUPER_ADMIN_GRANTABLE_ROLES" in repository_source
+    assert "async def grant_super_admin_user_role" in repository_source
+    assert "async def revoke_super_admin_user_role" in repository_source
+    assert '"root"' in repository_source
+    assert "Root role is disabled outside recovery flow." in repository_source
+    assert "Cannot revoke the last Super Admin" in repository_source
+    assert 'event_type="user_role_changed"' in repository_source
+    assert 'event_type="role_change_confirmed"' in repository_source
+    assert 'action_type="user_role_changed"' in repository_source
+
+    assert "async def grant_super_admin_user_role" in service_source
+    assert "async def revoke_super_admin_user_role" in service_source
+    assert "self._require_reason(reason)" in service_source
+
+    assert "entering_super_admin_role_grant" in admin_source
+    assert "confirming_super_admin_role_grant" in admin_source
+    assert "confirming_super_admin_role_grant_final" in admin_source
+    assert "entering_super_admin_role_revoke" in admin_source
+    assert "confirming_super_admin_role_revoke" in admin_source
+    assert "confirming_super_admin_role_revoke_final" in admin_source
+    assert "parse_super_admin_role_action" in admin_source
+    assert "super_admin_role_confirm_keyboard" in admin_source
+    assert "SA_ROLE_GRANT_CONFIRM" in admin_source
+    assert "SA_ROLE_GRANT_FINAL" in admin_source
+    assert "SA_ROLE_REVOKE_CONFIRM" in admin_source
+    assert "SA_ROLE_REVOKE_FINAL" in admin_source
+
+    assert "super_admin_role_action_format" in texts_source
+    assert "super_admin_role_grant_confirm" in texts_source
+    assert "super_admin_role_revoke_confirm" in texts_source
+    assert "super_admin_role_danger_confirm" in texts_source
+    assert "super_admin_role_changed" in texts_source
+
+def test_super_admin_impersonation_matches_part2_sa5_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "async def log_super_admin_impersonation_view" in repository_source
+    assert 'event_type=f"impersonation_view_{action}"' in repository_source
+    assert 'action_type=f"impersonation_view_{action}"' in repository_source
+    assert '"read_only": True' in repository_source
+
+    assert "class SuperAdminImpersonationPreview" in service_source
+    assert "async def start_super_admin_impersonation_view" in service_source
+    assert "async def stop_super_admin_impersonation_view" in service_source
+    assert '"client"' in service_source
+    assert '"specialist"' in service_source
+    assert '"support"' in service_source
+    assert '"moderator"' in service_source
+    assert '"admin"' in service_source
+
+    assert "entering_super_admin_impersonation_reason" in admin_source
+    assert '@admin_router.callback_query(F.data == "SA_USER_IMPERSONATE")' in admin_source
+    assert 'F.data.startswith("SA_IMPERSONATE_ROLE:")' in admin_source
+    assert 'F.data == "SA_IMPERSONATE_STOP"' in admin_source
+    assert "super_admin_impersonation_keyboard" in admin_source
+
+    assert "super_admin_impersonation_reason_prompt" in texts_source
+    assert "super_admin_impersonation_menu" in texts_source
+    assert "super_admin_impersonation_preview" in texts_source
+    assert "Write actions disabled." in texts_source
+    assert "super_admin_impersonation_stopped" in texts_source
+
+def test_super_admin_permission_matrix_matches_part2_sa6_readonly_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminPermissionMatrixRow" in repository_source
+    assert "async def list_super_admin_permission_matrix" in repository_source
+    assert "role_permissions" in repository_source
+    assert "permission_code" in repository_source
+    assert "'global' AS scope" in repository_source
+    assert "'active' AS status" in repository_source
+    assert '{"super_admin"}' in repository_source
+
+    assert "class SuperAdminPermissionMatrixCard" in service_source
+    assert "async def list_super_admin_permission_matrix" in service_source
+    assert 'event_type="permission_matrix_viewed"' in service_source
+    assert 'entity_type="permission_matrix"' in service_source
+    assert "permission_number=f\"permission-{row.permission_id.hex[:8]}\"" in service_source
+
+    assert "entering_super_admin_permission_search" in admin_source
+    assert '@admin_router.callback_query(F.data == "SA_PERMISSIONS")' in admin_source
+    assert '@admin_router.callback_query(F.data == "SA_PERMISSION_SEARCH")' in admin_source
+    assert "format_super_admin_permissions" in admin_source
+    assert "super_admin_permissions_keyboard" in admin_source
+
+    assert "super_admin_permissions_title" in texts_source
+    assert "super_admin_permission_card" in texts_source
+    assert "super_admin_permissions_empty" in texts_source
+    assert "super_admin_permission_search_btn" in texts_source
+    assert "super_admin_permission_grant_btn" in texts_source
+    assert "super_admin_permission_revoke_btn" in texts_source
+    assert "super_admin_permission_history_btn" in texts_source
+
+def test_super_admin_permission_change_matches_part2_sa6_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "SUPER_ADMIN_PERMISSION_ROLES" in repository_source
+    assert "async def grant_super_admin_permission" in repository_source
+    assert "async def revoke_super_admin_permission" in repository_source
+    assert "INSERT INTO role_permissions" in repository_source
+    assert "DELETE FROM role_permissions" in repository_source
+    assert 'action_type="permission_changed"' in repository_source
+    assert 'event_type="permission_changed"' in repository_source
+    assert '{"super_admin"}' in repository_source
+
+    assert "async def grant_super_admin_permission" in service_source
+    assert "async def revoke_super_admin_permission" in service_source
+    assert "self._require_reason(reason)" in service_source
+    assert "await self.repository.session.commit()" in service_source
+    assert "await self.repository.session.rollback()" in service_source
+
+    assert "entering_super_admin_permission_grant" in admin_source
+    assert "confirming_super_admin_permission_grant" in admin_source
+    assert "entering_super_admin_permission_revoke" in admin_source
+    assert "confirming_super_admin_permission_revoke" in admin_source
+    assert "parse_super_admin_permission_action" in admin_source
+    assert "super_admin_permission_confirm_keyboard" in admin_source
+    assert 'F.data == "SA_PERMISSION_GRANT"' in admin_source
+    assert 'F.data == "SA_PERMISSION_REVOKE"' in admin_source
+    assert 'F.data == "SA_PERMISSION_GRANT_CONFIRM"' in admin_source
+    assert 'F.data == "SA_PERMISSION_REVOKE_CONFIRM"' in admin_source
+
+    assert "super_admin_permission_action_format" in texts_source
+    assert "super_admin_permission_grant_confirm" in texts_source
+    assert "super_admin_permission_revoke_confirm" in texts_source
+    assert "super_admin_permission_changed" in texts_source
+
+def test_super_admin_global_audit_matches_part2_sa8_list_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+
+    assert "async def list_super_admin_audit_actions" in repository_source
+    assert "super_admin_audit_records" in repository_source
+    super_admin_audit_block = repository_source.split(
+        "async def list_super_admin_audit_actions",
+        1,
+    )[1].split(
+        "async def get_admin_audit_action",
+        1,
+    )[0]
+
+    assert "AdminAction.tenant_id ==" not in super_admin_audit_block
+    assert "EventLog.tenant_id ==" not in super_admin_audit_block
+    assert "EventLog.event_type != \"audit_viewed\"" in repository_source
+    assert '{"super_admin"}' in repository_source
+
+    assert "async def open_super_admin_audit" in service_source
+    assert "list_super_admin_audit_actions" in service_source
+    assert 'event_type="audit_viewed"' in service_source
+    assert '"source": "super_admin_global_audit"' in service_source
+
+    assert '@admin_router.callback_query(F.data == "SA_AUDIT")' in admin_source
+    assert 'F.data.startswith("SA_AUDIT_QUEUE:")' in admin_source
+    assert 'F.data == "SA_AUDIT_FILTER"' in admin_source
+    assert "open_super_admin_audit_queue" in admin_source
+    assert "super_admin_audit_filter_keyboard" in admin_source
+    assert 'prefix="SA_AUDIT"' in admin_source
+
+def test_super_admin_audit_event_detail_matches_part2_sa81_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminAuditEventDetailRow" in repository_source
+    assert "async def get_super_admin_audit_event_detail" in repository_source
+    assert "AdminAction.before_state" not in repository_source
+    assert "admin_action.before_state or {}" in repository_source
+    assert "event.trace_id" in repository_source
+    assert '{"super_admin"}' in repository_source
+
+    assert "class SuperAdminAuditEventDetailCard" in service_source
+    assert "async def get_super_admin_audit_event_detail" in service_source
+    assert 'event_type="audit_event_viewed"' in service_source
+    assert "_mask_audit_value" in service_source
+    assert "_summarize_audit_dict" in service_source
+    assert "correlation_id" in service_source
+
+    assert "def super_admin_audit_card_keyboard" in admin_source
+    assert 'callback_data=f"SA_AUDIT_OPEN:{index}"' in admin_source
+    assert 'F.data.startswith("SA_AUDIT_OPEN:")' in admin_source
+    assert "super_admin_audit_action_ids" in admin_source
+    assert "super_admin_audit_event_detail" in texts_source
+
+def test_super_admin_system_matches_part2_sa9_readonly_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    repository_source = open(
+        "database/repositories/moderation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminSystemStatusRow" in repository_source
+    assert "async def get_super_admin_system_status" in repository_source
+    assert "SELECT version()" in repository_source
+    assert "alembic_version" in repository_source
+    assert '{"super_admin"}' in repository_source
+
+    assert "class SuperAdminSystemStatusCard" in service_source
+    assert "async def open_super_admin_system_status" in service_source
+    assert 'event_type="system_settings_viewed"' in service_source
+    assert '"source": "super_admin_system"' in service_source
+    assert "secrets hidden" in service_source
+
+    assert '@admin_router.callback_query(F.data == "SA_SYSTEM")' in admin_source
+    assert 'F.data.startswith("SA_SYSTEM_")' in admin_source
+    assert "format_super_admin_system_status" in admin_source
+    assert "super_admin_system_keyboard" in admin_source
+    assert "SA_SYSTEM_FEATURE_FLAGS" in admin_source
+    assert "SA_SYSTEM_HEALTH" in admin_source
+    assert "SA_SYSTEM_MAINTENANCE" in admin_source
+    assert "SA_SYSTEM_MIGRATIONS" in admin_source
+    assert "SA_SYSTEM_ENV" in admin_source
+
+    assert "super_admin_system_status" in texts_source
+    assert "Secrets and env values are never shown." in texts_source
+    assert "super_admin_feature_flags_btn" in texts_source
+    assert "super_admin_health_check_btn" in texts_source
+    assert "super_admin_maintenance_btn" in texts_source
+    assert "super_admin_migrations_btn" in texts_source
+    assert "super_admin_env_status_btn" in texts_source
+
+def test_super_admin_system_detail_buttons_match_part2_sa9_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "async def super_admin_system_detail" in admin_source
+    assert 'detail_type == "HEALTH"' in admin_source
+    assert 'detail_type == "MIGRATIONS"' in admin_source
+    assert 'detail_type == "ENV"' in admin_source
+    assert 'detail_type == "FEATURE_FLAGS"' in admin_source
+    assert 'detail_type == "MAINTENANCE"' in admin_source
+    assert "open_super_admin_system_status" in admin_source
+    assert "Env values, tokens and secrets are hidden." in texts_source
+    assert "Changing maintenance mode requires a separate confirmation flow." in texts_source
+    assert "super_admin_system_health_detail" in texts_source
+    assert "super_admin_system_migrations_detail" in texts_source
+    assert "super_admin_system_env_detail" in texts_source
+    assert "super_admin_system_feature_flags_detail" in texts_source
+    assert "super_admin_system_maintenance_detail" in texts_source
+
+def test_super_admin_smoke_tests_match_part2_sa10_safe_contract():
+    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    service_source = open("services/moderation.py", encoding="utf-8").read()
+    texts_source = open("ui/texts.py", encoding="utf-8").read()
+
+    assert "class SuperAdminSmokeTestResultCard" in service_source
+    assert "class SuperAdminSmokeTestRunCard" in service_source
+    assert "def list_super_admin_smoke_definitions" in service_source
+    assert "async def run_super_admin_smoke_tests" in service_source
+    assert 'event_type="smoke_test_run"' in service_source
+    assert '"destructive": False' in service_source
+    assert '"start"' in service_source
+    assert '"registration"' in service_source
+    assert '"search"' in service_source
+    assert '"request"' in service_source
+    assert '"dialogs"' in service_source
+    assert '"support"' in service_source
+    assert '"moderation"' in service_source
+    assert '"admin_access"' in service_source
+
+    assert '@admin_router.callback_query(F.data == "SA_SMOKE")' in admin_source
+    assert 'F.data == "SA_SMOKE_RUN_ALL"' in admin_source
+    assert "format_super_admin_smoke_tests" in admin_source
+    assert "format_super_admin_smoke_run" in admin_source
+    assert "super_admin_smoke_keyboard" in admin_source
+
+    assert "super_admin_smoke_title" in texts_source
+    assert "super_admin_smoke_card" in texts_source
+    assert "super_admin_smoke_run_all_btn" in texts_source
+    assert "super_admin_smoke_result_title" in texts_source
+
+    assert "_run_super_admin_smoke_check" in service_source
+    assert "_require_tables" in service_source
+    assert "_smoke_check_start" in service_source
+    assert "_smoke_check_registration" in service_source
+    assert "_smoke_check_search" in service_source
+    assert "_smoke_check_request" in service_source
+    assert "_smoke_check_dialogs" in service_source
+    assert "_smoke_check_support" in service_source
+    assert "_smoke_check_moderation" in service_source
+    assert "_smoke_check_admin_access" in service_source
+    assert "Safe read-only check completed." not in service_source
+
+    assert "class SuperAdminSmokeHistoryCard" in service_source
+    assert "async def list_super_admin_smoke_history" in service_source
+    assert "WHERE event_type = 'smoke_test_run'" in service_source
+
+    assert 'F.data == "SA_SMOKE_RUN_SELECTED"' in admin_source
+    assert 'F.data.startswith("SA_SMOKE_RUN:")' in admin_source
+    assert 'F.data == "SA_SMOKE_HISTORY"' in admin_source
+    assert "super_admin_smoke_selected_keyboard" in admin_source
+    assert "format_super_admin_smoke_history" in admin_source
+    assert "super_admin_smoke_progress" in admin_source
+
+    assert "super_admin_smoke_select_title" in texts_source
+    assert "super_admin_smoke_history_title" in texts_source
+    assert "super_admin_smoke_history_card" in texts_source
+    assert "super_admin_smoke_history_empty" in texts_source

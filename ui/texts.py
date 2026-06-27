@@ -6156,6 +6156,1005 @@ translations = {
         "en": "Yes, remove global block",
         "pt": "Sim, remover bloqueio global",
     },
+    "super_admin_menu_text": {
+        "ru": (
+            "Кабинет Super Admin\n\n"
+            "Users: {users}\n"
+            "Specialists: {specialists}\n"
+            "Tickets: {tickets}\n"
+            "Complaints: {complaints}\n"
+            "Global blacklist: {global_blacklist}\n"
+            "System alerts: {system_alerts}\n"
+            "Finance alerts: {finance_alerts}\n"
+            "Audit alerts: {audit_alerts}"
+        ),
+        "en": (
+            "Super Admin cabinet\n\n"
+            "Users: {users}\n"
+            "Specialists: {specialists}\n"
+            "Tickets: {tickets}\n"
+            "Complaints: {complaints}\n"
+            "Global blacklist: {global_blacklist}\n"
+            "System alerts: {system_alerts}\n"
+            "Finance alerts: {finance_alerts}\n"
+            "Audit alerts: {audit_alerts}"
+        ),
+        "pt": (
+            "Painel Super Admin\n\n"
+            "Users: {users}\n"
+            "Specialists: {specialists}\n"
+            "Tickets: {tickets}\n"
+            "Complaints: {complaints}\n"
+            "Global blacklist: {global_blacklist}\n"
+            "System alerts: {system_alerts}\n"
+            "Finance alerts: {finance_alerts}\n"
+            "Audit alerts: {audit_alerts}"
+        ),
+    },
+    "super_admin_users_btn": {
+        "ru": "Пользователи",
+        "en": "Users",
+        "pt": "Utilizadores",
+    },
+    "super_admin_roles_btn": {
+        "ru": "Роли",
+        "en": "Roles",
+        "pt": "Funções",
+    },
+    "super_admin_permissions_btn": {
+        "ru": "Права",
+        "en": "Permissions",
+        "pt": "Permissões",
+    },
+    "super_admin_scopes_btn": {
+        "ru": "Scopes",
+        "en": "Scopes",
+        "pt": "Scopes",
+    },
+    "super_admin_system_btn": {
+        "ru": "Система",
+        "en": "System",
+        "pt": "Sistema",
+    },
+    "super_admin_audit_btn": {
+        "ru": "Аудит",
+        "en": "Audit",
+        "pt": "Auditoria",
+    },
+    "super_admin_finance_btn": {
+        "ru": "Финансы",
+        "en": "Finance",
+        "pt": "Finanças",
+    },
+    "super_admin_regions_btn": {
+        "ru": "Регионы",
+        "en": "Regions",
+        "pt": "Regiões",
+    },
+    "super_admin_smoke_tests_btn": {
+        "ru": "Smoke Tests",
+        "en": "Smoke Tests",
+        "pt": "Smoke Tests",
+    },
+    "super_admin_user_search_prompt": {
+        "ru": (
+            "Введите Telegram ID, username или user-facing ID пользователя."
+        ),
+        "en": (
+            "Enter Telegram ID, username or user-facing user ID."
+        ),
+        "pt": (
+            "Introduza Telegram ID, username ou ID público do utilizador."
+        ),
+    },
+    "super_admin_user_search_too_short": {
+        "ru": "Введите минимум 2 символа.",
+        "en": "Enter at least 2 characters.",
+        "pt": "Introduza pelo menos 2 caracteres.",
+    },
+    "super_admin_user_not_found": {
+        "ru": "Пользователь не найден.",
+        "en": "User not found.",
+        "pt": "Utilizador não encontrado.",
+    },
+    "super_admin_user_search_header": {
+        "ru": "Пользователи\nНайдено: {count}",
+        "en": "Users\nFound: {count}",
+        "pt": "Utilizadores\nEncontrados: {count}",
+    },
+    "super_admin_user_search_card": {
+        "ru": (
+            "{number}. {name}\n"
+            "User ID: {user_number}\n"
+            "Telegram: {telegram_id}\n"
+            "Username: {username}\n"
+            "Статус: {status}\n"
+            "Роли: {roles}"
+        ),
+        "en": (
+            "{number}. {name}\n"
+            "User ID: {user_number}\n"
+            "Telegram: {telegram_id}\n"
+            "Username: {username}\n"
+            "Status: {status}\n"
+            "Roles: {roles}"
+        ),
+        "pt": (
+            "{number}. {name}\n"
+            "User ID: {user_number}\n"
+            "Telegram: {telegram_id}\n"
+            "Username: {username}\n"
+            "Estado: {status}\n"
+            "Funções: {roles}"
+        ),
+    },
+    "super_admin_user_open_btn": {
+        "ru": "Открыть",
+        "en": "Open",
+        "pt": "Abrir",
+    },
+    "super_admin_back_to_menu_btn": {
+        "ru": "К Super Admin",
+        "en": "To Super Admin",
+        "pt": "Para Super Admin",
+    },
+    "super_admin_user_card": {
+        "ru": (
+            "Пользователь\n\n"
+            "{name}\n"
+            "User ID: {user_number}\n"
+            "Telegram: {telegram_id}\n"
+            "Username: {username}\n"
+            "Статус: {status}\n"
+            "Активная роль: {active_role}\n"
+            "Роли: {roles}\n"
+            "Scopes: {scopes}\n"
+            "Last seen: {last_seen}\n"
+            "Risk flags: {risk_flags}\n"
+            "Жалобы: {complaints}\n"
+            "Blacklist: {blacklist}"
+        ),
+        "en": (
+            "User\n\n"
+            "{name}\n"
+            "User ID: {user_number}\n"
+            "Telegram: {telegram_id}\n"
+            "Username: {username}\n"
+            "Status: {status}\n"
+            "Active role: {active_role}\n"
+            "Roles: {roles}\n"
+            "Scopes: {scopes}\n"
+            "Last seen: {last_seen}\n"
+            "Risk flags: {risk_flags}\n"
+            "Complaints: {complaints}\n"
+            "Blacklist: {blacklist}"
+        ),
+        "pt": (
+            "Utilizador\n\n"
+            "{name}\n"
+            "User ID: {user_number}\n"
+            "Telegram: {telegram_id}\n"
+            "Username: {username}\n"
+            "Estado: {status}\n"
+            "Função ativa: {active_role}\n"
+            "Funções: {roles}\n"
+            "Scopes: {scopes}\n"
+            "Last seen: {last_seen}\n"
+            "Risk flags: {risk_flags}\n"
+            "Reclamações: {complaints}\n"
+            "Blacklist: {blacklist}"
+        ),
+    },
+    "super_admin_user_profile_btn": {
+        "ru": "Профиль",
+        "en": "Profile",
+        "pt": "Perfil",
+    },
+    "super_admin_user_roles_btn": {
+        "ru": "Роли",
+        "en": "Roles",
+        "pt": "Funções",
+    },
+    "super_admin_user_scopes_btn": {
+        "ru": "Scopes",
+        "en": "Scopes",
+        "pt": "Scopes",
+    },
+    "super_admin_user_audit_btn": {
+        "ru": "Аудит",
+        "en": "Audit",
+        "pt": "Auditoria",
+    },
+    "super_admin_impersonate_btn": {
+        "ru": "Просмотр как пользователь",
+        "en": "View as user",
+        "pt": "Ver como utilizador",
+    },
+    "super_admin_user_roles_title": {
+        "ru": "Роли пользователя\nПоказано: {count}",
+        "en": "User roles\nShown: {count}",
+        "pt": "Funções do utilizador\nMostradas: {count}",
+    },
+    "super_admin_user_role_card": {
+        "ru": (
+            "{number}. {role}\n"
+            "Статус: {status}\n"
+            "Scope: {scope}\n"
+            "Выдал: {granted_by}\n"
+            "Дата: {granted_at}"
+        ),
+        "en": (
+            "{number}. {role}\n"
+            "Status: {status}\n"
+            "Scope: {scope}\n"
+            "Granted by: {granted_by}\n"
+            "Date: {granted_at}"
+        ),
+        "pt": (
+            "{number}. {role}\n"
+            "Estado: {status}\n"
+            "Scope: {scope}\n"
+            "Concedido por: {granted_by}\n"
+            "Data: {granted_at}"
+        ),
+    },
+    "super_admin_user_roles_empty": {
+        "ru": "У пользователя нет ролей.",
+        "en": "The user has no roles.",
+        "pt": "O utilizador não tem funções.",
+    },
+    "super_admin_role_grant_btn": {
+        "ru": "Выдать роль",
+        "en": "Grant role",
+        "pt": "Conceder função",
+    },
+    "super_admin_role_revoke_btn": {
+        "ru": "Снять роль",
+        "en": "Revoke role",
+        "pt": "Revogar função",
+    },
+    "super_admin_role_scope_btn": {
+        "ru": "Изменить scope",
+        "en": "Change scope",
+        "pt": "Alterar scope",
+    },
+    "super_admin_role_history_btn": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Histórico",
+    },
+    "super_admin_role_action_format": {
+        "ru": (
+            "Введите роль и причину одним сообщением.\n\n"
+            "Доступные роли:\n"
+            "admin\n"
+            "moderator\n"
+            "support\n"
+            "finance_admin\n"
+            "content_manager\n"
+            "super_admin\n\n"
+            "Формат:\n"
+            "admin причина изменения\n\n"
+            "Причина минимум 3 символа."
+        ),
+        "en": (
+            "Enter role and reason in one message.\n\n"
+            "Available roles:\n"
+            "admin\n"
+            "moderator\n"
+            "support\n"
+            "finance_admin\n"
+            "content_manager\n"
+            "super_admin\n\n"
+            "Format:\n"
+            "admin change reason\n\n"
+            "Reason must be at least 3 characters."
+        ),
+        "pt": (
+            "Introduza a função e o motivo numa mensagem.\n\n"
+            "Funções disponíveis:\n"
+            "admin\n"
+            "moderator\n"
+            "support\n"
+            "finance_admin\n"
+            "content_manager\n"
+            "super_admin\n\n"
+            "Formato:\n"
+            "admin motivo da alteração\n\n"
+            "O motivo deve ter pelo menos 3 caracteres."
+        ),
+    },
+    "super_admin_role_bad_format": {
+        "ru": "Неверный формат. Введите: роль причина.",
+        "en": "Invalid format. Enter: role reason.",
+        "pt": "Formato inválido. Introduza: função motivo.",
+    },
+    "super_admin_role_grant_confirm": {
+        "ru": (
+            "Подтвердите выдачу роли:\n\n"
+            "Пользователь: {user}\n"
+            "Роль: {role}\n"
+            "Причина: {reason}"
+        ),
+        "en": (
+            "Confirm role grant:\n\n"
+            "User: {user}\n"
+            "Role: {role}\n"
+            "Reason: {reason}"
+        ),
+        "pt": (
+            "Confirme a concessão da função:\n\n"
+            "Utilizador: {user}\n"
+            "Função: {role}\n"
+            "Motivo: {reason}"
+        ),
+    },
+    "super_admin_role_revoke_confirm": {
+        "ru": (
+            "Подтвердите снятие роли:\n\n"
+            "Пользователь: {user}\n"
+            "Роль: {role}\n"
+            "Причина: {reason}"
+        ),
+        "en": (
+            "Confirm role revoke:\n\n"
+            "User: {user}\n"
+            "Role: {role}\n"
+            "Reason: {reason}"
+        ),
+        "pt": (
+            "Confirme a revogação da função:\n\n"
+            "Utilizador: {user}\n"
+            "Função: {role}\n"
+            "Motivo: {reason}"
+        ),
+    },
+    "super_admin_role_danger_confirm": {
+        "ru": (
+            "Повторное подтверждение:\n\n"
+            "Вы изменяете роль Super Admin.\n"
+            "Root flow недоступен в обычном кабинете.\n\n"
+            "Подтвердите действие ещё раз."
+        ),
+        "en": (
+            "Second confirmation:\n\n"
+            "You are changing the Super Admin role.\n"
+            "Root flow is unavailable in the regular cabinet.\n\n"
+            "Confirm the action again."
+        ),
+        "pt": (
+            "Segunda confirmação:\n\n"
+            "Está a alterar a função Super Admin.\n"
+            "O fluxo Root não está disponível no painel normal.\n\n"
+            "Confirme a ação novamente."
+        ),
+    },
+    "super_admin_role_confirm_btn": {
+        "ru": "Подтвердить",
+        "en": "Confirm",
+        "pt": "Confirmar",
+    },
+    "super_admin_role_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "super_admin_role_changed": {
+        "ru": "Роль обновлена.",
+        "en": "Role updated.",
+        "pt": "Função atualizada.",
+    },
+    "super_admin_role_cancelled": {
+        "ru": "Изменение роли отменено.",
+        "en": "Role change cancelled.",
+        "pt": "Alteração da função cancelada.",
+    },
+    "super_admin_impersonation_reason_prompt": {
+        "ru": "Укажите причину просмотра от имени пользователя. Минимум 3 символа.",
+        "en": "Enter the reason for viewing as user. Minimum 3 characters.",
+        "pt": "Introduza o motivo para ver como utilizador. Mínimo 3 caracteres.",
+    },
+    "super_admin_impersonation_menu": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Выберите роль/кабинет для read-only preview."
+        ),
+        "en": (
+            "View as user mode\n\n"
+            "Select a role/cabinet for read-only preview."
+        ),
+        "pt": (
+            "Modo ver como utilizador\n\n"
+            "Selecione uma função/painel para preview read-only."
+        ),
+    },
+    "super_admin_impersonation_preview": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Пользователь: {user}\n"
+            "Роль: {role}\n"
+            "Read-only: yes\n\n"
+            "Write actions disabled."
+        ),
+        "en": (
+            "View as user mode\n\n"
+            "User: {user}\n"
+            "Role: {role}\n"
+            "Read-only: yes\n\n"
+            "Write actions disabled."
+        ),
+        "pt": (
+            "Modo ver como utilizador\n\n"
+            "Utilizador: {user}\n"
+            "Função: {role}\n"
+            "Read-only: yes\n\n"
+            "Ações de escrita desativadas."
+        ),
+    },
+    "super_admin_impersonation_client_btn": {
+        "ru": "Клиент",
+        "en": "Client",
+        "pt": "Cliente",
+    },
+    "super_admin_impersonation_specialist_btn": {
+        "ru": "Специалист",
+        "en": "Specialist",
+        "pt": "Especialista",
+    },
+    "super_admin_impersonation_support_btn": {
+        "ru": "Support",
+        "en": "Support",
+        "pt": "Support",
+    },
+    "super_admin_impersonation_moderator_btn": {
+        "ru": "Moderator",
+        "en": "Moderator",
+        "pt": "Moderator",
+    },
+    "super_admin_impersonation_admin_btn": {
+        "ru": "Admin",
+        "en": "Admin",
+        "pt": "Admin",
+    },
+    "super_admin_impersonation_stop_btn": {
+        "ru": "Завершить просмотр",
+        "en": "Stop viewing",
+        "pt": "Terminar visualização",
+    },
+    "super_admin_impersonation_stopped": {
+        "ru": "Просмотр от имени пользователя завершён.",
+        "en": "View as user mode stopped.",
+        "pt": "Modo ver como utilizador terminado.",
+    },
+    "super_admin_permissions_title": {
+        "ru": "Permission Matrix\nПоказано: {count}",
+        "en": "Permission Matrix\nShown: {count}",
+        "pt": "Matriz de permissões\nMostrado: {count}",
+    },
+    "super_admin_permission_card": {
+        "ru": (
+            "{number}. Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Scope: {scope}\n"
+            "Status: {status}\n"
+            "Granted by: {granted_by}\n"
+            "Дата: {created_at}\n"
+            "Описание: {description}"
+        ),
+        "en": (
+            "{number}. Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Scope: {scope}\n"
+            "Status: {status}\n"
+            "Granted by: {granted_by}\n"
+            "Date: {created_at}\n"
+            "Description: {description}"
+        ),
+        "pt": (
+            "{number}. Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Scope: {scope}\n"
+            "Status: {status}\n"
+            "Granted by: {granted_by}\n"
+            "Data: {created_at}\n"
+            "Descrição: {description}"
+        ),
+    },
+    "super_admin_permissions_empty": {
+        "ru": "Permission Matrix пуста.",
+        "en": "Permission Matrix is empty.",
+        "pt": "A matriz de permissões está vazia.",
+    },
+    "super_admin_permission_search_btn": {
+        "ru": "Найти permission",
+        "en": "Find permission",
+        "pt": "Encontrar permissão",
+    },
+    "super_admin_permission_grant_btn": {
+        "ru": "Выдать",
+        "en": "Grant",
+        "pt": "Conceder",
+    },
+    "super_admin_permission_revoke_btn": {
+        "ru": "Отозвать",
+        "en": "Revoke",
+        "pt": "Revogar",
+    },
+    "super_admin_permission_history_btn": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Histórico",
+    },
+    "super_admin_permission_search_prompt": {
+        "ru": "Введите role или permission_code для поиска.",
+        "en": "Enter role or permission_code to search.",
+        "pt": "Digite role ou permission_code para pesquisar.",
+    },
+    "super_admin_permission_action_format": {
+        "ru": (
+            "Введите роль, permission_code и причину одним сообщением.\n\n"
+            "Формат:\n"
+            "admin admin.users.read причина изменения\n\n"
+            "Роли:\n"
+            "client\n"
+            "specialist\n"
+            "support\n"
+            "moderator\n"
+            "admin\n"
+            "super_admin\n"
+            "finance_admin\n"
+            "content_manager\n\n"
+            "Причина минимум 3 символа."
+        ),
+        "en": (
+            "Enter role, permission_code and reason in one message.\n\n"
+            "Format:\n"
+            "admin admin.users.read change reason\n\n"
+            "Roles:\n"
+            "client\n"
+            "specialist\n"
+            "support\n"
+            "moderator\n"
+            "admin\n"
+            "super_admin\n"
+            "finance_admin\n"
+            "content_manager\n\n"
+            "Reason must be at least 3 characters."
+        ),
+        "pt": (
+            "Digite role, permission_code e motivo em uma mensagem.\n\n"
+            "Formato:\n"
+            "admin admin.users.read motivo da alteração\n\n"
+            "Roles:\n"
+            "client\n"
+            "specialist\n"
+            "support\n"
+            "moderator\n"
+            "admin\n"
+            "super_admin\n"
+            "finance_admin\n"
+            "content_manager\n\n"
+            "O motivo deve ter pelo menos 3 caracteres."
+        ),
+    },
+    "super_admin_permission_bad_format": {
+        "ru": "Неверный формат. Используйте: role permission_code причина.",
+        "en": "Invalid format. Use: role permission_code reason.",
+        "pt": "Formato inválido. Use: role permission_code motivo.",
+    },
+    "super_admin_permission_grant_confirm": {
+        "ru": (
+            "Подтвердите выдачу permission:\n\n"
+            "Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Причина: {reason}"
+        ),
+        "en": (
+            "Confirm permission grant:\n\n"
+            "Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Reason: {reason}"
+        ),
+        "pt": (
+            "Confirme a concessão da permissão:\n\n"
+            "Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Motivo: {reason}"
+        ),
+    },
+    "super_admin_permission_revoke_confirm": {
+        "ru": (
+            "Подтвердите отзыв permission:\n\n"
+            "Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Причина: {reason}"
+        ),
+        "en": (
+            "Confirm permission revoke:\n\n"
+            "Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Reason: {reason}"
+        ),
+        "pt": (
+            "Confirme a revogação da permissão:\n\n"
+            "Role: {role}\n"
+            "Permission: {permission_code}\n"
+            "Motivo: {reason}"
+        ),
+    },
+    "super_admin_permission_confirm_btn": {
+        "ru": "Подтвердить",
+        "en": "Confirm",
+        "pt": "Confirmar",
+    },
+    "super_admin_permission_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "super_admin_permission_changed": {
+        "ru": "Permission обновлён.",
+        "en": "Permission updated.",
+        "pt": "Permissão atualizada.",
+    },
+    "super_admin_permission_cancelled": {
+        "ru": "Изменение permission отменено.",
+        "en": "Permission change cancelled.",
+        "pt": "Alteração da permissão cancelada.",
+    },
+    "super_admin_audit_event_detail": {
+        "ru": (
+            "Audit event detail\n\n"
+            "Timestamp: {timestamp}\n"
+            "Actor: {actor}\n"
+            "Action: {action}\n"
+            "Target type: {target_type}\n"
+            "Target: {target}\n"
+            "Reason: {reason}\n"
+            "Source: {source}\n"
+            "Correlation ID: {correlation_id}\n\n"
+            "Before:\n"
+            "{before_summary}\n\n"
+            "After:\n"
+            "{after_summary}\n\n"
+            "Payload:\n"
+            "{payload_summary}\n\n"
+            "Mode: read-only"
+        ),
+        "en": (
+            "Audit event detail\n\n"
+            "Timestamp: {timestamp}\n"
+            "Actor: {actor}\n"
+            "Action: {action}\n"
+            "Target type: {target_type}\n"
+            "Target: {target}\n"
+            "Reason: {reason}\n"
+            "Source: {source}\n"
+            "Correlation ID: {correlation_id}\n\n"
+            "Before:\n"
+            "{before_summary}\n\n"
+            "After:\n"
+            "{after_summary}\n\n"
+            "Payload:\n"
+            "{payload_summary}\n\n"
+            "Mode: read-only"
+        ),
+        "pt": (
+            "Detalhe do evento de auditoria\n\n"
+            "Timestamp: {timestamp}\n"
+            "Actor: {actor}\n"
+            "Action: {action}\n"
+            "Target type: {target_type}\n"
+            "Target: {target}\n"
+            "Reason: {reason}\n"
+            "Source: {source}\n"
+            "Correlation ID: {correlation_id}\n\n"
+            "Before:\n"
+            "{before_summary}\n\n"
+            "After:\n"
+            "{after_summary}\n\n"
+            "Payload:\n"
+            "{payload_summary}\n\n"
+            "Mode: read-only"
+        ),
+    },
+    "super_admin_system_status": {
+        "ru": (
+            "Система\n\n"
+            "App version: {app_version}\n"
+            "DB health: {db_status}\n"
+            "DB version: {db_version}\n"
+            "Telegram health: {telegram_status}\n"
+            "Migrations: {migrations_status}\n"
+            "Migration version: {migration_version}\n"
+            "Maintenance mode: {maintenance_mode}\n"
+            "Feature flags: {feature_flags_status}\n"
+            "Env status: {env_status}\n\n"
+            "Секреты и env values не отображаются."
+        ),
+        "en": (
+            "System\n\n"
+            "App version: {app_version}\n"
+            "DB health: {db_status}\n"
+            "DB version: {db_version}\n"
+            "Telegram health: {telegram_status}\n"
+            "Migrations: {migrations_status}\n"
+            "Migration version: {migration_version}\n"
+            "Maintenance mode: {maintenance_mode}\n"
+            "Feature flags: {feature_flags_status}\n"
+            "Env status: {env_status}\n\n"
+            "Secrets and env values are never shown."
+        ),
+        "pt": (
+            "Sistema\n\n"
+            "App version: {app_version}\n"
+            "DB health: {db_status}\n"
+            "DB version: {db_version}\n"
+            "Telegram health: {telegram_status}\n"
+            "Migrations: {migrations_status}\n"
+            "Migration version: {migration_version}\n"
+            "Maintenance mode: {maintenance_mode}\n"
+            "Feature flags: {feature_flags_status}\n"
+            "Env status: {env_status}\n\n"
+            "Secrets and env values are never shown."
+        ),
+    },
+    "super_admin_feature_flags_btn": {
+        "ru": "Feature Flags",
+        "en": "Feature Flags",
+        "pt": "Feature Flags",
+    },
+    "super_admin_health_check_btn": {
+        "ru": "Health Check",
+        "en": "Health Check",
+        "pt": "Health Check",
+    },
+    "super_admin_maintenance_btn": {
+        "ru": "Maintenance Mode",
+        "en": "Maintenance Mode",
+        "pt": "Maintenance Mode",
+    },
+    "super_admin_migrations_btn": {
+        "ru": "Migrations",
+        "en": "Migrations",
+        "pt": "Migrations",
+    },
+    "super_admin_env_status_btn": {
+        "ru": "Env status",
+        "en": "Env status",
+        "pt": "Env status",
+    },
+    "super_admin_system_health_detail": {
+        "ru": (
+            "Health Check\n\n"
+            "DB health: {db_status}\n"
+            "Telegram health: {telegram_status}\n"
+            "Maintenance mode: {maintenance_mode}\n\n"
+            "Mode: read-only"
+        ),
+        "en": (
+            "Health Check\n\n"
+            "DB health: {db_status}\n"
+            "Telegram health: {telegram_status}\n"
+            "Maintenance mode: {maintenance_mode}\n\n"
+            "Mode: read-only"
+        ),
+        "pt": (
+            "Health Check\n\n"
+            "DB health: {db_status}\n"
+            "Telegram health: {telegram_status}\n"
+            "Maintenance mode: {maintenance_mode}\n\n"
+            "Mode: read-only"
+        ),
+    },
+    "super_admin_system_migrations_detail": {
+        "ru": (
+            "Migrations\n\n"
+            "Status: {migrations_status}\n"
+            "Version: {migration_version}\n\n"
+            "Mode: read-only"
+        ),
+        "en": (
+            "Migrations\n\n"
+            "Status: {migrations_status}\n"
+            "Version: {migration_version}\n\n"
+            "Mode: read-only"
+        ),
+        "pt": (
+            "Migrations\n\n"
+            "Status: {migrations_status}\n"
+            "Version: {migration_version}\n\n"
+            "Mode: read-only"
+        ),
+    },
+    "super_admin_system_env_detail": {
+        "ru": (
+            "Env status\n\n"
+            "{env_status}\n\n"
+            "Env values, tokens and secrets are hidden."
+        ),
+        "en": (
+            "Env status\n\n"
+            "{env_status}\n\n"
+            "Env values, tokens and secrets are hidden."
+        ),
+        "pt": (
+            "Env status\n\n"
+            "{env_status}\n\n"
+            "Env values, tokens and secrets are hidden."
+        ),
+    },
+    "super_admin_system_feature_flags_detail": {
+        "ru": (
+            "Feature Flags\n\n"
+            "Status: {feature_flags_status}\n\n"
+            "Feature flag storage is not configured for controlled Beta.\n"
+            "Mode: read-only"
+        ),
+        "en": (
+            "Feature Flags\n\n"
+            "Status: {feature_flags_status}\n\n"
+            "Feature flag storage is not configured for controlled Beta.\n"
+            "Mode: read-only"
+        ),
+        "pt": (
+            "Feature Flags\n\n"
+            "Status: {feature_flags_status}\n\n"
+            "Feature flag storage is not configured for controlled Beta.\n"
+            "Mode: read-only"
+        ),
+    },
+    "super_admin_system_maintenance_detail": {
+        "ru": (
+            "Maintenance Mode\n\n"
+            "Current status: {maintenance_mode}\n\n"
+            "Changing maintenance mode requires a separate confirmation flow.\n"
+            "For controlled Beta this action is disabled."
+        ),
+        "en": (
+            "Maintenance Mode\n\n"
+            "Current status: {maintenance_mode}\n\n"
+            "Changing maintenance mode requires a separate confirmation flow.\n"
+            "For controlled Beta this action is disabled."
+        ),
+        "pt": (
+            "Maintenance Mode\n\n"
+            "Current status: {maintenance_mode}\n\n"
+            "Changing maintenance mode requires a separate confirmation flow.\n"
+            "For controlled Beta this action is disabled."
+        ),
+    },
+    "super_admin_smoke_title": {
+        "ru": "Smoke Tests\nПоказано: {count}",
+        "en": "Smoke Tests\nShown: {count}",
+        "pt": "Smoke Tests\nMostrado: {count}",
+    },
+    "super_admin_smoke_card": {
+        "ru": (
+            "{number}. {title}\n"
+            "Code: {code}\n"
+            "Status: {status}\n"
+            "{detail}"
+        ),
+        "en": (
+            "{number}. {title}\n"
+            "Code: {code}\n"
+            "Status: {status}\n"
+            "{detail}"
+        ),
+        "pt": (
+            "{number}. {title}\n"
+            "Code: {code}\n"
+            "Status: {status}\n"
+            "{detail}"
+        ),
+    },
+    "super_admin_smoke_empty": {
+        "ru": "Smoke tests не настроены.",
+        "en": "Smoke tests are not configured.",
+        "pt": "Smoke tests não configurados.",
+    },
+    "super_admin_smoke_run_all_btn": {
+        "ru": "Запустить все",
+        "en": "Run all",
+        "pt": "Executar todos",
+    },
+    "super_admin_smoke_run_selected_btn": {
+        "ru": "Запустить выбранный",
+        "en": "Run selected",
+        "pt": "Executar selecionado",
+    },
+    "super_admin_smoke_history_btn": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Histórico",
+    },
+    "super_admin_smoke_result_title": {
+        "ru": (
+            "Smoke Test Result\n\n"
+            "Total: {total}\n"
+            "Passed: {passed}\n"
+            "Failed: {failed}"
+        ),
+        "en": (
+            "Smoke Test Result\n\n"
+            "Total: {total}\n"
+            "Passed: {passed}\n"
+            "Failed: {failed}"
+        ),
+        "pt": (
+            "Smoke Test Result\n\n"
+            "Total: {total}\n"
+            "Passed: {passed}\n"
+            "Failed: {failed}"
+        ),
+    },
+    "super_admin_smoke_result_card": {
+        "ru": (
+            "{number}. {title}\n"
+            "Code: {code}\n"
+            "Status: {status}\n"
+            "{detail}"
+        ),
+        "en": (
+            "{number}. {title}\n"
+            "Code: {code}\n"
+            "Status: {status}\n"
+            "{detail}"
+        ),
+        "pt": (
+            "{number}. {title}\n"
+            "Code: {code}\n"
+            "Status: {status}\n"
+            "{detail}"
+        ),
+    },
+    "super_admin_smoke_progress": {
+        "ru": "Smoke tests запущены...",
+        "en": "Smoke tests started...",
+        "pt": "Smoke tests iniciados...",
+    },
+    "super_admin_smoke_select_title": {
+        "ru": "Выберите smoke test для запуска.",
+        "en": "Select a smoke test to run.",
+        "pt": "Selecione um smoke test para executar.",
+    },
+    "super_admin_smoke_history_title": {
+        "ru": "Smoke Tests History\nПоказано: {count}",
+        "en": "Smoke Tests History\nShown: {count}",
+        "pt": "Histórico de Smoke Tests\nMostrado: {count}",
+    },
+    "super_admin_smoke_history_card": {
+        "ru": (
+            "{number}. {date}\n"
+            "Selected: {selected_code}\n"
+            "Total: {total}\n"
+            "Passed: {passed}\n"
+            "Failed: {failed}\n"
+            "Destructive: {destructive}"
+        ),
+        "en": (
+            "{number}. {date}\n"
+            "Selected: {selected_code}\n"
+            "Total: {total}\n"
+            "Passed: {passed}\n"
+            "Failed: {failed}\n"
+            "Destructive: {destructive}"
+        ),
+        "pt": (
+            "{number}. {date}\n"
+            "Selected: {selected_code}\n"
+            "Total: {total}\n"
+            "Passed: {passed}\n"
+            "Failed: {failed}\n"
+            "Destructive: {destructive}"
+        ),
+    },
+    "super_admin_smoke_history_empty": {
+        "ru": "История smoke tests пуста.",
+        "en": "Smoke test history is empty.",
+        "pt": "Histórico de smoke tests vazio.",
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
