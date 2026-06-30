@@ -209,6 +209,18 @@ def client_cabinet_keyboard(
         ],
         [
             InlineKeyboardButton(
+                text=t("cabinet_crm_btn", language),
+                callback_data="CAB_CRM_STUB",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_finance_btn", language),
+                callback_data="CAB_FINANCE_STUB",
+            )
+        ],
+        [
+            InlineKeyboardButton(
                 text=t("menu_settings", language),
                 callback_data="M_SETTINGS",
             )
@@ -741,6 +753,18 @@ def cabinet_menu_keyboard(
             InlineKeyboardButton(
                 text=t("specialist_dialogs_btn", language),
                 callback_data="SPEC_DIALOGS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_crm_btn", language),
+                callback_data="CAB_CRM_STUB",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_finance_btn", language),
+                callback_data="CAB_FINANCE_STUB",
             )
         ],
         [
@@ -4118,6 +4142,40 @@ async def show_client_cabinet(callback: CallbackQuery, state: FSMContext):
             language,
             show_role_switch=show_role_switch,
             show_specialist_registration=show_specialist_registration,
+        ),
+    )
+    await callback.answer()
+
+@billing_router.callback_query(F.data.in_({"CAB_CRM_STUB", "CAB_FINANCE_STUB"}))
+async def show_cabinet_stub(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    text_key = (
+        "cabinet_crm_stub"
+        if callback.data == "CAB_CRM_STUB"
+        else "cabinet_finance_stub"
+    )
+
+    await callback.message.answer(
+        t(text_key, language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("back", language),
+                        callback_data="M_CABINET",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="BILL_MENU",
+                    )
+                ],
+            ]
         ),
     )
     await callback.answer()

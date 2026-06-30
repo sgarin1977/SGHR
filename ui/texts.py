@@ -7236,6 +7236,50 @@ translations = {
             "Por enquanto, use a busca de especialistas."
         ),
     },
+    "cabinet_crm_btn": {
+        "ru": "💼 CRM специалиста",
+        "en": "💼 Specialist CRM",
+        "pt": "💼 CRM do especialista",
+    },
+    "cabinet_finance_btn": {
+        "ru": "💳 Финансы",
+        "en": "💳 Finance",
+        "pt": "💳 Finanças",
+    },
+    "cabinet_crm_stub": {
+        "ru": (
+            "💼 CRM специалиста\n\n"
+            "Скоро здесь будут лиды, клиенты, календарь, заказы, "
+            "заметки и аналитика.\n\n"
+            "Сейчас используйте Диалоги и Мои заказы."
+        ),
+        "en": (
+            "💼 Specialist CRM\n\n"
+            "Soon this section will include leads, clients, calendar, orders, "
+            "notes and analytics.\n\n"
+            "For now, use Dialogs and My orders."
+        ),
+        "pt": (
+            "💼 CRM do especialista\n\n"
+            "Em breve esta secção terá leads, clientes, calendário, pedidos, "
+            "notas e analytics.\n\n"
+            "Por agora, use Diálogos e Meus pedidos."
+        ),
+    },
+    "cabinet_finance_stub": {
+        "ru": (
+            "💳 Финансы\n\n"
+            "Скоро здесь будут подписки, продвижение, платежи и документы."
+        ),
+        "en": (
+            "💳 Finance\n\n"
+            "Soon this section will include subscriptions, promotion, payments and documents."
+        ),
+        "pt": (
+            "💳 Finanças\n\n"
+            "Em breve esta secção terá subscrições, promoção, pagamentos e documentos."
+        ),
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))
