@@ -349,9 +349,9 @@ translations = {
         "pt": "💼 Oferecer serviços",
     },
     "menu_my_cabinet": {
-        "ru": "▣ Мой кабинет",
-        "en": "▣ My cabinet",
-        "pt": "▣ Minha conta",
+        "ru": "👤 Кабинет",
+        "en": "👤 My cabinet",
+        "pt": "👤 Minha conta",
     },
     "menu_settings": {
         "ru": "⚙️ Настройки",
@@ -366,6 +366,36 @@ translations = {
     "pt": "Olá! Vou ajudá-lo a encontrar trabalho ou funcionários.",
     "en": "Hello! I will help you find a job or employees."
 },
+    "menu_specialist": {
+        "ru": "🧰 Я специалист",
+        "en": "🧰 I am a specialist",
+        "pt": "🧰 Sou especialista",
+    },
+    "menu_rfq": {
+        "ru": "📋 Заявки / RFQ",
+        "en": "📋 Requests / RFQ",
+        "pt": "📋 Pedidos / RFQ",
+    },
+    "menu_dialogs": {
+        "ru": "💬 Диалоги",
+        "en": "💬 Dialogs",
+        "pt": "💬 Diálogos",
+    },
+    "menu_community": {
+        "ru": "🌍 Community",
+        "en": "🌍 Community",
+        "pt": "🌍 Community",
+    },
+    "menu_hr": {
+        "ru": "🏢 HR / Компании",
+        "en": "🏢 HR / Companies",
+        "pt": "🏢 RH / Empresas",
+    },
+    "menu_admin": {
+        "ru": "🛡 Админка",
+        "en": "🛡 Admin",
+        "pt": "🛡 Admin",
+    },
     "main_menu": {
   "ru": "🏠 Главное меню",
   "pt": "🏠 Menu principal",
@@ -7154,6 +7184,57 @@ translations = {
         "ru": "История smoke tests пуста.",
         "en": "Smoke test history is empty.",
         "pt": "Histórico de smoke tests vazio.",
+    },
+    "main_rfq_stub": {
+        "ru": (
+            "📋 Заявки / RFQ\n\n"
+            "Скоро здесь можно будет описать задачу, а специалисты смогут откликнуться.\n\n"
+            "Пока для запуска Beta используйте поиск специалиста и диалог."
+        ),
+        "en": (
+            "📋 Requests / RFQ\n\n"
+            "Soon you will be able to describe a task and specialists will respond.\n\n"
+            "For the Beta launch, please use specialist search and dialogs."
+        ),
+        "pt": (
+            "📋 Pedidos / RFQ\n\n"
+            "Em breve você poderá descrever uma tarefa e especialistas poderão responder.\n\n"
+            "Para o lançamento Beta, use a busca de especialistas e os diálogos."
+        ),
+    },
+    "main_community_stub": {
+        "ru": (
+            "🌍 Community\n\n"
+            "Профессиональные обсуждения, ветки и локальные сообщества появятся позже.\n\n"
+            "Сейчас фокус Beta — поиск специалистов и защищенные диалоги."
+        ),
+        "en": (
+            "🌍 Community\n\n"
+            "Professional discussions, threads and local communities will appear later.\n\n"
+            "The Beta focus is specialist search and protected dialogs."
+        ),
+        "pt": (
+            "🌍 Community\n\n"
+            "Discussões profissionais, tópicos e comunidades locais aparecerão mais tarde.\n\n"
+            "O foco da Beta é busca de especialistas e diálogos protegidos."
+        ),
+    },
+    "main_hr_stub": {
+        "ru": (
+            "🏢 HR / Компании\n\n"
+            "Блок работодателей, агентств и HR-терминалов запланирован позже.\n\n"
+            "Сейчас используйте поиск специалистов."
+        ),
+        "en": (
+            "🏢 HR / Companies\n\n"
+            "Employers, agencies and HR terminals are planned for a later stage.\n\n"
+            "For now, use specialist search."
+        ),
+        "pt": (
+            "🏢 RH / Empresas\n\n"
+            "Empregadores, agências e terminais RH estão planejados para uma etapa futura.\n\n"
+            "Por enquanto, use a busca de especialistas."
+        ),
     },
     }
 def t(key: str, lang: str = "ru") -> str:
