@@ -60,6 +60,32 @@ class ReviewService:
             await self.repository.session.rollback()
             raise ReviewServiceError(str(exc)) from exc
 
+    async def create_service_order_review(
+        self,
+        *,
+        tenant_id: UUID,
+        reviewer_user_id: UUID,
+        service_order_id: UUID,
+        rating: int,
+        text: str | None = None,
+    ) -> Review:
+        normalized_rating = self._normalize_rating(rating)
+        normalized_text = self._normalize_text(text)
+
+        try:
+            review = await self.repository.create_service_order_review(
+                tenant_id=tenant_id,
+                reviewer_user_id=reviewer_user_id,
+                service_order_id=service_order_id,
+                rating=normalized_rating,
+                text=normalized_text,
+            )
+            await self.repository.session.commit()
+            return review
+        except ReviewError as exc:
+            await self.repository.session.rollback()
+            raise ReviewServiceError(str(exc)) from exc
+
     async def publish_review(self, *, review_id: UUID) -> ReviewResult:
         try:
             review = await self.repository.publish_review(review_id=review_id)

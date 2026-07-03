@@ -11,6 +11,14 @@ from services.rate_limit import RateLimitError, RateLimitService
 class SpecialistRegistrationError(Exception):
     pass
 
+@dataclass(frozen=True)
+class SpecialistTextSearchQuery:
+    original_query: str
+    profession_query: str
+    city_id: UUID | None = None
+    city_name: str | None = None
+    country_id: UUID | None = None
+    country_name: str | None = None
 
 @dataclass
 class SpecialistRegistrationData:
@@ -71,6 +79,98 @@ class SpecialistServiceItemData:
     category_id: UUID | None = None
     profession_id: UUID | None = None
     service_id: UUID | None = None
+
+class SpecialistSearchTextService:
+    def __init__(self, repository: SpecialistRepository):
+        self.repository = repository
+
+    async def parse_text_query(
+        self,
+        query: str,
+        *,
+        language: str = "ru",
+    ) -> SpecialistTextSearchQuery:
+        original_query = (query or "").strip()
+        profession_query = original_query
+
+        city = await self.repository.find_active_city_in_text(original_query)
+        if city:
+            profession_query = self._strip_location_tail(profession_query)
+
+            city_names = [
+                city.name,
+                city.name_ru,
+                city.name_en,
+                city.name_pt,
+            ]
+            for city_name in city_names:
+                if city_name:
+                    profession_query = self._remove_city_from_query(
+                        profession_query,
+                        city_name,
+                    )
+
+            profession_query = self._cleanup_profession_query(profession_query)
+
+            return SpecialistTextSearchQuery(
+                original_query=original_query,
+                profession_query=profession_query or original_query,
+                city_id=city.id,
+                city_name=_localized_model_name(city, language),
+                country_id=city.country_id,
+                country_name=None,
+            )
+
+        return SpecialistTextSearchQuery(
+            original_query=original_query,
+            profession_query=profession_query,
+        )
+
+    def _strip_location_tail(self, query: str) -> str:
+        normalized = (query or "").strip()
+        lowered = normalized.lower()
+
+        for marker in (" в ", " во ", " у ", " in ", " em "):
+            marker_index = lowered.rfind(marker)
+            if marker_index > 0:
+                return normalized[:marker_index].strip()
+
+        return normalized
+
+    def _remove_city_from_query(self, query: str, city_name: str) -> str:
+        normalized = query
+
+        for prefix in (
+            " в ",
+            " во ",
+            " у ",
+            " in ",
+            " em ",
+        ):
+            normalized = normalized.replace(
+                f"{prefix}{city_name}",
+                " ",
+            )
+            normalized = normalized.replace(
+                f"{prefix}{city_name.lower()}",
+                " ",
+            )
+
+        normalized = normalized.replace(city_name, " ")
+        normalized = normalized.replace(city_name.lower(), " ")
+        return normalized
+
+    def _cleanup_profession_query(self, query: str) -> str:
+        words = [
+            word.strip(" ,.;:!?")
+            for word in (query or "").split()
+        ]
+        words = [
+            word
+            for word in words
+            if word.lower() not in {"в", "во", "у", "in", "em"}
+        ]
+        return " ".join(words).strip()
 
 def _localized_model_name(item, language: str) -> str:
     if not item:
@@ -480,6 +580,46 @@ class SpecialistService:
 
         return updated_specialist, before_status, status
 
+    async def update_availability(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        availability_status: str,
+        available_from_text: str | None = None,
+    ):
+        if availability_status not in {"available_now", "partly_busy", "available_from"}:
+            raise SpecialistRegistrationError("Invalid availability status.")
+
+        normalized_date = (available_from_text or "").strip() or None
+
+        if availability_status == "available_from" and not normalized_date:
+            raise SpecialistRegistrationError("Availability date is required.")
+
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        before_metadata = dict(specialist.extra_metadata or {})
+        before_status = before_metadata.get("availability_status")
+        before_date = before_metadata.get("available_from_text")
+        before_is_available = bool(specialist.is_available)
+
+        updated_specialist = await self.repository.update_specialist_availability(
+            user_id=user_id,
+            specialist_id=specialist_id,
+            availability_status=availability_status,
+            available_from_text=normalized_date,
+        )
+
+        changed = (
+            before_status != availability_status
+            or before_date != normalized_date
+            or before_is_available != bool(updated_specialist.is_available)
+        )
+
+        return updated_specialist, before_metadata, dict(updated_specialist.extra_metadata or {}), changed
+
     async def get_profile_visibility(
         self,
         *,
@@ -576,3 +716,40 @@ class SpecialistService:
         )
 
         return before_languages, selected, True
+    
+    async def update_skills(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        skill_ids: list[UUID],
+    ):
+        selected = list(dict.fromkeys(skill_ids))
+
+        specialist = await self.repository.get_by_user_id(user_id)
+        if not specialist or specialist.id != specialist_id:
+            raise SpecialistRegistrationError("Specialist profile not found.")
+
+        allowed_skills = await self.repository.list_skills_for_specialist_professions(
+            specialist_id=specialist_id,
+            limit=100,
+        )
+        allowed_ids = {item.id for item in allowed_skills}
+
+        selected = [
+            skill_id
+            for skill_id in selected
+            if skill_id in allowed_ids
+        ]
+
+        before_skills = await self.repository.list_user_skill_ids(user_id)
+
+        if sorted(before_skills) == sorted(selected):
+            return before_skills, selected, False
+
+        await self.repository.replace_user_skills(
+            user_id=user_id,
+            skill_ids=selected,
+        )
+
+        return before_skills, selected, True

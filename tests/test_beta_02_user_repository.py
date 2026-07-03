@@ -487,11 +487,16 @@ def test_start_menu_is_short_global_menu_without_role_switch():
     assert "ROLE_SWITCH_MENU" not in multi_role_callbacks
 
     assert "M_FIND" in multi_role_callbacks
-    assert "JOBS_MENU" in multi_role_callbacks
+    assert "M_SPECIALIST" in multi_role_callbacks
+    assert "M_RFQ_STUB" in multi_role_callbacks
+    assert "CLIENT_DIALOGS" in multi_role_callbacks
     assert "M_CABINET" in multi_role_callbacks
+    assert "M_COMMUNITY_STUB" in multi_role_callbacks
+    assert "M_HR_STUB" in multi_role_callbacks
     assert "M_SETTINGS" in multi_role_callbacks
-    assert "SUPPORT_MENU" in multi_role_callbacks
 
+    assert "JOBS_MENU" not in multi_role_callbacks
+    assert "ROLE_SWITCH_MENU" not in multi_role_callbacks
     assert "SS_START" not in multi_role_callbacks
 
 def test_role_switch_keyboard_marks_active_role_and_uses_role_callbacks():
@@ -586,28 +591,38 @@ def test_role_switch_opens_matching_cabinet_after_context_save():
         "await open_active_role_cabinet("
     )
 
-def test_start_restores_active_role_context_and_invalid_role_goes_to_switcher():
+def test_start_opens_release_main_menu_instead_of_role_wizard():
     source = open("handlers/start.py", encoding="utf-8").read()
 
     assert "async def cmd_start(message: Message, state: FSMContext)" in source
-    assert "active_role_is_valid" in source
-    assert "send_active_role_cabinet_from_message" in source
-    assert "await open_active_role_cabinet(" in source
-    assert "role_context.active_role in role_context.available_roles" in source
-
-    invalid_role_block = source.split(
-        "if role_context and role_context.active_role and len(role_context.available_roles) > 1:",
+    assert "t(\"search_main_menu\", language)" in source
+    assert "get_main_menu_keyboard(" in source
+    assert "ROLE_SWITCH_MENU" not in source.split(
+        "async def cmd_start(message: Message, state: FSMContext)",
         1,
     )[1].split(
-        "await message.answer(\n        t(\"search_main_menu\", language)",
+        "@start_router.callback_query(F.data == \"ROLE_SWITCH_MENU\")",
+        1,
+    )[0]
+    cmd_start_block = source.split(
+        "async def cmd_start(message: Message, state: FSMContext)",
+        1,
+    )[1].split(
+        "@start_router.callback_query(F.data == \"ROLE_SWITCH_MENU\")",
         1,
     )[0]
 
-    assert "t(\"role_switch_prompt\", language)" in invalid_role_block
-    assert "role_switch_keyboard(" in invalid_role_block
-    assert "role_details=role_context.role_details" in invalid_role_block
-    assert "unread_counts=role_context.unread_counts" in invalid_role_block
-    assert "return" in invalid_role_block
+    main_menu_block = source.split(
+        "def get_main_menu_keyboard",
+        1,
+    )[1].split(
+        "async def get_main_menu_keyboard_for_user",
+        1,
+    )[0]
+
+    assert "JOBS_MENU" not in cmd_start_block
+    assert "JOBS_MENU" not in main_menu_block
+
 def test_specialist_and_admin_cabinets_show_role_switch_for_multi_role_users():
     billing_source = open("handlers/billing.py", encoding="utf-8").read()
     admin_source = open("handlers/admin.py", encoding="utf-8").read()

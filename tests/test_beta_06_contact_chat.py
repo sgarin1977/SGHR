@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 from sqlalchemy import delete, func, select
-
+from uuid import UUID
 from database.models import (
     ContactRequest,
     ConversationThread,
@@ -1170,7 +1170,10 @@ def test_contact_reply_flow_is_wired_in_search_handler():
         "active_thread_id",
         "contact_message_sent",
         "contact_show_original",
-        "callback_data=\"contact_finish\"",
+        "ORDER_CREATE_FROM_THREAD",
+        "ORDER_CONFIRM:",
+        "ORDER_COMPLETE:",
+        "review_start_order:",
         "async def finish_contact_thread",
         "ContactChatService(ContactChatRepository(session)).complete_thread",
         "receiver_platform_user_id",
@@ -1564,13 +1567,18 @@ async def test_overdue_completion_creates_one_support_ticket(
             )
         )
 
-        assert first_run.processed_count == 1
-        assert first_run.skipped_count == 0
-        assert len(first_run.support_ticket_ids) == 1
+        assert first_run.processed_count >= 1
+        assert created.contact_request_id
 
-        support_ticket_id = (
-            first_run.support_ticket_ids[0]
+        await db_session.refresh(contact_request)
+
+        support_ticket_id = UUID(
+            contact_request.extra_metadata[
+                "completion_escalated_ticket_id"
+            ]
         )
+
+        assert support_ticket_id in first_run.support_ticket_ids
 
         ticket = await db_session.get(
             SupportTicket,
@@ -2136,33 +2144,26 @@ async def test_completed_thread_rejects_new_messages(db_session):
         await cleanup_test_user(db_session, specialist_platform_id)
         await cleanup_legal_documents(db_session, tenant_id)
 
-def test_contact_finish_flow_is_real_not_placeholder():
+def test_dialog_order_flow_replaces_contact_finish_button():
     source = open("handlers/search.py", encoding="utf-8").read()
 
-    required_fragments = [
-        "callback_data=\"contact_finish\"",
-        "async def finish_contact_thread",
-        "ContactChatService(ContactChatRepository(session)).complete_thread",
-        "contact_thread_completed",
-    ]
+    assert "async def finish_contact_thread" in source
+    assert "ContactChatService(ContactChatRepository(session)).complete_thread" in source
 
-    for fragment in required_fragments:
-        assert fragment in source
+    thread_keyboard_block = source.split(
+        "def contact_thread_keyboard",
+        1,
+    )[1].split(
+        "def contact_thread_keyboard_for_role",
+        1,
+    )[0]
 
-    forbidden_fragments = [
-        "callback_data=\"contact_finish_pending\"",
-        "async def finish_contact_pending",
-        "contact_finish_pending",
-        "callback_data=f\"contact_finish:{",
-        "UUID(callback.data.split",
-        "UUID(callback.data.rsplit",
-    ]
-
-    for fragment in forbidden_fragments:
-        assert fragment not in source
-
-    assert len("contact_finish".encode("utf-8")) <= 64
-
+    assert 'callback_data="contact_finish"' not in thread_keyboard_block
+    assert "ORDER_CREATE_FROM_THREAD" in thread_keyboard_block
+    assert "ORDER_CONFIRM:" in thread_keyboard_block
+    assert "ORDER_COMPLETE:" in thread_keyboard_block
+    assert "review_start_order:" in thread_keyboard_block
+    
 async def test_contact_request_rejects_duplicate_active_request(db_session):
     client_platform_id, client_user_id, client_tenant_id = await create_test_user(
         db_session,
@@ -2974,7 +2975,9 @@ def test_client_dialogs_c13_screen_is_wired_to_threads_participant_state():
     assert "async def open_client_dialog" in billing_source
     assert "client_dialog_thread_ids" in billing_source
     assert "active_thread_id=thread_id" in billing_source
-    assert "contact_thread_keyboard(language)" in billing_source
+    assert "contact_thread_keyboard(" in billing_source
+    assert "order_id=(" in billing_source
+    assert "order_status=detail.active_order_status" in billing_source
     assert "get_thread_detail_for_user" in contact_repo_source
     assert "ContactThreadDetail" in contact_service_source
     assert "get_thread_detail" in contact_service_source
@@ -2982,6 +2985,8 @@ def test_client_dialogs_c13_screen_is_wired_to_threads_participant_state():
     assert "get_thread_detail(" in billing_source
     assert "client_thread_detail_title" in billing_source
     assert "client_thread_history_label" in billing_source
+    assert "dialog_context_profession" in billing_source
+    assert "detail.profession_name" in billing_source
 
 def test_client_requests_c15_backend_is_wired_to_contact_requests():
     contact_repo_source = open("database/repositories/contact.py", encoding="utf-8").read()

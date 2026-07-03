@@ -1692,8 +1692,27 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
                 callback.from_user.id,
                 exc,
             )
+
+            if str(exc) == "Legal consents are required.":
+                await callback.message.answer(
+                    t("spec_legal_consents_required", language),
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [
+                                InlineKeyboardButton(
+                                    text=t("spec_go_to_consents_btn", language),
+                                    callback_data="SS_START",
+                                )
+                            ]
+                        ]
+                    ),
+                )
+                await callback.answer()
+                return
+
             await callback.message.answer(
-            t("spec_create_failed", language).format(error=exc))
+                t("spec_create_failed", language).format(error=exc)
+            )
             await callback.answer()
             return
 

@@ -7233,7 +7233,15 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
     )
     active_role = role_context.active_role if role_context else None
 
-    if active_role in {"admin", "super_admin"}:
+    admin_entry_role = active_role
+
+    if admin_entry_role not in {"admin", "super_admin"}:
+        if "super_admin" in roles:
+            admin_entry_role = "super_admin"
+        elif "admin" in roles:
+            admin_entry_role = "admin"
+
+    if admin_entry_role in {"admin", "super_admin"}:
         if (
             not tenant_id
             or not roles.intersection({"admin", "super_admin"})
@@ -7255,7 +7263,7 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
                     ModerationRepository(session)
                 )
 
-                if active_role == "super_admin":
+                if admin_entry_role == "super_admin":
                     summary = await moderation_service.open_super_admin_menu(
                         admin_user_id=admin_user_id,
                         tenant_id=tenant_id,
@@ -7275,7 +7283,7 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
                 await message_or_callback.answer(str(exc))
             return
 
-        if active_role == "super_admin":
+        if admin_entry_role == "super_admin":
             await target_message.answer(
                 format_super_admin_menu(summary, language),
                 reply_markup=super_admin_menu_keyboard(

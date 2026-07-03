@@ -7,6 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
+    City,
+    Country,
     ConversationParticipant,
     Profession,
     Specialist,
@@ -45,6 +47,36 @@ class UserRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_public_platform_stats(self) -> dict[str, int]:
+        countries_result = await self.session.execute(
+            select(func.count(Country.id)).where(Country.is_active.is_(True))
+        )
+        cities_result = await self.session.execute(
+            select(func.count(City.id)).where(City.is_active.is_(True))
+        )
+        users_result = await self.session.execute(
+            select(func.count(User.id)).where(User.status == "active")
+        )
+        specialists_result = await self.session.execute(
+            select(func.count(Specialist.id)).where(
+                Specialist.status.in_(
+                    [
+                        "active",
+                        "approved",
+                        "pending_moderation",
+                        "draft",
+                    ]
+                )
+            )
+        )
+
+        return {
+            "countries": int(countries_result.scalar_one() or 0),
+            "cities": int(cities_result.scalar_one() or 0),
+            "users": int(users_result.scalar_one() or 0),
+            "specialists": int(specialists_result.scalar_one() or 0),
+        }
+
     async def list_active_roles(
         self,
         user_id: uuid.UUID,
@@ -60,6 +92,39 @@ class UserRepository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_client_profile_row(
+        self,
+        user_id: uuid.UUID,
+        language: str = "ru",
+    ):
+        localized_city_name = {
+            "ru": City.name_ru,
+            "en": City.name_en,
+            "pt": City.name_pt,
+        }.get(language, City.name_ru)
+
+        result = await self.session.execute(
+            select(
+                User,
+                UserAccount,
+                func.coalesce(
+                    localized_city_name,
+                    City.name_ru,
+                    City.name_en,
+                    City.name_pt,
+                    City.name,
+                ).label("city_name"),
+            )
+            .outerjoin(
+                UserAccount,
+                (UserAccount.user_id == User.id)
+                & (UserAccount.platform == "telegram"),
+            )
+            .outerjoin(City, City.id == User.city_id)
+            .where(User.id == user_id)
+        )
+        return result.one_or_none()
 
     async def ensure_active_role(
         self,

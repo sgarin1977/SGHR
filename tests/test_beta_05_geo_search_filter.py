@@ -18,6 +18,7 @@ from database.models import (
     LegalDocument,
     UserConsent,
     EventLog,
+    SpecialistProfession,
 )
 from database.repositories.search import (
     SpecialistSearchFilters,
@@ -283,7 +284,21 @@ async def test_search_specialists_by_city_and_category(db_session):
         assert specialist.id in result_ids
         assert all(item.specialist.status == "active" for item in results)
         assert all(item.specialist.city_id == refs["city_id"] for item in results)
-        assert all(item.specialist.category_id == refs["category_id"] for item in results)
+
+        linked_result = await db_session.execute(
+            select(SpecialistProfession.specialist_id).where(
+                SpecialistProfession.specialist_id.in_(result_ids),
+                SpecialistProfession.category_id == refs["category_id"],
+                SpecialistProfession.status == "active",
+            )
+        )
+        linked_specialist_ids = set(linked_result.scalars().all())
+
+        assert all(
+            item.specialist.category_id == refs["category_id"]
+            or item.specialist.id in linked_specialist_ids
+            for item in results
+        )
 
     finally:
         await cleanup_test_user(db_session, platform_user_id)
@@ -703,13 +718,13 @@ def test_public_card_model_does_not_expose_pii_fields():
 
     for fragment in forbidden_fragments:
         assert fragment not in card_source
-async def test_search_filters_price_language_premium_work_format(db_session):
+async def test_search_filters_language_premium_work_format_without_price(db_session):
     platform_user_id, user_id, tenant_id, specialist, refs = (
         await create_active_search_specialist(db_session)
     )
 
     try:
-        specialist.is_verified = False
+        specialist.is_verified = True
         specialist.is_premium = True
         specialist.work_format = "remote"
         await db_session.commit()
@@ -719,8 +734,6 @@ async def test_search_filters_price_language_premium_work_format(db_session):
         results = await search_service.search_by_city(
             city_id=refs["city_id"],
             category_id=refs["category_id"],
-            price_min=30,
-            price_max=90,
             language_code="en",
             verified_only=True,
             premium_only=True,
@@ -732,7 +745,7 @@ async def test_search_filters_price_language_premium_work_format(db_session):
         result_ids = {item.specialist.id for item in results}
 
         assert specialist.id in result_ids
-        assert any(item.specialist.is_verified is False for item in results)
+        assert all(item.specialist.is_verified for item in results)
         assert all(item.specialist.is_premium for item in results)
         assert all(item.specialist.work_format == "remote" for item in results)
 
@@ -837,7 +850,7 @@ async def test_search_ranking_orders_premium_rating_and_risk_without_verified_bo
     try:
         specialist.display_name = "Lower ranked specialist"
         specialist.rating = 1
-        specialist.is_verified = False
+        specialist.is_verified = True
         specialist.is_premium = False
         specialist.work_format = "at_specialist"
         user = await db_session.get(User, user_id)
@@ -913,8 +926,8 @@ async def test_search_ranking_uses_reviews_activity_and_stable_tiebreak(db_sessi
         specialist.is_premium = False
         specialist.priority_score = 0
         specialist.rating = 4
-        specialist.is_verified = False
-        specialist_2.is_verified = False
+        specialist.is_verified = True
+        specialist_2.is_verified = True
         specialist.reviews_count = 1
         specialist.work_format = "at_specialist"
 
@@ -925,7 +938,7 @@ async def test_search_ranking_uses_reviews_activity_and_stable_tiebreak(db_sessi
         specialist_2.city_id = refs["city_id"]
         specialist_2.latitude = refs["city_latitude"]
         specialist_2.longitude = refs["city_longitude"]
-        specialist_2.is_verified = False
+        specialist_2.is_verified = True
         specialist_2.is_premium = False
         specialist_2.priority_score = 0
         specialist_2.rating = 4
@@ -998,8 +1011,6 @@ def test_search_handler_passes_all_filters_to_city_search():
         "city_id=city_id",
         "category_id=category_id",
         "profession_id=profession_id",
-        "price_min=price_min",
-        "price_max=price_max",
         "language_code=language_code",
         "verified_only=verified_only",
         "premium_only=premium_only",
@@ -1164,8 +1175,6 @@ def test_beta_05_tz_static_contract_is_covered():
         "latitude",
         "longitude",
         "radius_km",
-        "price_min",
-        "price_max",
         "language_code",
         "verified_only",
         "premium_only",
@@ -1270,8 +1279,6 @@ def test_search_ux_uses_single_filter_dashboard_instead_of_wizard():
         "radius_km",
         "work_format",
         "language_code",
-        "price_min",
-        "price_max",
         "sort_by",
         "page",
     ]
@@ -1361,14 +1368,13 @@ def test_search_location_uses_geo_provider_candidates_with_confirmation():
         assert fragment not in source
 
 
-def test_search_radius_work_language_price_sort_are_separate_quick_filters():
+def test_search_radius_work_language_sort_are_separate_quick_filters():
     source = open("handlers/search.py", encoding="utf-8").read()
 
     required_fragments = [
         "search_radius_keyboard",
         "search_work_format_keyboard",
         "search_language_keyboard",
-        "search_price_keyboard",
         "search_sort_keyboard",
         "callback_data=\"search_radius:5\"",
         "callback_data=\"search_radius:10\"",
@@ -1385,10 +1391,6 @@ def test_search_radius_work_language_price_sort_are_separate_quick_filters():
         "callback_data=\"search_lang:ru\"",
         "callback_data=\"search_lang:pt\"",
         "callback_data=\"search_lang:en\"",
-        "callback_data=\"search_price:any\"",
-        "callback_data=\"search_price:0_25\"",
-        "callback_data=\"search_price:0_50\"",
-        "callback_data=\"search_price:0_100\"",
         "callback_data=\"search_sort:distance\"",
         "callback_data=\"search_sort:relevance\"",
     ]
@@ -1417,19 +1419,17 @@ def test_search_empty_results_offer_tz10_c11_recovery_actions():
     )[0]
 
     assert 'callback_data="search_empty_increase_radius"' in empty_keyboard_block
-    assert 'callback_data="search_empty_reset_price"' in empty_keyboard_block
+    assert 'callback_data="search_empty_reset_price"' not in empty_keyboard_block
     assert 'callback_data="search_location_without"' in empty_keyboard_block
     assert 'callback_data="search_reset_filters"' in empty_keyboard_block
     assert 'callback_data="search_filters"' in empty_keyboard_block
 
-    assert "async def empty_reset_price" in source
-    assert "price_min=None" in source
-    assert "price_max=None" in source
+    assert "async def empty_reset_price" not in source
     assert "await render_results(event=callback, state=state, page=0)" in source
 
     assert 'event_type="empty_search"' in source
 
-    assert "search_empty_reset_price" in texts_source
+    assert "search_empty_reset_price" not in empty_keyboard_block
 
 def test_search_cards_are_readable_and_keep_contact_flow_separate():
     source = open("handlers/search.py", encoding="utf-8").read()
@@ -1536,7 +1536,7 @@ def test_search_telegram_location_uses_nearby_candidates_not_single_reverse_resu
 def test_search_results_have_details_and_contact_actions_without_skipping_disclaimer():
     source = open("handlers/search.py", encoding="utf-8").read()
 
-    assert "search_details_btn" in source
+    assert "search_profile_btn" in source
     assert "callback_data=f\"search_result:{index}\"" in source
     assert "callback_data=f\"search_result_contact:{index}\"" in source
     assert "async def contact_from_result" in source
@@ -1558,7 +1558,6 @@ def test_search_public_card_has_legal_warning_and_no_technical_fields():
     source = open("handlers/search.py", encoding="utf-8").read()
 
     assert "search_legal_warning" in source
-    assert "search_price_from" in source
     assert "search_profile_status" not in source
     assert "search_status_label" not in source
 
@@ -1841,7 +1840,8 @@ def test_public_search_and_card_do_not_require_legal_gate_or_registration():
     assert "legal_start_required" not in start_search_block
     assert "billing_start_required" not in start_search_block
     assert "await state.clear()" in start_search_block
-    assert "await show_filters(callback, state)" in start_search_block
+    assert "search_start_screen" in start_search_block
+    assert "search_start_keyboard(language)" in start_search_block
 
     card_block = source.split(
         '@search_router.callback_query(F.data.startswith("search_result:"))',
@@ -1917,9 +1917,12 @@ def test_search_advanced_filters_keyboard_contains_full_tz10_c7_filters():
     assert "search_filter_radius" in advanced_keyboard_block
     assert "search_filter_work_format" in advanced_keyboard_block
     assert "search_filter_language" in advanced_keyboard_block
-    assert "search_filter_price" in advanced_keyboard_block
+    assert "search_filter_price" not in advanced_keyboard_block
+    assert "search_filter_availability" in advanced_keyboard_block
+    assert "search_filter_verified" in advanced_keyboard_block
+    assert "search_filter_rating" in advanced_keyboard_block
     assert "search_filter_sort" in advanced_keyboard_block
-    assert "search_apply_filters" in advanced_keyboard_block
+    assert "search_apply_filters" not in advanced_keyboard_block
     assert "search_reset_filters" in advanced_keyboard_block
     assert "search_back_to_filters" in advanced_keyboard_block
     assert "search_menu" in advanced_keyboard_block
@@ -1929,7 +1932,9 @@ def test_search_advanced_filters_keyboard_contains_full_tz10_c7_filters():
     assert 'filter_name="radius"' in source
     assert 'filter_name="work_format"' in source
     assert 'filter_name="language"' in source
-    assert 'filter_name="price"' in source
+    assert 'filter_name="availability"' in source
+    assert 'filter_name="verified_profile"' in source
+    assert 'filter_name="rating"' in source
     assert 'filter_name="sort"' in source
     assert 'filter_name="reset"' in source
 def test_search_categories_use_tz10_page_size_eight():
@@ -2000,11 +2005,10 @@ def test_search_results_screen_matches_tz10_c8_requirements():
 
     assert "def format_results_header" in source
     assert "search_results_header" in source
-    assert "search_results_range" in source
-    assert "profession=profession" in source
-    assert "location=location" in source
-    assert "radius=radius" in source
-    assert "found=found" in source
+    assert "search_results_global_context" in texts_source
+    assert "{found}" in texts_source
+    assert "{context}" in texts_source
+    assert "{range}" in texts_source
 
     assert "async def log_results_viewed" in source
     assert 'event_type="results_viewed"' in source
@@ -2050,13 +2054,13 @@ def test_search_result_cards_match_tz10_c9_requirements():
     assert "result.distance_km" in result_card_source
     assert "search_rating" in result_card_source
     assert "search_no_reviews" in result_card_source
-    assert "search_price_not_set" in result_card_source
     assert "result.languages" in result_card_source
     assert "work_format_label" in result_card_source
-    assert "search_verified_label" not in result_card_source
+    assert "search_verified_label" in result_card_source
+    assert "search_filter_available_now" in result_card_source
 
-    assert "if specialist.price_from and specialist.price_to" in result_card_source
-    assert "elif specialist.price_from" in result_card_source
+    assert "specialist.price_from" not in result_card_source
+    assert "specialist.price_to" not in result_card_source
     assert "0 EUR" not in result_card_source
     assert "0.0" not in result_card_source
 
@@ -2071,7 +2075,7 @@ def test_search_result_cards_match_tz10_c9_requirements():
     assert 'callback_data=f"search_result:{index}"' in results_keyboard_block
     assert 'callback_data=f"search_result_contact:{index}"' in results_keyboard_block
     assert 'callback_data=f"search_result_favorite:{index}"' in results_keyboard_block
-    assert 'callback_data=f"search_result_report:{index}"' in results_keyboard_block
+    assert 'callback_data=f"search_result_report:{index}"' not in results_keyboard_block
 
     assert "async def favorite_from_result" in source
     assert "await favorite_pending(callback, state)" in source
@@ -2098,15 +2102,22 @@ def test_specialist_public_profile_matches_tz10_c10_requirements():
     )[0]
 
     assert "card.display_name" in profile_formatter
-    assert "search_verified_label" not in profile_formatter
+    assert "search_profile_photo_placeholder" in profile_formatter
+    assert "search_verified_label" in profile_formatter
+    assert "card.is_available" in profile_formatter
     assert "card.category_name" in profile_formatter
     assert "card.profession_name" in profile_formatter
     assert "card.city_name" in profile_formatter
     assert "card.short_description" in profile_formatter
     assert "card.service_titles" in profile_formatter
+    assert "card.skill_names" in profile_formatter
+    assert "search_skills_label" in profile_formatter
+    assert "card.experience_years" in profile_formatter
+    assert "search_experience_years" in profile_formatter
     assert "search_rating" in profile_formatter
     assert "search_legal_warning" in profile_formatter
-    assert "search_price_not_set" in profile_formatter
+    assert "price_from" not in profile_formatter
+    assert "price_to" not in profile_formatter
 
     card_keyboard_block = source.split(
         "def card_keyboard",
@@ -2118,9 +2129,11 @@ def test_specialist_public_profile_matches_tz10_c10_requirements():
 
     assert 'callback_data="search_contact_pending"' in card_keyboard_block
     assert 'callback_data="search_favorite_pending"' in card_keyboard_block
-    assert 'callback_data="search_reviews_pending"' in card_keyboard_block
     assert 'callback_data="search_portfolio_pending"' in card_keyboard_block
-    assert 'callback_data="search_report_pending"' in card_keyboard_block
+    assert 'callback_data="search_reviews_pending"' in card_keyboard_block
+    assert "show_selected_specialist_reviews" in source
+    assert "show_selected_specialist_portfolio" in source
+    assert "report_pending" in source
     assert 'callback_data=f"search_results_page:{results_page}"' in card_keyboard_block
 
     assert "async def show_selected_specialist_reviews" in source
@@ -2140,6 +2153,11 @@ def test_specialist_public_profile_matches_tz10_c10_requirements():
     assert 'event_type="profile_viewed"' in show_card_block
 
     assert "reviews_count: int = 0" in service_source
+    assert "skill_names: list[str] = field(default_factory=list)" in service_source
+    assert "get_public_skill_names_for_user" in service_source
+    assert "experience_years: int | None = None" in service_source
+    assert "experience_years=specialist.experience_years" in service_source
+    assert "is_available: bool = False" in service_source
 def test_favorites_c16_list_has_pagination_and_remove_flow():
     repo_source = open("database/repositories/favorites.py", encoding="utf-8").read()
     billing_source = open("handlers/billing.py", encoding="utf-8").read()
@@ -2242,8 +2260,12 @@ def test_remote_work_format_search_ignores_geo_and_shows_remote_label():
     )[0]
 
     assert 'is_remote = card.work_format == "remote"' in public_card_block
-    assert 'work_format_label("remote", language)' in public_card_block
-    assert 'distance = "" if is_remote else' in public_card_block
+    assert (
+        'work_format_label("remote", language)' in public_card_block
+        or "work_format_label('remote', language)" in public_card_block
+    )
+    assert "elif card.city_name:" in public_card_block
+    assert "card.distance_km is not None" in public_card_block
 
 def test_acceptance_no_zero_rating_when_reviews_are_missing():
     search_source = open("handlers/search.py", encoding="utf-8").read()

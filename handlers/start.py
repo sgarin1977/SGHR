@@ -258,6 +258,22 @@ async def get_main_menu_keyboard_for_user(
             available_roles.intersection({"admin", "super_admin"})
         ),
     )
+
+async def get_main_menu_text(language: str) -> str:
+    async with get_session() as session:
+        stats = await UserService(session).get_public_platform_stats()
+
+    return (
+        t("search_main_menu", language)
+        + "\n\n"
+        + t("main_menu_stats", language).format(
+            countries=stats.countries,
+            cities=stats.cities,
+            users=stats.users,
+            specialists=stats.specialists,
+        )
+    )
+
 async def send_global_main_menu(
     callback: CallbackQuery,
     state: FSMContext | None = None,
@@ -276,7 +292,7 @@ async def send_global_main_menu(
             await session.commit()
 
     await callback.message.answer(
-        t("search_main_menu", language),
+        await get_main_menu_text(language),
         reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
     )
     await callback.answer()
@@ -494,15 +510,13 @@ async def cmd_start(message: Message, state: FSMContext):
             first_name=first_name,
             role_text=role_text,
         )
+        await message.answer(text, parse_mode="HTML")
         await message.answer(
-            text,
-            reply_markup=get_main_menu_keyboard(
+            await get_main_menu_text(language),
+            reply_markup=await get_main_menu_keyboard_for_user(
+                message.from_user.id,
                 language,
-                show_role_switch=bool(
-                    role_context and len(role_context.available_roles) > 1
-                ),
             ),
-            parse_mode="HTML",
         )
 
         from handlers.search import resume_post_auth_action
@@ -526,41 +540,12 @@ async def cmd_start(message: Message, state: FSMContext):
         language=language,
     ):
         return
-    active_role_is_valid = bool(
-        role_context
-        and role_context.active_role
-        and role_context.active_role in role_context.available_roles
-    )
-
-    if active_role_is_valid:
-        await send_active_role_cabinet_from_message(
-            message,
-            state,
-            role_context.active_role,
-            language,
-        )
-        return
-
-    if role_context and role_context.active_role and len(role_context.available_roles) > 1:
-        await message.answer(
-            t("role_switch_prompt", language),
-            reply_markup=role_switch_keyboard(
-                role_context.available_roles,
-                role_context.active_role,
-                language,
-                role_details=role_context.role_details,
-                unread_counts=role_context.unread_counts,
-            ),
-        )
-        return
 
     await message.answer(
-        t("search_main_menu", language),
-        reply_markup=get_main_menu_keyboard(
+        await get_main_menu_text(language),
+        reply_markup=await get_main_menu_keyboard_for_user(
+            message.from_user.id,
             language,
-            show_role_switch=bool(
-                role_context and len(role_context.available_roles) > 1
-            ),
         ),
     )
 

@@ -294,7 +294,6 @@ class SpecialistCategory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-
 class Profession(Base):
     __tablename__ = "professions"
 
@@ -307,10 +306,60 @@ class Profession(Base):
     name_pt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     name_es: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     normalized_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class ProfessionAlias(Base):
+    __tablename__ = "profession_aliases"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    profession_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("professions.id"),
+        nullable=False,
+    )
+    alias: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_alias: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class Skill(Base):
+    __tablename__ = "skills"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    name_ru: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_pt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_es: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ProfessionSkill(Base):
+    __tablename__ = "profession_skills"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    profession_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("professions.id"), nullable=False)
+    skill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("skills.id"), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=100)
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserSkill(Base):
+    __tablename__ = "user_skills"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    skill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("skills.id"), nullable=False)
+    level: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Specialist(Base):
@@ -449,6 +498,63 @@ class ContactRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+class ServiceOrder(Base):
+    __tablename__ = "service_orders"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    thread_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("conversation_threads.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    contact_request_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("contact_requests.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    client_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    specialist_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialists.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    profession_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("professions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(Text, default="draft")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    due_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    agreed_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    currency: Mapped[str] = mapped_column(Text, default="EUR")
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=False,
+    )
+    confirmed_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    completed_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    cancelled_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
 class ConversationThread(Base):
     __tablename__ = "conversation_threads"

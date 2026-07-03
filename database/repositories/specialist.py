@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import Integer, and_, delete, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database.models import (
@@ -18,13 +18,26 @@ from database.models import (
     User,
     UserRoleMapping,
     ProfileVisibilitySetting,
+    ProfessionAlias,
+    ProfessionSkill,
+    Skill,
+    UserSkill,
 )
-MAX_SPECIALIST_CATEGORIES = 2
+MAX_SPECIALIST_CATEGORIES = 3
 MAX_PROFESSIONS_PER_CATEGORY = 3
 
 class SpecialistRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    @staticmethod
+    def _release_category_conditions():
+        return (
+            SpecialistCategory.is_active.is_(True),
+            SpecialistCategory.extra_metadata["release"].astext
+            == "specialists_directory_v1",
+        )
+
     def _validate_profession_limits(self, profession_selections: list[dict]) -> None:
         categories: dict[str, int] = {}
 
@@ -33,14 +46,17 @@ class SpecialistRepository:
             categories[category_id] = categories.get(category_id, 0) + 1
 
         if len(categories) > MAX_SPECIALIST_CATEGORIES:
-            raise ValueError("You can select no more than 2 sections.")
+            raise ValueError("You can select no more than 3 sections.")
 
         if any(count > MAX_PROFESSIONS_PER_CATEGORY for count in categories.values()):
             raise ValueError("You can select no more than 3 professions in one section.")
+        
     async def list_active_categories(self, limit: int = 50) -> list[SpecialistCategory]:
         result = await self.session.execute(
             select(SpecialistCategory)
-            .where(SpecialistCategory.is_active.is_(True))
+            .where(
+                *self._release_category_conditions(),
+            )
             .order_by(SpecialistCategory.sort_order, SpecialistCategory.name)
             .limit(limit)
         )
@@ -53,11 +69,13 @@ class SpecialistRepository:
     ) -> list[Profession]:
         result = await self.session.execute(
             select(Profession)
+            .join(SpecialistCategory, SpecialistCategory.id == Profession.category_id)
             .where(
                 Profession.category_id == category_id,
                 Profession.is_active.is_(True),
+                *self._release_category_conditions(),
             )
-            .order_by(Profession.name)
+            .order_by(Profession.sort_order, Profession.name)
             .limit(limit)
         )
         return list(result.scalars().all())
@@ -65,11 +83,144 @@ class SpecialistRepository:
     async def list_active_professions(self, limit: int = 50) -> list[Profession]:
         result = await self.session.execute(
             select(Profession)
-            .where(Profession.is_active.is_(True))
-            .order_by(Profession.name)
+            .join(SpecialistCategory, SpecialistCategory.id == Profession.category_id)
+            .where(
+                Profession.is_active.is_(True),
+                *self._release_category_conditions(),
+            )
+            .order_by(Profession.sort_order, Profession.name)
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def list_skills_for_specialist_professions(
+        self,
+        *,
+        specialist_id: UUID,
+        language: str = "ru",
+        limit: int = 30,
+    ) -> list[Skill]:
+        result = await self.session.execute(
+            select(Skill)
+            .join(ProfessionSkill, ProfessionSkill.skill_id == Skill.id)
+            .join(
+                SpecialistProfession,
+                SpecialistProfession.profession_id == ProfessionSkill.profession_id,
+            )
+            .where(
+                SpecialistProfession.specialist_id == specialist_id,
+                SpecialistProfession.status == "active",
+                Skill.is_active.is_(True),
+            )
+            .group_by(Skill.id)
+            .order_by(
+                func.max(ProfessionSkill.is_primary.cast(Integer)).desc(),
+                func.min(ProfessionSkill.sort_order),
+                Skill.name,
+            )
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_user_skill_ids(self, user_id: UUID) -> list[UUID]:
+        result = await self.session.execute(
+            select(UserSkill.skill_id)
+            .where(UserSkill.user_id == user_id)
+            .order_by(UserSkill.created_at.asc())
+        )
+        return list(result.scalars().all())
+
+    async def replace_user_skills(
+        self,
+        *,
+        user_id: UUID,
+        skill_ids: list[UUID],
+    ) -> None:
+        await self.session.execute(
+            delete(UserSkill).where(UserSkill.user_id == user_id)
+        )
+
+        for skill_id in skill_ids:
+            self.session.add(
+                UserSkill(
+                    user_id=user_id,
+                    skill_id=skill_id,
+                )
+            )
+
+        await self.session.flush()
+
+    async def search_professions_by_text(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> list[Profession]:
+        normalized_query = (query or "").strip().lower()
+
+        if not normalized_query:
+            return []
+
+        exact_result = await self.session.execute(
+            select(Profession)
+            .join(SpecialistCategory, SpecialistCategory.id == Profession.category_id)
+            .outerjoin(
+                ProfessionAlias,
+                and_(
+                    ProfessionAlias.profession_id == Profession.id,
+                    ProfessionAlias.is_active.is_(True),
+                ),
+            )
+            .where(
+                Profession.is_active.is_(True),
+                *self._release_category_conditions(),
+                or_(
+                    func.lower(func.trim(Profession.name)) == normalized_query,
+                    func.lower(func.trim(Profession.name_ru)) == normalized_query,
+                    func.lower(func.trim(Profession.name_en)) == normalized_query,
+                    func.lower(func.trim(Profession.name_pt)) == normalized_query,
+                    func.lower(func.trim(Profession.normalized_name)) == normalized_query,
+                    ProfessionAlias.normalized_alias == normalized_query,
+                ),
+            )
+            .order_by(Profession.sort_order, Profession.name)
+            .limit(limit)
+        )
+
+        exact_matches = list(exact_result.scalars().unique().all())
+
+        if exact_matches:
+            return exact_matches
+
+        like_query = f"%{normalized_query}%"
+
+        fallback_result = await self.session.execute(
+            select(Profession)
+            .join(SpecialistCategory, SpecialistCategory.id == Profession.category_id)
+            .outerjoin(
+                ProfessionAlias,
+                and_(
+                    ProfessionAlias.profession_id == Profession.id,
+                    ProfessionAlias.is_active.is_(True),
+                ),
+            )
+            .where(
+                Profession.is_active.is_(True),
+                *self._release_category_conditions(),
+                or_(
+                    func.lower(Profession.name).ilike(like_query),
+                    func.lower(Profession.name_ru).ilike(like_query),
+                    func.lower(Profession.name_en).ilike(like_query),
+                    func.lower(Profession.name_pt).ilike(like_query),
+                    func.lower(Profession.normalized_name).ilike(like_query),
+                    ProfessionAlias.normalized_alias.ilike(like_query),
+                    ProfessionAlias.alias.ilike(like_query),
+                ),
+            )
+            .order_by(Profession.sort_order, Profession.name)
+            .limit(limit)
+        )
+
+        return list(fallback_result.scalars().unique().all())
 
     async def list_active_cities(self, limit: int = 50) -> list[City]:
         result = await self.session.execute(
@@ -80,20 +231,56 @@ class SpecialistRepository:
         )
         return list(result.scalars().all())
 
+    async def find_active_city_in_text(self, query: str) -> City | None:
+        normalized_query = f" {(query or '').strip().lower()} "
+
+        if len(normalized_query.strip()) < 2:
+            return None
+
+        result = await self.session.execute(
+            select(City)
+            .where(
+                City.is_active.is_(True),
+                or_(
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name), "%")
+                    ),
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name_ru), "%")
+                    ),
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name_en), "%")
+                    ),
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name_pt), "%")
+                    ),
+                ),
+            )
+            .order_by(
+                func.length(City.name).desc(),
+                City.name.asc(),
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def get_active_category(self, category_id: UUID) -> Optional[SpecialistCategory]:
         result = await self.session.execute(
             select(SpecialistCategory).where(
                 SpecialistCategory.id == category_id,
-                SpecialistCategory.is_active.is_(True),
+                *self._release_category_conditions(),
             )
         )
         return result.scalar_one_or_none()
 
     async def get_active_profession(self, profession_id: UUID) -> Optional[Profession]:
         result = await self.session.execute(
-            select(Profession).where(
+            select(Profession)
+            .join(SpecialistCategory, SpecialistCategory.id == Profession.category_id)
+            .where(
                 Profession.id == profession_id,
                 Profession.is_active.is_(True),
+                *self._release_category_conditions(),
             )
         )
         return result.scalar_one_or_none()
@@ -122,6 +309,57 @@ class SpecialistRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_owned_specialist(
+        self,
+        *,
+        specialist_id: UUID,
+        user_id: UUID,
+    ) -> Specialist | None:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            return None
+        return specialist
+
+    async def get_specialist_location_parts(
+        self,
+        *,
+        specialist: Specialist,
+    ) -> tuple[City | None, Country | None]:
+        city = await self.session.get(City, specialist.city_id) if specialist.city_id else None
+        country_id = city.country_id if city else specialist.country_id
+        country = await self.session.get(Country, country_id) if country_id else None
+        return city, country
+
+    async def list_specialist_services_page(
+        self,
+        *,
+        specialist_id: UUID,
+        limit: int,
+        offset: int,
+    ) -> tuple[int, list[SpecialistService]]:
+        total_result = await self.session.execute(
+            select(func.count())
+            .select_from(SpecialistService)
+            .where(
+                SpecialistService.specialist_id == specialist_id,
+                SpecialistService.status != "deleted",
+            )
+        )
+        total = int(total_result.scalar_one() or 0)
+
+        result = await self.session.execute(
+            select(SpecialistService)
+            .where(
+                SpecialistService.specialist_id == specialist_id,
+                SpecialistService.status != "deleted",
+            )
+            .order_by(SpecialistService.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        return total, list(result.scalars().all())
+
     async def get_specialist_profile_visibility(
         self,
         *,
@@ -147,6 +385,33 @@ class SpecialistRepository:
             raise ValueError("Specialist profile not found.")
 
         specialist.status = status
+        await self.session.flush()
+        return specialist
+
+    async def update_specialist_availability(
+        self,
+        *,
+        user_id: UUID,
+        specialist_id: UUID,
+        availability_status: str,
+        available_from_text: str | None = None,
+    ) -> Specialist:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if not specialist or specialist.user_id != user_id:
+            raise ValueError("Specialist profile not found.")
+
+        metadata = dict(specialist.extra_metadata or {})
+        metadata["availability_status"] = availability_status
+
+        if available_from_text:
+            metadata["available_from_text"] = available_from_text
+        else:
+            metadata.pop("available_from_text", None)
+
+        specialist.is_available = availability_status == "available_now"
+        specialist.extra_metadata = metadata
+        specialist.updated_at = datetime.utcnow()
+
         await self.session.flush()
         return specialist
 

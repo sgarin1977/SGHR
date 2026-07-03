@@ -79,6 +79,22 @@ class LegalRepository:
         )
         return result.scalar_one_or_none() is not None
 
+    async def list_user_consents(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+    ) -> list[UserConsent]:
+        result = await self.session.execute(
+            select(UserConsent)
+            .where(
+                UserConsent.tenant_id == tenant_id,
+                UserConsent.user_id == user_id,
+            )
+            .order_by(UserConsent.accepted_at.desc())
+        )
+        return list(result.scalars().all())
+
     async def accept_consent(
         self,
         tenant_id: UUID,

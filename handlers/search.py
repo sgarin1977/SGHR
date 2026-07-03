@@ -31,6 +31,7 @@ from services.geo_search import GeoSearchService, SpecialistPublicCard
 from services.geo_service import GeoService, GeoServiceError
 from services.moderation import ModerationError, ModerationService
 from services.rate_limit import RateLimitError, RateLimitService
+from services.specialist import SpecialistSearchTextService
 from services.translation import TranslationError, TranslationService
 from ui.texts import t
 from database.repositories.favorites import FavoriteRepository
@@ -49,6 +50,7 @@ PUBLIC_REVIEW_PAGE_SIZE = 5
 class SpecialistSearchFSM(StatesGroup):
     choosing_category = State()
     choosing_profession = State()
+    entering_text_query = State()
     entering_location_query = State()
     choosing_geo_place = State()
     waiting_geo = State()
@@ -57,6 +59,7 @@ class SpecialistSearchFSM(StatesGroup):
     entering_contact_message = State()
     confirming_contact_message = State()
     entering_thread_message = State()
+    entering_order_form = State()
     entering_report_comment = State()
     confirming_report = State()
     choosing_review_rating = State()
@@ -351,39 +354,109 @@ def profession_keyboard(
     professions,
     page: int,
     language: str,
+    selected_ids: set[str] | None = None,
 ) -> InlineKeyboardMarkup:
-    keyboard = paged_keyboard(
-        items=professions,
-        item_prefix="search_profession",
-        page_prefix="search_professions_page",
-        page=page,
-        language=language,
-        back_callback="search_filters",
-    )
-    keyboard.inline_keyboard.insert(
-        0,
+    selected_ids = selected_ids or set()
+    page_size = PER_PAGE
+    start = page * page_size
+    end = start + page_size
+
+    rows = [
         [
             InlineKeyboardButton(
                 text=t("search_all_professions", language),
                 callback_data="search_profession_all",
             )
-        ],
-    )
-    return keyboard
+        ]
+    ]
 
+    for index, profession in enumerate(professions[start:end], start=start):
+        profession_id = str(profession.id)
+        marker = "☑" if profession_id in selected_ids else "☐"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{marker} {item_name(profession, language)}",
+                    callback_data=f"search_profession_toggle:{index}",
+                )
+            ]
+        )
+
+    nav = []
+    if page > 0:
+        nav.append(
+            InlineKeyboardButton(
+                text="<",
+                callback_data=f"search_professions_page:{page - 1}",
+            )
+        )
+    if end < len(professions):
+        nav.append(
+            InlineKeyboardButton(
+                text=">",
+                callback_data=f"search_professions_page:{page + 1}",
+            )
+        )
+    if nav:
+        rows.append(nav)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_show_specialists_btn", language),
+                callback_data="search_professions_apply",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_other_category_btn", language),
+                callback_data="search_filter_category",
+            ),
+            InlineKeyboardButton(
+                text=t("search_reset_directions_btn", language),
+                callback_data="search_professions_reset",
+            ),
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_back", language),
+                callback_data="search_filter_category",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_menu", language),
+                callback_data="search_menu",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def result_card_keyboard(index: int, language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("search_details_btn", language),
+                    text=t("search_profile_btn", language),
                     callback_data=f"search_result:{index}",
                 ),
                 InlineKeyboardButton(
                     text=t("contact", language),
                     callback_data=f"search_result_contact:{index}",
                 ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("favorite", language),
+                    callback_data=f"search_result_favorite:{index}",
+                )
             ],
         ]
     )
@@ -401,7 +474,7 @@ def results_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("search_details_btn", language),
+                    text=t("search_profile_btn", language),
                     callback_data=f"search_result:{index}",
                 ),
                 InlineKeyboardButton(
@@ -415,11 +488,7 @@ def results_keyboard(
                 InlineKeyboardButton(
                     text=t("favorite", language),
                     callback_data=f"search_result_favorite:{index}",
-                ),
-                InlineKeyboardButton(
-                    text=t("report", language),
-                    callback_data=f"search_result_report:{index}",
-                ),
+                )
             ]
         )
 
@@ -452,12 +521,19 @@ def results_keyboard(
     rows.append(
         [
             InlineKeyboardButton(
+                text=t("search_refine_location_btn", language),
+                callback_data="search_filter_location",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
                 text=t("search_menu", language),
                 callback_data="search_menu",
             )
         ]
     )
-
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def results_navigation_keyboard(page: int, has_next: bool, language: str) -> InlineKeyboardMarkup:
@@ -484,8 +560,36 @@ def results_navigation_keyboard(page: int, has_next: bool, language: str) -> Inl
     rows.append(
         [
             InlineKeyboardButton(
+                text=t("search_new", language),
+                callback_data="search_start",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_write_query_btn", language),
+                callback_data="SEARCH_AI",
+            ),
+            InlineKeyboardButton(
+                text=t("search_choose_category_btn", language),
+                callback_data="search_filter_category",
+            ),
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
                 text=t("search_back_to_filters", language),
                 callback_data="search_filters",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_refine_location_btn", language),
+                callback_data="search_filter_location",
             )
         ]
     )
@@ -515,30 +619,18 @@ def card_keyboard(language: str, results_page: int = 0) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("reviews_btn", language),
-                    callback_data="search_reviews_pending",
-                ),
-                InlineKeyboardButton(
-                    text=t("portfolio_btn", language),
+                    text=t("specialist_profile_portfolio_btn", language),
                     callback_data="search_portfolio_pending",
                 ),
-            ],
-            [
                 InlineKeyboardButton(
-                    text=t("report", language),
-                    callback_data="search_report_pending",
-                )
+                    text=t("specialist_profile_reviews_btn", language),
+                    callback_data="search_reviews_pending",
+                ),
             ],
             [
                 InlineKeyboardButton(
                     text=t("search_back", language),
                     callback_data=f"search_results_page:{results_page}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("search_back_to_filters", language),
-                    callback_data="search_filters",
                 )
             ],
             [
@@ -549,7 +641,6 @@ def card_keyboard(language: str, results_page: int = 0) -> InlineKeyboardMarkup:
             ],
         ]
     )
-
 def public_portfolio_caption(view, language: str) -> str:
     is_photo = view.storage_object.file_type == "photo"
     label = t(
@@ -1039,15 +1130,64 @@ def contact_request_action_keyboard(contact_token: str, language: str) -> Inline
     )
 
 
-def contact_thread_keyboard(language: str) -> InlineKeyboardMarkup:
+def contact_thread_keyboard(
+    language: str,
+    order_id: str | None = None,
+    order_status: str | None = None,
+    can_create_order: bool = True,
+) -> InlineKeyboardMarkup:
+    order_rows = []
+
+    if order_id and order_status == "draft":
+        order_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("order_confirm_btn", language),
+                    callback_data=f"ORDER_CONFIRM:{order_id}",
+                )
+            ]
+        )
+
+    if order_id and order_status == "confirmed":
+        order_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("order_complete_btn", language),
+                    callback_data=f"ORDER_COMPLETE:{order_id}",
+                )
+            ]
+        )
+
+    if order_id and order_status == "completed":
+        order_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("review_leave_btn", language),
+                    callback_data=f"review_start_order:{order_id}",
+                )
+            ]
+        )
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=t("contact_reply_btn", language), callback_data="contact_reply")],
+            *order_rows,
             [
                 InlineKeyboardButton(text=t("contact_archive_btn", language), callback_data="contact_archive"),
                 InlineKeyboardButton(text=t("contact_hide_btn", language), callback_data="contact_hide"),
             ],
-            [InlineKeyboardButton(text=t("contact_finish_btn", language), callback_data="contact_finish")],
+            *(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text=t("order_create_btn", language),
+                            callback_data="ORDER_CREATE_FROM_THREAD",
+                        )
+                    ]
+                ]
+                if can_create_order
+                else []
+            ),
             [InlineKeyboardButton(text=t("contact_report_btn", language), callback_data="search_report_pending")],
             [InlineKeyboardButton(text=t("contact_back_to_dialogs_btn", language), callback_data="CLIENT_DIALOGS")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
@@ -1079,8 +1219,8 @@ def contact_thread_keyboard_for_role(
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("contact_complete_btn", language),
-                        callback_data="SPEC_THREAD_COMPLETE",
+                        text=t("order_create_btn", language),
+                        callback_data="ORDER_CREATE_FROM_THREAD",
                     )
                 ],
                 [
@@ -1208,8 +1348,8 @@ async def format_contact_draft_summary(
     distance_km,
     language: str,
 ) -> str:
-    specialist_name = t("search_filter_not_set", language)
-    profession = t("search_filter_not_set", language)
+    specialist_name = ""
+    profession = ""
 
     async with get_session() as session:
         card = await GeoSearchService(
@@ -1223,11 +1363,17 @@ async def format_contact_draft_summary(
 
     if card:
         specialist_name = card.display_name
-        profession = card.profession_name or profession
+        profession = card.profession_name or ""
+
+    profession_line = ""
+    if profession:
+        profession_line = (
+            f"\n{t('search_filter_profession_label', language)}: {profession}"
+        )
 
     return t("contact_draft_summary", language).format(
         specialist=specialist_name,
-        profession=profession,
+        profession_line=profession_line,
         message=message_text,
         disclaimer=t("contact_disclaimer_text", language),
     )
@@ -1252,44 +1398,120 @@ async def translate_message_for_notification(
 
 
 def format_search_filters_summary(data: dict, language: str) -> str:
-    category = data.get("category_name") or t("search_filter_not_set", language)
-    profession = data.get("profession_name") or t("search_filter_not_set", language)
+    lines = [t("search_filters_title", language)]
+
+    category = data.get("category_name")
+    profession = data.get("profession_name")
+
     if data.get("location_state") == "without":
         city = t("search_location_without", language)
     else:
-        city = data.get("city_name") or t("search_filter_not_set", language)
-    radius = (
-        t("search_radius_country", language)
-        if data.get("country_wide")
-        else f"{data.get('radius_km') or DEFAULT_RADIUS_KM} km"
+        city = data.get("city_name")
+
+    radius = None
+    if data.get("country_wide"):
+        radius = t("search_radius_country", language)
+    elif data.get("city_id") or data.get("latitude") is not None:
+        radius = f"{data.get('radius_km') or DEFAULT_RADIUS_KM} km"
+
+    language_code = data.get("language_code")
+    work_format = data.get("work_format")
+    sort_by = data.get("sort_by")
+    rating_min = data.get("rating_min")
+    verified_only = bool(data.get("verified_only"))
+    available_only = bool(data.get("available_only"))
+
+    if category:
+        lines.append(f"{t('search_filter_category_label', language)}: {category}")
+
+    if profession:
+        lines.append(f"{t('search_filter_profession_label', language)}: {profession}")
+
+    if city:
+        lines.append(f"{t('search_filter_location_label', language)}: {city}")
+
+    if radius:
+        lines.append(f"{t('search_filter_radius_label', language)}: {radius}")
+
+    if work_format:
+        lines.append(
+            f"{t('search_filter_work_label', language)}: "
+            f"{work_format_label(work_format, language)}"
+        )
+
+    if language_code:
+        lines.append(
+            f"{t('search_filter_language_label', language)}: "
+            f"{language_filter_label(language_code, language)}"
+        )
+
+    if available_only:
+        lines.append(
+            f"{t('search_filter_availability_label', language)}: "
+            f"{t('search_filter_available_now', language)}"
+        )
+
+    if rating_min is not None:
+        lines.append(
+            f"{t('search_filter_rating_label', language)}: "
+            f"{t('search_filter_rating_from', language).format(rating=rating_min)}"
+        )
+
+    if verified_only:
+        lines.append(
+            f"{t('search_filter_verified_label', language)}: "
+            f"{t('search_filter_verified_only', language)}"
+        )
+
+    if sort_by:
+        lines.append(
+            f"{t('search_filter_sort_label', language)}: "
+            f"{sort_label(sort_by, language)}"
+        )
+
+    return "\n".join(lines)
+
+def search_start_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("search_write_query_btn", language),
+                    callback_data="SEARCH_AI",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_choose_category_btn", language),
+                    callback_data="search_filter_category",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_history_btn", language),
+                    callback_data="SEARCH_HISTORY",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_favorites_btn", language),
+                    callback_data="CAB_FAVORITES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_back", language),
+                    callback_data="search_menu",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
     )
-    language_code = language_filter_label(data.get("language_code"), language)
-    work_format = work_format_label(data.get("work_format"), language)
-    sort_by = sort_label(data.get("sort_by"), language)
-    price_min = data.get("price_min")
-    price_max = data.get("price_max")
-
-    if price_min is None and price_max is None:
-        price = t("search_filter_not_set", language)
-    elif price_max is not None and price_min is None:
-        price = t("search_filter_price_up_to", language).format(amount=price_max)
-    elif price_min is not None and price_max is None:
-        price = t("search_filter_price_from", language).format(amount=price_min)
-    else:
-        price = f"{price_min}-{price_max}"
-
-    return (
-        f"{t('search_filters_title', language)}\n\n"
-        f"{t('search_filter_category_label', language)}: {category}\n"
-        f"{t('search_filter_profession_label', language)}: {profession}\n"
-        f"{t('search_filter_location_label', language)}: {city}\n"
-        f"{t('search_filter_radius_label', language)}: {radius}\n"
-        f"{t('search_filter_work_label', language)}: {work_format}\n"
-        f"{t('search_filter_language_label', language)}: {language_code}\n"
-        f"{t('search_filter_price_label', language)}: {price}\n"
-        f"{t('search_filter_sort_label', language)}: {sort_by}"
-    )
-
 
 def search_filters_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -1313,12 +1535,6 @@ def search_filters_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
                     text=t("search_filter_radius", language),
                     callback_data="search_filter_radius",
                 ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("search_show_results", language),
-                    callback_data="search_show_results",
-                )
             ],
             [
                 InlineKeyboardButton(
@@ -1359,22 +1575,28 @@ def search_advanced_filters_keyboard(language: str) -> InlineKeyboardMarkup:
                     text=t("search_filter_language", language),
                     callback_data="search_filter_language",
                 ),
+            ],
+            [
                 InlineKeyboardButton(
-                    text=t("search_filter_price", language),
-                    callback_data="search_filter_price",
+                    text=t("search_filter_availability", language),
+                    callback_data="search_filter_availability",
+                ),
+                InlineKeyboardButton(
+                    text=t("search_filter_verified_label", language),
+                    callback_data="search_filter_verified",
                 ),
             ],
             [
+                InlineKeyboardButton(
+                    text=t("search_filter_rating_label", language),
+                    callback_data="search_filter_rating",
+                ),
                 InlineKeyboardButton(
                     text=t("search_filter_sort", language),
                     callback_data="search_filter_sort",
-                )
+                ),
             ],
             [
-                InlineKeyboardButton(
-                    text=t("search_apply_filters", language),
-                    callback_data="search_filters",
-                ),
                 InlineKeyboardButton(
                     text=t("search_reset_filters", language),
                     callback_data="search_reset_filters",
@@ -1394,13 +1616,14 @@ def search_advanced_filters_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
         ]
     )
+
 def search_location_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=t("search_location_geo", language), callback_data="search_location_geo")],
             [InlineKeyboardButton(text=t("search_location_city", language), callback_data="search_location_city")],
             [InlineKeyboardButton(text=t("search_location_without", language), callback_data="search_location_without")],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+            [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
@@ -1455,19 +1678,97 @@ def search_language_keyboard(language: str) -> InlineKeyboardMarkup:
     )
 
 
-def search_price_keyboard(language: str) -> InlineKeyboardMarkup:
+def search_availability_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=t("search_filter_price_any", language), callback_data="search_price:any")],
-            [InlineKeyboardButton(text=t("search_filter_price_up_to_25", language), callback_data="search_price:0_25")],
-            [InlineKeyboardButton(text=t("search_filter_price_up_to_50", language), callback_data="search_price:0_50")],
-            [InlineKeyboardButton(text=t("search_filter_price_up_to_100", language), callback_data="search_price:0_100")],
-            [InlineKeyboardButton(text=t("search_filter_price_manual_later", language), callback_data="search_price:any")],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
-            [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            [
+                InlineKeyboardButton(
+                    text=t("search_filter_any", language),
+                    callback_data="search_availability:any",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_filter_available_now", language),
+                    callback_data="search_availability:now",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_back_to_filters", language),
+                    callback_data="search_filters",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
         ]
     )
 
+
+def search_verified_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("search_filter_verified_all", language),
+                    callback_data="search_verified:any",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_filter_verified_only", language),
+                    callback_data="search_verified:only",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_back_to_filters", language),
+                    callback_data="search_filters",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
+    )
+
+
+def search_rating_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("search_filter_rating_any", language),
+                    callback_data="search_rating:any",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_filter_rating_4", language),
+                    callback_data="search_rating:4",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_back_to_filters", language),
+                    callback_data="search_filters",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
+    )
 
 def search_sort_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -1479,6 +1780,54 @@ def search_sort_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
+def search_history_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("search_write_query_btn", language),
+                    callback_data="SEARCH_AI",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_choose_category_btn", language),
+                    callback_data="search_filter_category",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_back", language),
+                    callback_data="search_start",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
+    )
+
+
+def format_search_history_item(payload: dict, language: str) -> str:
+    parts = []
+
+    for key in (
+        "search_text_query",
+        "category_name",
+        "profession_name",
+        "city_name",
+    ):
+        value = payload.get(key)
+        if value:
+            parts.append(str(value))
+
+    if payload.get("location_state") == "without":
+        parts.append(t("search_location_without", language))
+
+    return " • ".join(parts) or t("search_history_generic_item", language)
 
 def search_geo_candidates_keyboard(candidates: list[dict], language: str) -> InlineKeyboardMarkup:
     rows = []
@@ -1521,7 +1870,7 @@ def search_geo_empty_keyboard(language: str) -> InlineKeyboardMarkup:
                     callback_data="search_location_without",
                 ),
             ],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+            [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
@@ -1545,27 +1894,65 @@ def next_empty_radius_suggestion(data: dict) -> tuple[int | None, bool]:
 
 
 def empty_results_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
-    next_radius, next_country_wide = next_empty_radius_suggestion(data)
-
     rows = []
 
-    if next_radius is not None:
+    if data.get("search_text_query"):
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("search_empty_increase_radius_to", language).format(
-                        radius=next_radius,
-                    ),
-                    callback_data="search_empty_increase_radius",
+                    text=t("search_write_query_btn", language),
+                    callback_data="SEARCH_AI",
                 )
             ]
         )
-    elif next_country_wide and not data.get("country_wide"):
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_choose_category_btn", language),
+                callback_data="search_filter_category",
+            )
+        ]
+    )
+
+    has_location_filter = (
+        data.get("location_state") != "without"
+        and (
+            data.get("city_id")
+            or data.get("latitude") is not None
+            or data.get("country_wide")
+        )
+    )
+
+    if has_location_filter:
+        next_radius, next_country_wide = next_empty_radius_suggestion(data)
+
+        if next_radius is not None:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=t("search_empty_increase_radius_to", language).format(
+                            radius=next_radius,
+                        ),
+                        callback_data="search_empty_increase_radius",
+                    )
+                ]
+            )
+        elif next_country_wide and not data.get("country_wide"):
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=t("search_empty_increase_radius_country", language),
+                        callback_data="search_empty_increase_radius",
+                    )
+                ]
+            )
+
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("search_empty_increase_radius_country", language),
-                    callback_data="search_empty_increase_radius",
+                    text=t("search_location_without", language),
+                    callback_data="search_location_without",
                 )
             ]
         )
@@ -1574,14 +1961,8 @@ def empty_results_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    text=t("search_empty_reset_price", language),
-                    callback_data="search_empty_reset_price",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("search_location_without", language),
-                    callback_data="search_location_without",
+                    text=t("search_back_to_filters", language),
+                    callback_data="search_filters",
                 )
             ],
             [
@@ -1590,13 +1971,16 @@ def empty_results_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
                     callback_data="search_reset_filters",
                 )
             ],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
-            [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="search_menu",
+                )
+            ],
         ]
     )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
 
 def format_empty_results_text(data: dict, language: str) -> str:
     return (
@@ -1614,20 +1998,38 @@ def format_results_header(
 ) -> str:
     start = page * PER_PAGE + 1 if visible_count else 0
     end = page * PER_PAGE + visible_count
-    profession = data.get("profession_name") or t("search_filter_not_set", language)
-    location = data.get("city_name") or data.get("country_name") or t("search_filter_not_set", language)
-    radius = data.get("radius_km") or DEFAULT_RADIUS_KM
-    found = total_count
     shown_range = f"{start}-{end} {t('search_results_of', language)} {total_count}"
-    _ = t("search_results_range", language)
+
+    context_parts = []
+
+    category_name = data.get("category_name")
+    profession_name = data.get("profession_name")
+    city_name = data.get("city_name")
+    work_format = data.get("work_format")
+
+    if category_name:
+        context_parts.append(category_name)
+
+    if profession_name:
+        context_parts.append(profession_name)
+
+    if work_format == "remote":
+        context_parts.append(work_format_label("remote", language))
+    elif city_name:
+        context_parts.append(city_name)
+        if data.get("radius_km"):
+            context_parts.append(f"{data.get('radius_km')} km")
+
+    context = " • ".join(context_parts)
+    if not context:
+        context = t("search_results_global_context", language)
 
     return t("search_results_header", language).format(
-        profession=profession,
-        location=location,
-        radius=radius,
-        found=found,
+        found=total_count,
+        context=context,
         range=shown_range,
     )
+
 def search_result_badge(specialist) -> str:
     metadata = specialist.extra_metadata or {}
 
@@ -1662,29 +2064,27 @@ def compact_distance(result, language: str) -> str:
         return f"📍{result.distance_km:.0f} км"
 
     return f"📍{result.city_name or t('search_filter_not_set', language)}"
-def compact_money_value(value) -> str:
-    if value is None:
+
+def public_safe_description(text: str | None, limit: int = 300) -> str:
+    if not text:
         return ""
 
-    number = float(value)
-    if number.is_integer():
-        return str(int(number))
+    clean = " ".join(str(text).split())
+    lowered = clean.lower()
 
-    return f"{number:.2f}".rstrip("0").rstrip(".")
+    if (
+        "http://" in lowered
+        or "https://" in lowered
+        or "www." in lowered
+        or "@" in clean
+    ):
+        return ""
 
-def compact_price(specialist, language: str) -> str:
-    currency = "€" if specialist.currency == "EUR" else (specialist.currency or "")
+    digits_count = sum(1 for char in clean if char.isdigit())
+    if digits_count >= 7:
+        return ""
 
-    if specialist.price_from and specialist.price_to:
-        price_from = compact_money_value(specialist.price_from)
-        price_to = compact_money_value(specialist.price_to)
-        return f"💶{price_from}-{price_to}{currency}"
-
-    if specialist.price_from:
-        price_from = compact_money_value(specialist.price_from)
-        return f"💶{price_from}{currency}"
-
-    return f"💶{t('search_price_not_set', language)}"
+    return clean[:limit].rstrip()
 
 def format_specialist_result(result, index: int, language: str) -> str:
     specialist = result.specialist
@@ -1692,8 +2092,9 @@ def format_specialist_result(result, index: int, language: str) -> str:
     badge = search_result_badge(specialist)
     badge_prefix = f"{badge} " if badge else ""
 
-    profession = result.profession_name or t("search_filter_not_set", language)
-    languages = ", ".join(result.languages) if result.languages else t("search_filter_not_set", language)
+    category = result.category_name
+    profession = result.profession_name
+    languages = ", ".join(result.languages) if result.languages else None
     location_parts = [part for part in [result.city_name] if part]
 
     is_remote = getattr(specialist, "work_format", None) == "remote"
@@ -1706,80 +2107,132 @@ def format_specialist_result(result, index: int, language: str) -> str:
         distance_text = f"📍{distance:.0f} км"
     else:
         distance = None if is_remote else result.distance_km
-        distance_text = f"📍{', '.join(location_parts) or t('search_filter_not_set', language)}"
+        distance_text = f"📍{', '.join(location_parts)}" if location_parts else ""
 
     rating_label = t("search_rating", language)
     if specialist.reviews_count and specialist.rating is not None:
         rating = f"⭐{float(specialist.rating):.1f}"
     else:
         rating = f"⭐{t('search_no_reviews', language)}"
-    if specialist.price_from and specialist.price_to:
-        price_from = compact_money_value(specialist.price_from)
-        price_to = compact_money_value(specialist.price_to)
-        price = f"💶{price_from}-{price_to}€"
-    elif specialist.price_from:
-        price_from = compact_money_value(specialist.price_from)
-        price = f"💶{price_from}€"
-    else:
-        price = f"💶{t('search_price_not_set', language)}"
 
-    verified = ""
+    status_parts = []
+    if getattr(specialist, "is_verified", False):
+        status_parts.append(f"✅ {t('search_verified_label', language)}")
+    if getattr(specialist, "is_available", False):
+        status_parts.append(t("search_filter_available_now", language))
+
+    verified = " | ".join(status_parts)
     language_label = t("search_filter_language_label", language)
+    description = public_safe_description(specialist.short_description)
+    meta_parts = []
+    direction_parts = []
+    if category:
+        direction_parts.append(category)
+    if profession:
+        direction_parts.append(profession)
+    if direction_parts:
+        meta_parts.append(" • ".join(direction_parts))
+    if languages:
+        meta_parts.append(f"{language_label}: {languages}")
 
-    return (
-        f"{index}. {badge_prefix}{specialist.display_name} | "
-        f"{rating} | {distance_text} | {price}{verified}\n"
-        f"{profession} | {language_label}: {languages}"
-    )
+    first_line_parts = [f"{rating}"]
+    if distance_text:
+        first_line_parts.append(distance_text)
+    if verified:
+        first_line_parts.append(verified)
 
+    first_line = " | ".join(first_line_parts)
+    second_line = " | ".join(meta_parts)
+
+    lines = [
+        f"{index}. {badge_prefix}{specialist.display_name} | {first_line}"
+    ]
+
+    if second_line:
+        lines.append(second_line)
+
+    if description:
+        lines.append(description)
+
+    return "\n".join(lines)
 def format_public_card(card: SpecialistPublicCard, language: str) -> str:
-    price = t("search_price_not_set", language)
-    if card.price_from and card.price_to:
-        price = f"{card.price_from}-{card.price_to} {card.currency}"
-    elif card.price_from:
-        price = f"{t('search_price_from', language)} {card.price_from} {card.currency}"
-
     labels = []
+    if card.is_verified:
+        labels.append(f"✅ {t('search_verified_label', language)}")
+    if card.is_available:
+        labels.append(t("search_filter_available_now", language))
     if card.is_premium:
         labels.append(t("search_premium_label", language))
 
     label_text = f" ({', '.join(labels)})" if labels else ""
-    languages = ", ".join(card.languages) if card.languages else t("search_filter_not_set", language)
     is_remote = card.work_format == "remote"
-    distance = "" if is_remote else (
-        f"\n{t('search_distance', language)}: {card.distance_km:.1f} km"
-        if card.distance_km is not None
-        else ""
-    )
-    city = (
-        work_format_label("remote", language)
-        if is_remote
-        else card.city_name or t("search_filter_not_set", language)
-    )
-    category = card.category_name or t("search_filter_not_set", language)
-    profession = card.profession_name or t("search_filter_not_set", language)
+
+    lines = [
+        t("search_profile_photo_placeholder", language),
+        f"{card.display_name}{label_text}",
+        "",
+    ]
+
+    if card.category_name:
+        lines.append(f"{t('search_filter_category_label', language)}: {card.category_name}")
+
+    if card.profession_name:
+        lines.append(f"{t('search_filter_profession_label', language)}: {card.profession_name}")
+
+    if is_remote:
+        lines.append(
+            f"{t('search_filter_location_label', language)}: "
+            f"{work_format_label('remote', language)}"
+        )
+    elif card.city_name:
+        location = card.city_name
+        if card.distance_km is not None:
+            location = f"{location}\n{t('search_distance', language)}: {card.distance_km:.1f} km"
+        lines.append(f"{t('search_filter_location_label', language)}: {location}")
+
     work_format = work_format_label(card.work_format, language)
-    status_line = ""
-    services = ", ".join(card.service_titles) if card.service_titles else t("search_filter_not_set", language)
+    if work_format:
+        lines.append(f"{t('search_filter_work_label', language)}: {work_format}")
+
+    if card.experience_years is not None:
+        lines.append(
+            t("search_experience_years", language).format(
+                years=card.experience_years
+            )
+        )
+
+    if card.service_titles:
+        lines.append(
+            f"{t('search_services_label', language)}: "
+            f"{', '.join(card.service_titles)}"
+        )
+    if card.skill_names:
+        lines.append(
+            f"{t('search_skills_label', language)}: "
+            f"{', '.join(card.skill_names)}"
+        )
+
+    if card.languages:
+        lines.append(
+            f"{t('search_filter_language_label', language)}: "
+            f"{', '.join(card.languages)}"
+        )
+
     if card.reviews_count > 0:
         rating = f"{float(card.rating):.1f} ({card.reviews_count})"
     else:
         rating = t("search_no_reviews", language)
-    return (
-        f"{card.display_name}{label_text}\n\n"
-        f"{t('search_filter_category_label', language)}: {category}\n"
-        f"{t('search_filter_profession_label', language)}: {profession}\n"
-        f"{t('search_filter_location_label', language)}: {city}"
-        f"{distance}\n"
-        f"{t('search_filter_work_label', language)}: {work_format}\n"
-        f"{t('search_services_label', language)}: {services}\n"
-        f"{t('search_filter_price_label', language)}: {price}\n"
-        f"{t('search_filter_language_label', language)}: {languages}\n"
-        f"{status_line}"
-        f"{t('search_rating', language)}: {rating}\n\n"
-        f"{card.short_description}\n\n"
-        f"{t('search_legal_warning', language)}"
-    )
+    lines.append(f"{t('search_rating', language)}: {rating}")
+
+    description = public_safe_description(card.short_description)
+
+    if description:
+        lines.extend(["", description])
+
+    lines.extend(["", t("search_legal_warning", language)])
+
+    return "\n".join(lines)
+
 async def show_filters(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = await get_search_language(state, callback)
@@ -1804,6 +2257,10 @@ async def render_results(
 
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
     profession_id = UUID(data["profession_id"]) if data.get("profession_id") else None
+    selected_profession_ids = [
+        UUID(item)
+        for item in (data.get("selected_profession_ids") or [])
+    ]
     city_id = UUID(data["city_id"]) if data.get("city_id") else None
     country_id = UUID(data["country_id"]) if data.get("country_id") else None
     has_geo = data.get("latitude") is not None and data.get("longitude") is not None
@@ -1813,27 +2270,13 @@ async def render_results(
     )
 
     if not city_id and not has_geo and not without_location:
-        if isinstance(event, CallbackQuery):
-            await show_callback_message(
-                event,
-                t("search_location_prompt", language),
-                search_location_keyboard(language),
-            )
-            await state.set_state(SpecialistSearchFSM.choosing_filters)
-            await event.answer()
-        else:
-            await event.answer(
-                t("search_location_prompt", language),
-                reply_markup=search_location_keyboard(language),
-            )
-            await state.set_state(SpecialistSearchFSM.choosing_filters)
-        return
-    has_geo = data.get("latitude") is not None and data.get("longitude") is not None
+        await state.update_data(location_state="without")
+        data["location_state"] = "without"
+        without_location = True
     country_wide = bool(data.get("country_wide"))
     language_code = data.get("language_code")
     verified_only = bool(data.get("verified_only"))
-    price_min = data.get("price_min")
-    price_max = data.get("price_max")
+    available_only = bool(data.get("available_only"))
     premium_only = bool(data.get("premium_only"))
     work_format = data.get("work_format")
     remote_only = work_format == "remote"
@@ -1852,12 +2295,12 @@ async def render_results(
             results = await service.search_without_location(
                 category_id=category_id,
                 profession_id=profession_id,
-                price_min=price_min,
-                price_max=price_max,
+                profession_ids=selected_profession_ids,
                 interface_language=language,
                 language_code=language_code,
                 verified_only=verified_only,
                 premium_only=premium_only,
+                available_only=available_only,
                 work_format=work_format,
                 rating_min=rating_min,
                 limit=PER_PAGE + 1,
@@ -1878,6 +2321,7 @@ async def render_results(
                 country_wide=country_wide,
                 interface_language=language,
                 profession_id=profession_id,
+                profession_ids=selected_profession_ids,
                 language_code=language_code,
                 verified_only=verified_only,
                 limit=PER_PAGE + 1,
@@ -1885,8 +2329,6 @@ async def render_results(
                 requester_user_id=requester_user_id,
                 tenant_id=tenant_id,
                 log_event=True,
-                price_min=price_min,
-                price_max=price_max,
                 premium_only=premium_only,
                 work_format=work_format,
                 rating_min=rating_min,
@@ -1897,13 +2339,13 @@ async def render_results(
                 city_id=city_id,
                 category_id=category_id,
                 profession_id=profession_id,
-                price_min=price_min,
-                price_max=price_max,
+                profession_ids=selected_profession_ids,
                 country_id=country_id,
                 interface_language=language,
                 language_code=language_code,
                 verified_only=verified_only,
                 premium_only=premium_only,
+                available_only=available_only,
                 work_format=work_format,
                 rating_min=rating_min,
                 limit=PER_PAGE + 1,
@@ -1917,12 +2359,12 @@ async def render_results(
             results = await service.search_without_location(
                 category_id=category_id,
                 profession_id=profession_id,
-                price_min=price_min,
-                price_max=price_max,
+                profession_ids=selected_profession_ids,
                 interface_language=language,
                 language_code=language_code,
                 verified_only=verified_only,
                 premium_only=premium_only,
+                available_only=available_only,
                 work_format=work_format,
                 rating_min=rating_min,
                 limit=PER_PAGE + 1,
@@ -1945,8 +2387,7 @@ async def render_results(
                 total_results = await total_service.search_without_location(
                     category_id=category_id,
                     profession_id=profession_id,
-                    price_min=price_min,
-                    price_max=price_max,
+                    profession_ids=selected_profession_ids,
                     interface_language=language,
                     language_code=language_code,
                     verified_only=verified_only,
@@ -1970,6 +2411,7 @@ async def render_results(
                     country_wide=country_wide,
                     interface_language=language,
                     profession_id=profession_id,
+                    profession_ids=selected_profession_ids,
                     language_code=language_code,
                     verified_only=verified_only,
                     limit=200,
@@ -1977,8 +2419,6 @@ async def render_results(
                     requester_user_id=requester_user_id,
                     tenant_id=tenant_id,
                     log_event=False,
-                    price_min=price_min,
-                    price_max=price_max,
                     premium_only=premium_only,
                     work_format=work_format,
                     rating_min=rating_min,
@@ -1989,8 +2429,7 @@ async def render_results(
                     city_id=city_id,
                     category_id=category_id,
                     profession_id=profession_id,
-                    price_min=price_min,
-                    price_max=price_max,
+                    profession_ids=selected_profession_ids,
                     country_id=country_id,
                     interface_language=language,
                     language_code=language_code,
@@ -2009,8 +2448,7 @@ async def render_results(
                 total_results = await total_service.search_without_location(
                     category_id=category_id,
                     profession_id=profession_id,
-                    price_min=price_min,
-                    price_max=price_max,
+                    profession_ids=selected_profession_ids,
                     interface_language=language,
                     language_code=language_code,
                     verified_only=verified_only,
@@ -2075,8 +2513,6 @@ async def render_results(
                         "location_state": data.get("location_state"),
                         "radius_km": data.get("radius_km"),
                         "country_wide": bool(data.get("country_wide")),
-                        "price_min": data.get("price_min"),
-                        "price_max": data.get("price_max"),
                         "language_code": data.get("language_code"),
                         "work_format": data.get("work_format"),
                     },
@@ -2175,6 +2611,10 @@ async def log_results_viewed(
                 "radius_km": data.get("radius_km"),
                 "country_wide": bool(data.get("country_wide")),
                 "sort_by": data.get("sort_by"),
+                "category_name": data.get("category_name"),
+                "profession_name": data.get("profession_name"),
+                "city_name": data.get("city_name"),
+                "search_text_query": data.get("search_text_query"),
             },
             platform="telegram",
         )
@@ -2214,15 +2654,172 @@ async def start_search(callback: CallbackQuery, state: FSMContext):
         radius_km=DEFAULT_RADIUS_KM,
         work_format=None,
         language_code=None,
-        price_min=None,
-        price_max=None,
         location_state=None,
         sort_by="distance",
         page=0,
     )
 
-    await show_filters(callback, state)
+    await show_callback_message(
+        callback,
+        t("search_start_screen", language),
+        search_start_keyboard(language),
+    )
+    await callback.answer()
 
+@search_router.callback_query(F.data == "SEARCH_AI")
+async def ask_text_search_query(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+
+    await show_callback_message(
+        callback,
+        t("search_text_query_prompt", language),
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("search_choose_category_btn", language),
+                        callback_data="search_filter_category",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="search_menu",
+                    )
+                ],
+            ]
+        ),
+    )
+    await state.set_state(SpecialistSearchFSM.entering_text_query)
+    await callback.answer()
+
+@search_router.callback_query(F.data == "SEARCH_HISTORY")
+async def show_search_history(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+
+    if not requester_user_id or not tenant_id:
+        await callback.message.answer(
+            t("search_history_empty", language),
+            reply_markup=search_history_keyboard(language),
+        )
+        await callback.answer()
+        return
+
+    async with get_session() as session:
+        events = await SpecialistSearchRepository(session).list_recent_search_events(
+            tenant_id=tenant_id,
+            user_id=requester_user_id,
+            limit=5,
+        )
+
+    if not events:
+        await callback.message.answer(
+            t("search_history_empty", language),
+            reply_markup=search_history_keyboard(language),
+        )
+        await callback.answer()
+        return
+
+    lines = [t("search_history_title", language), ""]
+
+    for index, event in enumerate(events, start=1):
+        lines.append(
+            t("search_history_item", language).format(
+                number=index,
+                query=format_search_history_item(event.payload or {}, language),
+            )
+        )
+
+    await callback.message.answer(
+        "\n".join(lines),
+        reply_markup=search_history_keyboard(language),
+    )
+    await callback.answer()
+
+@search_router.message(SpecialistSearchFSM.entering_text_query)
+async def receive_text_search_query(message: Message, state: FSMContext):
+    language = await get_search_language(state, message)
+    query = (message.text or "").strip()
+
+    if len(query) < 2:
+        await message.answer(t("search_text_query_too_short", language))
+        return
+
+    async with get_session() as session:
+        specialist_repository = SpecialistRepository(session)
+        parsed_query = await SpecialistSearchTextService(
+            specialist_repository
+        ).parse_text_query(
+            query,
+            language=language,
+        )
+        professions = await specialist_repository.search_professions_by_text(
+            parsed_query.profession_query,
+            limit=10,
+        )
+
+    if not professions:
+        await message.answer(
+            t("search_text_query_no_matches", language).format(query=query),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t("search_choose_category_btn", language),
+                            callback_data="search_filter_category",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t("search_menu", language),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
+        await state.set_state(SpecialistSearchFSM.choosing_filters)
+        return
+
+    await state.update_data(
+        search_text_query=query,
+        profession_ids=[str(profession.id) for profession in professions],
+        selected_profession_ids=[],
+        selected_profession_names=[],
+        city_id=str(parsed_query.city_id) if parsed_query.city_id else None,
+        city_name=parsed_query.city_name,
+        country_id=str(parsed_query.country_id) if parsed_query.country_id else None,
+        country_name=parsed_query.country_name,
+        location_state="city" if parsed_query.city_id else "without",
+        profession_page=0,
+    )
+
+    if len(professions) == 1:
+        profession = professions[0]
+
+        await state.update_data(
+            category_id=str(profession.category_id),
+            profession_id=str(profession.id),
+            profession_name=item_name(profession, language),
+            selected_profession_ids=[str(profession.id)],
+            selected_profession_names=[item_name(profession, language)],
+            location_state="city" if parsed_query.city_id else "without",
+            page=0,
+        )
+        await render_results(event=message, state=state, page=0)
+        return
+
+    await message.answer(
+        t("search_text_query_matches", language).format(query=query),
+        reply_markup=profession_keyboard(
+            professions=professions,
+            page=0,
+            language=language,
+            selected_ids=set(),
+        ),
+    )
+    await state.set_state(SpecialistSearchFSM.choosing_profession)
 
 @search_router.callback_query(F.data == "search_filters")
 async def back_to_search_filters(callback: CallbackQuery, state: FSMContext):
@@ -2346,9 +2943,10 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
         category_name=item_name(category, language),
         profession_id=None,
         profession_name=None,
+        location_state="without",
         page=0,
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 
 @search_router.callback_query(F.data == "search_filter_profession")
@@ -2373,6 +2971,8 @@ async def open_profession_filter(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(
         profession_ids=[str(profession.id) for profession in professions],
+        selected_profession_ids=[],
+        selected_profession_names=[],
         profession_page=0,
     )
 
@@ -2383,6 +2983,7 @@ async def open_profession_filter(callback: CallbackQuery, state: FSMContext):
             professions=professions,
             page=0,
             language=language,
+            selected_ids=set(),
         ),
     )
     await state.set_state(SpecialistSearchFSM.choosing_profession)
@@ -2417,6 +3018,7 @@ async def paginate_professions(callback: CallbackQuery, state: FSMContext):
             professions=professions,
             page=page,
             language=language,
+            selected_ids=set(data.get("selected_profession_ids") or []),
         ),
     )
     await callback.answer()
@@ -2427,10 +3029,137 @@ async def choose_all_professions(callback: CallbackQuery, state: FSMContext):
     await state.update_data(
         profession_id=None,
         profession_name=None,
+        location_state="without",
         page=0,
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
+
+@search_router.callback_query(F.data.startswith("search_profession_toggle:"))
+async def toggle_profession(callback: CallbackQuery, state: FSMContext):
+    index = callback_index(callback)
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+    profession_ids = data.get("profession_ids") or []
+
+    if index is None or index >= len(profession_ids):
+        await callback.answer()
+        return
+
+    profession_id = profession_ids[index]
+    selected_ids = list(data.get("selected_profession_ids") or [])
+    selected_names = list(data.get("selected_profession_names") or [])
+
+    async with get_session() as session:
+        profession = await SpecialistRepository(session).get_active_profession(
+            UUID(profession_id)
+        )
+
+    if not profession:
+        await callback.answer(t("search_profession_not_found", language), show_alert=True)
+        return
+
+    profession_name = item_name(profession, language)
+
+    if profession_id in selected_ids:
+        remove_index = selected_ids.index(profession_id)
+        selected_ids.pop(remove_index)
+        if remove_index < len(selected_names):
+            selected_names.pop(remove_index)
+    else:
+        selected_ids.append(profession_id)
+        selected_names.append(profession_name)
+
+    await state.update_data(
+        selected_profession_ids=selected_ids,
+        selected_profession_names=selected_names,
+        profession_page=int(data.get("profession_page") or 0),
+    )
+
+    page = int(data.get("profession_page") or 0)
+    category_id = UUID(data["category_id"]) if data.get("category_id") else None
+
+    async with get_session() as session:
+        if category_id:
+            professions = await SpecialistRepository(session).list_active_professions_by_category(
+                category_id,
+                limit=100,
+            )
+        else:
+            professions = await SpecialistRepository(session).list_active_professions(limit=100)
+
+    await show_callback_message(
+        callback,
+        t("search_choose_profession", language),
+        profession_keyboard(
+            professions=professions,
+            page=page,
+            language=language,
+            selected_ids=set(selected_ids),
+        ),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data == "search_professions_reset")
+async def reset_selected_professions(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+    category_id = UUID(data["category_id"]) if data.get("category_id") else None
+    page = int(data.get("profession_page") or 0)
+
+    await state.update_data(
+        selected_profession_ids=[],
+        selected_profession_names=[],
+        profession_id=None,
+        profession_name=None,
+    )
+
+    async with get_session() as session:
+        if category_id:
+            professions = await SpecialistRepository(session).list_active_professions_by_category(
+                category_id,
+                limit=100,
+            )
+        else:
+            professions = await SpecialistRepository(session).list_active_professions(limit=100)
+
+    await show_callback_message(
+        callback,
+        t("search_choose_profession", language),
+        profession_keyboard(
+            professions=professions,
+            page=page,
+            language=language,
+            selected_ids=set(),
+        ),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data == "search_professions_apply")
+async def apply_selected_professions(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    selected_ids = list(data.get("selected_profession_ids") or [])
+    selected_names = list(data.get("selected_profession_names") or [])
+    language = await get_search_language(state, callback)
+
+    if not selected_ids:
+        await callback.answer(
+            t("search_selected_directions_required", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        profession_id=selected_ids[0],
+        profession_name=", ".join(selected_names),
+        selected_profession_ids=selected_ids,
+        selected_profession_names=selected_names,
+        location_state="without",
+        page=0,
+    )
+    await render_results(event=callback, state=state, page=0)
 
 @search_router.callback_query(F.data.startswith("search_profession:"))
 async def choose_profession(callback: CallbackQuery, state: FSMContext):
@@ -2477,9 +3206,10 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
     await state.update_data(
         profession_id=str(profession.id),
         profession_name=item_name(profession, language),
+        location_state="without",
         page=0,
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 
 @search_router.callback_query(F.data == "search_filter_location")
@@ -2542,8 +3272,7 @@ async def choose_search_without_location(callback: CallbackQuery, state: FSMCont
         page=0,
     )
 
-    await show_filters(callback, state)
-    await callback.answer()
+    await render_results(event=callback, state=state, page=0)
 
 @search_router.message(SpecialistSearchFSM.entering_location_query)
 async def receive_location_query(message: Message, state: FSMContext):
@@ -2830,7 +3559,7 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
         search_geo_candidates=[],
         page=0,
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 async def log_search_filters_changed(
     callback: CallbackQuery,
@@ -2876,7 +3605,7 @@ async def choose_radius(callback: CallbackQuery, state: FSMContext):
             filter_name="radius",
             value="country",
         )
-        await show_filters(callback, state)
+        await render_results(event=callback, state=state, page=0)
         return
     try:
         radius_km = int(value)
@@ -2891,7 +3620,7 @@ async def choose_radius(callback: CallbackQuery, state: FSMContext):
         filter_name="radius",
         value=radius_km,
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 @search_router.callback_query(F.data == "search_filter_work_format")
 async def open_work_format_filter(callback: CallbackQuery, state: FSMContext):
@@ -2934,7 +3663,7 @@ async def choose_work_format_filter(callback: CallbackQuery, state: FSMContext):
         filter_name="work_format",
         value=work_format or "any",
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 
 @search_router.callback_query(F.data == "search_filter_language")
@@ -2960,48 +3689,103 @@ async def choose_language_filter(callback: CallbackQuery, state: FSMContext):
         filter_name="language",
         value=language_code or "any",
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 
-@search_router.callback_query(F.data == "search_filter_price")
-async def open_price_filter(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
+@search_router.callback_query(F.data == "search_filter_availability")
+async def open_availability_filter(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
-    await show_callback_message(callback, t("search_price_prompt", language), search_price_keyboard(language))
+    await show_callback_message(
+        callback,
+        t("search_availability_prompt", language),
+        search_availability_keyboard(language),
+    )
     await callback.answer()
 
 
-@search_router.callback_query(F.data.startswith("search_price:"))
-async def choose_price_filter(callback: CallbackQuery, state: FSMContext):
+@search_router.callback_query(F.data.startswith("search_availability:"))
+async def choose_availability_filter(callback: CallbackQuery, state: FSMContext):
     value = (callback.data or "").split(":", 1)[1]
 
     if value == "any":
-        price_min = None
-        price_max = None
-    elif value == "0_25":
-        price_min = None
-        price_max = 25
-    elif value == "0_50":
-        price_min = None
-        price_max = 50
-    elif value == "0_100":
-        price_min = None
-        price_max = 100
+        available_only = False
+    elif value == "now":
+        available_only = True
     else:
         await callback.answer()
         return
 
-    await state.update_data(price_min=price_min, price_max=price_max, page=0)
+    await state.update_data(available_only=available_only, page=0)
     await log_search_filters_changed(
         callback,
-        filter_name="price",
-        value={
-            "min": price_min,
-            "max": price_max,
-        },
+        filter_name="availability",
+        value="available_now" if available_only else "any",
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
+
+@search_router.callback_query(F.data == "search_filter_verified")
+async def open_verified_filter(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+    await show_callback_message(
+        callback,
+        t("search_verified_prompt", language),
+        search_verified_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data.startswith("search_verified:"))
+async def choose_verified_filter(callback: CallbackQuery, state: FSMContext):
+    value = (callback.data or "").split(":", 1)[1]
+
+    if value == "any":
+        verified_only = False
+    elif value == "only":
+        verified_only = True
+    else:
+        await callback.answer()
+        return
+
+    await state.update_data(verified_only=verified_only, page=0)
+    await log_search_filters_changed(
+        callback,
+        filter_name="verified_profile",
+        value="only" if verified_only else "any",
+    )
+    await render_results(event=callback, state=state, page=0)
+
+
+@search_router.callback_query(F.data == "search_filter_rating")
+async def open_rating_filter(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+    await show_callback_message(
+        callback,
+        t("search_rating_prompt", language),
+        search_rating_keyboard(language),
+    )
+    await callback.answer()
+
+
+@search_router.callback_query(F.data.startswith("search_rating:"))
+async def choose_rating_filter(callback: CallbackQuery, state: FSMContext):
+    value = (callback.data or "").split(":", 1)[1]
+
+    if value == "any":
+        rating_min = None
+    elif value == "4":
+        rating_min = 4
+    else:
+        await callback.answer()
+        return
+
+    await state.update_data(rating_min=rating_min, page=0)
+    await log_search_filters_changed(
+        callback,
+        filter_name="rating",
+        value=rating_min or "any",
+    )
+    await render_results(event=callback, state=state, page=0)
 
 @search_router.callback_query(F.data == "search_filter_sort")
 async def open_sort_filter(callback: CallbackQuery, state: FSMContext):
@@ -3025,7 +3809,7 @@ async def choose_sort_filter(callback: CallbackQuery, state: FSMContext):
         filter_name="sort",
         value=value,
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 
 @search_router.callback_query(F.data == "search_reset_filters")
@@ -3048,8 +3832,9 @@ async def reset_search_filters(callback: CallbackQuery, state: FSMContext):
         radius_km=DEFAULT_RADIUS_KM,
         work_format=None,
         language_code=None,
-        price_min=None,
-        price_max=None,
+        verified_only=False,
+        available_only=False,
+        rating_min=None,
         sort_by="distance",
         page=0,
     )
@@ -3058,7 +3843,7 @@ async def reset_search_filters(callback: CallbackQuery, state: FSMContext):
         filter_name="reset",
         value="all",
     )
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 
 @search_router.callback_query(F.data == "search_empty_increase_radius")
@@ -3083,43 +3868,26 @@ async def empty_increase_radius(callback: CallbackQuery, state: FSMContext):
 
     await render_results(event=callback, state=state, page=0)
 
-@search_router.callback_query(F.data == "search_empty_reset_price")
-async def empty_reset_price(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(
-        price_min=None,
-        price_max=None,
-        page=0,
-    )
-    await render_results(event=callback, state=state, page=0)
 
 @search_router.callback_query(F.data == "search_empty_reset_profession")
 async def empty_reset_profession(callback: CallbackQuery, state: FSMContext):
     await state.update_data(profession_id=None, profession_name=None, page=0)
-    await show_filters(callback, state)
+    await render_results(event=callback, state=state, page=0)
 
 
 @search_router.callback_query(F.data == "search_show_results")
 async def show_filtered_results(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    language = await get_search_language(state, callback)
     has_location = (
-        bool(data.get("city_id"))
-        or (
-            data.get("latitude") is not None
-            and data.get("longitude") is not None
-        )
-        or data.get("location_state") == "without"
+        data.get("location_state") == "without"
         or data.get("work_format") == "remote"
+        or data.get("city_id")
+        or data.get("latitude") is not None
+        or data.get("country_wide")
     )
+
     if not has_location:
-        await show_callback_message(
-            callback,
-            t("search_location_prompt", language),
-            search_location_keyboard(language),
-        )
-        await state.set_state(SpecialistSearchFSM.choosing_filters)
-        await callback.answer()
-        return
+        await state.update_data(location_state="without")
 
     await render_results(event=callback, state=state, page=0)
 
@@ -4464,6 +5232,293 @@ async def show_original_message(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
+@search_router.callback_query(F.data == "ORDER_CREATE_FROM_THREAD")
+async def start_order_from_thread_form(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, callback)
+    thread_id = data.get("active_thread_id")
+
+    if not thread_id:
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(
+        pending_order_thread_id=thread_id,
+        pending_order_thread_role=data.get("active_thread_role"),
+    )
+    await state.set_state(SpecialistSearchFSM.entering_order_form)
+
+    await show_callback_message(
+        callback,
+        t("order_form_prompt", language),
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("cancel", language),
+                        callback_data="ORDER_FORM_CANCEL",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="search_menu",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+def localized_order_error(error: Exception | str, language: str) -> str:
+    error_text = str(error)
+
+    mapping = {
+        "Order description is required.": "order_description_required",
+        "Order description is too short.": "order_description_too_short",
+        "Order amount must be a number or '-'.": "order_amount_invalid",
+        "Order amount cannot be negative.": "order_amount_negative",
+        "Order currency must use 3 letters, for example EUR.": "order_currency_invalid",
+        "Order not found.": "order_not_found_error",
+        "Service order not found.": "order_not_found_error",
+        "Only draft order can be confirmed.": "order_confirm_not_allowed",
+        "Order must be confirmed by the other side.": "order_other_side_confirm_required",
+        "Only order participants can confirm the order.": "order_participant_required",
+        "Only confirmed order can be completed.": "order_complete_not_allowed",
+        "Only order participants can complete the order.": "order_participant_required",
+    }
+
+    return t(mapping.get(error_text, "contact_request_error"), language).format(
+        error=error_text,
+    )
+
+def service_order_status_label(status: str | None, language: str) -> str:
+    labels = {
+        "draft": {
+            "ru": "Ожидает подтверждения",
+            "en": "Waiting for confirmation",
+            "pt": "Aguardando confirmação",
+        },
+        "confirmed": {
+            "ru": "Подтвержден",
+            "en": "Confirmed",
+            "pt": "Confirmado",
+        },
+        "completed": {
+            "ru": "Завершен",
+            "en": "Completed",
+            "pt": "Concluído",
+        },
+        "cancelled": {
+            "ru": "Отменен",
+            "en": "Cancelled",
+            "pt": "Cancelado",
+        },
+    }
+
+    normalized_language = language if language in {"ru", "en", "pt"} else "ru"
+    return labels.get(status or "", {}).get(normalized_language, "")
+
+def localized_review_error(error: Exception | str, language: str) -> str:
+    error_text = str(error)
+
+    mapping = {
+        "Only completed service orders can be reviewed.": "review_order_completed_required",
+        "This service order already has a review.": "review_already_exists",
+        "invalid rating": "review_invalid_rating",
+        "missing review data": "review_missing_data",
+    }
+
+    return t(mapping.get(error_text, "review_error"), language).format(
+        error=error_text,
+    )
+
+@search_router.message(SpecialistSearchFSM.entering_order_form)
+async def receive_order_form(message: Message, state: FSMContext):
+    data = await state.get_data()
+    language = await get_search_language(state, message)
+    thread_id = data.get("pending_order_thread_id")
+
+    if not thread_id:
+        await state.set_state(None)
+        await message.answer(t("contact_thread_not_found", language))
+        return
+
+    actor_user_id, tenant_id = await get_requester_context(message.from_user.id)
+    if not actor_user_id or not tenant_id:
+        await state.set_state(None)
+        await message.answer(t("billing_start_required", language))
+        return
+
+    service = ContactChatService(None)
+
+    try:
+        form = service.parse_service_order_form(message.text or "")
+    except ContactChatError as exc:
+        await message.answer(localized_order_error(exc, language))
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ContactChatService(
+                ContactChatRepository(session)
+            ).create_service_order_draft_from_thread(
+                thread_id=UUID(thread_id),
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+                description=form.description,
+                schedule_text=form.schedule_text,
+                agreed_amount=form.agreed_amount,
+                currency=form.currency,
+            )
+    except ContactChatError as exc:
+        await message.answer(localized_order_error(exc, language))
+        return
+
+    await state.update_data(
+        pending_order_thread_id=None,
+        pending_order_thread_role=None,
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("order_draft_created_from_thread", language).format(
+            order_id=str(result.order_id)[:8],
+            status=service_order_status_label(result.status, language),
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("order_confirm_btn", language),
+                        callback_data=f"ORDER_CONFIRM:{result.order_id}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("contact_back_to_dialogs_btn", language),
+                        callback_data=(
+                            "SPEC_DIALOGS"
+                            if data.get("pending_order_thread_role") == "specialist"
+                            else "CLIENT_DIALOGS"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="search_menu",
+                    )
+                ],
+            ]
+        ),
+    )
+
+@search_router.callback_query(F.data == "ORDER_FORM_CANCEL")
+async def cancel_order_form(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+
+    await state.update_data(
+        pending_order_thread_id=None,
+        pending_order_thread_role=None,
+    )
+    await state.set_state(None)
+
+    await show_callback_message(
+        callback,
+        t("order_form_cancelled", language),
+        contact_thread_keyboard_for_role(language, None),
+    )
+    await callback.answer()
+
+@search_router.callback_query(F.data.startswith("ORDER_CONFIRM:"))
+async def confirm_service_order(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+
+    try:
+        order_id = UUID((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            localized_order_error("Order not found.", language),
+            show_alert=True,
+        )
+        return
+
+    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not actor_user_id or not tenant_id:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ContactChatService(
+                ContactChatRepository(session)
+            ).confirm_service_order(
+                order_id=order_id,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            localized_order_error(exc, language),
+            show_alert=True,
+        )
+        return
+
+    await show_callback_message(
+        callback,
+        t("order_confirmed", language).format(
+            order_id=str(result.order_id)[:8],
+            status=service_order_status_label(result.status, language),
+        ),
+        contact_thread_keyboard(language),
+    )
+    await callback.answer()
+
+@search_router.callback_query(F.data.startswith("ORDER_COMPLETE:"))
+async def complete_service_order(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+
+    try:
+        order_id = UUID((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            localized_order_error("Order not found.", language),
+            show_alert=True,
+        )
+        return
+
+    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    if not actor_user_id or not tenant_id:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ContactChatService(
+                ContactChatRepository(session)
+            ).complete_service_order(
+                order_id=order_id,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            localized_order_error(exc, language),
+            show_alert=True,
+        )
+        return
+
+    await show_callback_message(
+        callback,
+        t("order_completed", language).format(
+            order_id=str(result.order_id)[:8],
+            status=service_order_status_label(result.status, language),
+        ),
+        contact_thread_keyboard(language),
+    )
+    await callback.answer()
+
 @search_router.callback_query(F.data == "contact_finish")
 async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -4519,6 +5574,30 @@ async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
         ),
     )
     await callback.answer()
+
+@search_router.callback_query(F.data.startswith("review_start_order:"))
+async def start_service_order_review(callback: CallbackQuery, state: FSMContext):
+    language = await get_search_language(state, callback)
+    service_order_id = callback.data.split(":", 1)[1]
+
+    if not service_order_id:
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(
+        review_contact_request_id=None,
+        review_service_order_id=service_order_id,
+        review_rating=None,
+        review_text=None,
+    )
+    await state.set_state(SpecialistSearchFSM.choosing_review_rating)
+
+    await callback.message.answer(
+        t("review_rating_prompt", language),
+        reply_markup=review_rating_keyboard(language),
+    )
+    await callback.answer()
+
 @search_router.callback_query(F.data.startswith("review_start:"))
 async def start_contact_review(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
@@ -4530,6 +5609,7 @@ async def start_contact_review(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(
         review_contact_request_id=contact_request_id,
+        review_service_order_id=None,
         review_rating=None,
         review_text=None,
     )
@@ -4549,11 +5629,17 @@ async def choose_review_rating(callback: CallbackQuery, state: FSMContext):
     try:
         rating = int(callback.data.split(":", 1)[1])
     except (TypeError, ValueError):
-        await callback.answer(t("review_error", language).format(error="invalid rating"), show_alert=True)
+        await callback.answer(
+            localized_review_error("invalid rating", language),
+            show_alert=True,
+        )
         return
 
     if rating < 1 or rating > 5:
-        await callback.answer(t("review_error", language).format(error="invalid rating"), show_alert=True)
+        await callback.answer(
+            localized_review_error("invalid rating", language),
+            show_alert=True,
+        )
         return
 
     await state.update_data(review_rating=rating)
@@ -4581,11 +5667,12 @@ async def create_review_from_state(event: CallbackQuery | Message, state: FSMCon
     data = await state.get_data()
     language = await get_search_language(state, event)
     contact_request_id = data.get("review_contact_request_id")
+    service_order_id = data.get("review_service_order_id")
     rating = data.get("review_rating")
 
-    if not contact_request_id or not rating:
+    if not (contact_request_id or service_order_id) or not rating:
         target = event.message if isinstance(event, CallbackQuery) else event
-        await target.answer(t("review_error", language).format(error="missing review data"))
+        await target.answer(localized_review_error("missing review data", language))
         if isinstance(event, CallbackQuery):
             await event.answer()
         return
@@ -4600,22 +5687,33 @@ async def create_review_from_state(event: CallbackQuery | Message, state: FSMCon
 
     try:
         async with get_session() as session:
-            await ReviewService(ReviewRepository(session)).create_contact_review(
-                tenant_id=tenant_id,
-                reviewer_user_id=reviewer_user_id,
-                contact_request_id=UUID(contact_request_id),
-                rating=int(rating),
-                text=text,
-            )
+            review_service = ReviewService(ReviewRepository(session))
+            if service_order_id:
+                await review_service.create_service_order_review(
+                    tenant_id=tenant_id,
+                    reviewer_user_id=reviewer_user_id,
+                    service_order_id=UUID(service_order_id),
+                    rating=int(rating),
+                    text=text,
+                )
+            else:
+                await review_service.create_contact_review(
+                    tenant_id=tenant_id,
+                    reviewer_user_id=reviewer_user_id,
+                    contact_request_id=UUID(contact_request_id),
+                    rating=int(rating),
+                    text=text,
+                )
     except ReviewServiceError as exc:
         target = event.message if isinstance(event, CallbackQuery) else event
-        await target.answer(t("review_error", language).format(error=str(exc)))
+        await target.answer(localized_review_error(exc, language))
         if isinstance(event, CallbackQuery):
             await event.answer()
         return
 
     await state.update_data(
         review_contact_request_id=None,
+        review_service_order_id=None,
         review_rating=None,
         review_text=None,
     )

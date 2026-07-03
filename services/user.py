@@ -34,6 +34,25 @@ class RoleSwitchResult:
     role_details: dict[str, str]
     unread_counts: dict[str, int]
 
+@dataclass(frozen=True)
+class ClientProfileResult:
+    user_number: str
+    name: str | None
+    username: str | None
+    language_code: str
+    city_name: str | None
+    active_role: str | None
+    available_roles: list[str]
+
+
+@dataclass(frozen=True)
+class PublicPlatformStats:
+    countries: int
+    cities: int
+    users: int
+    specialists: int
+
+
 class UserService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -62,6 +81,60 @@ class UserService:
             return None
 
         return await self.session.get(User, account.user_id)
+
+    async def get_public_platform_stats(self) -> PublicPlatformStats:
+        stats = await self.repository.get_public_platform_stats()
+
+        return PublicPlatformStats(
+            countries=stats["countries"],
+            cities=stats["cities"],
+            users=stats["users"],
+            specialists=stats["specialists"],
+        )
+
+    async def get_client_profile(
+        self,
+        *,
+        telegram_id: int | str,
+        language: str = "ru",
+    ) -> ClientProfileResult | None:
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if not user:
+            return None
+
+        row = await self.repository.get_client_profile_row(
+            user.id,
+            language=language,
+        )
+        if not row:
+            return None
+
+        user_row, account, city_name = row
+        roles = await self.repository.list_active_roles(user.id)
+
+        name = None
+        username = None
+        if account:
+            name = (
+                account.display_name
+                or " ".join(
+                    part
+                    for part in [account.first_name, account.last_name]
+                    if part
+                )
+                or None
+            )
+            username = account.username
+
+        return ClientProfileResult(
+            user_number=f"user-{str(user_row.id)[:8]}",
+            name=name,
+            username=username,
+            language_code=user_row.language_code,
+            city_name=city_name,
+            active_role=user_row.active_role,
+            available_roles=roles,
+        )
 
     async def update_interface_language(
         self,

@@ -57,6 +57,36 @@ class ContactThreadStatusResult:
     status: str
 
 @dataclass
+class ServiceOrderDraftResult:
+    order_id: UUID
+    thread_id: UUID
+    contact_request_id: UUID | None
+    status: str
+
+@dataclass
+class ServiceOrderStatusResult:
+    order_id: UUID
+    thread_id: UUID
+    contact_request_id: UUID | None
+    status: str
+
+@dataclass
+class ServiceOrderListItem:
+    order_id: UUID
+    thread_id: UUID
+    contact_request_id: UUID | None
+    specialist_name: str
+    client_name: str
+    profession_name: str | None
+    status: str
+    description: str | None
+    schedule_text: str | None
+    agreed_amount: float | None
+    currency: str
+    created_at: datetime
+    is_client: bool
+
+@dataclass
 class ContactThreadVisibilityResult:
     thread_id: UUID
     user_id: UUID
@@ -99,10 +129,14 @@ class ContactThreadDetail:
     thread_id: UUID
     contact_request_id: UUID | None
     specialist_name: str
+    client_name: str
     profession_name: str | None
     request_text: str | None
     request_status: str | None
     thread_status: str
+    active_order_id: UUID | None
+    active_order_status: str | None
+    active_order_created_by: UUID | None
     messages: list[str]
 
 @dataclass
@@ -137,6 +171,13 @@ class SpecialistContactRequestListItem:
     status: str
     created_at: datetime
 
+@dataclass
+class ServiceOrderFormData:
+    description: str
+    schedule_text: str | None
+    agreed_amount: float | None
+    currency: str
+
 class ContactChatService:
     def __init__(
         self,
@@ -153,6 +194,49 @@ class ContactChatService:
             )
         else:
             self.rate_limit_service = None
+
+    def parse_service_order_form(self, text: str) -> ServiceOrderFormData:
+        lines = [
+            line.strip()
+            for line in (text or "").splitlines()
+            if line.strip()
+        ]
+
+        if not lines:
+            raise ContactChatError("Order description is required.")
+
+        description = lines[0]
+        if len(description) < 5:
+            raise ContactChatError("Order description is too short.")
+
+        schedule_text = lines[1] if len(lines) > 1 else None
+        amount_line = lines[2] if len(lines) > 2 else "-"
+
+        agreed_amount = None
+        currency = "EUR"
+
+        if amount_line and amount_line != "-":
+            parts = amount_line.replace(",", ".").split()
+            try:
+                agreed_amount = float(parts[0])
+            except (IndexError, TypeError, ValueError) as exc:
+                raise ContactChatError("Order amount must be a number or '-'.") from exc
+
+            if agreed_amount < 0:
+                raise ContactChatError("Order amount cannot be negative.")
+
+            if len(parts) > 1:
+                currency = parts[1].upper()
+
+            if len(currency) != 3:
+                raise ContactChatError("Order currency must use 3 letters, for example EUR.")
+
+        return ServiceOrderFormData(
+            description=description,
+            schedule_text=schedule_text,
+            agreed_amount=agreed_amount,
+            currency=currency,
+        )
 
     def _normalize_language(self, language: str | None) -> str:
         return language if language in {"ru", "en", "pt"} else "ru"
@@ -667,6 +751,46 @@ class ContactChatService:
             for request, thread_id, specialist_name, profession_name in rows
         ]
 
+    async def list_user_service_orders(
+        self,
+        *,
+        user_id: UUID,
+        language: str = "ru",
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[ServiceOrderListItem]:
+        rows = await self.repository.list_service_orders_for_user(
+            user_id=user_id,
+            language=language,
+            limit=limit,
+            offset=offset,
+        )
+
+        items: list[ServiceOrderListItem] = []
+
+        for order, specialist_name, profession_name, client_name in rows:
+            metadata = order.extra_metadata or {}
+            items.append(
+                ServiceOrderListItem(
+                    order_id=order.id,
+                    thread_id=order.thread_id,
+                    contact_request_id=order.contact_request_id,
+                    specialist_name=specialist_name,
+                    client_name=client_name,
+                    profession_name=profession_name,
+                    status=order.status,
+                    description=order.description,
+                    schedule_text=metadata.get("schedule_text"),
+                    agreed_amount=float(order.agreed_amount)
+                    if order.agreed_amount is not None
+                    else None,
+                    currency=order.currency,
+                    created_at=order.created_at,
+                    is_client=order.client_user_id == user_id,
+                )
+            )
+
+        return items
 
     async def get_client_request_detail(
         self,
@@ -710,17 +834,38 @@ class ContactChatService:
         if not row:
             raise ContactChatError("Conversation thread not found.")
 
-        thread, contact_request, specialist_name, profession_name, messages = row
+        (
+            thread,
+            contact_request,
+            specialist_name,
+            client_name,
+            profession_name,
+            active_order_id,
+            active_order_status,
+            active_order_created_by,
+            messages,
+        ) = row
 
         return ContactThreadDetail(
             thread_id=thread.id,
             contact_request_id=contact_request.id if contact_request else None,
             specialist_name=specialist_name,
+            client_name=client_name or "Client",
             profession_name=profession_name,
             request_text=contact_request.message if contact_request else None,
             request_status=contact_request.status if contact_request else None,
             thread_status=thread.status,
-            messages=[message.original_text for message in messages],
+            active_order_id=active_order_id,
+            active_order_status=active_order_status,
+            active_order_created_by=active_order_created_by,
+            messages=[
+                (
+                    f"Клиент: {message.original_text}"
+                    if message.sender_user_id == thread.client_user_id
+                    else f"Специалист: {message.original_text}"
+                )
+                for message in messages
+            ],
         )
 
     async def send_thread_message(
@@ -794,6 +939,83 @@ class ContactChatService:
             message_id=receipt.message_id,
             user_id=receipt.user_id,
             receipt_id=receipt.id,
+        )
+
+    async def create_service_order_draft_from_thread(
+        self,
+        *,
+        thread_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+        description: str | None = None,
+        schedule_text: str | None = None,
+        agreed_amount: float | None = None,
+        currency: str = "EUR",
+    ) -> ServiceOrderDraftResult:
+        try:
+            order = await self.repository.create_service_order_draft_from_thread(
+                thread_id=thread_id,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+                description=description,
+                schedule_text=schedule_text,
+                agreed_amount=agreed_amount,
+                currency=currency,
+            )
+        except ValueError as exc:
+            raise ContactChatError(str(exc)) from exc
+
+        return ServiceOrderDraftResult(
+            order_id=order.id,
+            thread_id=order.thread_id,
+            contact_request_id=order.contact_request_id,
+            status=order.status,
+        )
+
+    async def confirm_service_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+    ) -> ServiceOrderStatusResult:
+        try:
+            order = await self.repository.confirm_service_order(
+                order_id=order_id,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+            )
+        except ValueError as exc:
+            raise ContactChatError(str(exc)) from exc
+
+        return ServiceOrderStatusResult(
+            order_id=order.id,
+            thread_id=order.thread_id,
+            contact_request_id=order.contact_request_id,
+            status=order.status,
+        )
+
+    async def complete_service_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+    ) -> ServiceOrderStatusResult:
+        try:
+            order = await self.repository.complete_service_order(
+                order_id=order_id,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+            )
+        except ValueError as exc:
+            raise ContactChatError(str(exc)) from exc
+
+        return ServiceOrderStatusResult(
+            order_id=order.id,
+            thread_id=order.thread_id,
+            contact_request_id=order.contact_request_id,
+            status=order.status,
         )
 
     async def complete_thread(

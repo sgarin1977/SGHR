@@ -20,20 +20,22 @@ from database.repositories.geo_repository import GeoRepository
 from database.repositories.rate_limit import RateLimitRepository
 from database.repositories.translation import TranslationRepository
 from database.models import (
-    City,
-    Country,
     Invoice,
     PaidFeature,
     Specialist,
-    ContactRequest,
     SpecialistService as SpecialistServiceModel,
-    UserConsent,
 )
 from database.repositories.billing import BillingRepository
+from database.repositories.legal import LegalRepository
 from database.repositories.specialist import SpecialistRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard_for_user, normalize_language, open_current_role_cabinet, send_global_main_menu
-from handlers.search import SpecialistSearchFSM, complaint_reason_keyboard, contact_thread_keyboard
+from handlers.search import (
+    SpecialistSearchFSM,
+    complaint_reason_keyboard,
+    contact_thread_keyboard,
+    format_search_history_item,
+)
 from services.billing import BillingError, BillingService
 from services.specialist import (
     SpecialistProfileUpdateData,
@@ -56,7 +58,6 @@ from services.reviews import ReviewService
 from io import BytesIO
 from database.repositories.contact import ContactChatRepository
 from services.contact_chat import ContactChatError, ContactChatService
-from sqlalchemy import delete, func, select
 
 billing_router = Router()
 logger = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ class SpecialistCabinetFSM(StatesGroup):
     entering_service_description = State()
     entering_service_price = State()
     confirming_service = State()
+    entering_availability_date = State()
 
 
 async def get_billing_user_context(telegram_id: int | str):
@@ -134,19 +136,11 @@ async def get_client_cabinet_counts(telegram_id: int | str) -> dict[str, int]:
         if role_context:
             dialogs_unread = int((role_context.unread_counts or {}).get("client", 0))
 
-        requests_result = await session.execute(
-            select(ContactRequest.status, func.count(ContactRequest.id))
-            .where(
-                ContactRequest.from_user_id == user.id,
-                ContactRequest.status.in_(["new", "accepted"]),
-            )
-            .group_by(ContactRequest.status)
+        by_status = await ContactChatRepository(
+            session
+        ).count_client_active_requests_by_status(
+            user_id=user.id,
         )
-
-        by_status = {
-            status: int(count or 0)
-            for status, count in requests_result.all()
-        }
 
         requests_new = by_status.get("new", 0)
         requests_accepted = by_status.get("accepted", 0)
@@ -175,84 +169,6 @@ def billing_menu_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
         ]
     )
-
-def client_cabinet_keyboard(
-    language: str,
-    *,
-    show_role_switch: bool = False,
-    show_specialist_registration: bool = False,
-) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=t("menu_find_specialist", language),
-                callback_data="M_FIND",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("client_dialogs_btn", language),
-                callback_data="CLIENT_DIALOGS",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("client_requests_btn", language),
-                callback_data="CLIENT_REQUESTS",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("cabinet_favorites", language),
-                callback_data="CAB_FAVORITES",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("cabinet_crm_btn", language),
-                callback_data="CAB_CRM_STUB",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("cabinet_finance_btn", language),
-                callback_data="CAB_FINANCE_STUB",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_settings", language),
-                callback_data="M_SETTINGS",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("support_open_btn", language),
-                callback_data="SUPPORT_MENU",
-            )
-        ],
-    ]
-
-    if show_role_switch:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("switch_profile", language),
-                    callback_data="ROLE_SWITCH_MENU",
-                )
-            ]
-        )
-
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_menu", language),
-                callback_data="BILL_MENU",
-            )
-        ]
-    )
-
-    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 CLIENT_DIALOGS_PAGE_SIZE = 5
 CLIENT_REQUESTS_PAGE_SIZE = 5
@@ -346,20 +262,14 @@ def client_cabinet_keyboard(
     rows = [
         [
             InlineKeyboardButton(
-                text=t("menu_find_specialist", language),
-                callback_data="M_FIND",
+                text=t("cabinet_my_profile_btn", language),
+                callback_data="CAB_USER_PROFILE",
             )
         ],
         [
             InlineKeyboardButton(
-                text=t("client_dialogs_btn", language),
-                callback_data="CLIENT_DIALOGS",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("client_requests_btn", language),
-                callback_data="CLIENT_REQUESTS",
+                text=t("cabinet_my_roles_btn", language),
+                callback_data="ROLE_SWITCH_MENU",
             )
         ],
         [
@@ -368,8 +278,39 @@ def client_cabinet_keyboard(
                 callback_data="CAB_FAVORITES",
             )
         ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_my_orders_btn", language),
+                callback_data="CAB_ORDERS",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_specialist_btn", language),
+                callback_data="M_SPECIALIST",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_crm_btn", language),
+                callback_data="CAB_CRM_STUB",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("cabinet_finance_btn", language),
+                callback_data="CAB_FINANCE_STUB",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("back", language),
+                callback_data="BILL_MENU",
+            )
+        ],
     ]
 
+    return InlineKeyboardMarkup(inline_keyboard=rows)
     if show_specialist_registration:
         rows.append(
             [
@@ -540,13 +481,7 @@ def client_request_card_keyboard(
                 callback_data=f"CLIENT_REQUEST_CARD_CANCEL:{request_id}",
             )
         )
-    if can_finish:
-        action_row.append(
-            InlineKeyboardButton(
-                text=t("contact_finish_btn", language),
-                callback_data=f"CLIENT_REQUEST_CARD_FINISH:{request_id}",
-            )
-        )
+    # Completion now goes through service orders in the dialog.
     if action_row:
         rows.append(action_row)
 
@@ -582,7 +517,9 @@ def client_dialog_status_label(status: str | None, language: str) -> str:
     return t(key, language)
 
 def compact_dialog_text(value: str | None, limit: int = 56) -> str:
-    text = (value or "-").strip()
+    text = (value or "").strip()
+    if not text:
+        return ""
     if len(text) <= limit:
         return text
     return f"{text[: limit - 3]}..."
@@ -593,10 +530,11 @@ def format_dialog_card(
     display_number: int,
     language: str,
 ) -> str:
-    name = item.specialist_name or "-"
-    profession = item.profession_name or "-"
+    name = item.specialist_name or item.client_name or t("client_dialog_unknown_user", language)
+    profession = item.profession_name
     status = client_dialog_status_label(item.status, language)
     unread = item.unread_count or 0
+
     if item.last_message_text == "[deleted by user request]":
         last_text = t("dialog_message_deleted", language)
     else:
@@ -611,11 +549,17 @@ def format_dialog_card(
         else ""
     )
 
-    return (
-        f"{display_number}. {name} | {status}{unread_part}\n"
-        f"{profession}\n"
-        f"{t('dialog_last_message_short', language).format(message=last_text)}"
-    )
+    lines = [f"{display_number}. {name} | {status}{unread_part}"]
+
+    if profession:
+        lines.append(profession)
+
+    if last_text:
+        lines.append(
+            t("dialog_last_message_short", language).format(message=last_text)
+        )
+
+    return "\n".join(lines)
 
 def format_client_dialogs_text(
     items,
@@ -642,6 +586,115 @@ def format_client_dialogs_text(
         f"{t('dialogs_header_view_count', language).format(view=view_label, count=len(items))}"
     )
 
+def service_order_status_label(status: str | None, language: str) -> str:
+    labels = {
+        "draft": {
+            "ru": "Ожидает подтверждения",
+            "en": "Waiting for confirmation",
+            "pt": "Aguardando confirmacao",
+        },
+        "confirmed": {
+            "ru": "Подтвержден",
+            "en": "Confirmed",
+            "pt": "Confirmado",
+        },
+        "completed": {
+            "ru": "Завершен",
+            "en": "Completed",
+            "pt": "Concluido",
+        },
+        "cancelled": {
+            "ru": "Отменен",
+            "en": "Cancelled",
+            "pt": "Cancelado",
+        },
+    }
+
+    normalized_language = language if language in {"ru", "en", "pt"} else "ru"
+    return labels.get(status or "", {}).get(normalized_language, status or "")
+
+def format_client_orders_text(items, language: str) -> str:
+    if not items:
+        return t("cabinet_orders_empty", language)
+
+    lines = [t("cabinet_orders_title", language), ""]
+
+    for index, item in enumerate(items, start=1):
+        description = (item.description or "").strip()
+        if len(description) > 90:
+            description = description[:87] + "..."
+
+        partner = item.specialist_name if item.is_client else item.client_name
+        order_lines = [
+            f"{index}. order-{str(item.order_id)[:8]}",
+            f"{t('client_thread_specialist_label' if item.is_client else 'client_thread_client_label', language)}: {partner}",
+        ]
+
+        if item.profession_name:
+            order_lines.append(
+                f"{t('search_filter_profession_label', language)}: {item.profession_name}"
+            )
+
+        order_lines.append(
+            f"{t('admin_status', language)}: {service_order_status_label(item.status, language)}"
+        )
+
+        if item.agreed_amount is not None:
+            order_lines.append(
+                f"{t('billing_amount', language)}: {item.agreed_amount:g} {item.currency}"
+            )
+
+        if item.schedule_text:
+            order_lines.append(item.schedule_text)
+
+        order_lines.append(f"{t('client_request_date', language)}: {item.created_at:%Y-%m-%d}")
+
+        if description:
+            order_lines.append(description)
+
+        lines.append("\n".join(order_lines))
+
+    return "\n\n".join(lines)
+
+
+def client_orders_keyboard(items, language: str) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index, _ in enumerate(items):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{index + 1}. {t('client_dialog_open', language)}",
+                    callback_data=f"CLIENT_ORDER_OPEN:{index}",
+                )
+            ]
+        )
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("contact_back_to_dialogs_btn", language),
+                    callback_data="CLIENT_DIALOGS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("back", language),
+                    callback_data="M_CABINET",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 def format_client_requests_text(items, language: str) -> str:
     if not items:
         return t("client_requests_empty", language)
@@ -649,29 +702,56 @@ def format_client_requests_text(items, language: str) -> str:
     lines = [t("client_requests_title", language), ""]
 
     for index, item in enumerate(items, start=1):
-        message = item.message or "-"
+        message = (item.message or "").strip()
         if len(message) > 80:
             message = message[:77] + "..."
 
-        lines.append(
-            f"{index}. {item.specialist_name}\n"
-            f"{t('search_filter_profession_label', language)}: {item.profession_name or '-'}\n"
-            f"{t('admin_status', language)}: {client_dialog_status_label(item.status, language)}\n"
-            f"{t('client_request_date', language)}: {item.created_at:%Y-%m-%d}\n"
-            f"{message}"
+        request_lines = [
+            f"{index}. {item.specialist_name}",
+        ]
+
+        if item.profession_name:
+            request_lines.append(
+                f"{t('search_filter_profession_label', language)}: {item.profession_name}"
+            )
+
+        request_lines.extend(
+            [
+                f"{t('admin_status', language)}: {client_dialog_status_label(item.status, language)}",
+                f"{t('client_request_date', language)}: {item.created_at:%Y-%m-%d}",
+            ]
         )
+
+        if message:
+            request_lines.append(message)
+
+        lines.append("\n".join(request_lines))
 
     return "\n\n".join(lines)
 
+
 def format_client_request_detail_text(detail, language: str) -> str:
-    return (
-        f"{t('client_request_detail_title', language)}\n\n"
-        f"{t('client_thread_specialist_label', language)}: {detail.specialist_name}\n"
-        f"{t('search_filter_profession_label', language)}: {detail.profession_name or '-'}\n"
-        f"{t('admin_status', language)}: {client_dialog_status_label(detail.status, language)}\n"
-        f"{t('client_request_date', language)}: {detail.created_at:%Y-%m-%d}\n\n"
-        f"{detail.message}"
+    lines = [
+        t("client_request_detail_title", language),
+        "",
+        f"{t('client_thread_specialist_label', language)}: {detail.specialist_name}",
+    ]
+
+    if detail.profession_name:
+        lines.append(
+            f"{t('search_filter_profession_label', language)}: {detail.profession_name}"
+        )
+
+    lines.extend(
+        [
+            f"{t('admin_status', language)}: {client_dialog_status_label(detail.status, language)}",
+            f"{t('client_request_date', language)}: {detail.created_at:%Y-%m-%d}",
+            "",
+            detail.message,
+        ]
     )
+
+    return "\n".join(lines)
 
 def format_client_thread_detail_text(detail, language: str) -> str:
     messages = detail.messages or []
@@ -681,16 +761,82 @@ def format_client_thread_detail_text(detail, language: str) -> str:
     else:
         history = t("client_thread_no_messages", language)
 
-    return (
-        f"{t('client_thread_detail_title', language)}\n\n"
-        f"{t('client_thread_specialist_label', language)}: {detail.specialist_name}\n"
-        f"{t('search_filter_profession_label', language)}: {detail.profession_name or '-'}\n"
-        f"{t('admin_status', language)}: {client_dialog_status_label(detail.thread_status, language)}\n\n"
-        f"{t('client_thread_request_label', language)}:\n"
-        f"{detail.request_text or '-'}\n\n"
-        f"{t('client_thread_history_label', language)}:\n"
-        f"{history}"
+    lines = [
+        t("client_thread_detail_title", language),
+        "",
+        f"{t('client_thread_specialist_label', language)}: {detail.specialist_name}",
+    ]
+
+    if detail.profession_name:
+        lines.append(
+            t("dialog_context_profession", language).format(
+                profession=detail.profession_name,
+            )
+        )
+
+    lines.extend(
+        [
+            f"{t('admin_status', language)}: {client_dialog_status_label(detail.thread_status, language)}",
+            "",
+            f"{t('client_thread_request_label', language)}:",
+            detail.request_text or "",
+            "",
+            f"{t('client_thread_history_label', language)}:",
+            history,
+        ]
     )
+
+    return "\n".join(line for line in lines if line != "")
+
+def format_specialist_thread_detail_text(detail, language: str) -> str:
+    messages = detail.messages or []
+
+    if messages:
+        history = "\n".join(f"- {message}" for message in messages[-10:])
+    else:
+        history = t("client_thread_no_messages", language)
+
+    order_text = ""
+    if detail.active_order_id:
+        order_text = (
+            f"\n\n"
+            f"{t('order_active_title', language)}\n"
+            f"{t('order_number_label', language)}: order-{str(detail.active_order_id)[:8]}\n"
+            f"{t('admin_status', language)}: {service_order_status_label(detail.active_order_status, language)}"
+        )
+
+    lines = [
+        t("client_thread_detail_title", language),
+        "",
+        f"{t('client_thread_client_label', language)}: {detail.client_name}",
+    ]
+
+    if detail.profession_name:
+        lines.append(
+            t("dialog_context_profession", language).format(
+                profession=detail.profession_name,
+            )
+        )
+
+    lines.append(
+        f"{t('admin_status', language)}: {client_dialog_status_label(detail.thread_status, language)}"
+    )
+
+    if order_text:
+        lines.append(order_text.strip())
+
+    lines.extend(
+        [
+            "",
+            f"{t('client_thread_request_label', language)}:",
+            detail.request_text or "",
+            "",
+            f"{t('client_thread_history_label', language)}:",
+            history,
+        ]
+    )
+
+    return "\n".join(line for line in lines if line != "")
 
 def paid_features_keyboard(
     features: list[PaidFeature],
@@ -745,6 +891,12 @@ def cabinet_menu_keyboard(
     rows = [
         [
             InlineKeyboardButton(
+                text=t("spec_public_profile_btn", language),
+                callback_data="SPEC_PUBLIC_PROFILE",
+            )
+        ],
+        [
+            InlineKeyboardButton(
                 text=t("specialist_new_requests_btn", language),
                 callback_data="SPEC_REQUESTS",
             )
@@ -757,50 +909,44 @@ def cabinet_menu_keyboard(
         ],
         [
             InlineKeyboardButton(
-                text=t("cabinet_crm_btn", language),
-                callback_data="CAB_CRM_STUB",
+                text=t("spec_categories_directions_btn", language),
+                callback_data="CAB_EDIT_CATEGORY",
             )
         ],
         [
             InlineKeyboardButton(
-                text=t("cabinet_finance_btn", language),
-                callback_data="CAB_FINANCE_STUB",
+                text=t("spec_skills_btn", language),
+                callback_data="SPEC_SKILLS",
             )
         ],
         [
             InlineKeyboardButton(
-                text=t("cabinet_profile", language),
-                callback_data="CAB_PROFILE",
+                text=t("spec_geo_work_btn", language),
+                callback_data="CAB_EDIT_LOCATION",
             )
         ],
         [
             InlineKeyboardButton(
-                text=t("specialist_services_btn", language),
-                callback_data="SPEC_SERVICES",
+                text=t("specialist_profile_languages_btn", language),
+                callback_data="CAB_EDIT_LANGUAGES",
             )
         ],
         [
             InlineKeyboardButton(
-                text=t("portfolio_button", language),
+                text=t("specialist_profile_portfolio_btn", language),
                 callback_data="CAB_PORTFOLIO",
             )
         ],
         [
             InlineKeyboardButton(
-                text=t("reviews_btn", language),
-                callback_data="SPEC_REVIEWS",
+                text=t("spec_availability_btn", language),
+                callback_data="SPEC_AVAILABILITY",
             )
         ],
         [
             InlineKeyboardButton(
-                text=t("billing_promotions", language),
-                callback_data="BETA_DISABLED:promotion",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_settings", language),
-                callback_data="SPEC_SETTINGS",
+                text=t("spec_moderation_btn", language),
+                callback_data="SPEC_MODERATION",
             )
         ],
     ]
@@ -825,14 +971,36 @@ def cabinet_menu_keyboard(
     )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
 def favorites_list_keyboard(
     specialists: list[Specialist],
     language: str,
     *,
     page: int = 0,
+    search_events: list | None = None,
 ) -> InlineKeyboardMarkup:
     rows = []
+    search_events = search_events or []
+
+    if search_events:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("search_history_btn", language),
+                    callback_data="SEARCH_HISTORY",
+                )
+            ]
+        )
+
+        for index, event in enumerate(search_events[:3], start=1):
+            label = format_search_history_item(event.payload or {}, language)
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"{index}. {label}"[:64],
+                        callback_data="SEARCH_HISTORY",
+                    )
+                ]
+            )
 
     for index, specialist in enumerate(specialists):
         rows.append(
@@ -924,36 +1092,71 @@ def favorite_work_format_label(value: str | None, language: str) -> str:
 
 
 def format_favorite_card(card: SpecialistPublicCard, language: str) -> str:
-    price = t("search_price_not_set", language)
-    if card.price_from and card.price_to:
-        price = f"{card.price_from}-{card.price_to} {card.currency}"
-    elif card.price_from:
-        price = f"{t('search_price_from', language)} {card.price_from} {card.currency}"
+    lines = [card.display_name, ""]
 
-    languages = ", ".join(card.languages) if card.languages else t("search_filter_not_set", language)
-    city = card.city_name or t("search_filter_not_set", language)
-    category = card.category_name or t("search_filter_not_set", language)
-    profession = card.profession_name or t("search_filter_not_set", language)
+    category_parts = [
+        part
+        for part in [card.category_name, card.profession_name]
+        if part
+    ]
+    if category_parts:
+        lines.append(" • ".join(category_parts))
+
+    if card.city_name:
+        lines.append(f"{t('search_filter_location_label', language)}: {card.city_name}")
+    elif card.work_format == "remote":
+        lines.append(
+            f"{t('search_filter_location_label', language)}: "
+            f"{favorite_work_format_label('remote', language)}"
+        )
+
     work_format = favorite_work_format_label(card.work_format, language)
-    services = ", ".join(card.service_titles) if card.service_titles else t("search_filter_not_set", language)
+    if card.work_format:
+        lines.append(f"{t('search_filter_work_label', language)}: {work_format}")
+
+    if card.service_titles:
+        lines.append(
+            f"{t('search_services_label', language)}: "
+            f"{', '.join(card.service_titles)}"
+        )
+
+    if card.languages:
+        lines.append(
+            f"{t('search_filter_language_label', language)}: "
+            f"{', '.join(card.languages)}"
+        )
 
     if card.reviews_count > 0 and card.rating is not None:
         rating = f"{float(card.rating):.1f} ({card.reviews_count})"
     else:
         rating = t("search_no_reviews", language)
 
-    return (
-        f"{card.display_name}\n\n"
-        f"{t('search_filter_category_label', language)}: {category}\n"
-        f"{t('search_filter_profession_label', language)}: {profession}\n"
-        f"{t('search_filter_location_label', language)}: {city}\n"
-        f"{t('search_filter_work_label', language)}: {work_format}\n"
-        f"{t('search_services_label', language)}: {services}\n"
-        f"{t('search_filter_price_label', language)}: {price}\n"
-        f"{t('search_filter_language_label', language)}: {languages}\n"
-        f"{t('search_rating', language)}: {rating}\n\n"
-        f"{card.short_description}\n\n"
-        f"{t('search_legal_warning', language)}"
+    lines.append(f"{t('search_rating', language)}: {rating}")
+
+    description = " ".join((card.short_description or "").split())
+    if description:
+        lines.extend(["", description[:300]])
+
+    lines.extend(["", t("search_legal_warning", language)])
+
+    return "\n".join(lines)
+
+def specialist_public_profile_preview_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("cabinet_specialist_btn", language),
+                    callback_data="M_SPECIALIST",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
     )
 
 def specialist_profile_keyboard(language: str) -> InlineKeyboardMarkup:
@@ -1428,6 +1631,314 @@ def profile_languages_keyboard(
         ]
     )
 
+def profile_skills_keyboard(
+    *,
+    skills,
+    selected_ids: list[str],
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index, skill in enumerate(skills[:30]):
+        skill_id = str(skill.id)
+        marker = "* " if skill_id in selected_ids else ""
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{marker}{localized_name(skill, language)}"[:64],
+                    callback_data=f"CAB_SKILL_TOGGLE:{index}",
+                )
+            ]
+        )
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("spec_profession_done_btn", language),
+                    callback_data="CAB_SKILLS_DONE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("billing_back", language),
+                    callback_data="M_SPECIALIST",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_profile_skills_text(skills, selected_ids: list[str], language: str) -> str:
+    if not skills:
+        return t("spec_skills_empty", language)
+
+    selected_names = [
+        localized_name(skill, language)
+        for skill in skills
+        if str(skill.id) in selected_ids
+    ]
+
+    if not selected_names:
+        return t("spec_skills_prompt", language)
+
+    return (
+        f"{t('spec_skills_prompt', language)}\n\n"
+        f"{t('spec_selected_skills_title', language)}\n"
+        + "\n".join(f"* {name}" for name in selected_names)
+    )
+
+def specialist_availability_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("spec_availability_now_btn", language),
+                    callback_data="SPEC_AVAILABILITY_SET:available_now",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("spec_availability_busy_btn", language),
+                    callback_data="SPEC_AVAILABILITY_SET:partly_busy",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("spec_availability_from_date_btn", language),
+                    callback_data="SPEC_AVAILABILITY_SET:available_from",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("cabinet_specialist_btn", language),
+                    callback_data="M_SPECIALIST",
+                )
+            ],
+        ]
+    )
+
+
+def format_specialist_availability_text(specialist, language: str) -> str:
+    metadata = dict(specialist.extra_metadata or {})
+    availability_status = metadata.get("availability_status")
+
+    if availability_status == "partly_busy":
+        status_text = t("spec_availability_busy", language)
+    elif availability_status == "available_from":
+        date_text = metadata.get("available_from_text") or ""
+        status_text = t("spec_availability_from_date", language).format(
+            date=date_text,
+        )
+    else:
+        status_text = t("spec_availability_now", language)
+
+    return (
+        f"{t('spec_availability_title', language)}\n\n"
+        f"{status_text}"
+    )
+
+def format_specialist_moderation_text(specialist, language: str) -> str:
+    status = specialist.status or "draft"
+
+    if status == "active":
+        status_text = t("spec_moderation_status_active", language)
+        hint_text = t("spec_moderation_status_active_hint", language)
+    elif status == "pending_moderation":
+        status_text = t("spec_moderation_status_pending", language)
+        hint_text = t("spec_moderation_status_pending_hint", language)
+    elif status == "rejected":
+        status_text = t("spec_moderation_status_rejected", language)
+        hint_text = t("spec_moderation_status_rejected_hint", language)
+    elif status == "hidden":
+        status_text = t("spec_moderation_status_hidden", language)
+        hint_text = t("spec_moderation_status_hidden_hint", language)
+    elif status == "paused":
+        status_text = t("spec_moderation_status_paused", language)
+        hint_text = t("spec_moderation_status_paused_hint", language)
+    else:
+        status_text = t("spec_moderation_status_draft", language)
+        hint_text = t("spec_moderation_status_draft_hint", language)
+
+    lines = [
+        t("spec_moderation_title", language),
+        "",
+        f"{t('admin_status', language)}: {status_text}",
+        hint_text,
+    ]
+
+    if specialist.moderation_comment:
+        lines.extend(
+            [
+                "",
+                f"{t('spec_moderation_comment_label', language)}:",
+                specialist.moderation_comment,
+            ]
+        )
+
+    return "\n".join(lines)
+
+@billing_router.callback_query(F.data == "SPEC_AVAILABILITY")
+async def show_specialist_availability(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    user, specialist, tenant_id = await get_current_specialist_for_telegram(
+        callback.from_user.id
+    )
+
+    if not user:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    if not specialist:
+        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        return
+
+    await state.update_data(
+        cabinet_specialist_id=str(specialist.id),
+        cabinet_user_id=str(user.id),
+        cabinet_tenant_id=str(tenant_id),
+    )
+
+    await callback.message.answer(
+        format_specialist_availability_text(specialist, language),
+        reply_markup=specialist_availability_keyboard(language),
+    )
+    await callback.answer()
+
+
+@billing_router.callback_query(F.data.startswith("SPEC_AVAILABILITY_SET:"))
+async def set_specialist_availability(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+
+    availability_status = (callback.data or "").split(":", 1)[1]
+
+    if availability_status == "available_from":
+        await state.update_data(pending_availability_status=availability_status)
+        await state.set_state(SpecialistCabinetFSM.entering_availability_date)
+        await callback.message.answer(
+            t("spec_availability_date_prompt", language),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t("billing_back", language),
+                            callback_data="SPEC_AVAILABILITY",
+                        )
+                    ]
+                ]
+            ),
+        )
+        await callback.answer()
+        return
+
+    specialist_id = data.get("cabinet_specialist_id")
+    user_id = data.get("cabinet_user_id")
+    tenant_id = data.get("cabinet_tenant_id")
+
+    if not specialist_id or not user_id or not tenant_id:
+        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        await state.clear()
+        return
+
+    async with get_session() as session:
+        try:
+            specialist, before_metadata, after_metadata, changed = await SpecialistService(
+                SpecialistRepository(session)
+            ).update_availability(
+                user_id=UUID(user_id),
+                specialist_id=UUID(specialist_id),
+                availability_status=availability_status,
+            )
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await callback.answer(str(exc), show_alert=True)
+            return
+
+        if changed:
+            await EventRepository(session).create_event(
+                tenant_id=UUID(tenant_id),
+                user_id=UUID(user_id),
+                event_type="change_submitted",
+                entity_type="specialist",
+                entity_id=UUID(specialist_id),
+                payload={
+                    "field": "availability",
+                    "before": before_metadata,
+                    "after": after_metadata,
+                },
+                platform="telegram",
+            )
+            await session.commit()
+
+    await callback.message.answer(
+        t("spec_availability_saved", language),
+        reply_markup=specialist_availability_keyboard(language),
+    )
+    await callback.answer()
+
+
+@billing_router.message(SpecialistCabinetFSM.entering_availability_date)
+async def receive_specialist_availability_date(message: Message, state: FSMContext):
+    language = await get_billing_interface_language(
+        message.from_user.id,
+        message.from_user.language_code,
+    )
+    data = await state.get_data()
+
+    specialist_id = data.get("cabinet_specialist_id")
+    user_id = data.get("cabinet_user_id")
+    tenant_id = data.get("cabinet_tenant_id")
+    date_text = (message.text or "").strip()
+
+    if not specialist_id or not user_id or not tenant_id:
+        await message.answer(t("cabinet_profile_not_found", language))
+        await state.clear()
+        return
+
+    async with get_session() as session:
+        try:
+            specialist, before_metadata, after_metadata, changed = await SpecialistService(
+                SpecialistRepository(session)
+            ).update_availability(
+                user_id=UUID(user_id),
+                specialist_id=UUID(specialist_id),
+                availability_status="available_from",
+                available_from_text=date_text,
+            )
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await message.answer(str(exc))
+            return
+
+        if changed:
+            await EventRepository(session).create_event(
+                tenant_id=UUID(tenant_id),
+                user_id=UUID(user_id),
+                event_type="change_submitted",
+                entity_type="specialist",
+                entity_id=UUID(specialist_id),
+                payload={
+                    "field": "availability",
+                    "before": before_metadata,
+                    "after": after_metadata,
+                },
+                platform="telegram",
+            )
+            await session.commit()
+
+    await state.set_state(None)
+    await message.answer(
+        t("spec_availability_saved", language),
+        reply_markup=specialist_availability_keyboard(language),
+    )
+
 def format_geo_candidates_text(candidates: list[dict], language: str) -> str:
     lines = []
 
@@ -1658,9 +2169,11 @@ async def get_specialist_location_text(
         return "-"
 
     async with get_session() as session:
-        city = await session.get(City, specialist.city_id) if specialist.city_id else None
-        country_id = city.country_id if city else specialist.country_id
-        country = await session.get(Country, country_id) if country_id else None
+        city, country = await SpecialistRepository(
+            session
+        ).get_specialist_location_parts(
+            specialist=specialist,
+        )
 
     city_name = localized_name(city, language)
     country_name = localized_name(country, language)
@@ -1691,7 +2204,6 @@ def format_specialist_profile_text(
         rating_text = f"{float(specialist.rating):.2f} ({reviews_count})"
     else:
         rating_text = t("search_no_reviews", language)
-    description = specialist.short_description or t("search_filter_not_set", language)
 
     if specialist.status == "active":
         status_text = t("specialist_profile_status_active", language)
@@ -1700,15 +2212,28 @@ def format_specialist_profile_text(
     else:
         status_text = t("specialist_profile_status_draft", language)
 
-    return (
-        f"{t('cabinet_profile_title', language)}\n\n"
-        f"👤 {specialist.display_name or '-'}\n\n"
-        f"🔧 {profession_text or '-'}\n\n"
-        f"⭐ {rating_text}\n\n"
-        f"📍 {location_text or '-'}\n\n"
-        f"{status_text}\n\n"
-        f"{description}"
-    )
+    lines = [
+        t("cabinet_profile_title", language),
+        "",
+    ]
+
+    if specialist.display_name:
+        lines.extend([f"👤 {specialist.display_name}", ""])
+
+    if profession_text and profession_text != "-":
+        lines.extend([f"🔧 {profession_text}", ""])
+
+    lines.extend([f"⭐ {rating_text}", ""])
+
+    if location_text and location_text != "-":
+        lines.extend([f"📍 {location_text}", ""])
+
+    lines.extend([status_text, ""])
+
+    if specialist.short_description:
+        lines.append(specialist.short_description)
+
+    return "\n".join(lines).strip()
 
 def specialist_profile_status_block(status: str | None, language: str) -> str:
     normalized = status or "draft"
@@ -1739,6 +2264,21 @@ def specialist_profile_status_block(status: str | None, language: str) -> str:
         f"{t('specialist_profile_status_draft', language)}\n"
         f"{t('specialist_profile_status_draft_hint', language)}"
     )
+
+def specialist_profile_status_label(status: str | None, language: str) -> str:
+    normalized = status or "draft"
+
+    labels = {
+        "active": "spec_moderation_status_active",
+        "pending_moderation": "spec_moderation_status_pending",
+        "rejected": "spec_moderation_status_rejected",
+        "hidden": "spec_moderation_status_hidden",
+        "paused": "spec_moderation_status_paused",
+        "draft": "spec_moderation_status_draft",
+    }
+
+    return t(labels.get(normalized, "spec_moderation_status_draft"), language)
+
 def format_specialist_cabinet_text(
     *,
     profession_name: str,
@@ -1751,7 +2291,7 @@ def format_specialist_cabinet_text(
     return (
         f"{t('specialist_cabinet_title', language)}\n\n"
         f"{t('search_filter_profession_label', language)}: {profession_name or '-'}\n"
-        f"{t('admin_status', language)}: {client_dialog_status_label(status, language)}\n"
+        f"{t('cabinet_profile_status', language)}: {specialist_profile_status_label(status, language)}\n"
         f"{t('specialist_new_requests_label', language)}: {new_requests}\n"
         f"{t('specialist_unread_label', language)}: {unread_count}\n\n"
         f"{moderation_text}"
@@ -1783,6 +2323,37 @@ def format_features_text(features: list[PaidFeature], language: str) -> str:
 
     return "\n".join(lines).strip()
 
+def billing_status_label(status: str | None, language: str) -> str:
+    labels = {
+        "pending": {
+            "ru": "Ожидает оплаты",
+            "en": "Waiting for payment",
+            "pt": "Aguardando pagamento",
+        },
+        "claimed": {
+            "ru": "Оплата отправлена на проверку",
+            "en": "Payment sent for review",
+            "pt": "Pagamento enviado para revisão",
+        },
+        "paid": {
+            "ru": "Оплачено",
+            "en": "Paid",
+            "pt": "Pago",
+        },
+        "cancelled": {
+            "ru": "Отменено",
+            "en": "Cancelled",
+            "pt": "Cancelado",
+        },
+        "failed": {
+            "ru": "Не удалось оплатить",
+            "en": "Payment failed",
+            "pt": "Falha no pagamento",
+        },
+    }
+
+    normalized_language = language if language in {"ru", "en", "pt"} else "ru"
+    return labels.get(status or "", {}).get(normalized_language, "")
 
 def format_invoice_text(
     invoice: Invoice,
@@ -1793,7 +2364,7 @@ def format_invoice_text(
         f"{t('billing_invoice_created', language)}\n\n"
         f"{t('billing_invoice_id', language)}: {invoice.id}\n"
         f"{t('billing_amount', language)}: {invoice.amount} {invoice.currency}\n"
-        f"{t('admin_status', language)}: {invoice.status}\n\n"
+        f"{t('admin_status', language)}: {billing_status_label(invoice.status, language)}\n\n"
         f"{t('billing_manual_instructions_title', language)}\n"
         f"{manual_instructions}"
     )
@@ -1881,13 +2452,11 @@ async def build_specialist_cabinet_payload(
         ]
         profession_name = ", ".join(profession_names) or "-"
 
-        requests_result = await session.execute(
-            select(func.count(ContactRequest.id)).where(
-                ContactRequest.specialist_id == specialist.id,
-                ContactRequest.status == "new",
-            )
+        new_requests = await ContactChatRepository(
+            session
+        ).count_new_requests_for_specialist(
+            specialist_id=specialist.id,
         )
-        new_requests = int(requests_result.scalar_one() or 0)
 
         moderation_text = specialist_status_notice(specialist.status, language)
 
@@ -2193,9 +2762,45 @@ async def open_specialist_request_from_list(callback: CallbackQuery, state: FSMC
         await callback.answer(t("contact_request_not_found", language), show_alert=True)
         return
 
-    await callback.answer(t("specialist_requests_title", language), show_alert=True)
+    thread_ids = data.get("specialist_request_thread_ids") or []
+    thread_id = thread_ids[index] if index < len(thread_ids) else None
 
-def specialist_thread_keyboard(language: str) -> InlineKeyboardMarkup:
+    if not thread_id:
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    await send_specialist_thread_detail(
+        callback=callback,
+        state=state,
+        thread_id=thread_id,
+        language=language,
+    )
+
+def specialist_thread_keyboard(
+    language: str,
+    order_id: str | None = None,
+    order_status: str | None = None,
+    can_create_order: bool = True,
+) -> InlineKeyboardMarkup:
+    order_rows = []
+    if order_id and order_status == "draft":
+        order_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("order_confirm_btn", language),
+                    callback_data=f"ORDER_CONFIRM:{order_id}",
+                )
+            ]
+        )
+    if order_id and order_status == "confirmed":
+        order_rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("order_complete_btn", language),
+                    callback_data=f"ORDER_COMPLETE:{order_id}",
+                )
+            ]
+        )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -2204,6 +2809,7 @@ def specialist_thread_keyboard(language: str) -> InlineKeyboardMarkup:
                     callback_data="contact_reply",
                 )
             ],
+            *order_rows,
             [
                 InlineKeyboardButton(
                     text=t("contact_archive_btn", language),
@@ -2214,12 +2820,18 @@ def specialist_thread_keyboard(language: str) -> InlineKeyboardMarkup:
                     callback_data="SPEC_THREAD_HIDE",
                 ),
             ],
-            [
-                InlineKeyboardButton(
-                    text=t("contact_complete_btn", language),
-                    callback_data="SPEC_THREAD_COMPLETE",
-                )
-            ],
+            *(
+                [
+                    [
+                        InlineKeyboardButton(
+                            text=t("order_create_btn", language),
+                            callback_data="ORDER_CREATE_FROM_THREAD",
+                        )
+                    ]
+                ]
+                if can_create_order
+                else []
+            ),
             [
                 InlineKeyboardButton(
                     text=t("search_report_btn", language),
@@ -2483,8 +3095,24 @@ async def send_specialist_thread_detail(
     )
 
     await callback.message.answer(
-        format_client_thread_detail_text(detail, language),
-        reply_markup=specialist_thread_keyboard(language),
+        format_specialist_thread_detail_text(detail, language),
+        reply_markup=specialist_thread_keyboard(
+            language,
+            order_id=(
+                str(detail.active_order_id)
+                if detail.active_order_id
+                and (
+                    (
+                        detail.active_order_status == "draft"
+                        and str(detail.active_order_created_by) != str(user_id)
+                    )
+                    or detail.active_order_status in {"confirmed", "completed"}
+                )
+                else None
+            ),
+            order_status=detail.active_order_status,
+            can_create_order=detail.active_order_id is None,
+        ),
     )
     await callback.answer()
 
@@ -2942,27 +3570,13 @@ async def specialist_services_entry(callback: CallbackQuery, state: FSMContext):
         return
 
     async with get_session() as session:
-        total_result = await session.execute(
-            select(func.count())
-            .select_from(SpecialistServiceModel)
-            .where(
-                SpecialistServiceModel.specialist_id == specialist.id,
-                SpecialistServiceModel.status != "deleted",
-            )
+        total, services = await SpecialistRepository(
+            session
+        ).list_specialist_services_page(
+            specialist_id=specialist.id,
+            limit=SPECIALIST_SERVICES_PAGE_SIZE,
+            offset=page * SPECIALIST_SERVICES_PAGE_SIZE,
         )
-        total = int(total_result.scalar_one() or 0)
-
-        result = await session.execute(
-            select(SpecialistServiceModel)
-            .where(
-                SpecialistServiceModel.specialist_id == specialist.id,
-                SpecialistServiceModel.status != "deleted",
-            )
-            .order_by(SpecialistServiceModel.created_at.desc())
-            .offset(page * SPECIALIST_SERVICES_PAGE_SIZE)
-            .limit(SPECIALIST_SERVICES_PAGE_SIZE)
-        )
-        services = list(result.scalars().all())
 
         await EventRepository(session).create_event(
             tenant_id=tenant_id,
@@ -3067,12 +3681,12 @@ async def edit_specialist_service(callback: CallbackQuery, state: FSMContext):
         return
 
     async with get_session() as session:
-        service = await session.get(SpecialistServiceModel, service_id)
-        if (
-            not service
-            or service.specialist_id != specialist.id
-            or service.status == "deleted"
-        ):
+        service = await SpecialistRepository(session).get_owned_service_item(
+            specialist_id=specialist.id,
+            user_id=user.id,
+            service_id=service_id,
+        )
+        if not service:
             await callback.answer(t("specialist_service_not_found", language), show_alert=True)
             return
 
@@ -3954,15 +4568,10 @@ async def specialist_settings_consents(callback: CallbackQuery, state: FSMContex
         return
 
     async with get_session() as session:
-        result = await session.execute(
-            select(UserConsent)
-            .where(
-                UserConsent.tenant_id == tenant_id,
-                UserConsent.user_id == user_id,
-            )
-            .order_by(UserConsent.accepted_at.desc())
+        consents = await LegalRepository(session).list_user_consents(
+            tenant_id=tenant_id,
+            user_id=user_id,
         )
-        consents = list(result.scalars().all())
 
     if consents:
         lines = [t("settings_consents_title", language), ""]
@@ -4097,6 +4706,130 @@ def format_specialist_requests_text(items, language: str) -> str:
 async def billing_open_current_role_cabinet(callback: CallbackQuery, state: FSMContext):
     await open_current_role_cabinet(callback, state)
 
+def format_client_user_profile(profile, language: str) -> str:
+    lines = [t("cabinet_user_profile_title", language), ""]
+
+    if profile.name:
+        lines.append(f"{t('cabinet_user_profile_name', language)}: {profile.name}")
+
+    if profile.username:
+        lines.append(f"Telegram: @{profile.username}")
+
+    lines.append(f"{t('cabinet_user_profile_number', language)}: {profile.user_number}")
+    lines.append(f"{t('cabinet_user_profile_language', language)}: {profile.language_code}")
+
+    if profile.city_name:
+        lines.append(f"{t('cabinet_user_profile_city', language)}: {profile.city_name}")
+
+    if profile.active_role:
+        lines.append(f"{t('cabinet_user_profile_active_role', language)}: {profile.active_role}")
+
+    if profile.available_roles:
+        lines.append(
+            f"{t('cabinet_user_profile_roles', language)}: "
+            f"{', '.join(profile.available_roles)}"
+        )
+
+    return "\n".join(lines)
+
+@billing_router.callback_query(F.data == "CAB_USER_PROFILE")
+async def show_client_user_profile(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    async with get_session() as session:
+        profile = await UserService(session).get_client_profile(
+            telegram_id=callback.from_user.id,
+            language=language,
+        )
+
+    if not profile:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    await callback.message.answer(
+        format_client_user_profile(profile, language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("back", language),
+                        callback_data="M_CABINET",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="BILL_MENU",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@billing_router.callback_query(F.data == "CAB_ORDERS")
+async def show_client_orders(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
+    if not user_id or not tenant_id:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    async with get_session() as session:
+        items = await ContactChatService(
+            ContactChatRepository(session)
+        ).list_user_service_orders(
+            user_id=user_id,
+            language=language,
+            limit=10,
+            offset=0,
+        )
+
+    await state.update_data(
+        client_order_thread_ids=[str(item.thread_id) for item in items],
+    )
+
+    await callback.message.answer(
+        format_client_orders_text(items, language),
+        reply_markup=client_orders_keyboard(items, language),
+    )
+    await callback.answer()
+
+
+@billing_router.callback_query(F.data.startswith("CLIENT_ORDER_OPEN:"))
+async def open_client_order_dialog(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    data = await state.get_data()
+    thread_ids = data.get("client_order_thread_ids") or []
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    if index < 0 or index >= len(thread_ids):
+        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        return
+
+    await send_client_thread_detail(
+        callback=callback,
+        state=state,
+        thread_id=thread_ids[index],
+        language=language,
+    )
+    
 async def show_client_cabinet(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(
         callback.from_user.id,
@@ -4165,8 +4898,8 @@ async def show_cabinet_stub(callback: CallbackQuery, state: FSMContext):
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("back", language),
-                        callback_data="M_CABINET",
+                    text=t("menu_my_cabinet", language),
+                    callback_data="M_CABINET",
                     )
                 ],
                 [
@@ -4179,6 +4912,43 @@ async def show_cabinet_stub(callback: CallbackQuery, state: FSMContext):
         ),
     )
     await callback.answer()
+
+@billing_router.callback_query(F.data == "SPEC_MODERATION")
+async def show_specialist_moderation(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    user, specialist, tenant_id = await get_current_specialist_for_telegram(
+        callback.from_user.id
+    )
+
+    if not specialist:
+        await callback.answer(t("specialist_not_found", language), show_alert=True)
+        return
+
+    await callback.message.answer(
+        format_specialist_moderation_text(specialist, language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("cabinet_specialist_btn", language),
+                        callback_data="M_SPECIALIST",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="BILL_MENU",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
 
 @billing_router.callback_query(F.data == "CAB_FAVORITES")
 @billing_router.callback_query(F.data.startswith("CAB_FAVORITES:"))
@@ -4205,6 +4975,11 @@ async def show_favorites(callback: CallbackQuery, state: FSMContext):
             limit=FAVORITES_PAGE_SIZE,
             offset=page * FAVORITES_PAGE_SIZE,
         )
+        search_events = await SpecialistSearchRepository(session).list_recent_search_events(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            limit=3,
+        )
         await EventRepository(session).create_event(
             event_type="favorites_opened",
             tenant_id=tenant_id,
@@ -4213,6 +4988,7 @@ async def show_favorites(callback: CallbackQuery, state: FSMContext):
             payload={
                 "page": page,
                 "items_count": len(specialists),
+                "searches_count": len(search_events),
             },
             platform="telegram",
         )
@@ -4221,19 +4997,30 @@ async def show_favorites(callback: CallbackQuery, state: FSMContext):
         user_language=language,
         cabinet_favorite_ids=[str(item.id) for item in specialists],
         cabinet_favorites_page=page,
+        cabinet_favorite_searches_count=len(search_events),
     )
 
-    if not specialists:
+    if not specialists and not search_events:
         await callback.message.answer(
             t("favorites_empty", language),
-            reply_markup=favorites_list_keyboard([], language, page=page),
+            reply_markup=favorites_list_keyboard(
+                [],
+                language,
+                page=page,
+                search_events=search_events,
+            ),
         )
         await callback.answer()
         return
 
     await callback.message.answer(
         t("favorites_title", language),
-        reply_markup=favorites_list_keyboard(specialists, language, page=page),
+        reply_markup=favorites_list_keyboard(
+            specialists,
+            language,
+            page=page,
+            search_events=search_events,
+        ),
     )
     await callback.answer()
 
@@ -4355,6 +5142,11 @@ async def remove_favorite_from_cabinet(callback: CallbackQuery, state: FSMContex
             limit=FAVORITES_PAGE_SIZE,
             offset=page * FAVORITES_PAGE_SIZE,
         )
+        search_events = await SpecialistSearchRepository(session).list_recent_search_events(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            limit=3,
+        )
 
     await state.update_data(
         cabinet_favorite_ids=[str(item.id) for item in specialists],
@@ -4362,9 +5154,14 @@ async def remove_favorite_from_cabinet(callback: CallbackQuery, state: FSMContex
     )
     await callback.message.answer(
         t("favorites_title", language) if specialists else t("favorites_empty", language),
-        reply_markup=favorites_list_keyboard(specialists, language, page=page),
+        reply_markup=favorites_list_keyboard(
+            specialists,
+            language,
+            page=page,
+            search_events=search_events,
+        ),
     )
-@billing_router.callback_query(F.data == "CAB_PROFILE")
+@billing_router.callback_query(F.data.in_({"CAB_PROFILE", "SPEC_PUBLIC_PROFILE"}))
 async def show_specialist_profile_menu(callback: CallbackQuery, state: FSMContext):
     language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
     user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
@@ -4395,7 +5192,7 @@ async def show_specialist_profile_menu(callback: CallbackQuery, state: FSMContex
             location_text,
             profession_text,
         ),
-        reply_markup=specialist_profile_keyboard(language),
+        reply_markup=specialist_public_profile_preview_keyboard(language),
     )
     await callback.answer()
 
@@ -5413,6 +6210,164 @@ async def save_specialist_languages(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
+@billing_router.callback_query(F.data == "SPEC_SKILLS")
+async def show_specialist_skills(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    user, specialist, tenant_id = await get_current_specialist_for_telegram(
+        callback.from_user.id
+    )
+
+    if not user:
+        await callback.answer(t("billing_start_required", language), show_alert=True)
+        return
+
+    if not specialist:
+        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        return
+
+    async with get_session() as session:
+        repository = SpecialistRepository(session)
+        skills = await repository.list_skills_for_specialist_professions(
+            specialist_id=specialist.id,
+            language=language,
+            limit=30,
+        )
+        selected_ids = [
+            str(item)
+            for item in await repository.list_user_skill_ids(user.id)
+        ]
+
+    await state.update_data(
+        cabinet_specialist_id=str(specialist.id),
+        cabinet_user_id=str(user.id),
+        cabinet_tenant_id=str(tenant_id),
+        cabinet_skill_ids=[str(skill.id) for skill in skills],
+        cabinet_selected_skill_ids=selected_ids,
+    )
+
+    await callback.message.answer(
+        format_profile_skills_text(skills, selected_ids, language),
+        reply_markup=profile_skills_keyboard(
+            skills=skills,
+            selected_ids=selected_ids,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+
+@billing_router.callback_query(F.data.startswith("CAB_SKILL_TOGGLE:"))
+async def toggle_specialist_skill(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+
+    try:
+        index = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    skill_ids = list(data.get("cabinet_skill_ids") or [])
+    selected_ids = list(data.get("cabinet_selected_skill_ids") or [])
+
+    if index < 0 or index >= len(skill_ids):
+        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        return
+
+    skill_id = skill_ids[index]
+
+    if skill_id in selected_ids:
+        selected_ids = [item for item in selected_ids if item != skill_id]
+    else:
+        selected_ids.append(skill_id)
+
+    await state.update_data(cabinet_selected_skill_ids=selected_ids)
+
+    async with get_session() as session:
+        user, specialist, tenant_id = await get_current_specialist_for_telegram(
+            callback.from_user.id
+        )
+        if not specialist:
+            await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+            return
+
+        skills = await SpecialistRepository(session).list_skills_for_specialist_professions(
+            specialist_id=specialist.id,
+            language=language,
+            limit=30,
+        )
+
+    await callback.message.answer(
+        format_profile_skills_text(skills, selected_ids, language),
+        reply_markup=profile_skills_keyboard(
+            skills=skills,
+            selected_ids=selected_ids,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+
+@billing_router.callback_query(F.data == "CAB_SKILLS_DONE")
+async def save_specialist_skills(callback: CallbackQuery, state: FSMContext):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+
+    specialist_id = data.get("cabinet_specialist_id")
+    user_id = data.get("cabinet_user_id")
+    tenant_id = data.get("cabinet_tenant_id")
+    selected_ids = list(data.get("cabinet_selected_skill_ids") or [])
+
+    if not specialist_id or not user_id or not tenant_id:
+        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        await state.clear()
+        return
+
+    async with get_session() as session:
+        try:
+            before_skills, after_skills, changed = await SpecialistService(
+                SpecialistRepository(session)
+            ).update_skills(
+                user_id=UUID(user_id),
+                specialist_id=UUID(specialist_id),
+                skill_ids=[UUID(item) for item in selected_ids],
+            )
+        except (SpecialistRegistrationError, ValueError) as exc:
+            await callback.answer(str(exc), show_alert=True)
+            return
+
+        if changed:
+            await EventRepository(session).create_event(
+                tenant_id=UUID(tenant_id),
+                user_id=UUID(user_id),
+                event_type="change_submitted",
+                entity_type="specialist",
+                entity_id=UUID(specialist_id),
+                payload={
+                    "field": "skills",
+                    "before": [str(item) for item in before_skills],
+                    "after": [str(item) for item in after_skills],
+                },
+                platform="telegram",
+            )
+            await session.commit()
+
+    await state.set_state(None)
+    await callback.message.answer(
+        t("spec_skills_saved", language),
+        reply_markup=specialist_edit_keyboard(language),
+    )
+    await callback.answer()
+
 async def block_critical_profile_edit(
     callback: CallbackQuery,
     state: FSMContext,
@@ -6060,8 +7015,11 @@ async def save_specialist_profile_update(
 
     try:
         async with get_session() as session:
-            db_specialist = await session.get(Specialist, UUID(specialist_id))
-            if not db_specialist or db_specialist.user_id != UUID(user_id):
+            db_specialist = await SpecialistRepository(session).get_owned_specialist(
+                specialist_id=UUID(specialist_id),
+                user_id=UUID(user_id),
+            )
+            if not db_specialist:
                 await message.answer(t("cabinet_profile_not_found", language))
                 await state.clear()
                 return
@@ -6316,7 +7274,9 @@ async def claim_billing_payment(callback: CallbackQuery, state: FSMContext):
     
 
     await callback.message.answer(
-        t("billing_payment_claimed", language).format(status=result.status),
+        t("billing_payment_claimed", language).format(
+            status=billing_status_label(result.status, language),
+        ),
         reply_markup=billing_menu_keyboard(language),
     )
     await callback.answer()
@@ -6489,7 +7449,23 @@ async def send_client_thread_detail(
 
     await callback.message.answer(
         format_client_thread_detail_text(detail, language),
-        reply_markup=contact_thread_keyboard(language),
+        reply_markup=contact_thread_keyboard(
+            language,
+            order_id=(
+                str(detail.active_order_id)
+                if detail.active_order_id
+                and (
+                    (
+                        detail.active_order_status == "draft"
+                        and str(detail.active_order_created_by) != str(user_id)
+                    )
+                    or detail.active_order_status in {"confirmed", "completed"}
+                )
+                else None
+            ),
+            order_status=detail.active_order_status,
+            can_create_order=detail.active_order_id is None,
+        ),
     )
     await callback.answer()
 

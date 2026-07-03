@@ -819,6 +819,16 @@ def test_specialist_registration_s8_confirmation_matches_tz10_contract():
 
     assert "required_fields =" in source
     assert "missing_fields =" in source
+    confirm_block = source.split(
+        "async def confirm_specialist",
+        1,
+    )[1].split(
+        "async def cancel_specialist_registration",
+        1,
+    )[0]
+
+    assert '"profile_photo"' not in confirm_block
+    assert '"photo"' not in confirm_block
     assert "spec_draft_missing" in source
 
     assert "from handlers.billing import show_specialist_cabinet" in source

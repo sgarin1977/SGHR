@@ -13,7 +13,10 @@ from database.models import (
     SpecialistProfession,
     SpecialistService,
     Profession,
+    ProfessionSkill,
+    Skill,
     User,
+    UserSkill,
     City,
 )
 
@@ -22,16 +25,16 @@ from database.models import (
 class SpecialistSearchFilters:
     category_id: UUID | None = None
     profession_id: UUID | None = None
+    profession_ids: list[UUID] | None = None
     city_id: UUID | None = None
     country_id: UUID | None = None
     latitude: float | None = None
     longitude: float | None = None
     radius_km: float | None = 25
-    price_min: float | None = None
-    price_max: float | None = None
     language_code: str | None = None
     verified_only: bool = False
     premium_only: bool = False
+    available_only: bool = False
     rating_min: float | None = None
     work_format: str | None = None
     status: str = "active"
@@ -177,6 +180,31 @@ class SpecialistSearchRepository:
         )
         return [title for title in result.scalars().all() if title]
 
+    async def get_public_skill_names_for_user(
+        self,
+        user_id: UUID,
+        language: str = "ru",
+        limit: int = 8,
+    ) -> list[str]:
+        name_field = {
+            "ru": Skill.name_ru,
+            "en": Skill.name_en,
+            "pt": Skill.name_pt,
+            "es": Skill.name_es,
+        }.get(language, Skill.name_ru)
+
+        result = await self.session.execute(
+            select(func.coalesce(name_field, Skill.name_ru, Skill.name))
+            .join(UserSkill, UserSkill.skill_id == Skill.id)
+            .where(
+                UserSkill.user_id == user_id,
+                Skill.is_active.is_(True),
+            )
+            .order_by(Skill.name.asc())
+            .limit(max(1, int(limit)))
+        )
+        return [name for name in result.scalars().all() if name]
+
     async def get_language_codes_for_specialist(
         self,
         specialist_id: UUID,
@@ -232,8 +260,6 @@ class SpecialistSearchRepository:
                     "city_id": str(filters.city_id) if filters.city_id else None,
                     "has_geo": filters.latitude is not None and filters.longitude is not None,
                     "radius_km": filters.normalized_radius_km,
-                    "price_min": filters.price_min,
-                    "price_max": filters.price_max,
                     "language_code": filters.language_code,
                     "verified_only": filters.verified_only,
                     "premium_only": filters.premium_only,
@@ -247,6 +273,31 @@ class SpecialistSearchRepository:
             )
         )
         await self.session.commit()
+
+    async def list_recent_search_events(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        limit: int = 5,
+    ) -> list[EventLog]:
+        normalized_limit = max(1, min(int(limit), 10))
+
+        result = await self.session.execute(
+            select(EventLog)
+            .where(
+                EventLog.tenant_id == tenant_id,
+                EventLog.user_id == user_id,
+                EventLog.event_type.in_(
+                    ["search_performed", "results_viewed", "empty_search"]
+                ),
+                EventLog.entity_type.in_(["search", "specialist_search"]),
+            )
+            .order_by(EventLog.created_at.desc())
+            .limit(normalized_limit)
+        )
+
+        return list(result.scalars().all())
 
     async def search_specialists(
         self,
@@ -329,36 +380,25 @@ class SpecialistSearchRepository:
                 )
             )
 
-        if filters.profession_id:
+        profession_ids = list(filters.profession_ids or [])
+        if filters.profession_id and filters.profession_id not in profession_ids:
+            profession_ids.append(filters.profession_id)
+
+        if profession_ids:
             profession_exists = exists(
                 select(SpecialistProfession.id).where(
                     SpecialistProfession.specialist_id == Specialist.id,
-                    SpecialistProfession.profession_id == filters.profession_id,
+                    SpecialistProfession.profession_id.in_(profession_ids),
                     SpecialistProfession.status == "active",
                 )
             )
             stmt = stmt.where(
                 or_(
-                    Specialist.profession_id == filters.profession_id,
+                    Specialist.profession_id.in_(profession_ids),
                     profession_exists,
                 )
             )
 
-        if filters.price_min is not None:
-            stmt = stmt.where(
-                or_(
-                    Specialist.price_to.is_(None),
-                    Specialist.price_to >= filters.price_min,
-                )
-            )
-
-        if filters.price_max is not None:
-            stmt = stmt.where(
-                or_(
-                    Specialist.price_from.is_(None),
-                    Specialist.price_from <= filters.price_max,
-                )
-            )
 
         if filters.language_code:
             language_exists = exists(
@@ -371,6 +411,12 @@ class SpecialistSearchRepository:
 
         if filters.premium_only:
             stmt = stmt.where(Specialist.is_premium.is_(True))
+
+        if filters.verified_only:
+            stmt = stmt.where(Specialist.is_verified.is_(True))
+
+        if filters.available_only:
+            stmt = stmt.where(Specialist.is_available.is_(True))
 
         if filters.rating_min is not None:
             stmt = stmt.where(Specialist.rating >= filters.rating_min)
@@ -401,11 +447,11 @@ class SpecialistSearchRepository:
         category_id: UUID | None = None,
         country_id: UUID | None = None,
         profession_id: UUID | None = None,
-        price_min: float | None = None,
-        price_max: float | None = None,
+        profession_ids: list[UUID] | None = None,
         language_code: str | None = None,
         verified_only: bool = False,
         premium_only: bool = False,
+        available_only: bool = False,
         rating_min: float | None = None,
         work_format: str | None = None,
         limit: int = 200,
@@ -460,36 +506,25 @@ class SpecialistSearchRepository:
                 )
             )
 
-        if profession_id:
+        profession_ids = list(profession_ids or [])
+        if profession_id and profession_id not in profession_ids:
+            profession_ids.append(profession_id)
+
+        if profession_ids:
             profession_exists = exists(
                 select(SpecialistProfession.id).where(
                     SpecialistProfession.specialist_id == Specialist.id,
-                    SpecialistProfession.profession_id == profession_id,
+                    SpecialistProfession.profession_id.in_(profession_ids),
                     SpecialistProfession.status == "active",
                 )
             )
             stmt = stmt.where(
                 or_(
-                    Specialist.profession_id == profession_id,
+                    Specialist.profession_id.in_(profession_ids),
                     profession_exists,
                 )
             )
 
-        if price_min is not None:
-            stmt = stmt.where(
-                or_(
-                    Specialist.price_to.is_(None),
-                    Specialist.price_to >= price_min,
-                )
-            )
-
-        if price_max is not None:
-            stmt = stmt.where(
-                or_(
-                    Specialist.price_from.is_(None),
-                    Specialist.price_from <= price_max,
-                )
-            )
 
         if language_code:
             language_exists = exists(
@@ -503,6 +538,12 @@ class SpecialistSearchRepository:
 
         if premium_only:
             stmt = stmt.where(Specialist.is_premium.is_(True))
+
+        if verified_only:
+            stmt = stmt.where(Specialist.is_verified.is_(True))
+
+        if available_only:
+            stmt = stmt.where(Specialist.is_available.is_(True))
 
         if rating_min is not None:
             stmt = stmt.where(Specialist.rating >= rating_min)
@@ -533,11 +574,11 @@ class SpecialistSearchRepository:
         country_id: UUID | None = None,
         category_id: UUID | None = None,
         profession_id: UUID | None = None,
-        price_min: float | None = None,
-        price_max: float | None = None,
+        profession_ids: list[UUID] | None = None,
         language_code: str | None = None,
         verified_only: bool = False,
         premium_only: bool = False,
+        available_only: bool = False,
         rating_min: float | None = None,
         work_format: str | None = None,
         limit: int = 200,
@@ -584,34 +625,22 @@ class SpecialistSearchRepository:
                 )
             )
 
-        if profession_id:
+        profession_ids = list(profession_ids or [])
+        if profession_id and profession_id not in profession_ids:
+            profession_ids.append(profession_id)
+
+        if profession_ids:
             profession_exists = exists(
                 select(SpecialistProfession.id).where(
                     SpecialistProfession.specialist_id == Specialist.id,
-                    SpecialistProfession.profession_id == profession_id,
+                    SpecialistProfession.profession_id.in_(profession_ids),
                     SpecialistProfession.status == "active",
                 )
             )
             stmt = stmt.where(
                 or_(
-                    Specialist.profession_id == profession_id,
+                    Specialist.profession_id.in_(profession_ids),
                     profession_exists,
-                )
-            )
-
-        if price_min is not None:
-            stmt = stmt.where(
-                or_(
-                    Specialist.price_to.is_(None),
-                    Specialist.price_to >= price_min,
-                )
-            )
-
-        if price_max is not None:
-            stmt = stmt.where(
-                or_(
-                    Specialist.price_from.is_(None),
-                    Specialist.price_from <= price_max,
                 )
             )
 
@@ -626,6 +655,12 @@ class SpecialistSearchRepository:
 
         if premium_only:
             stmt = stmt.where(Specialist.is_premium.is_(True))
+
+        if verified_only:
+            stmt = stmt.where(Specialist.is_verified.is_(True))
+
+        if available_only:
+            stmt = stmt.where(Specialist.is_available.is_(True))
 
         if rating_min is not None:
             stmt = stmt.where(Specialist.rating >= rating_min)

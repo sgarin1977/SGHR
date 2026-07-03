@@ -1,7 +1,7 @@
 import secrets
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database.models import (
@@ -10,6 +10,7 @@ from database.models import (
     ConversationParticipant,
     ConversationThread,
     EventLog,
+    ServiceOrder,
     Message,
     MessageReadReceipt,
     Notification,
@@ -135,6 +136,37 @@ class ContactChatRepository:
         )
         return result.scalar_one_or_none()
     
+    async def count_client_active_requests_by_status(
+        self,
+        *,
+        user_id: UUID,
+    ) -> dict[str, int]:
+        result = await self.session.execute(
+            select(ContactRequest.status, func.count(ContactRequest.id))
+            .where(
+                ContactRequest.from_user_id == user_id,
+                ContactRequest.status.in_(["new", "accepted"]),
+            )
+            .group_by(ContactRequest.status)
+        )
+
+        return {
+            status: int(count or 0)
+            for status, count in result.all()
+        }
+
+    async def count_new_requests_for_specialist(
+        self,
+        *,
+        specialist_id: UUID,
+    ) -> int:
+        result = await self.session.execute(
+            select(func.count(ContactRequest.id)).where(
+                ContactRequest.specialist_id == specialist_id,
+                ContactRequest.status == "new",
+            )
+        )
+        return int(result.scalar_one() or 0)
 
     async def request_thread_completion(
         self,
@@ -970,6 +1002,55 @@ class ContactChatRepository:
         )
         return list(result.all())
 
+    async def list_service_orders_for_user(
+        self,
+        *,
+        user_id: UUID,
+        limit: int = 10,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[tuple]:
+        localized_profession_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+        }.get(language, Profession.name_ru)
+
+        result = await self.session.execute(
+            select(
+                ServiceOrder,
+                Specialist.display_name.label("specialist_name"),
+                func.coalesce(
+                    localized_profession_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                ).label("profession_name"),
+                func.coalesce(
+                    UserAccount.display_name,
+                    UserAccount.first_name,
+                    UserAccount.username,
+                    literal("Client"),
+                ).label("client_name"),
+            )
+            .join(Specialist, Specialist.id == ServiceOrder.specialist_id)
+            .outerjoin(Profession, Profession.id == ServiceOrder.profession_id)
+            .outerjoin(
+                UserAccount,
+                (UserAccount.user_id == ServiceOrder.client_user_id)
+                & (UserAccount.platform == "telegram"),
+            )
+            .where(
+                (ServiceOrder.client_user_id == user_id)
+                | (ServiceOrder.specialist_user_id == user_id)
+            )
+            .order_by(ServiceOrder.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.all())
+
     async def list_contact_requests_for_specialist(
         self,
         *,
@@ -1096,22 +1177,35 @@ class ContactChatRepository:
                 ContactRequest,
                 Specialist.display_name,
                 func.coalesce(
+                    UserAccount.display_name,
+                    UserAccount.first_name,
+                    UserAccount.username,
+                    literal("Client"),
+                ).label("client_name"),
+                func.coalesce(
                     localized_profession_name,
                     Profession.name_ru,
                     Profession.name_en,
                     Profession.name_pt,
                     Profession.name,
                 ).label("profession_name"),
+                ServiceOrder.id.label("active_order_id"),
+                ServiceOrder.status.label("active_order_status"),
+                ServiceOrder.created_by.label("active_order_created_by"),
             )
             .join(ContactRequest, ContactRequest.id == ConversationThread.context_id)
             .join(Specialist, Specialist.id == ConversationThread.specialist_id)
             .outerjoin(
-                SpecialistProfession,
-                (SpecialistProfession.specialist_id == Specialist.id)
-                & (SpecialistProfession.status == "active")
-                & (SpecialistProfession.is_primary.is_(True)),
+                UserAccount,
+                (UserAccount.user_id == ContactRequest.from_user_id)
+                & (UserAccount.platform == "telegram"),
             )
-            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .outerjoin(Profession, Profession.id == ContactRequest.profession_id)
+            .outerjoin(
+                ServiceOrder,
+                (ServiceOrder.thread_id == ConversationThread.id)
+                & (ServiceOrder.status.in_({"draft", "confirmed", "completed"})),
+            )
             .where(
                 ConversationThread.id == thread_id,
                 ConversationThread.context_type == "contact_request",
@@ -1401,6 +1495,199 @@ class ContactChatRepository:
         self.session.add_all(events)
         await self.session.commit()
         return thread, participant
+
+    async def create_service_order_draft_from_thread(
+        self,
+        *,
+        thread_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+        description: str | None = None,
+        schedule_text: str | None = None,
+        agreed_amount: float | None = None,
+        currency: str = "EUR",
+        platform: str = "telegram",
+    ) -> ServiceOrder:
+        thread = await self.get_thread_for_user(
+            thread_id=thread_id,
+            user_id=actor_user_id,
+        )
+        if not thread or thread.tenant_id != tenant_id:
+            raise ValueError("Conversation thread not found.")
+
+        if thread.context_type != "contact_request" or not thread.context_id:
+            raise ValueError("Conversation thread is not linked to a contact request.")
+
+        if thread.status not in {
+            "open",
+            "waiting_client",
+            "waiting_specialist",
+            "in_discussion",
+        }:
+            raise ValueError("Conversation thread is not open for order creation.")
+
+        contact_request = await self.session.get(ContactRequest, thread.context_id)
+        if not contact_request:
+            raise ValueError("Contact request not found.")
+
+        specialist = await self.session.get(Specialist, thread.specialist_id)
+        if not specialist:
+            raise ValueError("Specialist not found.")
+
+        existing_result = await self.session.execute(
+            select(ServiceOrder).where(
+                ServiceOrder.contact_request_id == contact_request.id,
+                ServiceOrder.status.in_({"draft", "confirmed"}),
+            )
+        )
+        existing_order = existing_result.scalar_one_or_none()
+        if existing_order:
+            return existing_order
+
+        order = ServiceOrder(
+            tenant_id=tenant_id,
+            thread_id=thread.id,
+            contact_request_id=contact_request.id,
+            client_user_id=thread.client_user_id,
+            specialist_user_id=specialist.user_id,
+            specialist_id=thread.specialist_id,
+            profession_id=contact_request.profession_id,
+            status="draft",
+            description=(description or contact_request.message or "").strip() or None,
+            agreed_amount=agreed_amount,
+            currency=currency,
+            created_by=actor_user_id,
+            extra_metadata={
+                "source": "dialog",
+                "schedule_text": schedule_text,
+            },
+        )
+
+        self.session.add(order)
+        await self.session.flush()
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                event_type="service_order_created",
+                entity_type="service_order",
+                entity_id=order.id,
+                platform=platform,
+                payload={
+                    "thread_id": str(thread.id),
+                    "contact_request_id": str(contact_request.id),
+                    "status": order.status,
+                    "source": "dialog",
+                },
+            )
+        )
+
+        await self.session.commit()
+        return order
+
+    async def confirm_service_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+        platform: str = "telegram",
+    ) -> ServiceOrder:
+        order = await self.session.get(ServiceOrder, order_id)
+        if not order or order.tenant_id != tenant_id:
+            raise ValueError("Service order not found.")
+
+        if order.status != "draft":
+            raise ValueError("Only draft order can be confirmed.")
+
+        if actor_user_id == order.created_by:
+            raise ValueError("Order must be confirmed by the other side.")
+
+        if actor_user_id not in {
+            order.client_user_id,
+            order.specialist_user_id,
+        }:
+            raise ValueError("Only order participants can confirm the order.")
+
+        confirmed_at = datetime.utcnow()
+        order.status = "confirmed"
+        order.confirmed_by = actor_user_id
+        order.confirmed_at = confirmed_at
+        order.updated_at = confirmed_at
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                event_type="service_order_confirmed",
+                entity_type="service_order",
+                entity_id=order.id,
+                platform=platform,
+                payload={
+                    "thread_id": str(order.thread_id),
+                    "contact_request_id": (
+                        str(order.contact_request_id)
+                        if order.contact_request_id
+                        else None
+                    ),
+                    "status": order.status,
+                },
+            )
+        )
+
+        await self.session.commit()
+        return order
+
+    async def complete_service_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+        platform: str = "telegram",
+    ) -> ServiceOrder:
+        order = await self.session.get(ServiceOrder, order_id)
+        if not order or order.tenant_id != tenant_id:
+            raise ValueError("Service order not found.")
+
+        if order.status != "confirmed":
+            raise ValueError("Only confirmed order can be completed.")
+
+        if actor_user_id not in {
+            order.client_user_id,
+            order.specialist_user_id,
+        }:
+            raise ValueError("Only order participants can complete the order.")
+
+        completed_at = datetime.utcnow()
+        order.status = "completed"
+        order.completed_by = actor_user_id
+        order.completed_at = completed_at
+        order.updated_at = completed_at
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                event_type="service_order_completed",
+                entity_type="service_order",
+                entity_id=order.id,
+                platform=platform,
+                payload={
+                    "thread_id": str(order.thread_id),
+                    "contact_request_id": (
+                        str(order.contact_request_id)
+                        if order.contact_request_id
+                        else None
+                    ),
+                    "status": order.status,
+                },
+            )
+        )
+
+        await self.session.commit()
+        return order
 
     async def complete_thread(
         self,

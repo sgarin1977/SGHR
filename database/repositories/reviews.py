@@ -8,6 +8,7 @@ from database.models import (
     ContactRequest,
     ReputationScore,
     Review,
+    ServiceOrder,
     Specialist,
     UserRoleMapping,
 )
@@ -114,6 +115,23 @@ class ReviewRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_completed_service_order_for_review(
+        self,
+        *,
+        tenant_id: UUID,
+        reviewer_user_id: UUID,
+        service_order_id: UUID,
+    ) -> ServiceOrder | None:
+        result = await self.session.execute(
+            select(ServiceOrder).where(
+                ServiceOrder.id == service_order_id,
+                ServiceOrder.tenant_id == tenant_id,
+                ServiceOrder.client_user_id == reviewer_user_id,
+                ServiceOrder.status == "completed",
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_existing_contact_review(
         self,
         *,
@@ -125,6 +143,22 @@ class ReviewRepository:
                 Review.reviewer_user_id == reviewer_user_id,
                 Review.context_type == "contact_request",
                 Review.context_id == contact_request_id,
+                Review.status != "deleted",
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_existing_service_order_review(
+        self,
+        *,
+        reviewer_user_id: UUID,
+        service_order_id: UUID,
+    ) -> Review | None:
+        result = await self.session.execute(
+            select(Review).where(
+                Review.reviewer_user_id == reviewer_user_id,
+                Review.context_type == "service_order",
+                Review.context_id == service_order_id,
                 Review.status != "deleted",
             )
         )
@@ -161,6 +195,45 @@ class ReviewRepository:
             target_id=contact_request.specialist_id,
             context_type="contact_request",
             context_id=contact_request.id,
+            rating=rating,
+            text=(text or "").strip() or None,
+            status="pending_moderation",
+        )
+        self.session.add(review)
+        await self.session.flush()
+        return review
+
+    async def create_service_order_review(
+        self,
+        *,
+        tenant_id: UUID,
+        reviewer_user_id: UUID,
+        service_order_id: UUID,
+        rating: int,
+        text: str | None = None,
+    ) -> Review:
+        order = await self.get_completed_service_order_for_review(
+            tenant_id=tenant_id,
+            reviewer_user_id=reviewer_user_id,
+            service_order_id=service_order_id,
+        )
+        if not order:
+            raise ReviewError("Only completed service orders can be reviewed.")
+
+        existing = await self.get_existing_service_order_review(
+            reviewer_user_id=reviewer_user_id,
+            service_order_id=service_order_id,
+        )
+        if existing:
+            raise ReviewError("This service order already has a review.")
+
+        review = Review(
+            tenant_id=tenant_id,
+            reviewer_user_id=reviewer_user_id,
+            target_type="specialist",
+            target_id=order.specialist_id,
+            context_type="service_order",
+            context_id=order.id,
             rating=rating,
             text=(text or "").strip() or None,
             status="pending_moderation",

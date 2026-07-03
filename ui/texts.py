@@ -76,9 +76,9 @@ translations = {
         "pt": "Pronto",
     },
     "spec_confirm_btn": {
-        "ru": "Отправить",  
-        "en": "Submit",
-        "pt": "Enviar",
+        "ru": "Сохранить",
+        "en": "Save",
+        "pt": "Guardar",
     },
     "spec_restart_btn": {
         "ru": "Изменить",
@@ -288,14 +288,14 @@ translations = {
         "pt": "A nota de contato é obrigatória para Beta 0.4.",
     },
     "spec_price_not_set": {
-        "ru": "не указана",
-        "en": "not set",
-        "pt": "não definido",
+        "ru": "Стоимость обсудим в диалоге",
+        "en": "Price will be discussed in chat",
+        "pt": "O preço será combinado no chat",
     },
     "spec_summary": {
-        "ru": "Проверьте профиль специалиста:\n\nКатегория: {category}\nПрофессия: {profession}\nЛокация: {location}\nПрофиль: {display_name}\nОписание: {description}\nЦена: {price}\nФормат работы: {work_format}\nЯзыки: {languages}\nКонтакт: {contact}\n\nПосле подтверждения профиль будет отправлен на модерацию.",
-        "en": "Check specialist profile:\n\nCategory: {category}\nProfession: {profession}\nLocation: {location}\nProfile: {display_name}\nDescription: {description}\nPrice: {price}\nLanguages: {languages}\nContact: {contact}\n\nAfter confirmation, the profile will be sent to moderation.",
-        "pt": "Verifique o perfil de especialista:\n\nCategoria: {category}\nProfissão: {profession}\nLocalização: {location}\nPerfil: {display_name}\nDescrição: {description}\nPreço: {price}\nFormato de trabalho: {work_format}\nIdiomas: {languages}\nContato: {contact}\n\nApós a confirmação, o perfil será enviado para moderação.",
+        "ru": "Проверьте профиль специалиста:\n\nКатегория: {category}\nНаправление: {profession}\nЛокация: {location}\nПрофиль: {display_name}\nОписание: {description}\nФормат работы: {work_format}\nЯзыки: {languages}\nКонтакт: {contact}\n\nПосле подтверждения профиль будет отправлен на модерацию.",
+        "en": "Check specialist profile:\n\nCategory: {category}\nDirection: {profession}\nLocation: {location}\nProfile: {display_name}\nDescription: {description}\nWork format: {work_format}\nLanguages: {languages}\nContact: {contact}\n\nAfter confirmation, the profile will be sent to moderation.",
+        "pt": "Verifique o perfil de especialista:\n\nCategoria: {category}\nDireção: {profession}\nLocalização: {location}\nPerfil: {display_name}\nDescrição: {description}\nFormato de trabalho: {work_format}\nIdiomas: {languages}\nContato: {contact}\n\nApós a confirmação, o perfil será enviado para moderação.",
     },
     "spec_create_failed": {
         "ru": "Не удалось создать профиль: {error}",
@@ -507,7 +507,9 @@ translations = {
         "ru": "✅ Подтвердить", "pt": "✅ Confirmar", "en": "✅ Confirm"
     },
     "contact": {
-        "ru": "Связаться", "pt": "Entrar em contato", "en": "Contact"
+        "ru": "💬 Написать",
+        "en": "💬 Write",
+        "pt": "💬 Escrever"
     },
     "decline_order": {
         "ru": "❌ Отказать", "pt": "❌ Recusar", "en": "❌ Decline"
@@ -659,7 +661,9 @@ translations = {
         "en": "Specialist not found or unavailable."
     },
     "switch_profile": {
-        "ru": "Переключить профиль", "pt": "Alternar perfil", "en": "Switch profile"
+        "ru": "Переключить кабинет",
+        "en": "Switch cabinet",
+        "pt": "Trocar gabinete",
     },
     "view_resume": {
         "ru": "📄 Посмотреть резюме", "pt": "📄 Ver currículo", "en": "📄 View resume"
@@ -679,14 +683,14 @@ translations = {
         "pt": "Mostrar documentos",
     },
     "search_back": {
-        "ru": "Назад",
-        "en": "Back",
-        "pt": "Voltar",
+        "ru": "⬅️ Назад",
+        "en": "⬅️ Back",
+        "pt": "⬅️ Voltar",
     },
     "search_menu": {
-        "ru": "В меню",
-        "en": "Menu",
-        "pt": "Menu",
+        "ru": "🏠 В меню",
+        "en": "🏠 Menu",
+        "pt": "🏠 Menu",
     },
     "search_choose_city_btn": {
         "ru": "Выбрать город",
@@ -704,9 +708,9 @@ translations = {
         "pt": "Nova busca",
     },
     "search_price_not_set": {
-        "ru": "цена не указана",
-        "en": "price not specified",
-        "pt": "preco nao informado",
+        "ru": "Стоимость обсуждается в диалоге",
+        "en": "Price is discussed in chat",
+        "pt": "O preço é combinado no chat",
     },
     "search_distance": {
         "ru": "Расстояние",
@@ -793,25 +797,25 @@ translations = {
         "en": "premium",
         "pt": "premium",
     },
-        "search_choose_profession": {
-        "ru": "Выберите профессию или все профессии категории:",
-        "en": "Choose profession or all professions in the category:",
-        "pt": "Escolha a profissao ou todas as profissoes da categoria:",
+    "search_choose_profession": {
+        "ru": "Выберите одно или несколько направлений:",
+        "en": "Choose one or more directions:",
+        "pt": "Escolha uma ou mais direções:",
     },
     "search_all_professions": {
-        "ru": "Все профессии",
-        "en": "All professions",
-        "pt": "Todas as profissoes",
+        "ru": "Все направления",
+        "en": "All directions",
+        "pt": "Todas as direções",
     },
     "search_professions_missing": {
-        "ru": "Профессии для категории не настроены.",
-        "en": "Professions are not configured for this category.",
-        "pt": "Profissoes nao configuradas para esta categoria.",
+        "ru": "Направления для категории не настроены.",
+        "en": "Directions are not configured for this category.",
+        "pt": "Direções não configuradas para esta categoria.",
     },
     "search_profession_not_found": {
-        "ru": "Профессия не найдена или отключена.",
-        "en": "Profession not found or disabled.",
-        "pt": "Profissao nao encontrada ou desativada.",
+        "ru": "Направление не найдено или отключено.",
+        "en": "Direction not found or disabled.",
+        "pt": "Direção não encontrada ou desativada.",
     },
     "search_filters_prompt": {
         "ru": "Настройте фильтры поиска:",
@@ -837,6 +841,36 @@ translations = {
         "ru": "Все специалисты",
         "en": "All specialists",
         "pt": "Todos os especialistas",
+    },
+    "search_filter_verified_label": {
+        "ru": "Проверенный профиль",
+        "en": "Verified profile",
+        "pt": "Perfil verificado",
+    },
+    "search_verified_prompt": {
+        "ru": "Выберите, показывать всех специалистов или только проверенные профили.",
+        "en": "Choose whether to show all specialists or verified profiles only.",
+        "pt": "Escolha se quer mostrar todos os especialistas ou apenas perfis verificados.",
+    },
+    "search_filter_availability": {
+        "ru": "Доступность",
+        "en": "Availability",
+        "pt": "Disponibilidade",
+    },
+    "search_filter_availability_label": {
+        "ru": "Доступность",
+        "en": "Availability",
+        "pt": "Disponibilidade",
+    },
+    "search_filter_available_now": {
+        "ru": "Свободен сейчас",
+        "en": "Available now",
+        "pt": "Disponível agora",
+    },
+    "search_availability_prompt": {
+        "ru": "Выберите доступность специалиста.",
+        "en": "Choose specialist availability.",
+        "pt": "Escolha a disponibilidade do especialista.",
     },
     "search_filter_price_any": {
         "ru": "Любая цена",
@@ -897,6 +931,21 @@ translations = {
         "ru": "Рейтинг от 4",
         "en": "Rating from 4",
         "pt": "Avaliação a partir de 4",
+    },
+    "search_filter_rating_label": {
+        "ru": "Рейтинг",
+        "en": "Rating",
+        "pt": "Avaliação",
+    },
+    "search_filter_rating_from": {
+        "ru": "от {rating}",
+        "en": "from {rating}",
+        "pt": "a partir de {rating}",
+    },
+    "search_rating_prompt": {
+        "ru": "Выберите минимальный рейтинг. Новые специалисты без отзывов не скрываются, если фильтр не выбран.",
+        "en": "Choose a minimum rating. New specialists without reviews are not hidden unless you select the filter.",
+        "pt": "Escolha uma avaliação mínima. Novos especialistas sem avaliações não são ocultados se o filtro não for escolhido.",
     },
     "search_contact_placeholder": {
         "ru": "Связь со специалистом будет доступна в Beta 0.6.",
@@ -1082,9 +1131,9 @@ translations = {
         "pt": "Chat finalizado.",
     },
     "search_filter_not_set": {
-        "ru": "не указано",
-        "en": "not set",
-        "pt": "nao definido",
+        "ru": "любой",
+        "en": "any",
+        "pt": "qualquer",
     },
     "search_filter_any": {
         "ru": "любой",
@@ -1102,9 +1151,9 @@ translations = {
         "pt": "Categoria",
     },
     "search_filter_profession_label": {
-        "ru": "Профессия",
-        "en": "Profession",
-        "pt": "Profissao",
+        "ru": "Направление",
+        "en": "Direction",
+        "pt": "Direção",
     },
     "search_filter_location_label": {
         "ru": "Локация",
@@ -1142,9 +1191,9 @@ translations = {
         "pt": "Categoria",
     },
     "search_filter_profession": {
-        "ru": "Профессия",
-        "en": "Profession",
-        "pt": "Profissao",
+        "ru": "Направление",
+        "en": "Direction",
+        "pt": "Direção",
     },
     "search_filter_location": {
         "ru": "Город / гео",
@@ -1182,9 +1231,14 @@ translations = {
         "pt": "Limpar filtros",
     },
     "search_back_to_filters": {
-        "ru": "Назад к фильтрам",
-        "en": "Back to filters",
-        "pt": "Voltar aos filtros",
+        "ru": "⚙️ Изменить фильтры",
+        "en": "⚙️ Change filters",
+        "pt": "⚙️ Alterar filtros",
+    },
+    "search_back_to_filters_btn": {
+        "ru": "⬅️ Назад к фильтрам",
+        "en": "⬅️ Back to filters",
+        "pt": "⬅️ Voltar aos filtros",
     },
     "search_location_prompt": {
         "ru": "Выберите способ указать локацию.",
@@ -1192,14 +1246,14 @@ translations = {
         "pt": "Escolha como definir a localizacao.",
     },
     "search_location_city": {
-        "ru": "Ввести город",
-        "en": "Enter city",
-        "pt": "Informar cidade",
+        "ru": "🏙 Ввести город",
+        "en": "🏙 Enter city",
+        "pt": "🏙 Informar cidade",
     },
     "search_location_geo": {
-        "ru": "Отправить геолокацию",
-        "en": "Send location",
-        "pt": "Enviar localizacao",
+        "ru": "📍 Отправить геолокацию",
+        "en": "📍 Send location",
+        "pt": "📍 Enviar localizacao",
     },
     "search_location_city_prompt": {
         "ru": "Введите город, село или район. Мы найдем варианты через OpenStreetMap.",
@@ -1342,9 +1396,9 @@ translations = {
         "pt": "Aumentar raio para 25 km",
     },
     "search_empty_reset_profession": {
-        "ru": "Сбросить профессию",
-        "en": "Reset profession",
-        "pt": "Limpar profissao",
+        "ru": "Сбросить направление",
+        "en": "Reset direction",
+        "pt": "Limpar direção",
     },
     "search_empty_reset_all": {
         "ru": "Сбросить все фильтры",
@@ -1680,9 +1734,9 @@ translations = {
         "pt": "{days} dias",
     },
     "billing_period_not_set": {
-        "ru": "не указан",
-        "en": "not set",
-        "pt": "não definido",
+        "ru": "Период не выбран",
+        "en": "Period not selected",
+        "pt": "Período não selecionado",
     },
     "billing_back": {
         "ru": "Назад",
@@ -2186,9 +2240,9 @@ translations = {
     "pt": "Você pode selecionar no máximo 3 especialidades em uma seção.",
 },
     "cabinet_favorites": {
-        "ru": "Избранные специалисты",
-        "en": "Favorite specialists",
-        "pt": "Especialistas favoritos",
+        "ru": "⭐ Избранное",
+        "en": "⭐ Favorites",
+        "pt": "⭐ Favoritos",
     },
     "favorites_title": {
         "ru": "Избранные специалисты:",
@@ -2391,9 +2445,9 @@ translations = {
         "pt": "Enviar arquivo",
     },
     "portfolio_upload_prompt": {
-        "ru": "Отправьте фото JPG, PNG, WEBP до 10 MB или PDF до 20 MB.",
-        "en": "Send a JPG, PNG or WEBP photo up to 10 MB, or a PDF up to 20 MB.",
-        "pt": "Envie uma foto JPG, PNG ou WEBP de até 10 MB, ou um PDF de até 20 MB.",
+        "ru": "Отправьте фото работы/кейса JPG, PNG, WEBP до 10 MB или сертификат PDF до 20 MB.",
+        "en": "Send a work/case photo as JPG, PNG or WEBP up to 10 MB, or a certificate PDF up to 20 MB.",
+        "pt": "Envie uma foto de trabalho/caso em JPG, PNG ou WEBP até 10 MB, ou um certificado PDF até 20 MB.",
     },
     "portfolio_upload_success": {
         "ru": "Файл загружен и отправлен на модерацию.",
@@ -2903,9 +2957,9 @@ translations = {
         "pt": "Mais filtros",
     },
     "search_location_without": {
-        "ru": "Без локации",
-        "en": "Without location",
-        "pt": "Sem localizacao",
+        "ru": "🌍 Искать без локации",
+        "en": "🌍 Search without location",
+        "pt": "🌍 Pesquisar sem localizacao",
     },
     "search_geo_other": {
         "ru": "Другие",
@@ -2933,9 +2987,9 @@ translations = {
         "pt": "{start}-{end}",
     },
     "search_no_reviews": {
-        "ru": "Нет отзывов",
-        "en": "No reviews",
-        "pt": "Sem avaliacoes",
+        "ru": "Новый специалист",
+        "en": "New specialist",
+        "pt": "Novo especialista",
     },
     "reviews_btn": {
         "ru": "Отзывы",
@@ -2973,9 +3027,9 @@ translations = {
         "pt": "Cancelar",
     },
     "contact_draft_summary": {
-        "ru": "Проверьте заявку:\n\nСпециалист: {specialist}\nПрофессия: {profession}\nЗадача: {message}\n\n{disclaimer}",
-        "en": "Check the request:\n\nSpecialist: {specialist}\nProfession: {profession}\nTask: {message}\n\n{disclaimer}",
-        "pt": "Verifique o pedido:\n\nEspecialista: {specialist}\nProfissao: {profession}\nTarefa: {message}\n\n{disclaimer}",
+        "ru": "Проверьте заявку:\n\nСпециалист: {specialist}{profession_line}\nЗадача: {message}\n\n{disclaimer}",
+        "en": "Check the request:\n\nSpecialist: {specialist}{profession_line}\nTask: {message}\n\n{disclaimer}",
+        "pt": "Verifique o pedido:\n\nEspecialista: {specialist}{profession_line}\nTarefa: {message}\n\n{disclaimer}",
     },
     "contact_request_existing": {
         "ru": "У вас уже есть активная заявка к этому специалисту. Открываю диалог.",
@@ -3243,9 +3297,9 @@ translations = {
         "pt": "Remoto",
     },
     "spec_location_remote_selected": {
-        "ru": "Локация: удалённо",
-        "en": "Location: remote",
-        "pt": "Localização: remoto",
+        "ru": "Удалённо",
+        "en": "Remote",
+        "pt": "Remoto",
     },
     "spec_contact_visibility_prompt": {
         "ru": "Выберите видимость контакта. Заявки через платформу останутся включены.",
@@ -3428,9 +3482,9 @@ translations = {
         "pt": "Ainda não há serviços. Adicione o primeiro serviço.",
     },
     "specialist_service_price_not_set": {
-        "ru": "Цена не указана",
-        "en": "Price not set",
-        "pt": "Preço não informado",
+        "ru": "Стоимость обсуждается в диалоге",
+        "en": "Price is discussed in chat",
+        "pt": "O preço é combinado no chat",
     },
     "specialist_service_status_active": {
         "ru": "Активна",
@@ -3901,19 +3955,19 @@ translations = {
         "pt": "Status do perfil",
     },
     "specialist_status_active": {
-        "ru": "🟢 Активен\nПоказывать в поиске",
-        "en": "🟢 Active\nShown in search",
-        "pt": "🟢 Ativo\nMostrar na busca",
+        "ru": "🟢 Профиль одобрен\nПоказывается клиентам в поиске",
+        "en": "🟢 Profile approved\nVisible to clients in search",
+        "pt": "🟢 Perfil aprovado\nVisível para clientes na busca",
     },
     "specialist_status_paused": {
-        "ru": "⏸ На паузе\nНе показывать в поиске",
-        "en": "⏸ Paused\nHidden from search",
-        "pt": "⏸ Pausado\nNão mostrar na busca",
+        "ru": "⏸ Профиль на паузе\nВременно не показывается в поиске",
+        "en": "⏸ Profile paused\nTemporarily hidden from search",
+        "pt": "⏸ Perfil pausado\nTemporariamente oculto na busca",
     },
     "specialist_status_draft": {
-        "ru": "🔒 Черновик\nНе публиковать профиль",
-        "en": "🔒 Draft\nProfile is not published",
-        "pt": "🔒 Rascunho\nNão publicar perfil",
+        "ru": "🔒 Профиль не опубликован\nКлиенты пока не видят его в поиске",
+        "en": "🔒 Profile is not published\nClients do not see it in search yet",
+        "pt": "🔒 Perfil não publicado\nClientes ainda não veem na busca",
     },
     "specialist_visibility_title": {
         "ru": "Видимость профиля",
@@ -3941,9 +3995,9 @@ translations = {
         "pt": "Privado",
     },
     "specialist_visibility_unknown": {
-        "ru": "не указано",
-        "en": "not set",
-        "pt": "não definido",
+        "ru": "Не выбран режим видимости",
+        "en": "Visibility mode not selected",
+        "pt": "Modo de visibilidade não selecionado",
     },
     "dialogs_showing_range": {
         "ru": "Показано {start}-{end}",
@@ -4011,9 +4065,9 @@ translations = {
     "pt": "🛠 Serviços",
     },
     "specialist_profile_portfolio_btn": {
-        "ru": "🖼 Портфолио",
-        "en": "🖼 Portfolio",
-        "pt": "🖼 Portfolio",
+        "ru": "🖼 Портфолио и сертификаты",
+        "en": "🖼 Portfolio and certificates",
+        "pt": "🖼 Portfólio e certificados",
     },
     "specialist_profile_reviews_btn": {
         "ru": "⭐ Отзывы",
@@ -4051,9 +4105,14 @@ translations = {
         "pt": "🔒 Oculto da busca",
     },
     "search_results_header": {
-        "ru": "Профессия: {profession}\nЛокация: {location}\nРадиус: {radius}\nНайдено: {found}\nПоказаны: {range}",
-        "en": "Profession: {profession}\nLocation: {location}\nRadius: {radius}\nFound: {found}\nShown: {range}",
-        "pt": "Profissao: {profession}\nLocalizacao: {location}\nRaio: {radius}\nEncontrados: {found}\nMostrados: {range}",
+        "ru": "🔎 Найдено: {found} специалистов\n{context}\n{range}",
+        "en": "🔎 Found: {found} specialists\n{context}\n{range}",
+        "pt": "🔎 Encontrados: {found} especialistas\n{context}\n{range}",
+    },
+    "search_results_global_context": {
+        "ru": "Все направления",
+        "en": "All directions",
+        "pt": "Todas as direções",
     },
     "search_results_range": {
         "ru": "Показаны: {range}",
@@ -7188,8 +7247,7 @@ translations = {
     "main_rfq_stub": {
         "ru": (
             "📋 Заявки / RFQ\n\n"
-            "Скоро здесь можно будет описать задачу, а специалисты смогут откликнуться.\n\n"
-            "Пока для запуска Beta используйте поиск специалиста и диалог."
+            "Скоро здесь можно будет создать заявку, описать задачу и получить отклики от подходящих специалистов."
         ),
         "en": (
             "📋 Requests / RFQ\n\n"
@@ -7205,8 +7263,7 @@ translations = {
     "main_community_stub": {
         "ru": (
             "🌍 Community\n\n"
-            "Профессиональные обсуждения, ветки и локальные сообщества появятся позже.\n\n"
-            "Сейчас фокус Beta — поиск специалистов и защищенные диалоги."
+            "Скоро здесь появятся профессиональные обсуждения, локальные сообщества и тематические ветки."
         ),
         "en": (
             "🌍 Community\n\n"
@@ -7222,8 +7279,7 @@ translations = {
     "main_hr_stub": {
         "ru": (
             "🏢 HR / Компании\n\n"
-            "Блок работодателей, агентств и HR-терминалов запланирован позже.\n\n"
-            "Сейчас используйте поиск специалистов."
+            "Скоро здесь будут работодатели, агентства, кандидаты и HR-терминалы."
         ),
         "en": (
             "🏢 HR / Companies\n\n"
@@ -7279,6 +7335,499 @@ translations = {
             "💳 Finanças\n\n"
             "Em breve esta secção terá subscrições, promoção, pagamentos e documentos."
         ),
+    },
+    "search_start_screen": {
+        "ru": (
+            "🔎 Найти специалиста\n\n"
+            "Выберите категорию или напишите, кто вам нужен.\n\n"
+            "Пример: «сантехник в Лиссабоне», «мастер маникюра», "
+            "«roof repair remote»."
+        ),
+        "en": (
+            "🔎 Find a specialist\n\n"
+            "Choose a category or write who you need.\n\n"
+            "Example: plumber in Lisbon, manicure master, roof repair remote."
+        ),
+        "pt": (
+            "🔎 Encontrar especialista\n\n"
+            "Escolha uma categoria ou escreva quem procura.\n\n"
+            "Exemplo: canalizador em Lisboa, manicure, roof repair remote."
+        ),
+    },
+    "search_write_query_btn": {
+        "ru": "✍️ Написать запрос",
+        "en": "✍️ Write a request",
+        "pt": "✍️ Escrever pedido",
+    },
+    "search_choose_category_btn": {
+        "ru": "📂 Выбрать категорию",
+        "en": "📂 Choose category",
+        "pt": "📂 Escolher categoria",
+    },
+    "search_history_btn": {
+        "ru": "🕘 Последние поиски",
+        "en": "🕘 Recent searches",
+        "pt": "🕘 Pesquisas recentes",
+    },
+    "search_history_title": {
+        "ru": "🕘 Последние поиски",
+        "en": "🕘 Recent searches",
+        "pt": "🕘 Pesquisas recentes",
+    },
+    "search_history_empty": {
+        "ru": "Последних поисков пока нет. Напишите запрос или выберите категорию.",
+        "en": "No recent searches yet. Write a query or choose a category.",
+        "pt": "Ainda não há pesquisas recentes. Escreva uma consulta ou escolha uma categoria.",
+    },
+    "search_history_item": {
+        "ru": "{number}. {query}",
+        "en": "{number}. {query}",
+        "pt": "{number}. {query}",
+    },
+    "search_history_generic_item": {
+        "ru": "Поиск специалистов",
+        "en": "Specialist search",
+        "pt": "Pesquisa de especialistas",
+    },
+    "search_favorites_btn": {
+        "ru": "⭐ Избранное",
+        "en": "⭐ Favorites",
+        "pt": "⭐ Favoritos",
+    },
+    "search_refine_location_btn": {
+        "ru": "📍 Уточнить локацию",
+        "en": "📍 Refine location",
+        "pt": "📍 Ajustar localização",
+    },
+    "search_show_specialists_btn": {
+        "ru": "✅ Показать специалистов",
+        "en": "✅ Show specialists",
+        "pt": "✅ Mostrar especialistas",
+    },
+    "search_other_category_btn": {
+        "ru": "📂 Другая категория",
+        "en": "📂 Another category",
+        "pt": "📂 Outra categoria",
+    },
+    "search_reset_directions_btn": {
+        "ru": "♻️ Сбросить",
+        "en": "♻️ Reset",
+        "pt": "♻️ Limpar",
+    },
+    "search_selected_directions_required": {
+        "ru": "Выберите хотя бы одно направление или нажмите «Все направления».",
+        "en": "Choose at least one direction or tap All directions.",
+        "pt": "Escolha pelo menos uma direção ou toque em Todas as direções.",
+    },
+    "search_profile_btn": {
+        "ru": "👤 Профиль",
+        "en": "👤 Profile",
+        "pt": "👤 Perfil",
+    },
+    "order_create_btn": {
+        "ru": "📦 Создать заказ",
+        "en": "📦 Create order",
+        "pt": "📦 Criar pedido",
+    },
+    "cabinet_my_profile_btn": {
+        "ru": "👤 Мой профиль",
+        "en": "👤 My profile",
+        "pt": "👤 Meu perfil",
+    },
+    "cabinet_my_roles_btn": {
+        "ru": "🎭 Мои роли",
+        "en": "🎭 My roles",
+        "pt": "🎭 Meus perfis",
+    },
+    "cabinet_my_orders_btn": {
+        "ru": "📦 Мои заказы",
+        "en": "📦 My orders",
+        "pt": "📦 Meus pedidos",
+    },
+    "cabinet_specialist_btn": {
+        "ru": "🧰 Кабинет специалиста",
+        "en": "🧰 Specialist cabinet",
+        "pt": "🧰 Gabinete especialista",
+    },
+    "spec_public_profile_btn": {
+        "ru": "👤 Публичный профиль",
+        "en": "👤 Public profile",
+        "pt": "👤 Perfil público",
+    },
+    "spec_categories_directions_btn": {
+        "ru": "📂 Категории и направления",
+        "en": "📂 Categories and directions",
+        "pt": "📂 Categorias e direções",
+    },
+    "spec_skills_btn": {
+        "ru": "🧩 Навыки",
+        "en": "🧩 Skills",
+        "pt": "🧩 Competências",
+    },
+    "spec_geo_work_btn": {
+        "ru": "📍 География и формат работы",
+        "en": "📍 Geography and work format",
+        "pt": "📍 Geografia e formato de trabalho",
+    },
+    "spec_availability_btn": {
+        "ru": "🟢 Доступность",
+        "en": "🟢 Availability",
+        "pt": "🟢 Disponibilidade",
+    },
+    "spec_moderation_btn": {
+        "ru": "🛡 Модерация",
+        "en": "🛡 Moderation",
+        "pt": "🛡 Moderação",
+    },
+    "search_text_query_prompt": {
+        "ru": "Напишите, кто вам нужен. Например: электрик, розетки, стиралка, клопы, nif, бот.",
+        "en": "Write who you need. For example: electrician, sockets, washing machine, pest control, NIF, bot.",
+        "pt": "Escreva de quem precisa. Por exemplo: eletricista, tomadas, máquina de lavar, pragas, NIF, bot.",
+    },
+    "search_text_query_too_short": {
+        "ru": "Напишите минимум 2 символа.",
+        "en": "Please enter at least 2 characters.",
+        "pt": "Escreva pelo menos 2 caracteres.",
+    },
+    "search_text_query_no_matches": {
+        "ru": "По запросу «{query}» направление не найдено. Выберите категорию вручную.",
+        "en": "No direction found for “{query}”. Choose a category manually.",
+        "pt": "Nenhuma direção encontrada para “{query}”. Escolha uma categoria manualmente.",
+    },
+    "search_text_query_matches": {
+        "ru": "По запросу «{query}» найдено несколько направлений. Выберите подходящее:",
+        "en": "Several directions found for “{query}”. Choose the right one:",
+        "pt": "Encontrámos várias direções para “{query}”. Escolha uma:",
+    },
+    "client_thread_client_label": {
+        "ru": "Клиент",
+        "en": "Client",
+        "pt": "Cliente",
+    },
+    "order_draft_created_from_thread": {
+        "ru": "Заказ создан.\nНомер: order-{order_id}\n{status}\n\nВторая сторона должна подтвердить заказ.",
+        "en": "Order created.\nNumber: order-{order_id}\n{status}\n\nThe other side must confirm the order.",
+        "pt": "Pedido criado.\nNumero: order-{order_id}\n{status}\n\nA outra parte deve confirmar o pedido.",
+    },
+    "order_confirm_btn": {
+        "ru": "Подтвердить заказ",
+        "en": "Confirm order",
+        "pt": "Confirmar pedido",
+    },
+    "order_confirmed": {
+        "ru": "Заказ подтвержден.\nНомер: order-{order_id}\n{status}",
+        "en": "Order confirmed.\nNumber: order-{order_id}\n{status}",
+        "pt": "Pedido confirmado.\nNumero: order-{order_id}\n{status}",
+    },
+    "order_form_prompt": {
+        "ru": "📦 Создание заказа\n\nВведите данные заказа одним сообщением.\n\nФормат:\nОписание\nДата или срок\nСумма или -\n\nПример:\nЗаменить розетку и проверить проводку\n2026-07-05 вечером\n50 EUR",
+        "en": "📦 Create order\n\nSend order details in one message.\n\nFormat:\nDescription\nDate or deadline\nAmount or -\n\nExample:\nReplace a socket and check wiring\n2026-07-05 evening\n50 EUR",
+        "pt": "📦 Criar pedido\n\nEnvie os detalhes do pedido em uma mensagem.\n\nFormato:\nDescricao\nData ou prazo\nValor ou -\n\nExemplo:\nSubstituir uma tomada e verificar a fiacao\n2026-07-05 a noite\n50 EUR",
+    },
+    "order_form_cancelled": {
+        "ru": "Создание заказа отменено.",
+        "en": "Order creation has been cancelled.",
+        "pt": "A criacao do pedido foi cancelada.",
+    },
+    "order_description_required": {
+        "ru": "Введите описание заказа.",
+        "en": "Enter the order description.",
+        "pt": "Indique a descrição do pedido.",
+    },
+    "order_description_too_short": {
+        "ru": "Описание заказа слишком короткое. Напишите хотя бы 5 символов.",
+        "en": "Order description is too short. Enter at least 5 characters.",
+        "pt": "A descrição do pedido é muito curta. Escreva pelo menos 5 caracteres.",
+    },
+    "order_amount_invalid": {
+        "ru": "Сумма должна быть числом или символом «-».",
+        "en": "Amount must be a number or '-'.",
+        "pt": "O valor deve ser um número ou '-'.",
+    },
+    "order_amount_negative": {
+        "ru": "Сумма заказа не может быть отрицательной.",
+        "en": "Order amount cannot be negative.",
+        "pt": "O valor do pedido não pode ser negativo.",
+    },
+    "order_currency_invalid": {
+        "ru": "Валюта должна быть из 3 букв, например EUR.",
+        "en": "Currency must use 3 letters, for example EUR.",
+        "pt": "A moeda deve ter 3 letras, por exemplo EUR.",
+    },
+    "order_not_found_error": {
+        "ru": "Заказ не найден. Откройте диалог заново.",
+        "en": "Order was not found. Open the dialog again.",
+        "pt": "Pedido não encontrado. Abra o diálogo novamente.",
+    },
+    "order_confirm_not_allowed": {
+        "ru": "Этот заказ сейчас нельзя подтвердить.",
+        "en": "This order cannot be confirmed now.",
+        "pt": "Este pedido não pode ser confirmado agora.",
+    },
+    "order_complete_not_allowed": {
+        "ru": "Этот заказ сейчас нельзя завершить.",
+        "en": "This order cannot be completed now.",
+        "pt": "Este pedido não pode ser concluído agora.",
+    },
+    "order_other_side_confirm_required": {
+        "ru": "Заказ должна подтвердить вторая сторона.",
+        "en": "The order must be confirmed by the other side.",
+        "pt": "O pedido deve ser confirmado pela outra parte.",
+    },
+    "order_participant_required": {
+        "ru": "Действие доступно только участникам заказа.",
+        "en": "Only order participants can do this.",
+        "pt": "A ação está disponível apenas para participantes do pedido.",
+    },
+    "review_order_completed_required": {
+        "ru": "Отзыв можно оставить только после завершения заказа.",
+        "en": "You can leave a review only after the order is completed.",
+        "pt": "Só pode deixar uma avaliação depois de concluir o pedido.",
+    },
+    "review_already_exists": {
+        "ru": "Отзыв по этому заказу уже оставлен.",
+        "en": "This order already has a review.",
+        "pt": "Este pedido já tem uma avaliação.",
+    },
+    "review_invalid_rating": {
+        "ru": "Выберите оценку от 1 до 5.",
+        "en": "Choose a rating from 1 to 5.",
+        "pt": "Escolha uma avaliação de 1 a 5.",
+    },
+    "review_missing_data": {
+        "ru": "Не удалось найти данные для отзыва. Откройте заказ заново.",
+        "en": "Review data was not found. Open the order again.",
+        "pt": "Dados da avaliação não encontrados. Abra o pedido novamente.",
+    },
+    "order_active_title": {
+        "ru": "📦 Заказ",
+        "en": "📦 Order",
+        "pt": "📦 Pedido",
+    },
+    "order_number_label": {
+        "ru": "Номер",
+        "en": "Number",
+        "pt": "Numero",
+    },
+    "order_complete_btn": {
+        "ru": "Завершить заказ",
+        "en": "Complete order",
+        "pt": "Concluir pedido",
+    },
+    "order_completed": {
+        "ru": "Заказ завершен.\nНомер: order-{order_id}\n{status}\n\nТеперь можно оставить отзыв.",
+        "en": "Order completed.\nNumber: order-{order_id}\n{status}\n\nYou can now leave a review.",
+        "pt": "Pedido concluido.\nNumero: order-{order_id}\n{status}\n\nAgora voce pode deixar uma avaliacao.",
+    },
+    "cabinet_orders_title": {
+        "ru": "📦 Мои заказы",
+        "en": "📦 My orders",
+        "pt": "📦 Meus pedidos",
+    },
+    "cabinet_orders_empty": {
+        "ru": "📦 Мои заказы\n\nПока заказов нет. Заказ можно создать из диалога со специалистом.",
+        "en": "📦 My orders\n\nNo orders yet. You can create an order from a dialog with a specialist.",
+        "pt": "📦 Meus pedidos\n\nAinda não há pedidos. Pode criar um pedido a partir de um diálogo com um especialista.",
+    },
+    "search_profile_photo_placeholder": {
+        "ru": "👤 Фото пока не добавлено",
+        "en": "👤 Photo not added yet",
+        "pt": "👤 Foto ainda não adicionada",
+    },
+    "search_experience_years": {
+        "ru": "Опыт: {years} лет",
+        "en": "Experience: {years} years",
+        "pt": "Experiência: {years} anos",
+    },
+    "search_skills_label": {
+        "ru": "Навыки",
+        "en": "Skills",
+        "pt": "Competências",
+    },
+    "dialog_context_profession": {
+        "ru": "Контекст: по направлению {profession}",
+        "en": "Context: about {profession}",
+        "pt": "Contexto: sobre {profession}",
+    },
+    "cabinet_user_profile_title": {
+        "ru": "👤 Мой профиль",
+        "en": "👤 My profile",
+        "pt": "👤 Meu perfil",
+    },
+    "cabinet_user_profile_name": {
+        "ru": "Имя",
+        "en": "Name",
+        "pt": "Nome",
+    },
+    "cabinet_user_profile_number": {
+        "ru": "Номер пользователя",
+        "en": "User number",
+        "pt": "Numero do usuario",
+    },
+    "cabinet_user_profile_language": {
+        "ru": "Язык интерфейса",
+        "en": "Interface language",
+        "pt": "Idioma da interface",
+    },
+    "cabinet_user_profile_city": {
+        "ru": "Город",
+        "en": "City",
+        "pt": "Cidade",
+    },
+    "cabinet_user_profile_active_role": {
+        "ru": "Активная роль",
+        "en": "Active role",
+        "pt": "Funcao ativa",
+    },
+    "cabinet_user_profile_roles": {
+        "ru": "Роли",
+        "en": "Roles",
+        "pt": "Funcoes",
+    },
+    "spec_skills_prompt": {
+        "ru": "🧩 Выберите навыки, которые точнее описывают ваши услуги.",
+        "en": "🧩 Choose skills that describe your services more precisely.",
+        "pt": "🧩 Escolha habilidades que descrevem melhor seus servicos.",
+    },
+    "spec_selected_skills_title": {
+        "ru": "Выбрано:",
+        "en": "Selected:",
+        "pt": "Selecionado:",
+    },
+    "spec_skills_empty": {
+        "ru": "Для ваших направлений пока нет навыков в справочнике. Используйте описание профиля.",
+        "en": "There are no skills in the directory for your directions yet. Use your profile description.",
+        "pt": "Ainda nao ha habilidades no diretorio para suas direcoes. Use a descricao do perfil.",
+    },
+    "spec_skills_saved": {
+        "ru": "Навыки сохранены.",
+        "en": "Skills saved.",
+        "pt": "Habilidades salvas.",
+    },
+    "spec_availability_title": {
+        "ru": "🟢 Доступность",
+        "en": "🟢 Availability",
+        "pt": "🟢 Disponibilidade",
+    },
+    "spec_availability_now": {
+        "ru": "Сейчас вы отмечены как свободный специалист.",
+        "en": "You are currently marked as available.",
+        "pt": "Voce esta marcado como disponivel agora.",
+    },
+    "spec_availability_busy": {
+        "ru": "Сейчас вы отмечены как частично занятый специалист.",
+        "en": "You are currently marked as partly busy.",
+        "pt": "Voce esta marcado como parcialmente ocupado.",
+    },
+    "spec_availability_from_date": {
+        "ru": "Вы будете доступны с: {date}",
+        "en": "You will be available from: {date}",
+        "pt": "Voce estara disponivel a partir de: {date}",
+    },
+    "spec_availability_now_btn": {
+        "ru": "Свободен сейчас",
+        "en": "Available now",
+        "pt": "Disponivel agora",
+    },
+    "spec_availability_busy_btn": {
+        "ru": "Частично занят",
+        "en": "Partly busy",
+        "pt": "Parcialmente ocupado",
+    },
+    "spec_availability_from_date_btn": {
+        "ru": "Доступен с даты",
+        "en": "Available from date",
+        "pt": "Disponivel a partir de uma data",
+    },
+    "spec_availability_date_prompt": {
+        "ru": "Напишите дату или срок, когда вы будете доступны. Например: 2026-07-15 или с понедельника.",
+        "en": "Send the date or time when you will be available. Example: 2026-07-15 or from Monday.",
+        "pt": "Envie a data ou prazo em que voce estara disponivel. Exemplo: 2026-07-15 ou a partir de segunda.",
+    },
+    "spec_availability_saved": {
+        "ru": "Доступность обновлена.",
+        "en": "Availability updated.",
+        "pt": "Disponibilidade atualizada.",
+    },
+    "spec_moderation_title": {
+        "ru": "🛡 Модерация профиля",
+        "en": "🛡 Profile moderation",
+        "pt": "🛡 Moderação do perfil",
+    },
+    "spec_moderation_status_active": {
+        "ru": "Профиль одобрен",
+        "en": "Profile approved",
+        "pt": "Perfil aprovado",
+    },
+    "spec_moderation_status_active_hint": {
+        "ru": "Профиль виден клиентам в поиске.",
+        "en": "The profile is visible to clients in search.",
+        "pt": "O perfil está visível para clientes na busca.",
+    },
+    "spec_moderation_status_pending": {
+        "ru": "Профиль на проверке",
+        "en": "Profile is under review",
+        "pt": "Perfil em revisão",
+    },
+    "spec_moderation_status_pending_hint": {
+        "ru": "Обычно проверка занимает до 24 часов. Пока профиль не виден в поиске.",
+        "en": "Review usually takes up to 24 hours. The profile is not visible in search yet.",
+        "pt": "A revisão normalmente leva até 24 horas. O perfil ainda não aparece na busca.",
+    },
+    "spec_moderation_status_rejected": {
+        "ru": "Профиль отклонен",
+        "en": "Profile rejected",
+        "pt": "Perfil rejeitado",
+    },
+    "spec_moderation_status_rejected_hint": {
+        "ru": "Исправьте замечания и отправьте профиль на проверку повторно.",
+        "en": "Fix the comments and send the profile for review again.",
+        "pt": "Corrija os comentários e envie o perfil para revisão novamente.",
+    },
+    "spec_moderation_status_hidden": {
+        "ru": "Профиль скрыт",
+        "en": "Profile hidden",
+        "pt": "Perfil oculto",
+    },
+    "spec_moderation_status_hidden_hint": {
+        "ru": "Профиль скрыт администратором и не показывается в поиске.",
+        "en": "The profile was hidden by an administrator and is not shown in search.",
+        "pt": "O perfil foi ocultado por um administrador e não aparece na busca.",
+    },
+    "spec_moderation_status_paused": {
+        "ru": "Профиль на паузе",
+        "en": "Profile paused",
+        "pt": "Perfil pausado",
+    },
+    "spec_moderation_status_paused_hint": {
+        "ru": "Профиль временно не показывается в поиске.",
+        "en": "The profile is temporarily not shown in search.",
+        "pt": "O perfil não aparece temporariamente na busca.",
+    },
+    "spec_moderation_status_draft": {
+        "ru": "Черновик",
+        "en": "Draft",
+        "pt": "Rascunho",
+    },
+    "spec_moderation_status_draft_hint": {
+        "ru": "Профиль еще не опубликован и не виден клиентам.",
+        "en": "The profile is not published yet and is not visible to clients.",
+        "pt": "O perfil ainda não foi publicado e não está visível para clientes.",
+    },
+    "spec_moderation_comment_label": {
+        "ru": "Комментарий модерации",
+        "en": "Moderation comment",
+        "pt": "Comentário da moderação",
+    },
+    "client_dialog_unknown_user": {
+        "ru": "Собеседник",
+        "en": "Participant",
+        "pt": "Participante",
+    },
+    "main_menu_stats": {
+        "ru": "Страны: {countries}\nГорода: {cities}\nПользователи: {users}\nСпециалисты: {specialists}",
+        "en": "Countries: {countries}\nCities: {cities}\nUsers: {users}\nSpecialists: {specialists}",
+        "pt": "Países: {countries}\nCidades: {cities}\nUsuários: {users}\nEspecialistas: {specialists}",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

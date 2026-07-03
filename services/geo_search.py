@@ -16,6 +16,7 @@ class SpecialistSearchResult:
     distance_km: float | None = None
     ranking_score: float = 0.0
     city_name: str | None = None
+    category_name: str | None = None
     profession_name: str | None = None
     languages: list[str] = field(default_factory=list)
 
@@ -30,15 +31,18 @@ class SpecialistPublicCard:
     price_to: float | None
     currency: str
     price_unit: str | None
+    experience_years: int | None = None
     city_name: str | None = None
     category_name: str | None = None
     profession_name: str | None = None
     work_format: str | None = None
     service_titles: list[str] = field(default_factory=list)
+    skill_names: list[str] = field(default_factory=list)
     languages: list[str] = field(default_factory=list)
     rating: float = 0.0
     reviews_count: int = 0
     is_verified: bool = False
+    is_available: bool = False
     is_premium: bool = False
     distance_km: float | None = None
 
@@ -63,6 +67,10 @@ class GeoSearchService:
         for result in results:
             result.city_name = await self.repository.get_city_name(
                 result.specialist.city_id,
+                language,
+            )
+            result.category_name = await self.repository.get_category_name(
+                result.specialist.category_id,
                 language,
             )
             result.profession_name = await self.repository.get_profession_name(
@@ -156,6 +164,11 @@ class GeoSearchService:
             specialist.id,
             limit=5,
         )
+        skill_names = await self.repository.get_public_skill_names_for_user(
+            specialist.user_id,
+            language=language,
+            limit=8,
+        )
 
         if log_event:
             await self.repository.log_specialist_viewed(
@@ -168,6 +181,7 @@ class GeoSearchService:
             specialist_id=specialist.id,
             display_name=specialist.display_name,
             short_description=specialist.short_description,
+            experience_years=specialist.experience_years,
             city_id=specialist.city_id,
             price_from=float(specialist.price_from) if specialist.price_from is not None else None,
             price_to=float(specialist.price_to) if specialist.price_to is not None else None,
@@ -180,7 +194,9 @@ class GeoSearchService:
             profession_name=profession_name,
             work_format=specialist.work_format,
             service_titles=service_titles,
+            skill_names=skill_names,
             is_verified=bool(specialist.is_verified),
+            is_available=bool(specialist.is_available),
             is_premium=bool(specialist.is_premium),
             distance_km=distance_km,
             city_name=city_name,
@@ -194,11 +210,11 @@ class GeoSearchService:
         sort_by: str = "relevance",
         category_id: UUID | None = None,
         profession_id: UUID | None = None,
-        price_min: float | None = None,
-        price_max: float | None = None,
+        profession_ids: list[UUID] | None = None,
         language_code: str | None = None,
         verified_only: bool = False,
         premium_only: bool = False,
+        available_only: bool = False,
         rating_min: float | None = None,
         work_format: str | None = None,
         limit: int = 10,
@@ -213,11 +229,11 @@ class GeoSearchService:
             category_id=category_id,
             country_id=country_id,
             profession_id=profession_id,
-            price_min=price_min,
-            price_max=price_max,
+            profession_ids=profession_ids,
             language_code=language_code,
             verified_only=verified_only,
             premium_only=premium_only,
+            available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
             status="active",
@@ -230,11 +246,11 @@ class GeoSearchService:
             category_id=category_id,
             country_id=country_id,
             profession_id=profession_id,
-            price_min=price_min,
-            price_max=price_max,
+            profession_ids=profession_ids,
             language_code=language_code,
             verified_only=verified_only,
             premium_only=premium_only,
+            available_only=available_only,
             work_format=work_format,
             rating_min=rating_min,
             status="active",
@@ -311,11 +327,11 @@ class GeoSearchService:
         sort_by: str = "relevance",
         category_id: UUID | None = None,
         profession_id: UUID | None = None,
-        price_min: float | None = None,
-        price_max: float | None = None,
+        profession_ids: list[UUID] | None = None,
         language_code: str | None = None,
         verified_only: bool = False,
         premium_only: bool = False,
+        available_only: bool = False,
         rating_min: float | None = None,
         work_format: str | None = None,
         limit: int = 10,
@@ -328,11 +344,11 @@ class GeoSearchService:
         filters = SpecialistSearchFilters(
             category_id=category_id,
             profession_id=profession_id,
-            price_min=price_min,
-            price_max=price_max,
+            profession_ids=profession_ids,
             language_code=language_code,
             verified_only=verified_only,
             premium_only=premium_only,
+            available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
             status="active",
@@ -401,11 +417,11 @@ class GeoSearchService:
         country_wide: bool = False,
         category_id: UUID | None = None,
         profession_id: UUID | None = None,
-        price_min: float | None = None,
-        price_max: float | None = None,
+        profession_ids: list[UUID] | None = None,
         language_code: str | None = None,
         verified_only: bool = False,
         premium_only: bool = False,
+        available_only: bool = False,
         rating_min: float | None = None,
         work_format: str | None = None,
         limit: int = 10,
@@ -422,11 +438,11 @@ class GeoSearchService:
             country_id=country_id,
             category_id=category_id,
             profession_id=profession_id,
-            price_min=price_min,
-            price_max=price_max,
+            profession_ids=profession_ids,
             language_code=language_code,
             verified_only=verified_only,
             premium_only=premium_only,
+            available_only=available_only,
             work_format=work_format,
             rating_min=rating_min,
             limit=limit,
@@ -442,11 +458,11 @@ class GeoSearchService:
             country_id=country_id,
             category_id=category_id,
             profession_id=profession_id,
-            price_min=price_min,
-            price_max=price_max,
+            profession_ids=profession_ids,
             language_code=language_code,
             verified_only=verified_only,
             premium_only=premium_only,
+            available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
             limit=200,
