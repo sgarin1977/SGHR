@@ -24,6 +24,8 @@ from database.models import (
     RiskFlag,
     Specialist,
     SupportTicket,
+    ConversationThread,
+    Message,
     User,
     UserAccount,
     UserRoleMapping,
@@ -235,6 +237,36 @@ class GlobalBlacklistQueueItem:
     created_by: UUID
 
 @dataclass(frozen=True)
+class AdminThreadMessageRow:
+    thread_id: UUID
+    thread_status: str
+    context_id: UUID
+    client_user_id: UUID
+    specialist_id: UUID
+    message_id: UUID
+    sender_user_id: UUID
+    receiver_user_id: UUID
+    original_text: str
+    translated_text: str | None
+    is_masked: bool
+    is_system: bool
+    risk_detected_types: tuple[str, ...]
+    risk_severity: str | None
+    created_at: datetime
+
+@dataclass(frozen=True)
+class AdminThreadContextRow:
+    thread_id: UUID
+    thread_status: str
+    context_id: UUID
+    client_user_id: UUID
+    specialist_id: UUID
+    messages_count: int
+    has_complaint: bool
+    has_risk_flag: bool
+    updated_at: datetime
+
+@dataclass(frozen=True)
 class SuperAdminRoleScopeRow:
     scope_id: UUID
     user_id: UUID
@@ -315,6 +347,310 @@ class ModerationRepository:
             raise ModerationAccessError("Admin access denied.")
 
         return roles
+
+    async def list_admin_thread_contexts(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        limit: int = 20,
+    ) -> list[AdminThreadContextRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin", "admin", "moderator"},
+        )
+
+        complaint_exists = select(Complaint.id).where(
+            Complaint.tenant_id == tenant_id,
+            Complaint.target_type == "thread",
+            Complaint.target_id == ConversationThread.id,
+            Complaint.status.in_(COMPLAINT_OPEN_STATUSES),
+        ).exists()
+
+        thread_risk_exists = select(RiskFlag.id).where(
+            RiskFlag.tenant_id == tenant_id,
+            RiskFlag.entity_type == "thread",
+            RiskFlag.entity_id == ConversationThread.id,
+            RiskFlag.status == "open",
+        ).exists()
+
+        message_risk_exists = select(Message.id).where(
+            Message.tenant_id == tenant_id,
+            Message.thread_id == ConversationThread.id,
+            select(RiskFlag.id).where(
+                RiskFlag.tenant_id == tenant_id,
+                RiskFlag.entity_type == "message",
+                RiskFlag.entity_id == Message.id,
+                RiskFlag.status == "open",
+            ).exists(),
+        ).exists()
+
+        risk_exists = or_(
+            thread_risk_exists,
+            message_risk_exists,
+        )
+
+        messages_count = (
+            select(func.count(Message.id))
+            .where(
+                Message.tenant_id == tenant_id,
+                Message.thread_id == ConversationThread.id,
+            )
+            .correlate(ConversationThread)
+            .scalar_subquery()
+        )
+
+        result = await self.session.execute(
+            select(
+                ConversationThread.id,
+                ConversationThread.status,
+                ConversationThread.context_id,
+                ConversationThread.client_user_id,
+                ConversationThread.specialist_id,
+                case(
+                    (complaint_exists, 1),
+                    else_=0,
+                ).label("has_complaint"),
+                case(
+                    (risk_exists, 1),
+                    else_=0,
+                ).label("has_risk_flag"),
+                messages_count.label("messages_count"),
+                ConversationThread.updated_at,
+            )
+            .where(
+                ConversationThread.tenant_id == tenant_id,
+                or_(
+                    complaint_exists,
+                    risk_exists,
+                ),
+            )
+            .order_by(
+                ConversationThread.updated_at.desc(),
+                ConversationThread.id.desc(),
+            )
+            .limit(max(1, min(int(limit), 50)))
+        )
+
+        return [
+            AdminThreadContextRow(
+                thread_id=row.id,
+                thread_status=row.status,
+                context_id=row.context_id,
+                client_user_id=row.client_user_id,
+                specialist_id=row.specialist_id,
+                messages_count=int(row.messages_count or 0),
+                has_complaint=bool(row.has_complaint),
+                has_risk_flag=bool(row.has_risk_flag),
+                updated_at=row.updated_at,
+            )
+            for row in result
+        ]
+
+    async def list_admin_thread_messages_for_thread(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        thread_id: UUID,
+        limit: int = 50,
+    ) -> list[AdminThreadMessageRow]:
+        await self.require_admin_role(
+            admin_user_id,
+            {"super_admin", "admin", "moderator"},
+        )
+
+        thread = await self.session.get(
+            ConversationThread,
+            thread_id,
+        )
+
+        if not thread or thread.tenant_id != tenant_id:
+            raise ModerationNotFoundError(
+                "Conversation thread not found."
+            )
+
+        complaint_exists = await self.session.scalar(
+            select(func.count())
+            .select_from(Complaint)
+            .where(
+                Complaint.tenant_id == tenant_id,
+                Complaint.target_type == "thread",
+                Complaint.target_id == thread_id,
+                Complaint.status.in_(COMPLAINT_OPEN_STATUSES),
+            )
+        )
+
+        thread_risk_exists = await self.session.scalar(
+            select(func.count())
+            .select_from(RiskFlag)
+            .where(
+                RiskFlag.tenant_id == tenant_id,
+                RiskFlag.entity_type == "thread",
+                RiskFlag.entity_id == thread_id,
+                RiskFlag.status == "open",
+            )
+        )
+
+        message_risk_exists = await self.session.scalar(
+            select(func.count())
+            .select_from(RiskFlag)
+            .join(
+                Message,
+                Message.id == RiskFlag.entity_id,
+            )
+            .where(
+                RiskFlag.tenant_id == tenant_id,
+                RiskFlag.entity_type == "message",
+                RiskFlag.status == "open",
+                Message.tenant_id == tenant_id,
+                Message.thread_id == thread_id,
+            )
+        )
+
+
+        if not any(
+            (
+                complaint_exists,
+                thread_risk_exists,
+                message_risk_exists,
+            )
+        ):
+            raise ModerationAccessError(
+                "Thread can be viewed only with an open complaint or risk flag."
+            )
+        
+
+        result = await self.session.execute(
+            select(
+                Message.id,
+                Message.sender_user_id,
+                Message.receiver_user_id,
+                Message.original_text,
+                Message.translated_text,
+                Message.is_masked,
+                Message.is_system,
+                Message.created_at,
+            )
+            .where(
+                Message.tenant_id == tenant_id,
+                Message.thread_id == thread_id,
+            )
+            .order_by(Message.created_at.asc())
+            .limit(max(1, min(int(limit), 100)))
+        )
+
+        message_rows = result.all()
+        message_ids = [
+            row.id
+            for row in message_rows
+        ]
+
+        risk_by_message: dict[
+            UUID,
+            tuple[tuple[str, ...], str | None],
+        ] = {}
+
+        if message_ids:
+            risk_result = await self.session.execute(
+                select(
+                    RiskFlag.entity_id,
+                    RiskFlag.details,
+                    RiskFlag.severity,
+                ).where(
+                    RiskFlag.tenant_id == tenant_id,
+                    RiskFlag.entity_type == "message",
+                    RiskFlag.entity_id.in_(message_ids),
+                    RiskFlag.flag_code == "off_platform_contact",
+                    RiskFlag.status == "open",
+                )
+            )
+
+            severity_rank = {
+                "low": 1,
+                "medium": 2,
+                "high": 3,
+                "critical": 4,
+            }
+
+            for entity_id, details, severity in risk_result:
+                metadata = details or {}
+                detected_types = tuple(
+                    sorted(
+                        {
+                            str(item)
+                            for item in (
+                                metadata.get(
+                                    "detected_types"
+                                )
+                                or []
+                            )
+                            if item
+                        }
+                    )
+                )
+
+                previous_types, previous_severity = (
+                    risk_by_message.get(
+                        entity_id,
+                        ((), None),
+                    )
+                )
+
+                selected_severity = severity
+
+                if (
+                    previous_severity
+                    and severity_rank.get(
+                        previous_severity,
+                        0,
+                    )
+                    > severity_rank.get(
+                        severity,
+                        0,
+                    )
+                ):
+                    selected_severity = previous_severity
+
+                risk_by_message[entity_id] = (
+                    tuple(
+                        sorted(
+                            set(
+                                previous_types
+                            ).union(
+                                detected_types
+                            )
+                        )
+                    ),
+                    selected_severity,
+                )
+
+        return [
+            AdminThreadMessageRow(
+                thread_id=thread.id,
+                thread_status=thread.status,
+                context_id=thread.context_id,
+                client_user_id=thread.client_user_id,
+                specialist_id=thread.specialist_id,
+                message_id=row.id,
+                sender_user_id=row.sender_user_id,
+                receiver_user_id=row.receiver_user_id,
+                original_text=row.original_text,
+                translated_text=row.translated_text,
+                is_masked=row.is_masked,
+                is_system=row.is_system,
+                risk_detected_types=risk_by_message.get(
+                    row.id,
+                    ((), None),
+                )[0],
+                risk_severity=risk_by_message.get(
+                    row.id,
+                    ((), None),
+                )[1],
+                created_at=row.created_at,
+            )
+            for row in message_rows
+        ]
 
     async def list_recent_event_logs(
         self,
@@ -4424,6 +4760,11 @@ class ModerationRepository:
         user = await self.session.get(User, user_id)
         if not user:
             raise ModerationNotFoundError("User not found.")
+
+        if user.status == "blocked":
+            raise ModerationAccessError(
+                "User is already globally blocked."
+            )
 
         before_state = self._user_audit_state(user)
         user.status = "blocked"

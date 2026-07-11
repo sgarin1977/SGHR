@@ -7,6 +7,8 @@ from database.repositories.specialist import SpecialistRepository
 from services.legal import LegalService, MissingLegalDocumentError
 from services.rate_limit import RateLimitError, RateLimitService
 
+MAX_SPECIALIST_CATEGORIES = 3
+MAX_PROFESSIONS_PER_CATEGORY = 3
 
 class SpecialistRegistrationError(Exception):
     pass
@@ -65,6 +67,16 @@ class SpecialistProfileUpdateData:
     service_radius_km: int | None = None
     clear_city: bool = False
     clear_coordinates: bool = False
+
+@dataclass(frozen=True)
+class SpecialistReadOnlyPublicProfile:
+    display_name: str
+    professions: tuple[str, ...]
+    location: str
+    short_description: str | None
+    status: str
+    is_available: bool
+    work_format: str | None
 
 @dataclass
 class SpecialistServiceItemData:
@@ -229,7 +241,40 @@ class SpecialistService:
             _localized_model_name(profession, language)
             for _, _, profession in rows
         ]
+    async def get_read_only_public_profile(
+        self,
+        *,
+        user_id: UUID,
+        language: str,
+    ) -> SpecialistReadOnlyPublicProfile | None:
+        specialist = await self.repository.get_by_user_id(user_id)
 
+        if not specialist:
+            return None
+
+        professions = await self.list_profile_profession_names(
+            specialist_id=specialist.id,
+            language=language,
+        )
+        city, country = await self.repository.get_specialist_location_parts(
+            specialist=specialist,
+        )
+
+        location_parts = [
+            _localized_model_name(item, language)
+            for item in (city, country)
+            if item
+        ]
+
+        return SpecialistReadOnlyPublicProfile(
+            display_name=specialist.display_name or "-",
+            professions=tuple(professions),
+            location=", ".join(location_parts) or "-",
+            short_description=specialist.short_description,
+            status=specialist.status,
+            is_available=bool(specialist.is_available),
+            work_format=specialist.work_format,
+        )
     async def create_pending_profile(self, data: SpecialistRegistrationData):
         await self._require_specialist_consents(data)
 

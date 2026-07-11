@@ -5437,7 +5437,7 @@ translations = {
         "pt": "Moderacao ({count})",
     },
     "admin_global_blacklist_btn": {
-        "ru": "Global Blacklist ({count})",
+        "ru": "Глобальный черный список ({count})",
         "en": "Global Blacklist ({count})",
         "pt": "Global Blacklist ({count})",
     },
@@ -6389,19 +6389,19 @@ translations = {
     },
     "super_admin_user_card": {
         "ru": (
-            "Пользователь\n\n"
+            "Карточка пользователя\n\n"
             "{name}\n"
-            "User ID: {user_number}\n"
+            "ID пользователя: {user_number}\n"
             "Telegram: {telegram_id}\n"
             "Username: {username}\n"
             "Статус: {status}\n"
-            "Активная роль: {active_role}\n"
+            "Активный кабинет: {active_role}\n"
             "Роли: {roles}\n"
-            "Scopes: {scopes}\n"
-            "Last seen: {last_seen}\n"
-            "Risk flags: {risk_flags}\n"
+            "Зоны доступа: {scopes}\n"
+            "Последняя активность: {last_seen}\n"
+            "Оценка риска: {risk_flags}\n"
             "Жалобы: {complaints}\n"
-            "Blacklist: {blacklist}"
+            "Глобальный черный список: {blacklist}"
         ),
         "en": (
             "User\n\n"
@@ -6445,17 +6445,17 @@ translations = {
         "pt": "Funções",
     },
     "super_admin_user_scopes_btn": {
-        "ru": "Scopes",
+        "ru": "Зоны доступа",
         "en": "Scopes",
         "pt": "Scopes",
     },
     "super_admin_user_audit_btn": {
-        "ru": "Аудит",
+        "ru": "Журнал действий",
         "en": "Audit",
         "pt": "Auditoria",
     },
     "super_admin_impersonate_btn": {
-        "ru": "Просмотр как пользователь",
+        "ru": "Открыть кабинет пользователя",
         "en": "View as user",
         "pt": "Ver como utilizador",
     },
@@ -6646,7 +6646,8 @@ translations = {
     "super_admin_impersonation_menu": {
         "ru": (
             "Режим просмотра от имени пользователя\n\n"
-            "Выберите роль/кабинет для read-only preview."
+            "Выберите кабинет для просмотра. "
+            "Изменение данных недоступно."
         ),
         "en": (
             "View as user mode\n\n"
@@ -6661,9 +6662,9 @@ translations = {
         "ru": (
             "Режим просмотра от имени пользователя\n\n"
             "Пользователь: {user}\n"
-            "Роль: {role}\n"
-            "Read-only: yes\n\n"
-            "Write actions disabled."
+            "Кабинет: {role}\n"
+            "Режим: только просмотр.\n\n"
+            "Изменение данных недоступно."
         ),
         "en": (
             "View as user mode\n\n"
@@ -6691,17 +6692,17 @@ translations = {
         "pt": "Especialista",
     },
     "super_admin_impersonation_support_btn": {
-        "ru": "Support",
+        "ru": "Поддержка",
         "en": "Support",
         "pt": "Support",
     },
     "super_admin_impersonation_moderator_btn": {
-        "ru": "Moderator",
+        "ru": "Модератор",
         "en": "Moderator",
         "pt": "Moderator",
     },
     "super_admin_impersonation_admin_btn": {
-        "ru": "Admin",
+        "ru": "Администратор",
         "en": "Admin",
         "pt": "Admin",
     },
@@ -7829,6 +7830,2860 @@ translations = {
         "en": "Countries: {countries}\nCities: {cities}\nUsers: {users}\nSpecialists: {specialists}",
         "pt": "Países: {countries}\nCidades: {cities}\nUsuários: {users}\nEspecialistas: {specialists}",
     },
+    "admin_users_roles_section_btn": {
+        "ru": "👥 Пользователи и роли",
+        "en": "👥 Users and roles",
+        "pt": "👥 Usuários e funções",
+    },
+    "admin_dictionaries_section_btn": {
+        "ru": "📚 Справочники",
+        "en": "📚 Dictionaries",
+        "pt": "📚 Diretórios",
+    },
+    "admin_moderation_section_btn": {
+        "ru": "🧾 Модерация",
+        "en": "🧾 Moderation",
+        "pt": "🧾 Moderação",
+    },
+    "admin_dialogs_section_btn": {
+        "ru": "💬 Диалоги",
+        "en": "💬 Dialogs",
+        "pt": "💬 Diálogos",
+    },
+    "admin_finance_section_btn": {
+        "ru": "💰 Финансы",
+        "en": "💰 Finance",
+        "pt": "💰 Finanças",
+    },
+    "admin_promotion_section_btn": {
+        "ru": "📢 Продвижение",
+        "en": "📢 Promotion",
+        "pt": "📢 Promoção",
+    },
+    "admin_system_section_btn": {
+        "ru": "⚙️ Система",
+        "en": "⚙️ System",
+        "pt": "⚙️ Sistema",
+    },
+    "admin_section_stub": {
+        "ru": "{section}\n\nРаздел будет подключён по дорожной карте админской части.",
+        "en": "{section}\n\nThis section will be connected according to the admin roadmap.",
+        "pt": "{section}\n\nEsta seção será conectada de acordo com o roadmap administrativo.",
+    },
+    "admin_dict_menu_title": {
+        "ru": "📚 Справочники\n\nВыберите справочник для управления.",
+        "en": "📚 Dictionaries\n\nChoose a dictionary to manage.",
+        "pt": "📚 Diretórios\n\nEscolha um diretório para gerir.",
+    },
+    "admin_dict_categories_btn": {
+        "ru": "Категории",
+        "en": "Categories",
+        "pt": "Categorias",
+    },
+    "admin_dict_professions_btn": {
+        "ru": "Направления",
+        "en": "Directions",
+        "pt": "Direções",
+    },
+    "admin_dict_skills_btn": {
+        "ru": "Навыки",
+        "en": "Skills",
+        "pt": "Competências",
+    },
+    "admin_dict_languages_btn": {
+        "ru": "Языки",
+        "en": "Languages",
+        "pt": "Idiomas",
+    },
+    "admin_dict_geo_btn": {
+        "ru": "Страны / города",
+        "en": "Countries / cities",
+        "pt": "Países / cidades",
+    },
+    "admin_dict_section_stub": {
+        "ru": "{section}\n\nРедактор будет подключён следующим шагом. Сейчас раздел зафиксирован в структуре Super Admin.",
+        "en": "{section}\n\nThe editor will be connected in the next step. The section is now fixed in the Super Admin structure.",
+        "pt": "{section}\n\nO editor será conectado no próximo passo. A seção agora está fixa na estrutura Super Admin.",
+    },
+    "admin_dict_categories_title": {
+        "ru": "Категории\nПоказано: {count}",
+        "en": "Categories\nShown: {count}",
+        "pt": "Categorias\nMostradas: {count}",
+    },
+    "admin_dict_categories_empty": {
+        "ru": "Категории не найдены.",
+        "en": "No categories found.",
+        "pt": "Nenhuma categoria encontrada.",
+    },
+    "admin_dict_category_row": {
+        "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nПорядок: {sort_order}\nНаправлений: {professions} | Специалистов: {specialists}\nРелиз: {release}",
+        "en": "{number}. {title}\nCode: {code}\nStatus: {status}\nOrder: {sort_order}\nDirections: {professions} | Specialists: {specialists}\nRelease: {release}",
+        "pt": "{number}. {title}\nCódigo: {code}\nEstado: {status}\nOrdem: {sort_order}\nDireções: {professions} | Especialistas: {specialists}\nRelease: {release}",
+    },
+    "admin_dict_category_create_btn": {
+        "ru": "➕ Создать категорию",
+        "en": "➕ Create category",
+        "pt": "➕ Criar categoria",
+    },
+    "admin_dict_category_open_btn": {
+        "ru": "🔍 Открыть категорию",
+        "en": "🔍 Open category",
+        "pt": "🔍 Abrir categoria",
+    },
+    "admin_dict_category_reorder_btn": {
+        "ru": "🔀 Изменить порядок",
+        "en": "🔀 Change order",
+        "pt": "🔀 Alterar ordem",
+        },  
+    "admin_dict_category_open_prompt": {
+        "ru": "Введите номер категории из текущего списка: 1-{count}.",
+        "en": "Enter category number from the current list: 1-{count}.",
+        "pt": "Digite o número da categoria da lista atual: 1-{count}.",
+    },
+    "admin_dict_category_open_bad_number": {
+        "ru": "Неверный номер. Введите число от 1 до {count}.",
+        "en": "Invalid number. Enter a number from 1 to {count}.",
+        "pt": "Número inválido. Digite um número de 1 a {count}.",
+    },
+    "admin_dict_category_card": {
+        "ru": "Категория\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nПорядок: {sort_order}\nНаправлений: {professions}\nСпециалистов: {specialists}\nРелиз: {release}",
+        "en": "Category\n\nTitle: {title}\nCode: {code}\nStatus: {status}\nOrder: {sort_order}\nDirections: {professions}\nSpecialists: {specialists}\nRelease: {release}",
+        "pt": "Categoria\n\nTítulo: {title}\nCódigo: {code}\nEstado: {status}\nOrdem: {sort_order}\nDireções: {professions}\nEspecialistas: {specialists}\nRelease: {release}",
+    },
+    "admin_dict_category_rename_btn": {
+        "ru": "✏️ Переименовать",
+        "en": "✏️ Rename",
+        "pt": "✏️ Renomear",
+    },
+    "admin_dict_category_toggle_btn": {
+        "ru": "👁 Скрыть / показать",
+        "en": "👁 Hide / show",
+        "pt": "👁 Ocultar / mostrar",
+    },
+    "admin_dict_category_archive_btn": {
+        "ru": "🗄 Архивировать",
+        "en": "🗄 Archive",
+        "pt": "🗄 Arquivar",
+    },
+    "admin_dict_category_specialists_btn": {
+        "ru": "👥 Специалисты категории",
+        "en": "👥 Category specialists",
+        "pt": "👥 Especialistas da categoria",
+    },
+    "admin_dict_category_rename_prompt": {
+        "ru": "Введите новое название категории.",
+        "en": "Enter the new category name.",
+        "pt": "Digite o novo nome da categoria.",
+    },
+    "admin_dict_category_rename_done": {
+        "ru": "Название категории обновлено.",
+        "en": "Category name updated.",
+        "pt": "Nome da categoria atualizado.",
+    },
+    "admin_dict_category_visibility_done": {
+        "ru": "Видимость категории обновлена.",
+        "en": "Category visibility updated.",
+        "pt": "Visibilidade da categoria atualizada.",
+    },
+    "admin_dict_category_rename_empty": {
+        "ru": "Название слишком короткое. Введите понятное название категории.",
+        "en": "The name is too short. Enter a clear category name.",
+        "pt": "O nome é muito curto. Digite um nome claro para a categoria.",
+    },
+    "admin_dict_category_rename_duplicate": {
+        "ru": "Категория с таким названием уже есть.",
+        "en": "A category with this name already exists.",
+        "pt": "Já existe uma categoria com este nome.",
+    },
+    "admin_dict_category_archive_done": {
+        "ru": "Категория архивирована. Старые связи сохранены.",
+        "en": "Category archived. Existing links were preserved.",
+        "pt": "Categoria arquivada. Os vínculos existentes foram preservados.",
+    },
+    "admin_dict_category_already_archived": {
+        "ru": "Категория уже находится в архиве.",
+        "en": "The category is already archived.",
+        "pt": "A categoria já está arquivada.",
+    },
+    "admin_dict_category_unarchive_done": {
+        "ru": "Категория возвращена из архива. Видимость не менялась.",
+        "en": "Category returned from archive. Visibility was not changed.",
+        "pt": "Categoria restaurada do arquivo. A visibilidade não foi alterada.",
+    },
+    "admin_dict_category_not_archived": {
+        "ru": "Категория не находится в архиве.",
+        "en": "The category is not archived.",
+        "pt": "A categoria não está arquivada.",
+    },
+    "admin_dict_category_sort_order_prompt": {
+        "ru": "Введите новый порядок категории числом. Например: 10, 20, 30.",
+        "en": "Enter the new category order as a number. For example: 10, 20, 30.",
+        "pt": "Digite a nova ordem da categoria como número. Por exemplo: 10, 20, 30.",
+    },
+    "admin_dict_category_sort_order_done": {
+        "ru": "Порядок категории обновлён.",
+        "en": "Category order updated.",
+        "pt": "Ordem da categoria atualizada.",
+    },
+    "admin_dict_category_sort_order_invalid": {
+        "ru": "Введите число от 0 до 10000.",
+        "en": "Enter a number from 0 to 10000.",
+        "pt": "Digite um número de 0 a 10000.",
+    },
+    "admin_dict_category_create_prompt": {
+        "ru": "Введите название новой категории.",
+        "en": "Enter the new category name.",
+        "pt": "Digite o nome da nova categoria.",
+    },
+    "admin_dict_category_create_done": {
+        "ru": "Категория создана.",
+        "en": "Category created.",
+        "pt": "Categoria criada.",
+    },
+    "admin_dict_category_create_empty": {
+        "ru": "Название слишком короткое. Введите понятное название категории.",
+        "en": "The name is too short. Enter a clear category name.",
+        "pt": "O nome é muito curto. Digite um nome claro para a categoria.",
+    },
+    "admin_dict_category_create_duplicate_code": {
+        "ru": "Не удалось подобрать уникальный код категории. Попробуйте другое название.",
+        "en": "Could not generate a unique category code. Try another name.",
+        "pt": "Não foi possível gerar um código único. Tente outro nome.",
+    },
+    "admin_dict_category_specialists_title": {
+        "ru": "Специалисты категории\nПоказано: {count}",
+        "en": "Category specialists\nShown: {count}",
+        "pt": "Especialistas da categoria\nMostrados: {count}",
+    },
+    "admin_dict_category_specialists_empty": {
+        "ru": "В этой категории пока нет специалистов.",
+        "en": "There are no specialists in this category yet.",
+        "pt": "Ainda não há especialistas nesta categoria.",
+    },
+    "admin_dict_category_specialist_row": {
+        "ru": "{number}. {name}\nСтатус: {status}\nНаправления: {professions}\nПроверен: {verified}\nДоступен: {available}",
+        "en": "{number}. {name}\nStatus: {status}\nDirections: {professions}\nVerified: {verified}\nAvailable: {available}",
+        "pt": "{number}. {name}\nEstado: {status}\nDireções: {professions}\nVerificado: {verified}\nDisponível: {available}",
+    },
+    "admin_dict_professions_title": {
+        "ru": "Направления\nПоказано: {count}",
+        "en": "Directions\nShown: {count}",
+        "pt": "Direções\nMostradas: {count}",
+    },
+    "admin_dict_professions_empty": {
+        "ru": "Направления не найдены.",
+        "en": "No directions found.",
+        "pt": "Nenhuma direção encontrada.",
+    },
+    "admin_dict_profession_row": {
+        "ru": "{number}. {title}\nКод: {code}\nКатегория: {category}\nСтатус: {status}\nПорядок: {sort_order}\nСпециалистов: {specialists}\nРелиз: {release}",
+        "en": "{number}. {title}\nCode: {code}\nCategory: {category}\nStatus: {status}\nOrder: {sort_order}\nSpecialists: {specialists}\nRelease: {release}",
+        "pt": "{number}. {title}\nCódigo: {code}\nCategoria: {category}\nEstado: {status}\nOrdem: {sort_order}\nEspecialistas: {specialists}\nRelease: {release}",
+    },
+    "admin_dict_profession_create_btn": {
+        "ru": "➕ Создать направление",
+        "en": "➕ Create direction",
+        "pt": "➕ Criar direção",
+    },
+    "admin_dict_profession_open_btn": {
+        "ru": "🔍 Открыть направление",
+        "en": "🔍 Open direction",
+        "pt": "🔍 Abrir direção",
+    },
+    "admin_dict_profession_open_prompt": {
+        "ru": "Введите номер направления из текущего списка: 1-{count}.",
+        "en": "Enter direction number from the current list: 1-{count}.",
+        "pt": "Digite o número da direção da lista atual: 1-{count}.",
+    },
+    "admin_dict_profession_open_bad_number": {
+        "ru": "Неверный номер. Введите число от 1 до {count}.",
+        "en": "Invalid number. Enter a number from 1 to {count}.",
+        "pt": "Número inválido. Digite um número de 1 a {count}.",
+    },
+    "admin_dict_profession_card": {
+        "ru": "Направление\n\nНазвание: {title}\nКод: {code}\nКатегория: {category}\nСтатус: {status}\nПорядок: {sort_order}\nСпециалистов: {specialists}\nРелиз: {release}",
+        "en": "Direction\n\nTitle: {title}\nCode: {code}\nCategory: {category}\nStatus: {status}\nOrder: {sort_order}\nSpecialists: {specialists}\nRelease: {release}",
+        "pt": "Direção\n\nTítulo: {title}\nCódigo: {code}\nCategoria: {category}\nEstado: {status}\nOrdem: {sort_order}\nEspecialistas: {specialists}\nRelease: {release}",
+    },
+    "admin_dict_profession_rename_btn": {
+        "ru": "✏️ Переименовать",
+        "en": "✏️ Rename",
+        "pt": "✏️ Renomear",
+    },
+    "admin_dict_profession_move_btn": {
+        "ru": "🔁 Перенести в другую категорию",
+        "en": "🔁 Move to another category",
+        "pt": "🔁 Mover para outra categoria",
+    },
+    "admin_dict_profession_toggle_btn": {
+        "ru": "👁 Скрыть / показать",
+        "en": "👁 Hide / show",
+        "pt": "👁 Ocultar / mostrar",
+    },
+    "admin_dict_profession_archive_btn": {
+        "ru": "🗄 Архивировать",
+        "en": "🗄 Archive",
+        "pt": "🗄 Arquivar",
+    },
+    "admin_dict_profession_specialists_btn": {
+        "ru": "👥 Специалисты направления",
+        "en": "👥 Direction specialists",
+        "pt": "👥 Especialistas da direção",
+    },
+    "admin_dict_profession_create_prompt_in_category": {
+        "ru": "Введите название нового направления для этой категории.",
+        "en": "Enter the new direction name for this category.",
+        "pt": "Digite o nome da nova direção para esta categoria.",
+    },
+    "admin_dict_profession_create_prompt_with_category": {
+        "ru": "Введите название или код категории и название направления в формате:\nКатегория | Название направления",
+        "en": "Enter category name or code and direction name in this format:\nCategory | Direction name",
+        "pt": "Digite o nome ou código da categoria e o nome da direção neste formato:\nCategoria | Nome da direção",
+    },
+    "admin_dict_profession_create_format_error": {
+        "ru": "Введите данные в формате:\nКатегория | Название направления",
+        "en": "Enter data in this format:\nCategory | Direction name",
+        "pt": "Digite os dados neste formato:\nCategoria | Nome da direção",
+    },
+    "admin_dict_profession_create_done": {
+        "ru": "Направление создано.",
+        "en": "Direction created.",
+        "pt": "Direção criada.",
+    },
+    "admin_dict_profession_create_empty": {
+        "ru": "Название слишком короткое. Введите понятное название направления.",
+        "en": "The name is too short. Enter a clear direction name.",
+        "pt": "O nome é muito curto. Digite um nome claro para a direção.",
+    },
+    "admin_dict_profession_category_not_found": {
+        "ru": "Категория не найдена. Проверьте код категории.",
+        "en": "Category not found. Check the category code.",
+        "pt": "Categoria não encontrada. Verifique o código da categoria.",
+    },
+    "admin_dict_profession_category_archived": {
+        "ru": "Нельзя создать направление в архивной категории.",
+        "en": "Cannot create a direction in an archived category.",
+        "pt": "Não é possível criar uma direção em uma categoria arquivada.",
+    },
+    "admin_dict_profession_create_duplicate": {
+        "ru": "В этой категории уже есть направление с таким названием.",
+        "en": "This category already has a direction with this name.",
+        "pt": "Esta categoria já tem uma direção com este nome.",
+    },
+    "admin_dict_profession_create_duplicate_code": {
+        "ru": "Не удалось подобрать уникальный код направления. Попробуйте другое название.",
+        "en": "Could not generate a unique direction code. Try another name.",
+        "pt": "Não foi possível gerar um código único para a direção. Tente outro nome.",
+    },
+    "admin_dict_profession_rename_prompt": {
+        "ru": "Введите новое название направления.",
+        "en": "Enter the new direction name.",
+        "pt": "Digite o novo nome da direção.",
+    },
+    "admin_dict_profession_rename_done": {
+        "ru": "Название направления обновлено.",
+        "en": "Direction name updated.",
+        "pt": "Nome da direção atualizado.",
+    },
+    "admin_dict_profession_rename_empty": {
+        "ru": "Название слишком короткое. Введите понятное название направления.",
+        "en": "The name is too short. Enter a clear direction name.",
+        "pt": "O nome é muito curto. Digite um nome claro para a direção.",
+    },
+    "admin_dict_profession_rename_duplicate": {
+        "ru": "В этой категории уже есть направление с таким названием.",
+        "en": "This category already has a direction with this name.",
+        "pt": "Esta categoria já tem uma direção com este nome.",
+    },
+    "admin_dict_profession_move_prompt": {
+        "ru": "Введите название или код новой категории для этого направления.",
+        "en": "Enter the new category name or code for this direction.",
+        "pt": "Digite o novo nome ou código da categoria para esta direção.",
+    },
+    "admin_dict_profession_move_done": {
+        "ru": "Направление перенесено в другую категорию. Связи специалистов сохранены.",
+        "en": "Direction moved to another category. Specialist links were preserved.",
+        "pt": "Direção movida para outra categoria. Os vínculos dos especialistas foram preservados.",
+    },
+    "admin_dict_profession_move_category_empty": {
+        "ru": "Введите название или код категории.",
+        "en": "Enter the category name or code.",
+        "pt": "Digite o nome ou código da categoria.",
+    },
+    "admin_dict_profession_move_same_category": {
+        "ru": "Это уже текущая категория направления.",
+        "en": "This is already the current direction category.",
+        "pt": "Esta já é a categoria atual da direção.",
+    },
+    "admin_dict_profession_move_duplicate": {
+        "ru": "В целевой категории уже есть направление с таким названием.",
+        "en": "The target category already has a direction with this name.",
+        "pt": "A categoria de destino já tem uma direção com este nome.",
+    },
+    "admin_dict_profession_visibility_done": {
+        "ru": "Видимость направления обновлена.",
+        "en": "Direction visibility updated.",
+        "pt": "Visibilidade da direção atualizada.",
+    },
+    "admin_dict_profession_archive_done": {
+        "ru": "Направление архивировано. Старые связи сохранены.",
+        "en": "Direction archived. Existing links were preserved.",
+        "pt": "Direção arquivada. Os vínculos existentes foram preservados.",
+    },
+    "admin_dict_profession_unarchive_done": {
+        "ru": "Направление возвращено из архива. Видимость не менялась.",
+        "en": "Direction returned from archive. Visibility was not changed.",
+        "pt": "Direção restaurada do arquivo. A visibilidade não foi alterada.",
+    },
+    "admin_dict_profession_already_archived": {
+        "ru": "Направление уже находится в архиве.",
+        "en": "The direction is already archived.",
+        "pt": "A direção já está arquivada.",
+    },
+    "admin_dict_profession_not_archived": {
+        "ru": "Направление не находится в архиве.",
+        "en": "The direction is not archived.",
+        "pt": "A direção não está arquivada.",
+    },
+    "admin_dict_profession_specialists_title": {
+        "ru": "Специалисты направления\nСтраница: {page}\nПоказано: {count}",
+        "en": "Direction specialists\nPage: {page}\nShown: {count}",
+        "pt": "Especialistas da direção\nPágina: {page}\nMostrados: {count}",
+    },
+    "admin_dict_profession_specialists_empty": {
+        "ru": "В этом направлении пока нет специалистов.",
+        "en": "There are no specialists in this direction yet.",
+        "pt": "Ainda não há especialistas nesta direção.",
+    },
+    "admin_dict_skills_title": {
+        "ru": "Навыки\nПоказано: {count}",
+        "en": "Skills\nShown: {count}",
+        "pt": "Competências\nMostradas: {count}",
+    },
+    "admin_dict_skills_empty": {
+        "ru": "Навыки не найдены.",
+        "en": "No skills found.",
+        "pt": "Nenhuma competência encontrada.",
+    },
+    "admin_dict_skill_row": {
+        "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nСвязи: направления {profession_links} | пользователи {user_links} | вакансии {vacancy_links}",
+        "en": "{number}. {title}\nCode: {code}\nStatus: {status}\nLinks: directions {profession_links} | users {user_links} | vacancies {vacancy_links}",
+        "pt": "{number}. {title}\nCódigo: {code}\nEstado: {status}\nVínculos: direções {profession_links} | usuários {user_links} | vagas {vacancy_links}",
+    },
+    "admin_dict_skill_create_btn": {
+        "ru": "➕ Создать навык",
+        "en": "➕ Create skill",
+        "pt": "➕ Criar competência",
+    },
+    "admin_dict_skill_open_btn": {
+        "ru": "🔍 Открыть навык",
+        "en": "🔍 Open skill",
+        "pt": "🔍 Abrir competência",
+    },
+    "admin_dict_skill_open_prompt": {
+        "ru": "Введите номер навыка из текущего списка: 1-{count}.",
+        "en": "Enter skill number from the current list: 1-{count}.",
+        "pt": "Digite o número da competência da lista atual: 1-{count}.",
+    },
+    "admin_dict_skill_open_bad_number": {
+        "ru": "Неверный номер. Введите число от 1 до {count}.",
+        "en": "Invalid number. Enter a number from 1 to {count}.",
+        "pt": "Número inválido. Digite um número de 1 a {count}.",
+    },
+    "admin_dict_skill_card": {
+        "ru": "Навык\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nСвязи с направлениями: {profession_links}\nСвязи с пользователями: {user_links}\nСвязи с вакансиями: {vacancy_links}",
+        "en": "Skill\n\nTitle: {title}\nCode: {code}\nStatus: {status}\nDirection links: {profession_links}\nUser links: {user_links}\nVacancy links: {vacancy_links}",
+        "pt": "Competência\n\nTítulo: {title}\nCódigo: {code}\nEstado: {status}\nVínculos com direções: {profession_links}\nVínculos com usuários: {user_links}\nVínculos com vagas: {vacancy_links}",
+    },
+    "admin_dict_skill_rename_btn": {
+        "ru": "✏️ Переименовать",
+        "en": "✏️ Rename",
+        "pt": "✏️ Renomear",
+    },
+    "admin_dict_skill_toggle_btn": {
+        "ru": "👁 Скрыть / показать",
+        "en": "👁 Hide / show",
+        "pt": "👁 Ocultar / mostrar",
+    },
+    "admin_dict_skill_merge_btn": {
+        "ru": "🔀 Объединить дубли",
+        "en": "🔀 Merge duplicates",
+        "pt": "🔀 Unir duplicados",
+    },
+    "admin_dict_skill_create_prompt": {
+        "ru": "Введите название нового навыка.",
+        "en": "Enter the new skill name.",
+        "pt": "Digite o nome da nova competência.",
+    },
+    "admin_dict_skill_create_done": {
+        "ru": "Навык создан.",
+        "en": "Skill created.",
+        "pt": "Competência criada.",
+    },
+    "admin_dict_skill_create_empty": {
+        "ru": "Название слишком короткое. Введите понятное название навыка.",
+        "en": "The name is too short. Enter a clear skill name.",
+        "pt": "O nome é muito curto. Digite um nome claro para a competência.",
+    },
+    "admin_dict_skill_create_duplicate": {
+        "ru": "Навык с таким названием уже есть.",
+        "en": "A skill with this name already exists.",
+        "pt": "Já existe uma competência com este nome.",
+    },
+    "admin_dict_skill_create_duplicate_code": {
+        "ru": "Не удалось подобрать уникальный код навыка. Попробуйте другое название.",
+        "en": "Could not generate a unique skill code. Try another name.",
+        "pt": "Não foi possível gerar um código único para a competência. Tente outro nome.",
+    },
+    "admin_dict_skill_rename_prompt": {
+        "ru": "Введите новое название навыка.",
+        "en": "Enter the new skill name.",
+        "pt": "Digite o novo nome da competência.",
+    },
+    "admin_dict_skill_rename_done": {
+        "ru": "Название навыка обновлено.",
+        "en": "Skill name updated.",
+        "pt": "Nome da competência atualizado.",
+    },
+    "admin_dict_skill_rename_empty": {
+        "ru": "Название слишком короткое. Введите понятное название навыка.",
+        "en": "The name is too short. Enter a clear skill name.",
+        "pt": "O nome é muito curto. Digite um nome claro para a competência.",
+    },
+    "admin_dict_skill_rename_duplicate": {
+        "ru": "Навык с таким названием уже есть.",
+        "en": "A skill with this name already exists.",
+        "pt": "Já existe uma competência com este nome.",
+    },
+    "admin_dict_skill_visibility_done": {
+        "ru": "Видимость навыка обновлена.",
+        "en": "Skill visibility updated.",
+        "pt": "Visibilidade da competência atualizada.",
+    },
+    "admin_dict_skill_merge_prompt": {
+        "ru": "Введите код или название основного навыка, в который нужно объединить текущий дубль.",
+        "en": "Enter the code or title of the main skill that should receive this duplicate.",
+        "pt": "Digite o código ou título da competência principal que deve receber este duplicado.",
+    },
+    "admin_dict_skill_merge_done": {
+        "ru": "Дубли объединены.\n\nПеренесено связей с направлениями: {moved_profession_links}\nУдалено дублей связей с направлениями: {removed_duplicate_profession_links}\nПеренесено связей с пользователями: {moved_user_links}\nУдалено дублей связей с пользователями: {removed_duplicate_user_links}",
+        "en": "Duplicates merged.\n\nMoved direction links: {moved_profession_links}\nRemoved duplicate direction links: {removed_duplicate_profession_links}\nMoved user links: {moved_user_links}\nRemoved duplicate user links: {removed_duplicate_user_links}",
+        "pt": "Duplicados unidos.\n\nVínculos com direções movidos: {moved_profession_links}\nVínculos duplicados com direções removidos: {removed_duplicate_profession_links}\nVínculos com usuários movidos: {moved_user_links}\nVínculos duplicados com usuários removidos: {removed_duplicate_user_links}",
+    },
+    "admin_dict_skill_merge_empty": {
+        "ru": "Введите код или название основного навыка.",
+        "en": "Enter the code or title of the main skill.",
+        "pt": "Digite o código ou título da competência principal.",
+    },
+    "admin_dict_skill_merge_target_not_found": {
+        "ru": "Основной навык не найден. Введите точный код или название навыка.",
+        "en": "Main skill not found. Enter the exact skill code or title.",
+        "pt": "Competência principal não encontrada. Digite o código ou título exato.",
+    },
+    "admin_dict_skill_merge_same_skill": {
+        "ru": "Нельзя объединить навык сам с собой. Выберите другой основной навык.",
+        "en": "A skill cannot be merged into itself. Choose another main skill.",
+        "pt": "Uma competência não pode ser unida a si mesma. Escolha outra competência principal.",
+    },
+    "admin_dict_skill_merge_confirm_text": {
+        "ru": "Подтвердите объединение навыков.\n\nДубль: {source_title}\nКод дубля: {source_code}\nСвязи дубля: направления {source_profession_links}, пользователи {source_user_links}\n\nОсновной навык: {target_title}\nКод основного навыка: {target_code}\n\nПосле подтверждения дубль будет скрыт, а связи будут перенесены в основной навык.",
+        "en": "Confirm skill merge.\n\nDuplicate: {source_title}\nDuplicate code: {source_code}\nDuplicate links: directions {source_profession_links}, users {source_user_links}\n\nMain skill: {target_title}\nMain skill code: {target_code}\n\nAfter confirmation, the duplicate will be hidden and links will be moved to the main skill.",
+        "pt": "Confirme a união das competências.\n\nDuplicado: {source_title}\nCódigo do duplicado: {source_code}\nVínculos do duplicado: direções {source_profession_links}, usuários {source_user_links}\n\nCompetência principal: {target_title}\nCódigo da competência principal: {target_code}\n\nApós a confirmação, o duplicado será ocultado e os vínculos serão movidos para a competência principal.",
+    },
+    "admin_dict_skill_merge_confirm_btn": {
+        "ru": "✅ Подтвердить объединение",
+        "en": "✅ Confirm merge",
+        "pt": "✅ Confirmar união",
+    },
+    "admin_cancel": {
+        "ru": "⬅️ Отмена",
+        "en": "⬅️ Cancel",
+        "pt": "⬅️ Cancelar",
+    },
+    "admin_dict_languages_title": {
+        "ru": "Языки\nПоказано: {count}",
+        "en": "Languages\nShown: {count}",
+        "pt": "Idiomas\nMostrados: {count}",
+    },
+    "admin_dict_languages_empty": {
+        "ru": "Языки не найдены.",
+        "en": "No languages found.",
+        "pt": "Nenhum idioma encontrado.",
+    },
+    "admin_dict_language_row": {
+        "ru": "{number}. {title}\nКод: {code}\nРодное название: {native_name}\nСтатус: {status}\nСвязи со специалистами: {specialist_links}",
+        "en": "{number}. {title}\nCode: {code}\nNative name: {native_name}\nStatus: {status}\nSpecialist links: {specialist_links}",
+        "pt": "{number}. {title}\nCódigo: {code}\nNome nativo: {native_name}\nEstado: {status}\nVínculos com especialistas: {specialist_links}",
+    },
+    "admin_dict_language_create_btn": {
+        "ru": "➕ Создать язык",
+        "en": "➕ Create language",
+        "pt": "➕ Criar idioma",
+    },
+    "admin_dict_language_open_btn": {
+        "ru": "🔍 Открыть язык",
+        "en": "🔍 Open language",
+        "pt": "🔍 Abrir idioma",
+    },
+    "admin_dict_language_open_prompt": {
+        "ru": "Введите номер языка из текущего списка: 1-{count}.",
+        "en": "Enter language number from the current list: 1-{count}.",
+        "pt": "Digite o número do idioma da lista atual: 1-{count}.",
+    },
+    "admin_dict_language_open_bad_number": {
+        "ru": "Неверный номер. Введите число от 1 до {count}.",
+        "en": "Invalid number. Enter a number from 1 to {count}.",
+        "pt": "Número inválido. Digite um número de 1 a {count}.",
+    },
+    "admin_dict_language_card": {
+        "ru": "Язык\n\nНазвание: {title}\nКод: {code}\nРодное название: {native_name}\nСтатус: {status}\nСвязи со специалистами: {specialist_links}",
+        "en": "Language\n\nTitle: {title}\nCode: {code}\nNative name: {native_name}\nStatus: {status}\nSpecialist links: {specialist_links}",
+        "pt": "Idioma\n\nTítulo: {title}\nCódigo: {code}\nNome nativo: {native_name}\nEstado: {status}\nVínculos com especialistas: {specialist_links}",
+    },
+    "admin_dict_language_rename_btn": {
+        "ru": "✏️ Переименовать",
+        "en": "✏️ Rename",
+        "pt": "✏️ Renomear",
+    },
+    "admin_dict_language_toggle_btn": {
+        "ru": "👁 Скрыть / показать",
+        "en": "👁 Hide / show",
+        "pt": "👁 Ocultar / mostrar",
+    },
+    "admin_dict_language_create_prompt": {
+        "ru": "Введите язык в формате:\ncode | name | native_name\n\nПример:\nfr | French | Français",
+        "en": "Enter language in this format:\ncode | name | native_name\n\nExample:\nfr | French | Français",
+        "pt": "Digite o idioma neste formato:\ncode | name | native_name\n\nExemplo:\nfr | French | Français",
+    },
+    "admin_dict_language_create_done": {
+        "ru": "Язык создан.",
+        "en": "Language created.",
+        "pt": "Idioma criado.",
+    },
+    "admin_dict_language_bad_format": {
+        "ru": "Неверный формат. Используйте:\ncode | name | native_name\n\nПример:\nfr | French | Français",
+        "en": "Invalid format. Use:\ncode | name | native_name\n\nExample:\nfr | French | Français",
+        "pt": "Formato inválido. Use:\ncode | name | native_name\n\nExemplo:\nfr | French | Français",
+    },
+    "admin_dict_language_code_invalid": {
+        "ru": "Код языка должен быть латиницей от 2 до 10 символов. Например: fr, de, es.",
+        "en": "Language code must use 2 to 10 Latin letters. For example: fr, de, es.",
+        "pt": "O código do idioma deve usar 2 a 10 letras latinas. Por exemplo: fr, de, es.",
+    },
+    "admin_dict_language_name_empty": {
+        "ru": "Название языка слишком короткое.",
+        "en": "Language name is too short.",
+        "pt": "O nome do idioma é muito curto.",
+    },
+    "admin_dict_language_code_duplicate": {
+        "ru": "Язык с таким кодом уже есть.",
+        "en": "A language with this code already exists.",
+        "pt": "Já existe um idioma com este código.",
+    },
+    "admin_dict_language_name_duplicate": {
+        "ru": "Язык с таким названием уже есть.",
+        "en": "A language with this name already exists.",
+        "pt": "Já existe um idioma com este nome.",
+    },
+    "admin_dict_language_rename_prompt": {
+        "ru": "Введите новое название языка в формате:\nname | native_name\n\nПример:\nPortuguese | Português\n\nКод языка не меняется, чтобы не ломать связи со специалистами.",
+        "en": "Enter the new language name in this format:\nname | native_name\n\nExample:\nPortuguese | Português\n\nThe language code is not changed to keep specialist links safe.",
+        "pt": "Digite o novo nome do idioma neste formato:\nname | native_name\n\nExemplo:\nPortuguese | Português\n\nO código do idioma não é alterado para manter os vínculos com especialistas.",
+    },
+    "admin_dict_language_rename_done": {
+        "ru": "Название языка обновлено.",
+        "en": "Language name updated.",
+        "pt": "Nome do idioma atualizado.",
+    },
+    "admin_dict_language_visibility_done": {
+        "ru": "Видимость языка обновлена.",
+        "en": "Language visibility updated.",
+        "pt": "Visibilidade do idioma atualizada.",
+    },
+    "admin_dict_countries_title": {
+        "ru": "Страны\nПоказано: {count}",
+        "en": "Countries\nShown: {count}",
+        "pt": "Países\nMostrados: {count}",
+    },
+    "admin_dict_countries_empty": {
+        "ru": "Страны не найдены.",
+        "en": "No countries found.",
+        "pt": "Nenhum país encontrado.",
+    },
+    "admin_dict_country_row": {
+        "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nГородов: {cities} | Специалистов: {specialists}",
+        "en": "{number}. {title}\nCode: {code}\nStatus: {status}\nCities: {cities} | Specialists: {specialists}",
+        "pt": "{number}. {title}\nCódigo: {code}\nEstado: {status}\nCidades: {cities} | Especialistas: {specialists}",
+    },
+    "admin_dict_country_open_btn": {
+        "ru": "🔍 Открыть страну",
+        "en": "🔍 Open country",
+        "pt": "🔍 Abrir país",
+    },
+    "admin_dict_country_open_prompt": {
+        "ru": "Введите номер страны из текущего списка: 1-{count}.",
+        "en": "Enter country number from the current list: 1-{count}.",
+        "pt": "Digite o número do país da lista atual: 1-{count}.",
+    },
+    "admin_dict_country_open_bad_number": {
+        "ru": "Неверный номер. Введите число от 1 до {count}.",
+        "en": "Invalid number. Enter a number from 1 to {count}.",
+        "pt": "Número inválido. Digite um número de 1 a {count}.",
+    },
+    "admin_dict_country_card": {
+        "ru": "Страна\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nЯзык по умолчанию: {default_language}\nВалюта: {default_currency}\nТелефонный код: {phone_code}\nГородов: {cities}\nСпециалистов: {specialists}",
+        "en": "Country\n\nTitle: {title}\nCode: {code}\nStatus: {status}\nDefault language: {default_language}\nCurrency: {default_currency}\nPhone code: {phone_code}\nCities: {cities}\nSpecialists: {specialists}",
+        "pt": "País\n\nTítulo: {title}\nCódigo: {code}\nEstado: {status}\nIdioma padrão: {default_language}\nMoeda: {default_currency}\nCódigo telefônico: {phone_code}\nCidades: {cities}\nEspecialistas: {specialists}",
+    },
+    "admin_dict_country_cities_btn": {
+        "ru": "🏙 Города страны",
+        "en": "🏙 Country cities",
+        "pt": "🏙 Cidades do país",
+    },
+    "admin_dict_cities_title": {
+        "ru": "Города\nПоказано: {count}",
+        "en": "Cities\nShown: {count}",
+        "pt": "Cidades\nMostradas: {count}",
+    },
+    "admin_dict_cities_empty": {
+        "ru": "Города не найдены.",
+        "en": "No cities found.",
+        "pt": "Nenhuma cidade encontrada.",
+    },
+    "admin_dict_city_row": {
+        "ru": "{number}. {title}\nСтатус: {status}\nЧасовой пояс: {timezone}\nСпециалистов: {specialists}",
+        "en": "{number}. {title}\nStatus: {status}\nTimezone: {timezone}\nSpecialists: {specialists}",
+        "pt": "{number}. {title}\nEstado: {status}\nFuso horário: {timezone}\nEspecialistas: {specialists}",
+    },
+    "admin_dict_city_open_btn": {
+        "ru": "🔍 Открыть город",
+        "en": "🔍 Open city",
+        "pt": "🔍 Abrir cidade",
+    },
+    "admin_dict_city_open_prompt": {
+        "ru": "Введите номер города из текущего списка: 1-{count}.",
+        "en": "Enter city number from the current list: 1-{count}.",
+        "pt": "Digite o número da cidade da lista atual: 1-{count}.",
+    },
+    "admin_dict_city_open_bad_number": {
+        "ru": "Неверный номер. Введите число от 1 до {count}.",
+        "en": "Invalid number. Enter a number from 1 to {count}.",
+        "pt": "Número inválido. Digite um número de 1 a {count}.",
+    },
+    "admin_dict_city_card": {
+        "ru": "Город\n\nНазвание: {title}\nСтрана: {country}\nСтатус: {status}\nЧасовой пояс: {timezone}\nКоординаты: {coordinates}\nСпециалистов: {specialists}",
+        "en": "City\n\nTitle: {title}\nCountry: {country}\nStatus: {status}\nTimezone: {timezone}\nCoordinates: {coordinates}\nSpecialists: {specialists}",
+        "pt": "Cidade\n\nTítulo: {title}\nPaís: {country}\nEstado: {status}\nFuso horário: {timezone}\nCoordenadas: {coordinates}\nEspecialistas: {specialists}",
+    },
+    "admin_dict_country_toggle_btn": {
+        "ru": "👁 Скрыть / показать",
+        "en": "👁 Hide / show",
+        "pt": "👁 Ocultar / mostrar",
+    },
+    "admin_dict_country_visibility_done": {
+        "ru": "Видимость страны обновлена.",
+        "en": "Country visibility updated.",
+        "pt": "Visibilidade do país atualizada.",
+    },
+    "admin_dict_city_toggle_btn": {
+        "ru": "👁 Скрыть / показать",
+        "en": "👁 Hide / show",
+        "pt": "👁 Ocultar / mostrar",
+    },
+    "admin_dict_city_visibility_done": {
+        "ru": "Видимость города обновлена.",
+        "en": "City visibility updated.",
+        "pt": "Visibilidade da cidade atualizada.",
+    },
+    "admin_dict_country_update_btn": {
+        "ru": "✏️ Редактировать страну",
+        "en": "✏️ Edit country",
+        "pt": "✏️ Editar país",
+    },
+    "admin_dict_country_update_prompt": {
+        "ru": "Введите данные страны в формате:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code\n\nПример:\nPoland | Польша | Poland | Polônia | pl | PLN | +48",
+        "en": "Enter country data in this format:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code\n\nExample:\nPoland | Польша | Poland | Polônia | pl | PLN | +48",
+        "pt": "Digite os dados do país neste formato:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code\n\nExemplo:\nPoland | Польша | Poland | Polônia | pl | PLN | +48",
+    },
+    "admin_dict_country_update_done": {
+        "ru": "Страна обновлена.",
+        "en": "Country updated.",
+        "pt": "País atualizado.",
+    },
+    "admin_dict_country_update_bad_format": {
+        "ru": "Неверный формат. Используйте:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code",
+        "en": "Invalid format. Use:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code",
+        "pt": "Formato inválido. Use:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code",
+    },
+    "admin_dict_country_update_name_empty": {
+        "ru": "Название страны слишком короткое.",
+        "en": "Country name is too short.",
+        "pt": "O nome do país é muito curto.",
+    },
+    "admin_dict_city_update_btn": {
+        "ru": "✏️ Редактировать город",
+        "en": "✏️ Edit city",
+        "pt": "✏️ Editar cidade",
+    },
+    "admin_dict_city_update_prompt": {
+        "ru": "Введите данные города в формате:\nname | name_ru | name_en | name_pt | timezone\n\nПример:\nTallinn | Таллинн | Tallinn | Tallinn | Europe/Tallinn",
+        "en": "Enter city data in this format:\nname | name_ru | name_en | name_pt | timezone\n\nExample:\nTallinn | Таллинн | Tallinn | Tallinn | Europe/Tallinn",
+        "pt": "Digite os dados da cidade neste formato:\nname | name_ru | name_en | name_pt | timezone\n\nExemplo:\nTallinn | Таллинн | Tallinn | Tallinn | Europe/Tallinn",
+    },
+    "admin_dict_city_update_done": {
+        "ru": "Город обновлен.",
+        "en": "City updated.",
+        "pt": "Cidade atualizada.",
+    },
+    "admin_dict_city_update_bad_format": {
+        "ru": "Неверный формат. Используйте:\nname | name_ru | name_en | name_pt | timezone",
+        "en": "Invalid format. Use:\nname | name_ru | name_en | name_pt | timezone",
+        "pt": "Formato inválido. Use:\nname | name_ru | name_en | name_pt | timezone",
+    },
+    "admin_dict_city_update_name_empty": {
+        "ru": "Название города слишком короткое.",
+        "en": "City name is too short.",
+        "pt": "O nome da cidade é muito curto.",
+    },
+    "admin_dict_city_update_latitude_invalid": {
+        "ru": "Широта должна быть числом от -90 до 90.",
+        "en": "Latitude must be a number from -90 to 90.",
+        "pt": "A latitude deve ser um número de -90 a 90.",
+    },
+    "admin_dict_city_update_longitude_invalid": {
+        "ru": "Долгота должна быть числом от -180 до 180.",
+        "en": "Longitude must be a number from -180 to 180.",
+        "pt": "A longitude deve ser um número de -180 a 180.",
+    },
+    "admin_dict_city_geo_update_btn": {
+        "ru": "📍 Обновить координаты",
+        "en": "📍 Update coordinates",
+        "pt": "📍 Atualizar coordenadas",
+    },
+    "admin_dict_city_geo_update_prompt": {
+        "ru": "Введите координаты города в формате:\nlat, lon\n\nПример:\n38.7223, -9.1393",
+        "en": "Enter city coordinates in this format:\nlat, lon\n\nExample:\n38.7223, -9.1393",
+        "pt": "Digite as coordenadas da cidade neste formato:\nlat, lon\n\nExemplo:\n38.7223, -9.1393",
+    },
+    "admin_dict_city_geo_update_done": {
+        "ru": "Координаты города обновлены.",
+        "en": "City coordinates updated.",
+        "pt": "Coordenadas da cidade atualizadas.",
+    },
+    "admin_dict_city_geo_bad_format": {
+        "ru": "Неверный формат. Используйте:\nlat, lon\n\nПример:\n38.7223, -9.1393",
+        "en": "Invalid format. Use:\nlat, lon\n\nExample:\n38.7223, -9.1393",
+        "pt": "Formato inválido. Use:\nlat, lon\n\nExemplo:\n38.7223, -9.1393",
+    },
+    "admin_dict_city_geo_latitude_invalid": {
+        "ru": "Широта должна быть числом от -90 до 90.",
+        "en": "Latitude must be a number from -90 to 90.",
+        "pt": "A latitude deve ser um número de -90 a 90.",
+    },
+    "admin_dict_city_geo_longitude_invalid": {
+        "ru": "Долгота должна быть числом от -180 до 180.",
+        "en": "Longitude must be a number from -180 to 180.",
+        "pt": "A longitude deve ser um número de -180 a 180.",
+    },
+    "admin_dict_country_create_btn": {
+        "ru": "➕ Создать страну",
+        "en": "➕ Create country",
+        "pt": "➕ Criar país",
+    },
+    "admin_dict_country_create_prompt": {
+        "ru": "Введите страну в формате:\ncode | name_ru | name_en | name_pt\n\nПример:\nLV | Латвия | Latvia | Letônia\n\nВалюту, язык по умолчанию и телефонный код можно добавить позже через редактирование страны.",
+        "en": "Enter country in this format:\ncode | name_ru | name_en | name_pt\n\nExample:\nLV | Латвия | Latvia | Letônia\n\nCurrency, default language and phone code can be added later by editing the country.",
+        "pt": "Digite o país neste formato:\ncode | name_ru | name_en | name_pt\n\nExemplo:\nLV | Латвия | Latvia | Letônia\n\nMoeda, idioma padrão e código telefônico podem ser adicionados depois editando o país.",
+    },
+    "admin_dict_country_create_done": {
+        "ru": "Страна создана.",
+        "en": "Country created.",
+        "pt": "País criado.",
+        },
+    "admin_dict_country_create_bad_format": {
+        "ru": "Неверный формат. Используйте:\ncode | name_ru | name_en | name_pt\n\nПример:\nLV | Латвия | Latvia | Letônia",
+        "en": "Invalid format. Use:\ncode | name_ru | name_en | name_pt\n\nExample:\nLV | Латвия | Latvia | Letônia",
+        "pt": "Formato inválido. Use:\ncode | name_ru | name_en | name_pt\n\nExemplo:\nLV | Латвия | Latvia | Letônia",
+    },
+    "admin_dict_country_code_invalid": {
+        "ru": "Код страны должен быть ISO-2: две латинские буквы. Например: LV, EE, PL.",
+        "en": "Country code must be ISO-2: two Latin letters. For example: LV, EE, PL.",
+        "pt": "O código do país deve ser ISO-2: duas letras latinas. Por exemplo: LV, EE, PL.",
+    },
+    "admin_dict_country_create_name_empty": {
+        "ru": "Все три названия страны должны быть заполнены: RU, EN и PT.",
+        "en": "All three country names must be filled: RU, EN and PT.",
+        "pt": "Os três nomes do país devem ser preenchidos: RU, EN e PT.",
+    },
+    "admin_dict_country_code_duplicate": {
+        "ru": "Страна с таким кодом уже есть.",
+        "en": "A country with this code already exists.",
+        "pt": "Já existe um país com este código.",
+    },
+    "admin_dict_country_name_duplicate": {
+        "ru": "Страна с таким названием уже есть.",
+        "en": "A country with this name already exists.",
+        "pt": "Já existe um país com este nome.",
+    },
+    "admin_dict_city_create_btn": {
+        "ru": "➕ Создать город",
+        "en": "➕ Create city",
+        "pt": "➕ Criar cidade",
+    },
+    "admin_dict_city_create_prompt": {
+        "ru": "Введите город для выбранной страны в формате:\nname_ru | name_en | name_pt | timezone\n\nПример:\nРига | Riga | Riga | Europe/Riga\n\nКоординаты добавляются отдельно через кнопку “Обновить координаты”.",
+        "en": "Enter city for the selected country in this format:\nname_ru | name_en | name_pt | timezone\n\nExample:\nРига | Riga | Riga | Europe/Riga\n\nCoordinates are added separately with the “Update coordinates” button.",
+        "pt": "Digite a cidade para o país selecionado neste formato:\nname_ru | name_en | name_pt | timezone\n\nExemplo:\nРига | Riga | Riga | Europe/Riga\n\nAs coordenadas são adicionadas separadamente pelo botão “Atualizar coordenadas”.",
+    },
+    "admin_dict_city_create_done": {
+        "ru": "Город создан.",
+        "en": "City created.",
+        "pt": "Cidade criada.",
+    },
+    "admin_dict_city_create_bad_format": {
+        "ru": "Неверный формат. Используйте:\nname_ru | name_en | name_pt | timezone",
+        "en": "Invalid format. Use:\nname_ru | name_en | name_pt | timezone",
+        "pt": "Formato inválido. Use:\nname_ru | name_en | name_pt | timezone",
+    },
+    "admin_dict_city_create_name_empty": {
+        "ru": "Все три названия города должны быть заполнены: RU, EN и PT.",
+        "en": "All three city names must be filled: RU, EN and PT.",
+        "pt": "Os três nomes da cidade devem ser preenchidos: RU, EN e PT.",
+    },
+    "admin_dict_city_name_duplicate": {
+        "ru": "Город с таким названием уже есть в этой стране.",
+        "en": "A city with this name already exists in this country.",
+        "pt": "Já existe uma cidade com este nome neste país.",
+    },
+    "admin_dict_country_import_btn": {
+        "ru": "⬆️ Импорт стран",
+        "en": "⬆️ Import countries",
+        "pt": "⬆️ Importar países",
+    },
+    "admin_dict_city_import_btn": {
+        "ru": "⬆️ Импорт городов",
+        "en": "⬆️ Import cities",
+        "pt": "⬆️ Importar cidades",
+    },
+    "admin_dict_country_import_prompt": {
+        "ru": (
+            "Отправьте CSV для импорта стран текстом или .csv файлом.\n\n"
+            "Формат:\n"
+            "code,name_ru,name_en,name_pt,default_language,default_currency,phone_code\n\n"
+            "Пример:\n"
+            "LV,Латвия,Latvia,Letônia,lv,EUR,+371\n"
+            "EE,Эстония,Estonia,Estônia,et,EUR,+372"
+        ),
+        "en": (
+            "Send CSV to import countries.\n\n"
+            "Format:\n"
+            "code,name_ru,name_en,name_pt,default_language,default_currency,phone_code\n\n"
+            "Example:\n"
+            "LV,Латвия,Latvia,Letônia,lv,EUR,+371\n"
+            "EE,Эстония,Estonia,Estônia,et,EUR,+372"
+        ),
+        "pt": (
+            "Envie CSV para importar países.\n\n"
+            "Formato:\n"
+            "code,name_ru,name_en,name_pt,default_language,default_currency,phone_code\n\n"
+            "Exemplo:\n"
+            "LV,Латвия,Latvia,Letônia,lv,EUR,+371\n"
+            "EE,Эстония,Estonia,Estônia,et,EUR,+372"
+        ),
+    },
+    "admin_dict_city_import_prompt": {
+        "ru": (
+            "Отправьте CSV для импорта городов выбранной страны текстом или .csv файлом.\n\n"
+            "Формат:\n"
+            "name_ru,name_en,name_pt,timezone,latitude,longitude\n\n"
+            "Пример:\n"
+            "Рига,Riga,Riga,Europe/Riga,56.9496,24.1052\n"
+            "Даугавпилс,Daugavpils,Daugavpils,Europe/Riga,55.8714,26.5161"
+        ),
+        "en": (
+            "Send CSV to import cities for the selected country.\n\n"
+            "Format:\n"
+            "name_ru,name_en,name_pt,timezone,latitude,longitude\n\n"
+            "Example:\n"
+            "Рига,Riga,Riga,Europe/Riga,56.9496,24.1052\n"
+            "Даугавпилс,Daugavpils,Daugavpils,Europe/Riga,55.8714,26.5161"
+        ),
+        "pt": (
+            "Envie CSV para importar cidades do país selecionado.\n\n"
+            "Formato:\n"
+            "name_ru,name_en,name_pt,timezone,latitude,longitude\n\n"
+            "Exemplo:\n"
+            "Рига,Riga,Riga,Europe/Riga,56.9496,24.1052\n"
+            "Даугавпилс,Daugavpils,Daugavpils,Europe/Riga,55.8714,26.5161"
+        ),
+    },
+    "admin_dict_import_empty": {
+        "ru": "CSV пустой. Отправьте текст с заголовком и строками данных.",
+        "en": "CSV is empty. Send text with a header and data rows.",
+        "pt": "O CSV está vazio. Envie texto com cabeçalho e linhas de dados.",
+    },
+    "admin_dict_import_done": {
+        "ru": (
+            "Импорт завершен.\n\n"
+            "Создано: {created}\n"
+            "Обновлено: {updated}\n"
+            "Пропущено: {skipped}\n\n"
+            "Ошибки:\n{errors}"
+        ),
+        "en": (
+            "Import completed.\n\n"
+            "Created: {created}\n"
+            "Updated: {updated}\n"
+            "Skipped: {skipped}\n\n"
+            "Errors:\n{errors}"
+        ),
+        "pt": (
+            "Importação concluída.\n\n"
+            "Criado: {created}\n"
+            "Atualizado: {updated}\n"
+            "Ignorado: {skipped}\n\n"
+            "Erros:\n{errors}"
+        ),
+    },
+    "admin_dict_import_file_required": {
+        "ru": "Отправьте CSV текстом или прикрепите .csv файл.",
+        "en": "Send CSV as text or attach a .csv file.",
+        "pt": "Envie CSV como texto ou anexe um arquivo .csv.",
+    },
+    "admin_dict_import_file_invalid": {
+        "ru": "Нужен файл в формате .csv.",
+        "en": "A .csv file is required.",
+        "pt": "É necessário um arquivo .csv.",
+    },
+    "admin_dict_import_file_encoding_error": {
+        "ru": "Не удалось прочитать CSV. Сохраните файл в UTF-8 и отправьте снова.",
+        "en": "Could not read CSV. Save the file as UTF-8 and send it again.",
+        "pt": "Não foi possível ler o CSV. Salve o arquivo em UTF-8 e envie novamente.",
+    },
+    "admin_dict_specialist_move_empty": {
+        "ru": "Выберите хотя бы одного специалиста для переноса.",
+        "en": "Select at least one specialist to move.",
+        "pt": "Selecione pelo menos um especialista para mover.",
+    },
+    "admin_dict_specialist_move_btn": {
+        "ru": "🔀 Перенести специалистов",
+        "en": "🔀 Move specialists",
+        "pt": "🔀 Mover especialistas",
+    },
+    "admin_dict_specialist_move_select_prompt": {
+        "ru": (
+            "Введите номера специалистов из текущего списка через запятую.\n\n"
+            "Пример: 1, 3, 5"
+        ),
+        "en": (
+            "Enter specialist numbers from the current list, separated by commas.\n\n"
+            "Example: 1, 3, 5"
+        ),
+        "pt": (
+            "Digite os números dos especialistas da lista atual, separados por vírgula.\n\n"
+            "Exemplo: 1, 3, 5"
+        ),
+    },
+    "admin_dict_specialist_move_bad_numbers": {
+        "ru": "Неверные номера. Введите числа из текущего списка: 1-{count}.",
+        "en": "Invalid numbers. Enter numbers from the current list: 1-{count}.",
+        "pt": "Números inválidos. Digite números da lista atual: 1-{count}.",
+    },
+    "admin_dict_specialist_move_target_prompt": {
+        "ru": (
+            "Введите номер целевого направления из текущего списка направлений "
+            "или точный код направления.\n\n"
+            "Пример: electrician_general"
+        ),
+        "en": (
+            "Enter target profession number from the current profession list "
+            "or exact profession code.\n\n"
+            "Example: electrician_general"
+        ),
+        "pt": (
+            "Digite o número da profissão de destino da lista atual "
+            "ou o código exato da profissão.\n\n"
+            "Exemplo: electrician_general"
+        ),
+    },
+    "admin_dict_category_specialist_move_all_btn": {
+        "ru": "🔁 Перенести всех из категории",
+        "en": "🔁 Move all from category",
+        "pt": "🔁 Mover todos da categoria",
+    },
+    "admin_dict_specialist_move_all_btn": {
+        "ru": "🔁 Перенести всех из направления",
+        "en": "🔁 Move all from profession",
+        "pt": "🔁 Mover todos da profissão",
+    },
+    "admin_dict_specialist_move_target_prompt": {
+        "ru": (
+            "Введите точное название целевого направления.\n\n"
+            "Пример: Электрик"
+        ),
+        "en": (
+            "Enter the exact name of the target profession.\n\n"
+            "Example: Electrician"
+        ),
+        "pt": (
+            "Digite o nome exato da profissão de destino.\n\n"
+            "Exemplo: Eletricista"
+        ),
+    },
+    "admin_dict_specialist_move_target_not_found": {
+        "ru": (
+            "Активное направление с таким названием не найдено. "
+            "Проверьте название и попробуйте ещё раз."
+        ),
+        "en": (
+            "No active profession with this name was found. "
+            "Check the name and try again."
+        ),
+        "pt": (
+            "Nenhuma profissão ativa com este nome foi encontrada. "
+            "Verifique o nome e tente novamente."
+        ),
+    },
+    "admin_dict_specialist_move_target_multiple": {
+        "ru": (
+            "Найдено несколько направлений с таким названием.\n"
+            "Введите номер нужного направления:"
+        ),
+        "en": (
+            "Several professions with this name were found.\n"
+            "Enter the number of the required profession:"
+        ),
+        "pt": (
+            "Foram encontradas várias profissões com este nome.\n"
+            "Digite o número da profissão necessária:"
+        ),
+    },
+    "admin_dict_specialist_move_target_bad_number": {
+        "ru": "Введите номер направления из показанного списка: 1-{count}.",
+        "en": "Enter a profession number from the displayed list: 1-{count}.",
+        "pt": "Digite um número da profissão da lista exibida: 1-{count}.",
+    },
+    "admin_dict_specialist_move_preview": {
+        "ru": (
+            "Подтвердите перенос специалистов.\n\n"
+            "Откуда: {source_profession}\n"
+            "Категория: {source_category}\n\n"
+            "Куда: {target_profession}\n"
+            "Категория: {target_category}\n\n"
+            "Количество специалистов: {count}\n\n"
+            "После подтверждения изменятся только связи специалистов "
+            "с категорией и направлением."
+        ),
+        "en": (
+            "Confirm the specialist transfer.\n\n"
+            "From: {source_profession}\n"
+            "Category: {source_category}\n\n"
+            "To: {target_profession}\n"
+            "Category: {target_category}\n\n"
+            "Specialists: {count}\n\n"
+            "After confirmation, only specialist category and profession "
+            "relations will be changed."
+        ),
+        "pt": (
+            "Confirme a transferência dos especialistas.\n\n"
+            "De: {source_profession}\n"
+            "Categoria: {source_category}\n\n"
+            "Para: {target_profession}\n"
+            "Categoria: {target_category}\n\n"
+            "Especialistas: {count}\n\n"
+            "Após a confirmação, apenas as relações dos especialistas "
+            "com a categoria e a profissão serão alteradas."
+        ),
+    },
+    "admin_dict_specialist_move_confirm_btn": {
+        "ru": "✅ Подтвердить перенос",
+        "en": "✅ Confirm transfer",
+        "pt": "✅ Confirmar transferência",
+    },
+    "admin_dict_specialist_move_cancel_btn": {
+        "ru": "Отмена",
+        "en": "Cancel",
+        "pt": "Cancelar",
+    },
+    "admin_dict_specialist_move_done": {
+        "ru": (
+            "Перенос завершён.\n\n"
+            "Направление: {target_profession}\n"
+            "Категория: {target_category}\n"
+            "Перенесено: {moved_count}\n"
+            "Уже были связаны с направлением: {duplicate_count}\n"
+            "Основных направлений синхронизировано: {synchronized_count}\n"
+            "Не найдено: {missing_count}"
+        ),
+        "en": (
+            "Transfer completed.\n\n"
+            "Profession: {target_profession}\n"
+            "Category: {target_category}\n"
+            "Moved: {moved_count}\n"
+            "Already linked to the profession: {duplicate_count}\n"
+            "Primary professions synchronized: {synchronized_count}\n"
+            "Not found: {missing_count}"
+        ),
+        "pt": (
+            "Transferência concluída.\n\n"
+            "Profissão: {target_profession}\n"
+            "Categoria: {target_category}\n"
+            "Transferidos: {moved_count}\n"
+            "Já vinculados à profissão: {duplicate_count}\n"
+            "Profissões principais sincronizadas: {synchronized_count}\n"
+            "Não encontrados: {missing_count}"
+        ),
+    },
+    "admin_dict_specialist_move_select_page_prompt": {
+        "ru": (
+            "Введите номера специалистов из текущего списка "
+            "через запятую.\n\n"
+            "Доступные номера: {start}-{end}\n"
+            "Пример: {example}"
+        ),
+        "en": (
+            "Enter specialist numbers from the current list "
+            "separated by commas.\n\n"
+            "Available numbers: {start}-{end}\n"
+            "Example: {example}"
+        ),
+        "pt": (
+            "Digite os números dos especialistas da lista atual "
+            "separados por vírgulas.\n\n"
+            "Números disponíveis: {start}-{end}\n"
+            "Exemplo: {example}"
+        ),
+    },
+    "admin_dict_specialist_move_bad_page_numbers": {
+        "ru": (
+            "Неверные номера. Введите номера из текущего списка: "
+            "{start}-{end}."
+        ),
+        "en": (
+            "Invalid numbers. Enter numbers from the current list: "
+            "{start}-{end}."
+        ),
+        "pt": (
+            "Números inválidos. Digite números da lista atual: "
+            "{start}-{end}."
+        ),
+    },
+    "admin_dict_category_specialist_move_preview": {
+        "ru": (
+            "Подтвердите перенос специалистов из категории.\n\n"
+            "Исходная категория: {source_category}\n\n"
+            "Целевое направление: {target_profession}\n"
+            "Целевая категория: {target_category}\n\n"
+            "Количество специалистов: {count}\n\n"
+            "Все активные связи выбранных специалистов внутри "
+            "исходной категории будут перенесены или архивированы. "
+            "Профили, отзывы, диалоги, заказы и платежи не изменятся."
+        ),
+        "en": (
+            "Confirm the transfer from the category.\n\n"
+            "Source category: {source_category}\n\n"
+            "Target profession: {target_profession}\n"
+            "Target category: {target_category}\n\n"
+            "Specialists: {count}\n\n"
+            "Active relations of the selected specialists inside the "
+            "source category will be moved or archived. Profiles, "
+            "reviews, dialogs, orders and payments will not change."
+        ),
+        "pt": (
+            "Confirme a transferência da categoria.\n\n"
+            "Categoria de origem: {source_category}\n\n"
+            "Profissão de destino: {target_profession}\n"
+            "Categoria de destino: {target_category}\n\n"
+            "Especialistas: {count}\n\n"
+            "As relações ativas dos especialistas selecionados dentro "
+            "da categoria de origem serão movidas ou arquivadas. "
+            "Perfis, avaliações, diálogos, pedidos e pagamentos "
+            "não serão alterados."
+        ),
+    },
+    "admin_dict_category_specialist_move_done": {
+        "ru": (
+            "Перенос из категории завершён.\n\n"
+            "Направление: {target_profession}\n"
+            "Категория: {target_category}\n"
+            "Перенесено специалистов: {moved_count}\n"
+            "Уже имели целевое направление: {duplicate_count}\n"
+            "Архивировано дополнительных связей: {extra_links_count}\n"
+            "Основных направлений синхронизировано: {synchronized_count}\n"
+            "Не найдено: {missing_count}"
+        ),
+        "en": (
+            "Category transfer completed.\n\n"
+            "Profession: {target_profession}\n"
+            "Category: {target_category}\n"
+            "Specialists moved: {moved_count}\n"
+            "Already had the target profession: {duplicate_count}\n"
+            "Additional relations archived: {extra_links_count}\n"
+            "Primary professions synchronized: {synchronized_count}\n"
+            "Not found: {missing_count}"
+        ),
+        "pt": (
+            "Transferência da categoria concluída.\n\n"
+            "Profissão: {target_profession}\n"
+            "Categoria: {target_category}\n"
+            "Especialistas transferidos: {moved_count}\n"
+            "Já tinham a profissão de destino: {duplicate_count}\n"
+            "Relações adicionais arquivadas: {extra_links_count}\n"
+            "Profissões principais sincronizadas: {synchronized_count}\n"
+            "Não encontrados: {missing_count}"
+        ),
+    },
+    "admin_dict_move_target_category_prompt": {
+        "ru": (
+            "Введите точное название целевой категории.\n\n"
+            "Пример: Строительство и ремонт"
+        ),
+        "en": (
+            "Enter the exact name of the target category.\n\n"
+            "Example: Construction and repair"
+        ),
+        "pt": (
+            "Digite o nome exato da categoria de destino.\n\n"
+            "Exemplo: Construção e reparação"
+        ),
+    },
+    "admin_dict_target_category_not_found": {
+        "ru": (
+            "Активная категория с таким названием не найдена. "
+            "Проверьте название и попробуйте ещё раз."
+        ),
+        "en": (
+            "No active category with this name was found. "
+            "Check the name and try again."
+        ),
+        "pt": (
+            "Nenhuma categoria ativa com este nome foi encontrada. "
+            "Verifique o nome e tente novamente."
+        ),
+    },
+    "admin_dict_target_category_unavailable": {
+        "ru": "Выбранная категория скрыта или находится в архиве.",
+        "en": "The selected category is hidden or archived.",
+        "pt": "A categoria selecionada está oculta ou arquivada.",
+    },
+    "admin_dict_target_category_multiple": {
+        "ru": (
+            "Найдено несколько категорий с таким названием.\n"
+            "Введите номер нужной категории:"
+        ),
+        "en": (
+            "Several categories with this name were found.\n"
+            "Enter the required category number:"
+        ),
+        "pt": (
+            "Foram encontradas várias categorias com este nome.\n"
+            "Digite o número da categoria necessária:"
+        ),
+    },
+    "admin_dict_target_category_bad_number": {
+        "ru": "Введите номер категории из показанного списка: 1-{count}.",
+        "en": "Enter a category number from the displayed list: 1-{count}.",
+        "pt": "Digite um número da categoria da lista exibida: 1-{count}.",
+    },
+    "admin_dict_target_category_no_professions": {
+        "ru": "В выбранной категории нет активных направлений.",
+        "en": "The selected category has no active professions.",
+        "pt": "A categoria selecionada não possui profissões ativas.",
+    },
+    "admin_dict_move_professions_prompt": {
+        "ru": (
+            "Выберите одно или несколько направлений.\n"
+            "Введите номера через запятую.\n\n"
+            "{items}\n\n"
+            "Пример: 1,3,5"
+        ),
+        "en": (
+            "Select one or more professions.\n"
+            "Enter numbers separated by commas.\n\n"
+            "{items}\n\n"
+            "Example: 1,3,5"
+        ),
+        "pt": (
+            "Selecione uma ou mais profissões.\n"
+            "Digite os números separados por vírgulas.\n\n"
+            "{items}\n\n"
+            "Exemplo: 1,3,5"
+        ),
+    },
+    "admin_dict_move_professions_bad_numbers": {
+        "ru": "Введите номера направлений из списка: 1-{count}.",
+        "en": "Enter profession numbers from the list: 1-{count}.",
+        "pt": "Digite os números das profissões da lista: 1-{count}.",
+    },
+    "admin_dict_move_mode_prompt": {
+        "ru": "Выберите режим переноса направлений:",
+        "en": "Select the profession transfer mode:",
+        "pt": "Selecione o modo de transferência das profissões:",
+    },
+    "admin_dict_move_mode_replace_btn": {
+        "ru": "Заменить старые направления",
+        "en": "Replace old professions",
+        "pt": "Substituir profissões antigas",
+    },
+    "admin_dict_move_mode_add_btn": {
+        "ru": "Добавить к существующим",
+        "en": "Add to existing professions",
+        "pt": "Adicionar às profissões existentes",
+    },
+    "admin_dict_move_choose_category": {
+        "ru": "Выберите целевую категорию:",
+        "en": "Select the target category:",
+        "pt": "Selecione a categoria de destino:",
+    },
+    "admin_dict_move_choose_professions": {
+        "ru": (
+            "Выберите одно или несколько направлений.\n"
+            "Выбранные направления отмечены символом ✓."
+        ),
+        "en": (
+            "Select one or more professions.\n"
+            "Selected professions are marked with ✓."
+        ),
+        "pt": (
+            "Selecione uma ou mais profissões.\n"
+            "As profissões selecionadas são marcadas com ✓."
+        ),
+    },
+    "admin_dict_move_selected_professions": {
+        "ru": "Выбрано: {items}",
+        "en": "Selected: {items}",
+        "pt": "Selecionado: {items}",
+    },
+    "admin_dict_move_selected_professions_empty": {
+        "ru": "Выбрано: —",
+        "en": "Selected: —",
+        "pt": "Selecionado: —",
+    },
+    "admin_dict_move_professions_done_btn": {
+        "ru": "✅ Готово",
+        "en": "✅ Done",
+        "pt": "✅ Concluído",
+    },
+    "admin_dict_move_back_categories_btn": {
+        "ru": "⬅️ Назад к категориям",
+        "en": "⬅️ Back to categories",
+        "pt": "⬅️ Voltar às categorias",
+    },
+    "admin_dict_move_mode_invalid": {
+        "ru": "Выбран неизвестный режим переноса.",
+        "en": "An unknown transfer mode was selected.",
+        "pt": "Foi selecionado um modo de transferência desconhecido.",
+    },
+    "admin_dict_move_profession_category_mismatch": {
+        "ru": (
+            "Одно из выбранных направлений не принадлежит "
+            "целевой категории."
+        ),
+        "en": (
+            "One of the selected professions does not belong "
+            "to the target category."
+        ),
+        "pt": (
+            "Uma das profissões selecionadas não pertence "
+            "à categoria de destino."
+        ),
+    },
+    "admin_dict_move_mode_replace_label": {
+        "ru": "Заменить старые направления",
+        "en": "Replace old professions",
+        "pt": "Substituir profissões antigas",
+    },
+    "admin_dict_move_mode_add_label": {
+        "ru": "Добавить к существующим",
+        "en": "Add to existing professions",
+        "pt": "Adicionar às profissões existentes",
+    },
+    "admin_dict_multi_move_preview": {
+        "ru": (
+            "Подтвердите перенос специалистов.\n\n"
+            "Источник: {source}\n"
+            "Целевая категория: {target_category}\n"
+            "Направления: {target_professions}\n"
+            "Режим: {mode}\n"
+            "Специалистов: {specialists_count}\n\n"
+            "Будут изменены только связи категорий и направлений."
+        ),
+        "en": (
+            "Confirm the specialist transfer.\n\n"
+            "Source: {source}\n"
+            "Target category: {target_category}\n"
+            "Professions: {target_professions}\n"
+            "Mode: {mode}\n"
+            "Specialists: {specialists_count}\n\n"
+            "Only category and profession relations will be changed."
+        ),
+        "pt": (
+            "Confirme a transferência dos especialistas.\n\n"
+            "Origem: {source}\n"
+            "Categoria de destino: {target_category}\n"
+            "Profissões: {target_professions}\n"
+            "Modo: {mode}\n"
+            "Especialistas: {specialists_count}\n\n"
+            "Apenas as relações de categorias e profissões serão alteradas."
+        ),
+    },
+    "admin_dict_multi_move_done": {
+        "ru": (
+            "Перенос завершён.\n\n"
+            "Категория: {target_category}\n"
+            "Направления: {target_professions}\n"
+            "Режим: {mode}\n"
+            "Специалистов: {specialists_count}\n"
+            "Создано связей: {created_count}\n"
+            "Возобновлено связей: {reactivated_count}\n"
+            "Уже существовало: {existing_count}\n"
+            "Удалено старых связей: {deleted_count}\n"
+            "Основных направлений синхронизировано: {synchronized_count}\n"
+            "Не найдено специалистов: {missing_count}"
+        ),
+        "en": (
+            "Transfer completed.\n\n"
+            "Category: {target_category}\n"
+            "Professions: {target_professions}\n"
+            "Mode: {mode}\n"
+            "Specialists: {specialists_count}\n"
+            "Relations created: {created_count}\n"
+            "Relations reactivated: {reactivated_count}\n"
+            "Already existed: {existing_count}\n"
+            "Old relations deleted: {deleted_count}\n"
+            "Primary professions synchronized: {synchronized_count}\n"
+            "Specialists not found: {missing_count}"
+        ),
+        "pt": (
+            "Transferência concluída.\n\n"
+            "Categoria: {target_category}\n"
+            "Profissões: {target_professions}\n"
+            "Modo: {mode}\n"
+            "Especialistas: {specialists_count}\n"
+            "Relações criadas: {created_count}\n"
+            "Relações reativadas: {reactivated_count}\n"
+            "Já existentes: {existing_count}\n"
+            "Relações antigas removidas: {deleted_count}\n"
+            "Profissões principais sincronizadas: {synchronized_count}\n"
+            "Especialistas não encontrados: {missing_count}"
+        ),
+    },
+    "admin_dict_move_selected_category": {
+        "ru": "Целевая категория: {category}",
+        "en": "Target category: {category}",
+        "pt": "Categoria de destino: {category}",
+    },
+    "admin_dialog_queue_title": {
+        "ru": "💬 Служебные диалоги\nДоступны только диалоги со скаргой или risk flag.",
+        "en": "💬 Service dialogs\nOnly dialogs with a complaint or risk flag are available.",
+        "pt": "💬 Diálogos de serviço\nDisponíveis apenas diálogos com reclamação ou risk flag.",
+    },
+    "admin_dialog_queue_empty": {
+        "ru": "Открытых диалогов со скаргами или risk flags нет.",
+        "en": "No open dialogs with complaints or risk flags.",
+        "pt": "Não há diálogos abertos com reclamações ou risk flags.",
+    },
+    "admin_dialog_queue_item": {
+        "ru": "{number}. Thread: {status}\nКонтекст: {context}\nСообщений: {messages_count}",
+        "en": "{number}. Thread: {status}\nContext: {context}\nMessages: {messages_count}",
+        "pt": "{number}. Thread: {status}\nContexto: {context}\nMensagens: {messages_count}",
+    },
+    "admin_dialog_open_btn": {
+        "ru": "💬 Открыть диалог №{number}",
+        "en": "💬 Open dialog #{number}",
+        "pt": "💬 Abrir diálogo nº {number}",
+    },
+    "admin_dialog_back_btn": {
+        "ru": "⬅️ К админ-панели",
+        "en": "⬅️ Admin panel",
+        "pt": "⬅️ Painel admin",
+    },
+    "admin_dialog_context_complaint": {
+        "ru": "Скарга",
+        "en": "Complaint",
+        "pt": "Reclamação",
+    },
+    "admin_dialog_context_risk": {
+        "ru": "Risk flag",
+        "en": "Risk flag",
+        "pt": "Risk flag",
+    },
+    "admin_dialog_queue_button": {
+        "ru": "💬 №{number} · {context} · {status} · сообщений: {messages_count}",
+        "en": "💬 #{number} · {context} · {status} · messages: {messages_count}",
+        "pt": "💬 Nº {number} · {context} · {status} · mensagens: {messages_count}",
+    },
+    "admin_dialog_back_to_list_btn": {
+        "ru": "⬅️ К служебным диалогам",
+        "en": "⬅️ Service dialogs",
+        "pt": "⬅️ Diálogos de serviço",
+    },
+    "admin_dialog_masked_message": {
+        "ru": "Сообщение скрыто системой.\nПричина: {reasons}.\nУровень риска: {severity}.",
+        "en": "Message hidden by the system.\nReason: {reasons}.\nRisk level: {severity}.",
+        "pt": "Mensagem ocultada pelo sistema.\nMotivo: {reasons}.\nNível de risco: {severity}.",
+    },
+    "admin_dialog_detection_phone": {
+        "ru": "номер телефона",
+        "en": "phone number",
+        "pt": "número de telefone",
+    },
+    "admin_dialog_detection_email": {
+        "ru": "email",
+        "en": "email",
+        "pt": "email",
+    },
+    "admin_dialog_detection_telegram_username": {
+        "ru": "Telegram username",
+        "en": "Telegram username",
+        "pt": "username do Telegram",
+    },
+    "admin_dialog_detection_messenger_phone": {
+        "ru": "контакт в мессенджере",
+        "en": "messenger contact",
+        "pt": "contacto no mensageiro",
+    },
+    "admin_dialog_detection_external_payment": {
+        "ru": "попытка внешней оплаты",
+        "en": "attempted external payment",
+        "pt": "tentativa de pagamento externo",
+    },
+    "admin_dialog_detection_unknown": {
+        "ru": "контактные данные вне платформы",
+        "en": "off-platform contact details",
+        "pt": "dados de contacto fora da plataforma",
+    },
+    "admin_dialog_risk_low": {
+        "ru": "низкий",
+        "en": "low",
+        "pt": "baixo",
+    },
+    "admin_dialog_risk_medium": {
+        "ru": "средний",
+        "en": "medium",
+        "pt": "médio",
+    },
+    "admin_dialog_risk_high": {
+        "ru": "высокий",
+        "en": "high",
+        "pt": "alto",
+    },
+    "admin_dialog_risk_critical": {
+        "ru": "критический",
+        "en": "critical",
+        "pt": "crítico",
+    },
+    "super_admin_user_status_active": {
+        "ru": "Активен",
+        "en": "Active",
+        "pt": "Ativo",
+    },
+    "super_admin_user_status_blocked": {
+        "ru": "Заблокирован",
+        "en": "Blocked",
+        "pt": "Bloqueado",
+    },
+    "super_admin_user_status_deleted": {
+        "ru": "Удален",
+        "en": "Deleted",
+        "pt": "Eliminado",
+    },
+    "super_admin_user_role_client": {
+        "ru": "Клиент",
+        "en": "Client",
+        "pt": "Cliente",
+    },
+    "super_admin_user_role_specialist": {
+        "ru": "Специалист",
+        "en": "Specialist",
+        "pt": "Especialista",
+    },
+    "super_admin_user_role_support": {
+        "ru": "Поддержка",
+        "en": "Support",
+        "pt": "Suporte",
+    },
+    "super_admin_user_role_moderator": {
+        "ru": "Модератор",
+        "en": "Moderator",
+        "pt": "Moderador",
+    },
+    "super_admin_user_role_admin": {
+        "ru": "Администратор",
+        "en": "Administrator",
+        "pt": "Administrador",
+    },
+    "super_admin_user_role_super_admin": {
+        "ru": "Супер-администратор",
+        "en": "Super Admin",
+        "pt": "Super Admin",
+    },
+    "super_admin_user_role_finance_admin": {
+        "ru": "Финансовый администратор",
+        "en": "Finance administrator",
+        "pt": "Administrador financeiro",
+    },
+    "super_admin_user_role_content_manager": {
+        "ru": "Контент-менеджер",
+        "en": "Content manager",
+        "pt": "Gestor de conteúdo",
+    },
+    "super_admin_user_scopes_empty": {
+        "ru": "Не назначены",
+        "en": "Not assigned",
+        "pt": "Não atribuídas",
+    },
+    "super_admin_user_risk_none": {
+        "ru": "Нет активных рисков",
+        "en": "No active risks",
+        "pt": "Sem riscos ativos",
+    },
+    "super_admin_user_risk_score": {
+        "ru": "Уровень {score}",
+        "en": "Level {score}",
+        "pt": "Nível {score}",
+    },
+    "super_admin_scopes_title": {
+        "ru": "Зоны доступа",
+        "en": "Access scopes",
+        "pt": "Zonas de acesso",
+    },
+    "super_admin_scopes_section": {
+        "ru": "Раздел: {view}",
+        "en": "Section: {view}",
+        "pt": "Secao: {view}",
+    },
+    "super_admin_scopes_count": {
+        "ru": "Показано: {count}",
+        "en": "Shown: {count}",
+        "pt": "Exibido: {count}",
+    },
+    "super_admin_scopes_for_user": {
+        "ru": "Для пользователя: {user_number}",
+        "en": "For user: {user_number}",
+        "pt": "Para o utilizador: {user_number}",
+    },
+    "super_admin_scopes_view_active": {
+        "ru": "Активные",
+        "en": "Active",
+        "pt": "Ativas",
+    },
+    "super_admin_scopes_view_history": {
+        "ru": "История",
+        "en": "History",
+        "pt": "Historico",
+    },
+    "super_admin_scopes_empty": {
+        "ru": "Зоны доступа не назначены.",
+        "en": "No access scopes assigned.",
+        "pt": "Nao ha zonas de acesso atribuidas.",
+    },
+    "super_admin_scopes_actions": {
+        "ru": "Действия с зонами доступа",
+        "en": "Access scope actions",
+        "pt": "Acoes de zonas de acesso",
+    },
+    "super_admin_scopes_add_btn": {
+        "ru": "Добавить зону доступа",
+        "en": "Add access scope",
+        "pt": "Adicionar zona de acesso",
+    },
+    "super_admin_scopes_revoke_btn": {
+        "ru": "Отозвать зону доступа",
+        "en": "Revoke access scope",
+        "pt": "Revogar zona de acesso",
+    },
+    "super_admin_scopes_to_list_btn": {
+        "ru": "К зонам доступа",
+        "en": "To access scopes",
+        "pt": "Para zonas de acesso",
+    },
+    "super_admin_scopes_to_panel_btn": {
+        "ru": "К Super Admin",
+        "en": "To Super Admin",
+        "pt": "Para Super Admin",
+    },
+    "super_admin_value_not_specified": {
+        "ru": "не указано",
+        "en": "not specified",
+        "pt": "nao indicado",
+    },
+    "super_admin_scope_type_country": {
+        "ru": "Страна",
+        "en": "Country",
+        "pt": "Pais",
+    },
+    "super_admin_scope_type_city": {
+        "ru": "Город",
+        "en": "City",
+        "pt": "Cidade",
+    },
+    "super_admin_scope_type_region": {
+        "ru": "Регион",
+        "en": "Region",
+        "pt": "Regiao",
+    },
+    "super_admin_scope_type_agency": {
+        "ru": "Агентство",
+        "en": "Agency",
+        "pt": "Agencia",
+    },
+    "super_admin_scope_type_community": {
+        "ru": "Сообщество",
+        "en": "Community",
+        "pt": "Comunidade",
+    },
+    "super_admin_scope_status_active": {
+        "ru": "Активна",
+        "en": "Active",
+        "pt": "Ativa",
+    },
+    "super_admin_scope_status_revoked": {
+        "ru": "Отозвана",
+        "en": "Revoked",
+        "pt": "Revogada",
+    },
+    "super_admin_scope_card_user": {
+        "ru": "{number}. Пользователь: {user_number}",
+        "en": "{number}. User: {user_number}",
+        "pt": "{number}. Utilizador: {user_number}",
+    },
+    "super_admin_scope_card_role": {
+        "ru": "Роль: {role}",
+        "en": "Role: {role}",
+        "pt": "Funcao: {role}",
+    },
+    "super_admin_scope_card_type": {
+        "ru": "Тип зоны: {scope_type}",
+        "en": "Scope type: {scope_type}",
+        "pt": "Tipo de zona: {scope_type}",
+    },
+    "super_admin_scope_card_value": {
+        "ru": "Зона доступа: {scope_value}",
+        "en": "Access scope: {scope_value}",
+        "pt": "Zona de acesso: {scope_value}",
+    },
+    "super_admin_scope_card_status": {
+        "ru": "Статус: {status}",
+        "en": "Status: {status}",
+        "pt": "Estado: {status}",
+    },
+    "super_admin_scope_card_reason": {
+        "ru": "Причина: {reason}",
+        "en": "Reason: {reason}",
+        "pt": "Motivo: {reason}",
+    },
+    "super_admin_scope_card_granted_by": {
+        "ru": "Выдал: {user_number}",
+        "en": "Granted by: {user_number}",
+        "pt": "Concedida por: {user_number}",
+    },
+    "super_admin_scope_card_created_at": {
+        "ru": "Дата выдачи: {created_at}",
+        "en": "Granted at: {created_at}",
+        "pt": "Data de atribuicao: {created_at}",
+    },
+    "super_admin_scope_card_revoked_by": {
+        "ru": "Отозвал: {user_number}",
+        "en": "Revoked by: {user_number}",
+        "pt": "Revogada por: {user_number}",
+    },
+    "super_admin_scope_card_revoked_at": {
+        "ru": "Дата отзыва: {revoked_at}",
+        "en": "Revoked at: {revoked_at}",
+        "pt": "Data de revogacao: {revoked_at}",
+    },
+    "super_admin_scope_not_found": {
+        "ru": "Зона доступа не найдена.",
+        "en": "Access scope not found.",
+        "pt": "Zona de acesso nao encontrada.",
+    },
+    "super_admin_scope_revoke_reason_prompt": {
+        "ru": "Укажите причину отзыва зоны доступа. Минимум 3 символа.",
+        "en": "Enter a reason for revoking the access scope. At least 3 characters.",
+        "pt": "Indique o motivo para revogar a zona de acesso. Minimo 3 caracteres.",
+    },
+    "super_admin_scope_revoke_confirm": {
+        "ru": "Подтвердите отзыв зоны доступа:\n\nЗона: {scope_label}\nПричина: {reason}",
+        "en": "Confirm access scope revocation:\n\nScope: {scope_label}\nReason: {reason}",
+        "pt": "Confirme a revogacao da zona de acesso:\n\nZona: {scope_label}\nMotivo: {reason}",
+    },
+    "super_admin_scope_revoke_confirm_btn": {
+        "ru": "Подтвердить отзыв",
+        "en": "Confirm revocation",
+        "pt": "Confirmar revogacao",
+    },
+    "super_admin_scope_revoke_success": {
+        "ru": "Зона доступа отозвана.",
+        "en": "Access scope revoked.",
+        "pt": "Zona de acesso revogada.",
+    },
+    "super_admin_scope_revoke_cancelled": {
+        "ru": "Отзыв зоны доступа отменен.",
+        "en": "Access scope revocation cancelled.",
+        "pt": "Revogacao da zona de acesso cancelada.",
+    },
+    "super_admin_impersonation_role_unavailable": {
+        "ru": "Кабинет для выбранной роли недоступен у этого пользователя.",
+        "en": "This user does not have a cabinet for the selected role.",
+        "pt": "Este utilizador nao tem gabinete para a funcao selecionada.",
+    },
+    "super_admin_impersonation_client_cabinet": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Кабинет клиента\n"
+            "Пользователь: {user_number}\n"
+            "Имя: {display_name}\n"
+            "Город: {city_name}\n\n"
+            "Непрочитанные диалоги: {dialogs_unread}\n"
+            "Заявки: {requests_count}\n"
+            "Новые заявки: {requests_new}\n"
+            "Принятые заявки: {requests_accepted}\n\n"
+            "Режим: только просмотр. "
+            "Изменение данных недоступно."
+        ),
+        "en": (
+            "View as user mode\n\n"
+            "Client cabinet\n"
+            "User: {user_number}\n"
+            "Name: {display_name}\n"
+            "City: {city_name}\n\n"
+            "Unread dialogs: {dialogs_unread}\n"
+            "Requests: {requests_count}\n"
+            "New requests: {requests_new}\n"
+            "Accepted requests: {requests_accepted}\n\n"
+            "Read-only mode. Changes are disabled."
+        ),
+        "pt": (
+            "Modo de visualizacao como utilizador\n\n"
+            "Gabinete do cliente\n"
+            "Utilizador: {user_number}\n"
+            "Nome: {display_name}\n"
+            "Cidade: {city_name}\n\n"
+            "Dialogos nao lidos: {dialogs_unread}\n"
+            "Pedidos: {requests_count}\n"
+            "Novos pedidos: {requests_new}\n"
+            "Pedidos aceites: {requests_accepted}\n\n"
+            "Modo apenas de leitura. Alteracoes desativadas."
+        ),
+    },
+    "super_admin_impersonation_change_cabinet_btn": {
+        "ru": "Выбрать другой кабинет",
+        "en": "Choose another cabinet",
+        "pt": "Escolher outro gabinete",
+    },
+    "super_admin_impersonation_specialist_cabinet": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Кабинет специалиста\n"
+            "Пользователь: {user_number}\n"
+            "Имя: {display_name}\n"
+            "Направления: {professions}\n"
+            "Статус профиля: {status}\n"
+            "Доступность: {availability}\n\n"
+            "Непрочитанные диалоги: {dialogs_unread}\n"
+            "Новые заявки: {new_requests}\n\n"
+            "Режим: только просмотр. "
+            "Изменение данных недоступно."
+        ),
+        "en": (
+            "View as user mode\n\n"
+            "Specialist cabinet\n"
+            "User: {user_number}\n"
+            "Name: {display_name}\n"
+            "Professions: {professions}\n"
+            "Profile status: {status}\n"
+            "Availability: {availability}\n\n"
+            "Unread dialogs: {dialogs_unread}\n"
+            "New requests: {new_requests}\n\n"
+            "Read-only mode. Changes are disabled."
+        ),
+        "pt": (
+            "Modo de visualizacao como utilizador\n\n"
+            "Gabinete do especialista\n"
+            "Utilizador: {user_number}\n"
+            "Nome: {display_name}\n"
+            "Especialidades: {professions}\n"
+            "Estado do perfil: {status}\n"
+            "Disponibilidade: {availability}\n\n"
+            "Dialogos nao lidos: {dialogs_unread}\n"
+            "Novos pedidos: {new_requests}\n\n"
+            "Modo apenas de leitura. Alteracoes desativadas."
+        ),
+    },
+    "super_admin_preview_status_draft": {
+        "ru": "Черновик",
+        "en": "Draft",
+        "pt": "Rascunho",
+    },
+    "super_admin_preview_status_pending_moderation": {
+        "ru": "Ожидает модерации",
+        "en": "Pending moderation",
+        "pt": "A aguardar moderacao",
+    },
+    "super_admin_preview_status_active": {
+        "ru": "Активен",
+        "en": "Active",
+        "pt": "Ativo",
+    },
+    "super_admin_preview_status_approved": {
+        "ru": "Одобрен",
+        "en": "Approved",
+        "pt": "Aprovado",
+    },
+    "super_admin_preview_status_rejected": {
+        "ru": "Отклонен",
+        "en": "Rejected",
+        "pt": "Rejeitado",
+    },
+    "super_admin_preview_status_hidden": {
+        "ru": "Скрыт",
+        "en": "Hidden",
+        "pt": "Oculto",
+    },
+    "super_admin_preview_status_blocked": {
+        "ru": "Заблокирован",
+        "en": "Blocked",
+        "pt": "Bloqueado",
+    },
+    "super_admin_preview_status_deleted": {
+        "ru": "Удален",
+        "en": "Deleted",
+        "pt": "Eliminado",
+    },
+    "super_admin_preview_availability_available": {
+        "ru": "Доступен",
+        "en": "Available",
+        "pt": "Disponivel",
+    },
+    "super_admin_preview_availability_unavailable": {
+        "ru": "Недоступен",
+        "en": "Unavailable",
+        "pt": "Indisponivel",
+    },
+    "super_admin_impersonation_support_cabinet": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Кабинет поддержки\n"
+            "Сотрудник: {user_number}\n\n"
+            "Открытые тикеты: {open_tickets}\n"
+            "Тикеты в работе: {in_progress_tickets}\n"
+            "Решенные тикеты: {resolved_tickets}\n\n"
+            "Режим: только просмотр. "
+            "Изменение данных недоступно."
+        ),
+        "en": (
+            "View as user mode\n\n"
+            "Support cabinet\n"
+            "Staff member: {user_number}\n\n"
+            "Open tickets: {open_tickets}\n"
+            "Tickets in progress: {in_progress_tickets}\n"
+            "Resolved tickets: {resolved_tickets}\n\n"
+            "Read-only mode. Changes are disabled."
+        ),
+        "pt": (
+            "Modo de visualizacao como utilizador\n\n"
+            "Gabinete de suporte\n"
+            "Colaborador: {user_number}\n\n"
+            "Tickets abertos: {open_tickets}\n"
+            "Tickets em curso: {in_progress_tickets}\n"
+            "Tickets resolvidos: {resolved_tickets}\n\n"
+            "Modo apenas de leitura. Alteracoes desativadas."
+        ),
+    },
+    "super_admin_impersonation_to_user_btn": {
+        "ru": "К профилю пользователя",
+        "en": "To user profile",
+        "pt": "Para o perfil do utilizador",
+    },
+    "super_admin_ro_support_list_title": {
+        "ru": "Тикеты поддержки\nРаздел: {view}\nСтраница: {page}\nПоказано: {count}",
+        "en": "Support tickets\nSection: {view}\nPage: {page}\nShown: {count}",
+        "pt": "Tickets de suporte\nSecao: {view}\nPagina: {page}\nExibido: {count}",
+    },
+    "super_admin_ro_support_ticket_item": {
+        "ru": "{number}. {category}\nСтатус: {status}\nПриоритет: {priority}\nОбновлен: {updated_at}",
+        "en": "{number}. {category}\nStatus: {status}\nPriority: {priority}\nUpdated: {updated_at}",
+        "pt": "{number}. {category}\nEstado: {status}\nPrioridade: {priority}\nAtualizado: {updated_at}",
+    },
+    "super_admin_ro_support_open_ticket_btn": {
+        "ru": "Открыть тикет №{number}",
+        "en": "Open ticket #{number}",
+        "pt": "Abrir ticket #{number}",
+    },
+    "super_admin_ro_support_ticket_title": {
+        "ru": "Тикет №{number}",
+        "en": "Ticket #{number}",
+        "pt": "Ticket #{number}",
+    },
+    "super_admin_ro_support_back_btn": {
+        "ru": "К кабинету поддержки",
+        "en": "To support cabinet",
+        "pt": "Para o gabinete de suporte",
+    },
+    "super_admin_ro_support_back_to_list_btn": {
+        "ru": "К списку тикетов",
+        "en": "To ticket list",
+        "pt": "Para a lista de tickets",
+    },
+    "super_admin_ro_read_only_label": {
+        "ru": "Режим: только просмотр. Изменение данных недоступно.",
+        "en": "Read-only mode. Changes are disabled.",
+        "pt": "Modo apenas de leitura. Alteracoes desativadas.",
+    },
+    "super_admin_impersonation_moderator_cabinet": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Кабинет модератора\n"
+            "Сотрудник: {user_number}\n\n"
+            "Доступна только очередь профилей на модерации.\n\n"
+            "Режим: только просмотр. Изменение данных недоступно."
+        ),
+        "en": (
+            "User impersonation view\n\n"
+            "Moderator cabinet\n"
+            "Staff member: {user_number}\n\n"
+            "Only the pending profiles queue is available.\n\n"
+            "Read-only mode. Data changes are disabled."
+        ),
+        "pt": (
+            "Modo de visualizacao em nome do usuario\n\n"
+            "Painel do moderador\n"
+            "Colaborador: {user_number}\n\n"
+            "Apenas a fila de perfis pendentes esta disponivel.\n\n"
+            "Modo somente leitura. Alteracoes de dados estao desativadas."
+        ),
+    },
+    "super_admin_ro_moderator_pending_btn": {
+        "ru": "Профили на модерации",
+        "en": "Profiles in moderation",
+        "pt": "Perfis em moderacao",
+    },
+    "super_admin_ro_moderator_queue_title": {
+        "ru": (
+            "Профили на модерации\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Profiles in moderation\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Perfis em moderacao\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_moderator_open_profile_btn": {
+        "ru": "Открыть профиль №{number}",
+        "en": "Open profile #{number}",
+        "pt": "Abrir perfil #{number}",
+    },
+    "super_admin_ro_moderator_back_btn": {
+        "ru": "К кабинету модератора",
+        "en": "To moderator cabinet",
+        "pt": "Para o painel do moderador",
+    },
+    "super_admin_ro_moderator_back_to_queue_btn": {
+        "ru": "К профилям на модерации",
+        "en": "To profiles in moderation",
+        "pt": "Para perfis em moderacao",
+    },
+    "super_admin_ro_moderator_complaints_btn": {
+        "ru": "Жалобы",
+        "en": "Complaints",
+        "pt": "Denuncias",
+    },
+    "super_admin_ro_moderator_complaints_title": {
+        "ru": (
+            "Жалобы\n"
+            "Статус: {view}\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Complaints\n"
+            "Status: {view}\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Denuncias\n"
+            "Status: {view}\n"
+            "Pagina: {page}\n"
+            "Exibidas: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_moderator_open_complaint_btn": {
+        "ru": "Открыть жалобу №{number}",
+        "en": "Open complaint #{number}",
+        "pt": "Abrir denuncia #{number}",
+    },
+    "super_admin_ro_moderator_back_to_complaints_btn": {
+        "ru": "К списку жалоб",
+        "en": "To complaints list",
+        "pt": "Para a lista de denuncias",
+    },
+    "super_admin_ro_moderator_portfolio_btn": {
+        "ru": "Портфолио на модерации",
+        "en": "Portfolio in moderation",
+        "pt": "Portfolio em moderacao",
+    },
+    "super_admin_ro_moderator_portfolio_title": {
+        "ru": (
+            "Портфолио на модерации\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Portfolio in moderation\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Portfolio em moderacao\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_moderator_back_to_portfolio_btn": {
+        "ru": "К портфолио на модерации",
+        "en": "To portfolio in moderation",
+        "pt": "Para o portfolio em moderacao",
+    },
+    "super_admin_ro_moderator_reviews_btn": {
+        "ru": "Отзывы на модерации",
+        "en": "Reviews in moderation",
+        "pt": "Avaliacoes em moderacao",
+    },
+    "super_admin_ro_moderator_reviews_title": {
+        "ru": (
+            "Отзывы на модерации\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Reviews in moderation\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Avaliacoes em moderacao\n"
+            "Pagina: {page}\n"
+            "Exibidas: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_moderator_back_to_reviews_btn": {
+        "ru": "К отзывам на модерации",
+        "en": "To reviews in moderation",
+        "pt": "Para avaliacoes em moderacao",
+    },
+    "super_admin_ro_moderator_blacklist_btn": {
+        "ru": "Черный список",
+        "en": "Blacklist",
+        "pt": "Lista de bloqueios",
+    },
+    "super_admin_ro_moderator_blacklist_title": {
+        "ru": (
+            "Черный список\n"
+            "Раздел: {view}\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Blacklist\n"
+            "Section: {view}\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Lista de bloqueios\n"
+            "Secao: {view}\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_moderator_back_to_blacklist_btn": {
+        "ru": "К черному списку",
+        "en": "To blacklist",
+        "pt": "Para a lista de bloqueios",
+    },
+    "super_admin_impersonation_admin_cabinet": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Кабинет администратора\n"
+            "Сотрудник: {user_number}\n\n"
+            "Доступен просмотр рабочих разделов без изменения данных.\n\n"
+            "Режим: только просмотр. Изменение данных недоступно."
+        ),
+        "en": (
+            "User impersonation view\n\n"
+            "Administrator cabinet\n"
+            "Staff member: {user_number}\n\n"
+            "Work sections are available in read-only mode.\n\n"
+            "Read-only mode. Data changes are disabled."
+        ),
+        "pt": (
+            "Modo de visualizacao em nome do usuario\n\n"
+            "Painel do administrador\n"
+            "Colaborador: {user_number}\n\n"
+            "As secoes de trabalho estao disponiveis somente para leitura.\n\n"
+            "Modo somente leitura. Alteracoes de dados estao desativadas."
+        ),
+    },
+    "super_admin_ro_admin_audit_btn": {
+        "ru": "Журнал действий",
+        "en": "Activity log",
+        "pt": "Registro de atividades",
+    },
+    "super_admin_ro_admin_audit_title": {
+        "ru": (
+            "Журнал действий администратора\n"
+            "Раздел: {target_type}\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Administrator activity log\n"
+            "Section: {target_type}\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Registro de atividades do administrador\n"
+            "Secao: {target_type}\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_admin_back_to_audit_btn": {
+        "ru": "К журналу действий",
+        "en": "To activity log",
+        "pt": "Para o registro de atividades",
+    },
+    "super_admin_ro_admin_global_blacklist_btn": {
+        "ru": "Глобальный черный список",
+        "en": "Global blacklist",
+        "pt": "Lista global de bloqueios",
+    },
+    "super_admin_ro_admin_global_blacklist_title": {
+        "ru": (
+            "Глобальный черный список\n"
+            "Раздел: {view}\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Global blacklist\n"
+            "Section: {view}\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Lista global de bloqueios\n"
+            "Secao: {view}\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_admin_escalated_tickets_btn": {
+        "ru": "Эскалированные обращения",
+        "en": "Escalated tickets",
+        "pt": "Tickets escalados",
+    },
+    "super_admin_ro_admin_back_to_tickets_btn": {
+        "ru": "К эскалированным обращениям",
+        "en": "To escalated tickets",
+        "pt": "Para tickets escalados",
+    },
+    "super_admin_ro_admin_specialists_btn": {
+        "ru": "Специалисты",
+        "en": "Specialists",
+        "pt": "Especialistas",
+    },
+    "super_admin_ro_admin_specialists_title": {
+        "ru": (
+            "Специалисты\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Specialists\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Especialistas\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_admin_open_specialist_btn": {
+        "ru": "Открыть специалиста №{number}",
+        "en": "Open specialist #{number}",
+        "pt": "Abrir especialista #{number}",
+    },
+    "super_admin_ro_admin_back_to_specialists_btn": {
+        "ru": "К списку специалистов",
+        "en": "To specialists list",
+        "pt": "Para a lista de especialistas",
+    },
+    "super_admin_ro_admin_users_btn": {
+        "ru": "Пользователи",
+        "en": "Users",
+        "pt": "Usuarios",
+    },
+    "super_admin_ro_admin_user_search_prompt": {
+        "ru": (
+            "Введите Telegram ID, username или пользовательский ID.\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Enter a Telegram ID, username, or user-facing ID.\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Informe o Telegram ID, username ou ID visivel do usuario.\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_admin_back_to_users_btn": {
+        "ru": "К поиску пользователей",
+        "en": "To user search",
+        "pt": "Para busca de usuarios",
+    },
+    "super_admin_ro_admin_moderation_btn": {
+        "ru": "Модерация",
+        "en": "Moderation",
+        "pt": "Moderacao",
+    },
+    "super_admin_ro_admin_moderation_cabinet": {
+        "ru": (
+            "Режим просмотра от имени пользователя\n\n"
+            "Раздел модерации администратора\n"
+            "Сотрудник: {user_number}\n\n"
+            "Доступны профили, портфолио, отзывы, жалобы и черный список.\n\n"
+            "Режим: только просмотр. Изменение данных недоступно."
+        ),
+        "en": (
+            "User impersonation view\n\n"
+            "Administrator moderation section\n"
+            "Staff member: {user_number}\n\n"
+            "Profiles, portfolio, reviews, complaints, and blacklist are available.\n\n"
+            "Read-only mode. Data changes are disabled."
+        ),
+        "pt": (
+            "Modo de visualizacao em nome do usuario\n\n"
+            "Secao de moderacao do administrador\n"
+            "Colaborador: {user_number}\n\n"
+            "Perfis, portfolio, avaliacoes, denuncias e lista de bloqueios estao disponiveis.\n\n"
+            "Modo somente leitura. Alteracoes de dados estao desativadas."
+        ),
+    },
+    "super_admin_ro_admin_back_to_dashboard_btn": {
+        "ru": "К кабинету администратора",
+        "en": "To administrator cabinet",
+        "pt": "Para o painel do administrador",
+    },
+    "super_admin_ro_client_requests_btn": {
+        "ru": "Мои заявки",
+        "en": "My requests",
+        "pt": "Meus pedidos",
+    },
+    "super_admin_ro_client_dialogs_btn": {
+        "ru": "Диалоги",
+        "en": "Dialogs",
+        "pt": "Dialogos",
+    },
+    "super_admin_ro_client_requests_title": {
+        "ru": (
+            "Заявки клиента\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Client requests\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Pedidos do cliente\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_client_open_request_btn": {
+        "ru": "Открыть заявку №{number}",
+        "en": "Open request #{number}",
+        "pt": "Abrir pedido #{number}",
+    },
+    "super_admin_ro_client_back_to_requests_btn": {
+        "ru": "К заявкам клиента",
+        "en": "To client requests",
+        "pt": "Para os pedidos do cliente",
+    },
+    "super_admin_ro_client_request_item": {
+        "ru": (
+            "{number}. {specialist}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n"
+            "Дата: {date}\n"
+            "{message}"
+        ),
+        "en": (
+            "{number}. {specialist}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n"
+            "Date: {date}\n"
+            "{message}"
+        ),
+        "pt": (
+            "{number}. {specialist}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n"
+            "Data: {date}\n"
+            "{message}"
+        ),
+    },
+    "super_admin_ro_client_request_detail": {
+        "ru": (
+            "Заявка клиента\n\n"
+            "Специалист: {specialist}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n"
+            "Дата: {date}\n\n"
+            "Текст заявки:\n{message}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Client request\n\n"
+            "Specialist: {specialist}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n"
+            "Date: {date}\n\n"
+            "Request text:\n{message}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Pedido do cliente\n\n"
+            "Especialista: {specialist}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n"
+            "Data: {date}\n\n"
+            "Texto do pedido:\n{message}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_client_dialogs_title": {
+        "ru": (
+            "Диалоги клиента\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Client dialogs\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Dialogos do cliente\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_client_dialog_item": {
+        "ru": (
+            "{number}. Специалист: {specialist}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n"
+            "Непрочитанных: {unread}\n"
+            "Последнее сообщение: {message}"
+        ),
+        "en": (
+            "{number}. Specialist: {specialist}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n"
+            "Unread: {unread}\n"
+            "Last message: {message}"
+        ),
+        "pt": (
+            "{number}. Especialista: {specialist}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n"
+            "Nao lidas: {unread}\n"
+            "Ultima mensagem: {message}"
+        ),
+    },
+    "super_admin_ro_client_open_dialog_btn": {
+        "ru": "Открыть диалог №{number}",
+        "en": "Open dialog #{number}",
+        "pt": "Abrir dialogo #{number}",
+    },
+    "super_admin_ro_client_dialog_detail": {
+        "ru": (
+            "Диалог с {specialist}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n\n"
+            "История:\n{messages}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Dialog with {specialist}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n\n"
+            "History:\n{messages}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Dialogo com {specialist}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n\n"
+            "Historico:\n{messages}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_client_back_to_dialogs_btn": {
+        "ru": "К диалогам клиента",
+        "en": "To client dialogs",
+        "pt": "Para os dialogos do cliente",
+    },
+    "super_admin_ro_specialist_requests_btn": {
+        "ru": "Новые заявки",
+        "en": "New requests",
+        "pt": "Novos pedidos",
+    },
+    "super_admin_ro_specialist_requests_title": {
+        "ru": (
+            "Новые заявки специалиста\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Specialist new requests\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Novos pedidos do especialista\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_specialist_request_item": {
+        "ru": (
+            "{number}. Клиент: {client}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n"
+            "Дата: {date}\n"
+            "{message}"
+        ),
+        "en": (
+            "{number}. Client: {client}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n"
+            "Date: {date}\n"
+            "{message}"
+        ),
+        "pt": (
+            "{number}. Cliente: {client}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n"
+            "Data: {date}\n"
+            "{message}"
+        ),
+    },
+    "super_admin_ro_specialist_open_request_btn": {
+        "ru": "Открыть заявку №{number}",
+        "en": "Open request #{number}",
+        "pt": "Abrir pedido #{number}",
+    },
+    "super_admin_ro_specialist_request_detail": {
+        "ru": (
+            "Заявка клиента\n\n"
+            "Клиент: {client}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n"
+            "Дата: {date}\n\n"
+            "Текст заявки:\n{message}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Client request\n\n"
+            "Client: {client}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n"
+            "Date: {date}\n\n"
+            "Request text:\n{message}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Pedido do cliente\n\n"
+            "Cliente: {client}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n"
+            "Data: {date}\n\n"
+            "Texto do pedido:\n{message}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_specialist_back_to_requests_btn": {
+        "ru": "К новым заявкам",
+        "en": "To new requests",
+        "pt": "Para novos pedidos",
+    },
+    "super_admin_ro_specialist_dialogs_btn": {
+        "ru": "Диалоги",
+        "en": "Dialogs",
+        "pt": "Dialogos",
+    },
+    "super_admin_ro_specialist_dialogs_title": {
+        "ru": (
+            "Диалоги специалиста\n"
+            "Страница: {page}\n"
+            "Показано: {count}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Specialist dialogs\n"
+            "Page: {page}\n"
+            "Shown: {count}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Dialogos do especialista\n"
+            "Pagina: {page}\n"
+            "Exibidos: {count}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_specialist_dialog_item": {
+        "ru": (
+            "{number}. Клиент: {client}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n"
+            "Непрочитанных: {unread}\n"
+            "Последнее сообщение: {message}"
+        ),
+        "en": (
+            "{number}. Client: {client}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n"
+            "Unread: {unread}\n"
+            "Last message: {message}"
+        ),
+        "pt": (
+            "{number}. Cliente: {client}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n"
+            "Nao lidas: {unread}\n"
+            "Ultima mensagem: {message}"
+        ),
+    },
+    "super_admin_ro_specialist_open_dialog_btn": {
+        "ru": "Открыть диалог №{number}",
+        "en": "Open dialog #{number}",
+        "pt": "Abrir dialogo #{number}",
+    },
+    "super_admin_ro_specialist_dialog_detail": {
+        "ru": (
+            "Диалог с клиентом: {client}\n"
+            "Направление: {profession}\n"
+            "Статус: {status}\n\n"
+            "История:\n{messages}\n\n"
+            "Режим только просмотра."
+        ),
+        "en": (
+            "Dialog with client: {client}\n"
+            "Profession: {profession}\n"
+            "Status: {status}\n\n"
+            "History:\n{messages}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "Dialogo com cliente: {client}\n"
+            "Profissao: {profession}\n"
+            "Status: {status}\n\n"
+            "Historico:\n{messages}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "super_admin_ro_specialist_back_to_dialogs_btn": {
+        "ru": "К диалогам специалиста",
+        "en": "To specialist dialogs",
+        "pt": "Para os dialogos do especialista",
+    },
+"super_admin_ro_specialist_profile_btn": {
+    "ru": "Профиль специалиста",
+    "en": "Specialist profile",
+    "pt": "Perfil do especialista",
+},
+"super_admin_ro_specialist_profile": {
+    "ru": (
+        "Профиль специалиста\n\n"
+        "Имя: {display_name}\n"
+        "Направления: {professions}\n"
+        "Локация: {location}\n"
+        "Описание: {description}\n"
+        "Статус профиля: {status}\n"
+        "Доступность: {availability}\n\n"
+        "Режим: только просмотр. Изменение данных недоступно."
+    ),
+    "en": (
+        "Specialist profile\n\n"
+        "Name: {display_name}\n"
+        "Professions: {professions}\n"
+        "Location: {location}\n"
+        "Description: {description}\n"
+        "Profile status: {status}\n"
+        "Availability: {availability}\n\n"
+        "Read-only mode. Changes are unavailable."
+    ),
+    "pt": (
+        "Perfil do especialista\n\n"
+        "Nome: {display_name}\n"
+        "Especialidades: {professions}\n"
+        "Localizacao: {location}\n"
+        "Descricao: {description}\n"
+        "Status do perfil: {status}\n"
+        "Disponibilidade: {availability}\n\n"
+        "Modo somente leitura. Alteracoes indisponiveis."
+    ),
+},
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

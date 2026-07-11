@@ -1,11 +1,12 @@
 import logging
 from uuid import UUID
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
-
+from database.repositories.dictionaries import DictionaryRepository
+from services.dictionaries import DictionaryService, DictionaryServiceError
 from database.models import (
     AdminAction,
     Complaint,
@@ -16,16 +17,23 @@ from database.models import (
     Specialist,
     SupportTicket,
 )
+from services.specialist import (
+    MAX_PROFESSIONS_PER_CATEGORY,
+    SpecialistService,
+)
 from database.repositories.moderation import ModerationRepository
 from database.repositories.billing import BillingRepository
+from database.repositories.contact import ContactChatRepository
 from database.repositories.event import EventRepository
 from database.repositories.reviews import ReviewRepository
 from database.repositories.portfolio import PortfolioRepository
 from database.repositories.support import SupportRepository
 from database.repositories.user import UserRepository
+from database.repositories.specialist import SpecialistRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard_for_user, normalize_language, open_current_role_cabinet, send_global_main_menu
 from services.moderation import (
+    ImpersonationRoleUnavailableError,
     ModerationError,
     SuperAdminRoleScopeCard,
     ModerationService,
@@ -41,6 +49,10 @@ from services.moderation import (
     AdminAuditCard,
 )
 from services.billing import BillingError, BillingService
+from services.contact_chat import (
+    ContactChatError,
+    ContactChatService,
+)
 from services.reviews import (
     ReviewModerationCard,
     ReviewService,
@@ -78,6 +90,10 @@ ADMIN_PAYMENT_MENU_ROLES = {"super_admin", "admin", "finance_admin"}
 ADMIN_ROLE_MENU_ROLES = {"super_admin"}
 ADMIN_LOG_MENU_ROLES = {"super_admin", "admin"}
 ADMIN_SUPPORT_MENU_ROLES = {"support"}
+ADMIN_DICT_MENU_ROLES = {"super_admin"}
+ADMIN_DIALOGS_MENU_ROLES = {"super_admin", "admin", "moderator"}
+ADMIN_PROMOTION_MENU_ROLES = {"super_admin", "advertiser"}
+ADMIN_SYSTEM_MENU_ROLES = {"super_admin"}
 ADMIN_SUPPORT_STATS_ROLES = {"support", "admin", "super_admin"}
 SUPPORT_STAFF_PAGE_SIZE = 5
 ADMIN_ESCALATED_TICKET_PAGE_SIZE = 5
@@ -87,6 +103,21 @@ ADMIN_GLOBAL_BLACKLIST_ROLES = {"admin", "super_admin"}
 MODERATOR_PROFILE_PAGE_SIZE = 5
 ADMIN_SPECIALIST_PAGE_SIZE = 5
 MODERATOR_PORTFOLIO_PAGE_SIZE = 5
+ADMIN_CATEGORIES_PAGE_SIZE = 5
+ADMIN_PROFESSIONS_PAGE_SIZE = 5
+ADMIN_SKILLS_PAGE_SIZE = 5
+ADMIN_LANGUAGES_PAGE_SIZE = 5
+ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE = 5
+ADMIN_PROFESSION_SPECIALISTS_PAGE_SIZE = 5
+ADMIN_MOVE_CATEGORIES_PAGE_SIZE = 5
+ADMIN_MOVE_PROFESSIONS_PAGE_SIZE = 5
+ADMIN_COUNTRIES_PAGE_SIZE = 5
+ADMIN_CITIES_PAGE_SIZE = 5
+READ_ONLY_MODERATION_TARGET_ROLES = {
+    "moderator",
+    "admin",
+}
+READ_ONLY_CLIENT_PAGE_SIZE = 5
 def effective_panel_roles(
     roles: set[str],
     active_role: str | None,
@@ -97,6 +128,9 @@ def effective_panel_roles(
     return roles
 class AdminModerationFSM(StatesGroup):
     entering_admin_user_search = State()
+    entering_super_admin_impersonation_admin_user_search = (
+        State()
+    )
     entering_admin_user_global_block_reason = State()
     confirming_admin_user_global_block = State()
     confirming_admin_user_global_block_final = State()
@@ -152,6 +186,40 @@ class AdminModerationFSM(StatesGroup):
     confirming_super_admin_scope_add = State()
     entering_super_admin_scope_revoke = State()
     confirming_super_admin_scope_revoke = State()
+    entering_admin_category_number = State()
+    entering_admin_category_rename = State()
+    entering_admin_category_sort_order = State()
+    entering_admin_category_create = State()
+    entering_admin_profession_number = State()
+    entering_admin_profession_create = State()
+    entering_admin_profession_rename = State()
+    entering_admin_profession_move = State()
+    entering_admin_specialist_move_numbers = State()
+    entering_admin_specialist_move_target = State()
+    confirming_admin_specialist_move = State()
+    entering_admin_category_specialist_move_numbers = State()
+    entering_admin_category_specialist_move_target = State()
+    confirming_admin_category_specialist_move = State()
+    entering_admin_move_target_professions = State()
+    choosing_admin_move_mode = State()
+    confirming_admin_multi_move = State()
+    entering_admin_skill_number = State()
+    entering_admin_skill_create = State()
+    entering_admin_skill_rename = State()
+    entering_admin_skill_merge = State()
+    confirming_admin_skill_merge = State()
+    entering_admin_language_number = State()
+    entering_admin_language_create = State()
+    entering_admin_language_rename = State()
+    entering_admin_country_number = State()
+    entering_admin_country_create = State()
+    entering_admin_country_update = State()
+    entering_admin_city_number = State()
+    entering_admin_city_create = State()
+    entering_admin_city_update = State()
+    entering_admin_city_geo_update = State()
+    entering_admin_country_import = State()
+    entering_admin_city_import = State()
 
 async def get_admin_user_context(telegram_id: int | str):
     async with get_session() as session:
@@ -173,45 +241,42 @@ def admin_panel_keyboard(
     roles = roles or set()
     rows = []
 
-    if roles.intersection(ADMIN_MODERATION_MENU_ROLES):
+    if roles.intersection(ADMIN_ROLE_MENU_ROLES):
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("admin_pending_profiles", language),
-                    callback_data="ADM_PENDING",
-                )
-            ]
-        )
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("admin_open_complaints", language),
-                    callback_data="ADM_COMPLAINTS",
-                )
-            ]
-        )
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("admin_pending_reviews", language),
-                    callback_data="ADM_REVIEWS",
-                )
-            ]
-        )
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("admin_pending_portfolio", language),
-                    callback_data="ADM_PORTFOLIO",
+                    text=t("admin_users_roles_section_btn", language),
+                    callback_data="SA_USERS",
                 )
             ]
         )
 
+    if roles.intersection(ADMIN_DICT_MENU_ROLES):
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("admin_rejected_portfolio", language),
-                    callback_data="ADM_PORTFOLIO_REJECTED",
+                    text=t("admin_dictionaries_section_btn", language),
+                    callback_data="ADM_DICT",
+                )
+            ]
+        )
+
+    if roles.intersection(ADMIN_MODERATION_MENU_ROLES):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_moderation_section_btn", language),
+                    callback_data="ADM_MODERATION_MENU",
+                )
+            ]
+        )
+
+    if roles.intersection(ADMIN_DIALOGS_MENU_ROLES):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dialogs_section_btn", language),
+                    callback_data="ADM_DIALOGS_STUB",
                 )
             ]
         )
@@ -220,41 +285,32 @@ def admin_panel_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("feature_disabled_beta", language),
-                    callback_data="ADMIN_BETA_DISABLED:finance",
-                )
-            ],
-        )
-
-    if roles.intersection(ADMIN_LOG_MENU_ROLES):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("admin_logs", language),
-                    callback_data="ADM_LOGS",
+                    text=t("admin_finance_section_btn", language),
+                    callback_data="SA_FINANCE",
                 )
             ]
         )
 
-    if roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
+    if roles.intersection(ADMIN_PROMOTION_MENU_ROLES):
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("admin_support_tickets", language),
-                    callback_data="ADM_SUPPORT",
+                    text=t("admin_promotion_section_btn", language),
+                    callback_data="ADM_PROMOTION_STUB",
                 )
             ]
         )
 
-    if roles.intersection(ADMIN_ROLE_MENU_ROLES):
+    if roles.intersection(ADMIN_SYSTEM_MENU_ROLES):
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("admin_roles", language),
-                    callback_data="ADM_ROLES",
+                    text=t("admin_system_section_btn", language),
+                    callback_data="SA_SYSTEM",
                 )
             ]
         )
+
     if show_role_switch:
         rows.append(
             [
@@ -264,19 +320,17 @@ def admin_panel_keyboard(
                 )
             ]
         )
-    rows.append(
 
+    rows.append(
         [
             InlineKeyboardButton(
                 text=t("search_menu", language),
-                callback_data="ADM_MENU", 
+                callback_data="ADM_MENU",
             )
         ]
     )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
 
 def admin_roles_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -5219,55 +5273,45 @@ def super_admin_menu_keyboard(
     rows = [
         [
             InlineKeyboardButton(
-                text=t("super_admin_users_btn", language),
+                text=t("admin_users_roles_section_btn", language),
                 callback_data="SA_USERS",
-            ),
-            InlineKeyboardButton(
-                text=t("super_admin_roles_btn", language),
-                callback_data="SA_ROLES",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
-                text=t("super_admin_permissions_btn", language),
-                callback_data="SA_PERMISSIONS",
-            ),
-            InlineKeyboardButton(
-                text=t("super_admin_scopes_btn", language),
-                callback_data="SA_SCOPES",
-            ),
+                text=t("admin_dictionaries_section_btn", language),
+                callback_data="ADM_DICT",
+            )
         ],
         [
             InlineKeyboardButton(
-                text=t("super_admin_system_btn", language),
-                callback_data="SA_SYSTEM",
-            ),
-            InlineKeyboardButton(
-                text=t("super_admin_audit_btn", language),
-                callback_data="SA_AUDIT",
-            ),
+                text=t("admin_moderation_section_btn", language),
+                callback_data="ADM_MODERATION_MENU",
+            )
         ],
         [
             InlineKeyboardButton(
-                text=t("super_admin_finance_btn", language),
+                text=t("admin_dialogs_section_btn", language),
+                callback_data="ADM_DIALOGS_STUB",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_finance_section_btn", language),
                 callback_data="SA_FINANCE",
-            ),
-            InlineKeyboardButton(
-                text=t("super_admin_regions_btn", language),
-                callback_data="SA_REGIONS",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
-                text=t("super_admin_smoke_tests_btn", language),
-                callback_data="SA_SMOKE",
-            ),
+                text=t("admin_promotion_section_btn", language),
+                callback_data="ADM_PROMOTION_STUB",
+            )
+        ],
+        [
             InlineKeyboardButton(
-                text=t("admin_global_blacklist_btn", language).format(
-                count=summary.global_blacklist,
-            ),
-                callback_data="SA_GLOBAL_BLACKLIST",
-            ),
+                text=t("admin_system_section_btn", language),
+                callback_data="SA_SYSTEM",
+            )
         ],
     ]
 
@@ -5292,24 +5336,193 @@ def super_admin_menu_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def admin_dictionaries_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_categories_btn", language),
+                    callback_data="ADM_DICT_CATEGORIES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_professions_btn", language),
+                    callback_data="ADM_DICT_PROFESSIONS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_skills_btn", language),
+                    callback_data="ADM_DICT_SKILLS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_languages_btn", language),
+                    callback_data="ADM_DICT_LANGUAGES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_geo_btn", language),
+                    callback_data="ADM_DICT_GEO",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_PANEL",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+def super_admin_user_status_label(
+    status: str | None,
+    language: str,
+) -> str:
+    key_by_status = {
+        "active": "super_admin_user_status_active",
+        "blocked": "super_admin_user_status_blocked",
+        "deleted": "super_admin_user_status_deleted",
+    }
+
+    normalized_status = (
+        status or ""
+    ).strip().lower()
+
+    key = key_by_status.get(
+        normalized_status
+    )
+
+    return t(
+        key,
+        language,
+    ) if key else (
+        status or "—"
+    )
+
+
+def super_admin_user_role_label(
+    role: str | None,
+    language: str,
+) -> str:
+    key_by_role = {
+        "client": "super_admin_user_role_client",
+        "specialist": "super_admin_user_role_specialist",
+        "support": "super_admin_user_role_support",
+        "moderator": "super_admin_user_role_moderator",
+        "admin": "super_admin_user_role_admin",
+        "super_admin": (
+            "super_admin_user_role_super_admin"
+        ),
+        "finance_admin": (
+            "super_admin_user_role_finance_admin"
+        ),
+        "content_manager": (
+            "super_admin_user_role_content_manager"
+        ),
+    }
+
+    normalized_role = (
+        role or ""
+    ).strip().lower()
+
+    key = key_by_role.get(
+        normalized_role
+    )
+
+    return t(
+        key,
+        language,
+    ) if key else (
+        role or "—"
+    )
+
+
+def super_admin_user_risk_label(
+    risk_flags: str | None,
+    language: str,
+) -> str:
+    normalized_value = (
+        risk_flags or ""
+    ).strip().lower()
+
+    if normalized_value in {
+        "",
+        "-",
+        "none",
+    }:
+        return t(
+            "super_admin_user_risk_none",
+            language,
+        )
+
+    if normalized_value.startswith("risk:"):
+        return t(
+            "super_admin_user_risk_score",
+            language,
+        ).format(
+            score=normalized_value.split(
+                ":",
+                1,
+            )[1]
+        )
+
+    return risk_flags or "—"
+
 def format_super_admin_user_card(
     card,
     language: str,
 ) -> str:
-    roles = ", ".join(card.roles) if card.roles else "-"
-    scopes = ", ".join(card.scopes) if card.scopes else "-"
+    roles = (
+        ", ".join(
+            super_admin_user_role_label(
+                role,
+                language,
+            )
+            for role in card.roles
+        )
+        if card.roles
+        else "—"
+    )
+
+    scopes = (
+        ", ".join(card.scopes)
+        if card.scopes
+        else t(
+            "super_admin_user_scopes_empty",
+            language,
+        )
+    )
 
     return t("super_admin_user_card", language).format(
         name=card.display_name,
         user_number=card.user_number,
         telegram_id=card.telegram_id,
         username=card.username,
-        status=card.status,
-        active_role=card.active_role,
+        status=super_admin_user_status_label(
+            card.status,
+            language,
+        ),
+        active_role=super_admin_user_role_label(
+            card.active_role,
+            language,
+        ),
         roles=roles,
         scopes=scopes,
         last_seen=card.last_seen,
-        risk_flags=card.risk_flags,
+        risk_flags=super_admin_user_risk_label(
+            card.risk_flags,
+            language,
+        ),
         complaints=card.complaints_count,
         blacklist=card.blacklist_count,
     )
@@ -5321,10 +5534,6 @@ def super_admin_user_card_keyboard(
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text=t("super_admin_user_profile_btn", language),
-                    callback_data="SA_USER_PROFILE",
-                ),
                 InlineKeyboardButton(
                     text=t("super_admin_user_roles_btn", language),
                     callback_data="SA_USER_ROLES",
@@ -5509,27 +5718,117 @@ def super_admin_user_roles_keyboard(
         ]
     )
 
+def super_admin_scope_type_label(
+    scope_type: str,
+    language: str,
+) -> str:
+    return t(
+        f"super_admin_scope_type_{scope_type}",
+        language,
+    )
+
+
+def super_admin_scope_status_label(
+    status: str,
+    language: str,
+) -> str:
+    return t(
+        f"super_admin_scope_status_{status}",
+        language,
+    )
+
+
 def format_super_admin_role_scope_card(
     card: SuperAdminRoleScopeCard,
     *,
     number: int,
+    language: str,
 ) -> str:
     lines = [
-        f"{number}. Пользователь: {card.user_number}",
-        f"Роль: {card.role}",
-        f"Scope type: {card.scope_type}",
-        f"Scope: {card.scope_value}",
-        f"Статус: {card.status}",
-        f"Причина: {card.reason}",
-        f"Выдал: {card.created_by}",
-        f"Дата: {card.created_at}",
+        t(
+            "super_admin_scope_card_user",
+            language,
+        ).format(
+            number=number,
+            user_number=card.user_number,
+        ),
+        t(
+            "super_admin_scope_card_role",
+            language,
+        ).format(
+            role=super_admin_user_role_label(
+                card.role,
+                language,
+            )
+        ),
+        t(
+            "super_admin_scope_card_type",
+            language,
+        ).format(
+            scope_type=super_admin_scope_type_label(
+                card.scope_type,
+                language,
+            )
+        ),
+        t(
+            "super_admin_scope_card_value",
+            language,
+        ).format(
+            scope_value=card.scope_value,
+        ),
+        t(
+            "super_admin_scope_card_status",
+            language,
+        ).format(
+            status=super_admin_scope_status_label(
+                card.status,
+                language,
+            )
+        ),
+        t(
+            "super_admin_scope_card_reason",
+            language,
+        ).format(
+            reason=card.reason or t(
+                "super_admin_value_not_specified",
+                language,
+            )
+        ),
+        t(
+            "super_admin_scope_card_granted_by",
+            language,
+        ).format(
+            user_number=card.created_by or t(
+                "super_admin_value_not_specified",
+                language,
+            )
+        ),
+        t(
+            "super_admin_scope_card_created_at",
+            language,
+        ).format(
+            created_at=card.created_at,
+        ),
     ]
 
     if card.status == "revoked":
         lines.extend(
             [
-                f"Снял: {card.revoked_by}",
-                f"Дата снятия: {card.revoked_at}",
+                t(
+                    "super_admin_scope_card_revoked_by",
+                    language,
+                ).format(
+                    user_number=card.revoked_by or t(
+                        "super_admin_value_not_specified",
+                        language,
+                    )
+                ),
+                t(
+                    "super_admin_scope_card_revoked_at",
+                    language,
+                ).format(
+                    revoked_at=card.revoked_at,
+                ),
             ]
         )
 
@@ -5539,6 +5838,7 @@ def super_admin_role_scope_card_keyboard(
     *,
     index: int,
     status: str,
+    language: str,
 ) -> InlineKeyboardMarkup | None:
     if status != "active":
         return None
@@ -5547,7 +5847,7 @@ def super_admin_role_scope_card_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Отозвать scope",
+                    text=t("super_admin_scopes_revoke_btn", language),
                     callback_data=f"SA_SCOPE_REVOKE:{index}",
                 )
             ]
@@ -5565,14 +5865,14 @@ def super_admin_role_scopes_keyboard(
     rows = [
         [
             InlineKeyboardButton(
-                text="Активные",
+                text=t("super_admin_scopes_view_active", language),
                 callback_data=(
                     f"SA_SCOPES_QUEUE:active:{page}:"
                     f"{1 if user_filtered else 0}"
                 ),
             ),
             InlineKeyboardButton(
-                text="История",
+                text=t("super_admin_scopes_view_history", language),
                 callback_data=(
                     f"SA_SCOPES_QUEUE:history:{page}:"
                     f"{1 if user_filtered else 0}"
@@ -5581,7 +5881,7 @@ def super_admin_role_scopes_keyboard(
         ],
         [
             InlineKeyboardButton(
-                text="Добавить scope",
+                text=t("super_admin_scopes_add_btn", language),
                 callback_data=(
                     "SA_SCOPE_ADD_USER"
                     if user_filtered
@@ -5621,7 +5921,7 @@ def super_admin_role_scopes_keyboard(
     rows.append(
         [
             InlineKeyboardButton(
-                text="К Super Admin",
+                text=t("super_admin_scopes_to_panel_btn", language),
                 callback_data="SA_PANEL",
             )
         ]
@@ -6099,7 +6399,7 @@ async def ask_super_admin_scope_revoke(
         index = int((callback.data or "").split(":", 1)[1])
     except (TypeError, ValueError, IndexError):
         await callback.answer(
-            "Scope не найден.",
+            t("super_admin_scope_not_found", language),
             show_alert=True,
         )
         return
@@ -6109,7 +6409,7 @@ async def ask_super_admin_scope_revoke(
 
     if index < 0 or index >= len(scope_ids):
         await callback.answer(
-            "Scope не найден.",
+            t("super_admin_scope_not_found", language),
             show_alert=True,
         )
         return
@@ -6123,7 +6423,7 @@ async def ask_super_admin_scope_revoke(
     )
 
     await callback.message.answer(
-        "Укажите причину отзыва scope. Минимум 3 символа.",
+        t("super_admin_scope_revoke_reason_prompt", language),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -6157,14 +6457,20 @@ async def receive_super_admin_scope_revoke_reason(
     data = await state.get_data()
     index = data.get("super_admin_scope_revoke_index")
     scope_ids = data.get("super_admin_scope_ids") or []
+    scope_labels = data.get(
+        "super_admin_scope_labels"
+    ) or []
 
     if (
         not isinstance(index, int)
         or index < 0
         or index >= len(scope_ids)
+        or index >= len(scope_labels)
     ):
         await state.set_state(None)
-        await message.answer("Scope не найден.")
+        await message.answer(
+            t("super_admin_scope_not_found", language)
+        )
         return
 
     await state.update_data(
@@ -6175,16 +6481,21 @@ async def receive_super_admin_scope_revoke_reason(
     )
 
     await message.answer(
-        (
-            "Подтвердите отзыв territorial scope:\n\n"
-            f"Scope: scope-{str(scope_ids[index])[:8]}\n"
-            f"Причина: {reason}"
+        t(
+            "super_admin_scope_revoke_confirm",
+            language,
+        ).format(
+            scope_label=scope_labels[index],
+            reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="Подтвердить отзыв",
+                        text=t(
+                            "super_admin_scope_revoke_confirm_btn",
+                            language,
+                        ),
                         callback_data="SA_SCOPE_REVOKE_CONFIRM",
                     )
                 ],
@@ -6291,12 +6602,12 @@ async def execute_super_admin_scope_revoke(
     )
 
     await callback.message.answer(
-        f"Scope отозван. Статус: {result.status}",
+        t("super_admin_scope_revoke_success", language),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="К scopes",
+                        text=t("super_admin_scopes_to_list_btn", language),
                         callback_data=(
                             "SA_SCOPES_QUEUE:active:0:"
                             f"{1 if user_filtered else 0}"
@@ -6305,7 +6616,7 @@ async def execute_super_admin_scope_revoke(
                 ],
                 [
                     InlineKeyboardButton(
-                        text="История",
+                        text=t("super_admin_scopes_view_history", language),
                         callback_data=(
                             "SA_SCOPES_QUEUE:history:0:"
                             f"{1 if user_filtered else 0}"
@@ -6323,6 +6634,9 @@ async def cancel_super_admin_scope_revoke(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
     user_filtered = bool(
         data.get("super_admin_scope_user_filtered")
@@ -6335,12 +6649,12 @@ async def cancel_super_admin_scope_revoke(
     )
 
     await callback.message.answer(
-        "Отзыв scope отменён.",
+        t("super_admin_scope_revoke_cancelled", language),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="К scopes",
+                        text=t("super_admin_scopes_to_list_btn", language),
                         callback_data=(
                             "SA_SCOPES_QUEUE:active:0:"
                             f"{1 if user_filtered else 0}"
@@ -6418,6 +6732,15 @@ async def open_super_admin_role_scopes_queue(
             str(card.scope_id)
             for card in result.items
         ],
+        super_admin_scope_labels=[
+            (
+                f"{super_admin_scope_type_label(
+                    card.scope_type,
+                    language,
+                )}: {card.scope_value}"
+            )
+            for card in result.items
+        ],
         super_admin_scope_user_ids=[
             str(card.user_id)
             for card in result.items
@@ -6427,26 +6750,37 @@ async def open_super_admin_role_scopes_queue(
         super_admin_scope_user_filtered=user_filtered,
     )
 
-    view_label = (
-        "История"
-        if result.view == "history"
-        else "Активные"
+    view_label = t(
+        (
+            "super_admin_scopes_view_history"
+            if result.view == "history"
+            else "super_admin_scopes_view_active"
+        ),
+        language,
     )
 
-    title = (
-        "Territorial Scopes\n"
-        f"Раздел: {view_label}\n"
-        f"Показано: {len(result.items)}"
-    )
+    title_lines = [
+        t("super_admin_scopes_title", language),
+        t("super_admin_scopes_section", language).format(
+            view=view_label,
+        ),
+        t("super_admin_scopes_count", language).format(
+            count=len(result.items),
+        ),
+    ]
 
     if selected_user_id:
-        title += f"\nПользователь: user-{selected_user_id.hex[:8]}"
+        title_lines.append(
+            t("super_admin_scopes_for_user", language).format(
+                user_number=f"user-{selected_user_id.hex[:8]}",
+            )
+        )
 
-    await callback.message.answer(title)
+    await callback.message.answer("\n".join(title_lines))
 
     if not result.items:
         await callback.message.answer(
-            "Territorial scopes не найдены.",
+            t("super_admin_scopes_empty", language),
             reply_markup=super_admin_role_scopes_keyboard(
                 view=result.view,
                 page=result.page,
@@ -6465,15 +6799,17 @@ async def open_super_admin_role_scopes_queue(
             format_super_admin_role_scope_card(
                 card,
                 number=start_number + offset,
+                language=language,
             ),
             reply_markup=super_admin_role_scope_card_keyboard(
                 index=offset,
                 status=card.status,
+                language=language,
             ),
         )
 
     await callback.message.answer(
-        "Действия со scopes",
+        t("super_admin_scopes_actions", language),
         reply_markup=super_admin_role_scopes_keyboard(
             view=result.view,
             page=result.page,
@@ -6943,6 +7279,6730 @@ def super_admin_impersonation_keyboard(
         ]
     )
 
+def super_admin_impersonation_read_only_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+def super_admin_read_only_client_menu_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_client_requests_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_CLIENT_REQUESTS:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_client_dialogs_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_CLIENT_DIALOGS:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+def super_admin_read_only_specialist_menu_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_specialist_profile_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_SPECIALIST_PROFILE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_specialist_requests_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_SPECIALIST_REQUESTS:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_specialist_dialogs_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_SPECIALIST_DIALOGS:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+
+def super_admin_read_only_specialist_requests_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_SPECIALIST_REQUESTS:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_SPECIALIST_REQUESTS:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_SPECIALIST_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_specialist_dialogs_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_SPECIALIST_DIALOGS:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_SPECIALIST_DIALOGS:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_SPECIALIST_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_super_admin_read_only_specialist_dialog(
+    item,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    message = (item.last_message_text or "").strip()
+
+    if len(message) > 300:
+        message = f"{message[:297]}..."
+
+    return t(
+        "super_admin_ro_specialist_dialog_item",
+        language,
+    ).format(
+        number=number,
+        client=item.specialist_name or "-",
+        profession=item.profession_name or "-",
+        status=item.status or "-",
+        unread=item.unread_count,
+        message=message or "-",
+    )
+
+
+def format_super_admin_read_only_specialist_dialog_detail(
+    detail,
+    *,
+    language: str,
+) -> str:
+    messages = "\n".join(
+        str(message)
+        for message in detail.messages[-10:]
+    ) or "-"
+
+    return t(
+        "super_admin_ro_specialist_dialog_detail",
+        language,
+    ).format(
+        client=detail.client_name or "-",
+        profession=detail.profession_name or "-",
+        status=detail.thread_status or "-",
+        messages=messages,
+    )
+
+def format_super_admin_read_only_specialist_request(
+    item,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    created_at = (
+        item.created_at.strftime("%Y-%m-%d")
+        if item.created_at
+        else "-"
+    )
+    message = (item.message or "").strip()
+
+    if len(message) > 300:
+        message = f"{message[:297]}..."
+
+    return t(
+        "super_admin_ro_specialist_request_item",
+        language,
+    ).format(
+        number=number,
+        client=item.client_name or "-",
+        profession=item.profession_name or "-",
+        status=item.status or "-",
+        date=created_at,
+        message=message or "-",
+    )
+
+
+def format_super_admin_read_only_specialist_request_detail(
+    item: dict,
+    *,
+    language: str,
+) -> str:
+    return t(
+        "super_admin_ro_specialist_request_detail",
+        language,
+    ).format(
+        client=item.get("client") or "-",
+        profession=item.get("profession") or "-",
+        status=item.get("status") or "-",
+        date=item.get("date") or "-",
+        message=item.get("message") or "-",
+    )
+
+def super_admin_read_only_client_requests_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_CLIENT_REQUESTS:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_CLIENT_REQUESTS:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_CLIENT_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_client_dialogs_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_CLIENT_DIALOGS:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_CLIENT_DIALOGS:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_CLIENT_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_super_admin_read_only_client_dialog(
+    item,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    message = (item.last_message_text or "").strip()
+
+    if len(message) > 300:
+        message = f"{message[:297]}..."
+
+    return t(
+        "super_admin_ro_client_dialog_item",
+        language,
+    ).format(
+        number=number,
+        specialist=item.specialist_name or "-",
+        profession=item.profession_name or "-",
+        status=item.status or "-",
+        unread=item.unread_count,
+        message=message or "-",
+    )
+
+
+def format_super_admin_read_only_client_dialog_detail(
+    detail,
+    *,
+    language: str,
+) -> str:
+    messages = "\n".join(
+        str(message)
+        for message in detail.messages[-10:]
+    ) or "-"
+
+    return t(
+        "super_admin_ro_client_dialog_detail",
+        language,
+    ).format(
+        specialist=detail.specialist_name or "-",
+        profession=detail.profession_name or "-",
+        status=detail.thread_status or "-",
+        messages=messages,
+    )
+
+def format_super_admin_read_only_client_request(
+    item,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    created_at = (
+        item.created_at.strftime("%Y-%m-%d")
+        if item.created_at
+        else "-"
+    )
+    message = (item.message or "").strip()
+
+    if len(message) > 300:
+        message = f"{message[:297]}..."
+
+    return t(
+        "super_admin_ro_client_request_item",
+        language,
+    ).format(
+        number=number,
+        specialist=item.specialist_name or "-",
+        profession=item.profession_name or "-",
+        status=item.status or "-",
+        date=created_at,
+        message=message or "-",
+    )
+
+
+def format_super_admin_read_only_client_request_detail(
+    detail,
+    *,
+    language: str,
+) -> str:
+    created_at = (
+        detail.created_at.strftime("%Y-%m-%d")
+        if detail.created_at
+        else "-"
+    )
+
+    return t(
+        "super_admin_ro_client_request_detail",
+        language,
+    ).format(
+        specialist=detail.specialist_name or "-",
+        profession=detail.profession_name or "-",
+        status=detail.status or "-",
+        date=created_at,
+        message=(detail.message or "-").strip() or "-",
+    )
+
+def super_admin_read_only_support_menu_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("support_staff_open_btn", language),
+                    callback_data="SA_RO_SUPPORT_LIST:open:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "support_staff_in_progress_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_SUPPORT_LIST:in_progress:0"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "support_staff_resolved_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_SUPPORT_LIST:resolved:0"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+
+def super_admin_read_only_support_list_keyboard(
+    *,
+    view: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("support_staff_open_btn", language),
+                callback_data="SA_RO_SUPPORT_LIST:open:0",
+            ),
+            InlineKeyboardButton(
+                text=t(
+                    "support_staff_in_progress_btn",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_SUPPORT_LIST:in_progress:0"
+                ),
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "support_staff_resolved_btn",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_SUPPORT_LIST:resolved:0"
+                ),
+            )
+        ],
+    ]
+
+    navigation = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_SUPPORT_LIST:{view}:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_SUPPORT_LIST:{view}:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_support_back_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_SUPPORT_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_moderator_menu_keyboard(
+    language: str,
+    *,
+    back_callback: str = "SA_IMPERSONATE_MENU",
+    back_text_key: str = (
+        "super_admin_impersonation_change_cabinet_btn"
+    ),
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_pending_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_QUEUE:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_portfolio_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_PORTFOLIO",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_reviews_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_REVIEWS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_blacklist_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_BLACKLIST:active:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_complaints_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_COMPLAINTS:open:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(back_text_key, language),
+                    callback_data=back_callback,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+
+def super_admin_read_only_moderator_queue_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"SA_RO_MOD_QUEUE:{page - 1}",
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"SA_RO_MOD_QUEUE:{page + 1}",
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_back_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_moderator_complaints_keyboard(
+    *,
+    view: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "moderator_complaint_filter_open",
+                    language,
+                ),
+                callback_data="SA_RO_MOD_COMPLAINTS:open:0",
+            ),
+            InlineKeyboardButton(
+                text=t(
+                    "moderator_complaint_filter_new",
+                    language,
+                ),
+                callback_data="SA_RO_MOD_COMPLAINTS:new:0",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "moderator_complaint_filter_review",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_MOD_COMPLAINTS:in_review:0"
+                ),
+            ),
+            InlineKeyboardButton(
+                text=t(
+                    "moderator_complaint_filter_resolved",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_MOD_COMPLAINTS:resolved:0"
+                ),
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "moderator_complaint_filter_rejected",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_MOD_COMPLAINTS:rejected:0"
+                ),
+            )
+        ],
+    ]
+
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_MOD_COMPLAINTS:{view}:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_MOD_COMPLAINTS:{view}:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_back_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_moderator_portfolio_keyboard(
+    *,
+    index: int,
+    total: int,
+    page: int,
+    has_next_page: bool,
+    signed_url: str,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=t("portfolio_open_button", language),
+                url=signed_url,
+            )
+        ]
+    ]
+
+    item_navigation: list[InlineKeyboardButton] = []
+
+    if index > 0:
+        item_navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"SA_RO_MOD_PORT_VIEW:{index - 1}",
+            )
+        )
+
+    if index + 1 < total:
+        item_navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"SA_RO_MOD_PORT_VIEW:{index + 1}",
+            )
+        )
+
+    if item_navigation:
+        rows.append(item_navigation)
+
+    page_navigation: list[InlineKeyboardButton] = []
+
+    if page > 0 and index == 0:
+        page_navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"SA_RO_MOD_PORT_QUEUE:{page - 1}",
+            )
+        )
+
+    if has_next_page and index == total - 1:
+        page_navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"SA_RO_MOD_PORT_QUEUE:{page + 1}",
+            )
+        )
+
+    if page_navigation:
+        rows.append(page_navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_back_to_portfolio_btn",
+                        language,
+                    ),
+                    callback_data=f"SA_RO_MOD_PORT_QUEUE:{page}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_moderator_reviews_keyboard(
+    *,
+    index: int,
+    total: int,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if index > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"SA_RO_MOD_REV_VIEW:{index - 1}",
+            )
+        )
+    elif page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_MOD_REVIEWS_PAGE:{page - 1}"
+                ),
+            )
+        )
+
+    if index + 1 < total:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"SA_RO_MOD_REV_VIEW:{index + 1}",
+            )
+        )
+    elif has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_MOD_REVIEWS_PAGE:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_back_to_reviews_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        f"SA_RO_MOD_REVIEWS_PAGE:{page}"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_back_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_moderator_blacklist_keyboard(
+    *,
+    view: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "moderator_blacklist_active_btn",
+                    language,
+                ),
+                callback_data="SA_RO_MOD_BLACKLIST:active:0",
+            ),
+            InlineKeyboardButton(
+                text=t(
+                    "moderator_blacklist_history_btn",
+                    language,
+                ),
+                callback_data="SA_RO_MOD_BLACKLIST:revoked:0",
+            ),
+        ]
+    ]
+
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_MOD_BLACKLIST:{view}:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_MOD_BLACKLIST:{view}:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_back_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_MOD_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_admin_menu_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_users_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_USERS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_moderation_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_MODERATION",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_specialists_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_SPECIALISTS:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_escalated_tickets_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_SUPPORT:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_global_blacklist_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_GLOBAL_BLACKLIST:active:0"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_audit_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_AUDIT_QUEUE:all:0",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+
+def super_admin_read_only_admin_audit_filter_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_audit_filter_all", language),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:all:0"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_audit_filter_users",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:user:0"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_audit_filter_specialists",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:specialist:0"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_audit_filter_support",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:"
+                        "support_ticket:0"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_audit_filter_complaints",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:complaint:0"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_audit_filter_reviews",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:review:0"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_audit_filter_portfolio",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:"
+                        "specialist_portfolio_item:0"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_audit_filter_blacklist",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_AUDIT_QUEUE:blacklist:0"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_back_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+def super_admin_read_only_admin_global_blacklist_keyboard(
+    *,
+    view: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_global_blacklist_active_title",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_ADMIN_GLOBAL_BLACKLIST:active:0"
+                ),
+            ),
+            InlineKeyboardButton(
+                text=t(
+                    "admin_global_blacklist_history_title",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_ADMIN_GLOBAL_BLACKLIST:history:0"
+                ),
+            ),
+        ]
+    ]
+
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    "SA_RO_ADMIN_GLOBAL_BLACKLIST:"
+                    f"{view}:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    "SA_RO_ADMIN_GLOBAL_BLACKLIST:"
+                    f"{view}:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_admin_support_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"SA_RO_ADMIN_SUPPORT:{page - 1}",
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"SA_RO_ADMIN_SUPPORT:{page + 1}",
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_admin_specialists_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=(
+                    f"SA_RO_ADMIN_SPECIALISTS:{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=(
+                    f"SA_RO_ADMIN_SPECIALISTS:{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def super_admin_read_only_admin_user_search_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_change_cabinet_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_HOME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+
+def super_admin_read_only_admin_user_details_keyboard(
+    *,
+    index: int,
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_user_roles_btn", language),
+                    callback_data=f"SA_RO_ADMIN_USER_ROLES:{index}",
+                ),
+                InlineKeyboardButton(
+                    text=t("admin_user_history_btn", language),
+                    callback_data=(
+                        f"SA_RO_ADMIN_USER_HISTORY:{index}"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_back_to_users_btn",
+                        language,
+                    ),
+                    callback_data="SA_RO_ADMIN_USERS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_impersonation_stop_btn",
+                        language,
+                    ),
+                    callback_data="SA_IMPERSONATE_STOP",
+                )
+            ],
+        ]
+    )
+
+def format_super_admin_read_only_support_ticket(
+    ticket,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    updated_at = (
+        ticket.updated_at.strftime("%Y-%m-%d %H:%M")
+        if ticket.updated_at
+        else "-"
+    )
+
+    return t(
+        "super_admin_ro_support_ticket_item",
+        language,
+    ).format(
+        number=number,
+        category=t(
+            f"support_category_{ticket.category or 'other'}",
+            language,
+        ),
+        status=t(
+            f"support_status_{ticket.status}",
+            language,
+        ),
+        priority=t(
+            f"support_priority_{(ticket.priority or 'P3').lower()}",
+            language,
+        ),
+        updated_at=updated_at,
+    )
+
+
+def format_super_admin_read_only_support_ticket_detail(
+    ticket_view,
+    *,
+    number: int,
+    language: str,
+) -> str:
+    ticket = ticket_view.ticket
+    messages = ticket_view.messages[-10:]
+
+    lines = [
+        t(
+            "super_admin_ro_support_ticket_title",
+            language,
+        ).format(number=number),
+        "",
+        f"{t('admin_support_category', language)}: "
+        f"{t(f'support_category_{ticket.category or 'other'}', language)}",
+        f"{t('admin_status', language)}: "
+        f"{t(f'support_status_{ticket.status}', language)}",
+        f"{t('admin_support_priority', language)}: "
+        f"{t(f'support_priority_{(ticket.priority or 'P3').lower()}', language)}",
+        "",
+        t("admin_support_messages", language),
+    ]
+
+    if not messages:
+        lines.append(
+            t("admin_support_no_messages", language)
+        )
+
+    for message in messages:
+        sender_role = message.sender_role or "system"
+        message_text = (
+            (message.message_text or "").strip()
+            or t("super_admin_value_not_specified", language)
+        )
+
+        lines.append(
+            t("support_message_line", language).format(
+                sender_role=t(
+                    f"support_sender_{sender_role}",
+                    language,
+                ),
+                message=message_text[:500],
+            )
+        )
+
+    lines.extend(
+        [
+            "",
+            t("super_admin_ro_read_only_label", language),
+        ]
+    )
+
+    return "\n".join(lines)
+
+def super_admin_preview_status_label(
+    status: str,
+    language: str,
+) -> str:
+    return t(
+        f"super_admin_preview_status_{status}",
+        language,
+    )
+
+
+def super_admin_preview_availability_label(
+    is_available: bool,
+    language: str,
+) -> str:
+    key = (
+        "super_admin_preview_availability_available"
+        if is_available
+        else "super_admin_preview_availability_unavailable"
+    )
+
+    return t(key, language)
+
+async def show_super_admin_specialist_read_only_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    data = await state.get_data()
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+    target_role = data.get(
+        "super_admin_impersonation_target_role"
+    )
+    is_read_only = bool(
+        data.get("super_admin_impersonation_read_only")
+    )
+
+    if (
+        not target_user_id_raw
+        or target_role != "specialist"
+        or not is_read_only
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(str(target_user_id_raw))
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            cabinet = await ModerationService(
+                ModerationRepository(session)
+            ).get_specialist_read_only_cabinet(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+                language=language,
+            )
+
+    except ImpersonationRoleUnavailableError:
+        await callback.answer(
+            t(
+                "super_admin_impersonation_role_unavailable",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+    await state.update_data(
+        super_admin_impersonation_specialist_id=str(
+            cabinet.specialist_id
+        ),
+    )
+    await callback.message.answer(
+        t(
+            "super_admin_impersonation_specialist_cabinet",
+            language,
+        ).format(
+            user_number=cabinet.user_number,
+            display_name=cabinet.display_name,
+            professions=(
+                ", ".join(cabinet.professions)
+                or t(
+                    "super_admin_value_not_specified",
+                    language,
+                )
+            ),
+            status=super_admin_preview_status_label(
+                cabinet.status,
+                language,
+            ),
+            availability=super_admin_preview_availability_label(
+                cabinet.is_available,
+                language,
+            ),
+            dialogs_unread=cabinet.dialogs_unread,
+            new_requests=cabinet.new_requests,
+        ),
+        reply_markup=super_admin_read_only_specialist_menu_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+async def show_super_admin_support_read_only_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    data = await state.get_data()
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+    target_role = data.get(
+        "super_admin_impersonation_target_role"
+    )
+    is_read_only = bool(
+        data.get("super_admin_impersonation_read_only")
+    )
+
+    if (
+        not target_user_id_raw
+        or target_role != "support"
+        or not is_read_only
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(str(target_user_id_raw))
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            cabinet = await ModerationService(
+                ModerationRepository(session)
+            ).get_support_read_only_cabinet(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+            )
+
+    except ImpersonationRoleUnavailableError:
+        await callback.answer(
+            t(
+                "super_admin_impersonation_role_unavailable",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t(
+            "super_admin_impersonation_support_cabinet",
+            language,
+        ).format(
+            user_number=cabinet.user_number,
+            open_tickets=cabinet.open_tickets,
+            in_progress_tickets=cabinet.in_progress_tickets,
+            resolved_tickets=cabinet.resolved_tickets,
+        ),
+        reply_markup=super_admin_read_only_support_menu_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+async def show_super_admin_moderator_read_only_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+    target_role = str(
+        data.get(
+            "super_admin_impersonation_target_role"
+        )
+        or ""
+    )
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+
+    try:
+        target_user_id = UUID(str(target_user_id_raw))
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t(
+            (
+                "super_admin_ro_admin_moderation_cabinet"
+                if target_role == "admin"
+                else "super_admin_impersonation_moderator_cabinet"
+            ),
+            language,
+        ).format(
+            user_number=data.get(
+                "super_admin_impersonation_target_user_number"
+            )
+            or t("super_admin_value_not_specified", language)
+        ),
+        reply_markup=(
+            super_admin_read_only_moderator_menu_keyboard(
+                language,
+                back_callback=(
+                    "SA_RO_ADMIN_HOME"
+                    if target_role == "admin"
+                    else "SA_IMPERSONATE_MENU"
+                ),
+                back_text_key=(
+                    "super_admin_ro_admin_back_to_dashboard_btn"
+                    if target_role == "admin"
+                    else (
+                        "super_admin_impersonation_change_cabinet_btn"
+                    )
+                ),
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "SA_RO_MOD_HOME")
+async def super_admin_read_only_moderator_home(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_super_admin_moderator_read_only_cabinet(
+        callback,
+        state,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_QUEUE:")
+)
+async def super_admin_read_only_moderator_queue(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int((callback.data or "").split(":", 1)[1]),
+            0,
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await ModerationService(
+                ModerationRepository(session)
+            ).open_pending_specialists_queue(
+                moderator_user_id=target_user_id,
+                tenant_id=tenant_id,
+                page=page,
+                page_size=MODERATOR_PROFILE_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_items = items[:MODERATOR_PROFILE_PAGE_SIZE]
+    has_next = len(items) > MODERATOR_PROFILE_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_moderator_profile_ids=[
+            str(item.specialist_id)
+            for item in visible_items
+        ],
+        super_admin_impersonation_moderator_page=page,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_moderator_queue_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(visible_items),
+        )
+    )
+
+    start_number = page * MODERATOR_PROFILE_PAGE_SIZE + 1
+
+    for index, item in enumerate(visible_items):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_pending_profile_queue_item(
+                item,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_moderator_open_profile_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                f"SA_RO_MOD_PROFILE:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_moderator_queue_keyboard(
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_PROFILE:")
+)
+async def super_admin_read_only_moderator_profile(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    profile_ids = data.get(
+        "super_admin_impersonation_moderator_profile_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+        or index < 0
+        or index >= len(profile_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        specialist_id = UUID(profile_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_moderator_specialist_card(
+                moderator_user_id=target_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_moderator_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        format_pending_specialist_card(
+            card,
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_moderator_back_to_queue_btn",
+                            language,
+                        ),
+                        callback_data=f"SA_RO_MOD_QUEUE:{page}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_COMPLAINTS:")
+)
+async def super_admin_read_only_moderator_complaints(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        _, view, raw_page = (
+            callback.data or ""
+        ).split(":", 2)
+        page = max(int(raw_page), 0)
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    statuses_by_view = {
+        "open": {"new", "in_review"},
+        "new": {"new"},
+        "in_review": {"in_review"},
+        "resolved": {"resolved"},
+        "rejected": {"rejected"},
+    }
+
+    if view not in statuses_by_view:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            results = await ModerationService(
+                ModerationRepository(session)
+            ).open_complaints_queue(
+                moderator_user_id=target_user_id,
+                tenant_id=tenant_id,
+                statuses=statuses_by_view[view],
+                page=page,
+                page_size=MODERATOR_PROFILE_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    cards = results[:MODERATOR_PROFILE_PAGE_SIZE]
+    has_next = len(results) > MODERATOR_PROFILE_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_moderator_complaint_ids=[
+            str(card.complaint_id)
+            for card in cards
+        ],
+        super_admin_impersonation_moderator_complaint_view=view,
+        super_admin_impersonation_moderator_complaint_page=page,
+    )
+
+    view_labels = {
+        "open": t("moderator_complaint_filter_open", language),
+        "new": t("moderator_complaint_filter_new", language),
+        "in_review": t(
+            "moderator_complaint_filter_review",
+            language,
+        ),
+        "resolved": t(
+            "moderator_complaint_filter_resolved",
+            language,
+        ),
+        "rejected": t(
+            "moderator_complaint_filter_rejected",
+            language,
+        ),
+    }
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_moderator_complaints_title",
+            language,
+        ).format(
+            view=view_labels[view],
+            page=page + 1,
+            count=len(cards),
+        )
+    )
+
+    start_number = page * MODERATOR_PROFILE_PAGE_SIZE + 1
+
+    for index, card in enumerate(cards):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_complaint_queue_item(
+                card,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_moderator_open_complaint_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                f"SA_RO_MOD_COMPLAINT:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_moderator_complaints_keyboard(
+                view=view,
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_COMPLAINT:")
+)
+async def super_admin_read_only_moderator_complaint(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    complaint_ids = data.get(
+        "super_admin_impersonation_moderator_complaint_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+        or index < 0
+        or index >= len(complaint_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        complaint_id = UUID(complaint_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_moderator_complaint_card(
+                moderator_user_id=target_user_id,
+                tenant_id=tenant_id,
+                complaint_id=complaint_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_moderator_complaint_page"
+        ) or 0
+    )
+    view = str(
+        data.get(
+            "super_admin_impersonation_moderator_complaint_view"
+        ) or "open"
+    )
+
+    await callback.message.answer(
+        format_complaint_card(
+            card,
+            index=index,
+            total=len(complaint_ids),
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_moderator_back_to_complaints_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_MOD_COMPLAINTS:{view}:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    (F.data == "SA_RO_MOD_PORTFOLIO")
+    | F.data.startswith("SA_RO_MOD_PORT_QUEUE:")
+)
+async def super_admin_read_only_moderator_portfolio(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    if callback.data == "SA_RO_MOD_PORTFOLIO":
+        page = 0
+    else:
+        try:
+            page = max(
+                int((callback.data or "").split(":", 1)[1]),
+                0,
+            )
+        except (IndexError, TypeError, ValueError):
+            await callback.answer(
+                t("admin_item_not_found", language),
+                show_alert=True,
+            )
+            return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_pending_items(
+                tenant_id=tenant_id,
+                moderator_user_id=target_user_id,
+                page=page,
+                page_size=MODERATOR_PORTFOLIO_PAGE_SIZE,
+            )
+    except PortfolioServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_items = items[:MODERATOR_PORTFOLIO_PAGE_SIZE]
+    has_next_page = (
+        len(items) > MODERATOR_PORTFOLIO_PAGE_SIZE
+    )
+
+    await state.update_data(
+        super_admin_impersonation_moderator_portfolio_ids=[
+            str(view.item.id)
+            for view in visible_items
+        ],
+        super_admin_impersonation_moderator_portfolio_page=page,
+        super_admin_impersonation_moderator_portfolio_has_next=(
+            has_next_page
+        ),
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_moderator_portfolio_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(visible_items),
+        )
+    )
+
+    if not visible_items:
+        await callback.message.answer(
+            t("admin_no_pending_portfolio", language),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_moderator_back_btn",
+                                language,
+                            ),
+                            callback_data="SA_RO_MOD_HOME",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_impersonation_stop_btn",
+                                language,
+                            ),
+                            callback_data="SA_IMPERSONATE_STOP",
+                        )
+                    ],
+                ]
+            ),
+        )
+        await callback.answer()
+        return
+
+    await show_super_admin_read_only_portfolio_item(
+        callback,
+        state,
+        index=0,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_PORT_VIEW:")
+)
+async def super_admin_read_only_moderator_portfolio_view(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await show_super_admin_read_only_portfolio_item(
+        callback,
+        state,
+        index=index,
+    )
+
+
+async def show_super_admin_read_only_portfolio_item(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    index: int,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    portfolio_ids = data.get(
+        "super_admin_impersonation_moderator_portfolio_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+        or not portfolio_ids
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    index = max(0, min(index, len(portfolio_ids) - 1))
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        item_id = UUID(portfolio_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_moderator_portfolio_page"
+        ) or 0
+    )
+    has_next_page = bool(
+        data.get(
+            "super_admin_impersonation_moderator_portfolio_has_next"
+        )
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_pending_items(
+                tenant_id=tenant_id,
+                moderator_user_id=target_user_id,
+                page=page,
+                page_size=MODERATOR_PORTFOLIO_PAGE_SIZE,
+            )
+    except PortfolioServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    view = next(
+        (
+            candidate
+            for candidate in items[
+                :MODERATOR_PORTFOLIO_PAGE_SIZE
+            ]
+            if candidate.item.id == item_id
+        ),
+        None,
+    )
+
+    if not view:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    text = format_portfolio_moderation_card(
+        view,
+        index=index,
+        page=page,
+        language=language,
+    )
+    keyboard = (
+        super_admin_read_only_moderator_portfolio_keyboard(
+            index=index,
+            total=len(portfolio_ids),
+            page=page,
+            has_next_page=has_next_page,
+            signed_url=view.signed_url,
+            language=language,
+        )
+    )
+
+    if view.storage_object.file_type == "photo":
+        await callback.message.answer_photo(
+            photo=view.signed_url,
+            caption=text,
+            reply_markup=keyboard,
+        )
+    else:
+        await callback.message.answer(
+            text,
+            reply_markup=keyboard,
+        )
+
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "SA_RO_MOD_REVIEWS")
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_REVIEWS_PAGE:")
+)
+async def super_admin_read_only_moderator_reviews(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    if callback.data == "SA_RO_MOD_REVIEWS":
+        page = 0
+    else:
+        try:
+            page = max(
+                int((callback.data or "").split(":", 1)[1]),
+                0,
+            )
+        except (IndexError, TypeError, ValueError):
+            await callback.answer(
+                t("admin_item_not_found", language),
+                show_alert=True,
+            )
+            return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            results = await ReviewService(
+                ReviewRepository(session)
+            ).list_pending_reviews(
+                tenant_id=tenant_id,
+                moderator_user_id=target_user_id,
+                page=page,
+                page_size=MODERATOR_PROFILE_PAGE_SIZE,
+            )
+    except ReviewServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    reviews = results[:MODERATOR_PROFILE_PAGE_SIZE]
+    has_next = len(results) > MODERATOR_PROFILE_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_moderator_review_ids=[
+            str(review.id)
+            for review in reviews
+        ],
+        super_admin_impersonation_moderator_review_page=page,
+        super_admin_impersonation_moderator_review_has_next=(
+            has_next
+        ),
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_moderator_reviews_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(reviews),
+        )
+    )
+
+    if not reviews:
+        await callback.message.answer(
+            t("admin_no_pending_reviews", language),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_moderator_back_btn",
+                                language,
+                            ),
+                            callback_data="SA_RO_MOD_HOME",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_impersonation_stop_btn",
+                                language,
+                            ),
+                            callback_data="SA_IMPERSONATE_STOP",
+                        )
+                    ],
+                ]
+            ),
+        )
+        await callback.answer()
+        return
+
+    await show_super_admin_read_only_review(
+        callback,
+        state,
+        index=0,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_REV_VIEW:")
+)
+async def super_admin_read_only_moderator_review_view(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await show_super_admin_read_only_review(
+        callback,
+        state,
+        index=index,
+    )
+
+
+async def show_super_admin_read_only_review(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    index: int,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    review_ids = data.get(
+        "super_admin_impersonation_moderator_review_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+        or not review_ids
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    index = max(0, min(index, len(review_ids) - 1))
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        review_id = UUID(review_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_moderator_review_page"
+        ) or 0
+    )
+    has_next = bool(
+        data.get(
+            "super_admin_impersonation_moderator_review_has_next"
+        )
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ReviewService(
+                ReviewRepository(session)
+            ).get_pending_review_for_moderation(
+                tenant_id=tenant_id,
+                moderator_user_id=target_user_id,
+                review_id=review_id,
+            )
+    except ReviewServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        format_review_card(
+            card,
+            index=index,
+            total=len(review_ids),
+            language=language,
+        ),
+        reply_markup=(
+            super_admin_read_only_moderator_reviews_keyboard(
+                index=index,
+                total=len(review_ids),
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_MOD_BLACKLIST:")
+)
+async def super_admin_read_only_moderator_blacklist(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        _, view, raw_page = (
+            callback.data or ""
+        ).split(":", 2)
+        page = max(int(raw_page), 0)
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if view not in {"active", "revoked"}:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            cards = await ModerationService(
+                ModerationRepository(session)
+            ).open_scoped_blacklist_queue(
+                moderator_user_id=target_user_id,
+                tenant_id=tenant_id,
+                view=view,
+                page=page,
+                page_size=MODERATOR_PROFILE_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_cards = cards[:MODERATOR_PROFILE_PAGE_SIZE]
+    has_next = len(cards) > MODERATOR_PROFILE_PAGE_SIZE
+
+    view_label = t(
+        (
+            "moderator_blacklist_history_title"
+            if view == "revoked"
+            else "moderator_blacklist_active_title"
+        ),
+        language,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_moderator_blacklist_title",
+            language,
+        ).format(
+            view=view_label,
+            page=page + 1,
+            count=len(visible_cards),
+        )
+    )
+
+    if visible_cards:
+        start_number = page * MODERATOR_PROFILE_PAGE_SIZE + 1
+
+        for offset, card in enumerate(visible_cards):
+            await callback.message.answer(
+                format_scoped_blacklist_card(
+                    card,
+                    number=start_number + offset,
+                    language=language,
+                )
+            )
+    else:
+        await callback.message.answer(
+            t("moderator_blacklist_empty", language)
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_moderator_blacklist_keyboard(
+                view=view,
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+async def show_super_admin_admin_read_only_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            summary = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_menu(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t(
+            "super_admin_impersonation_admin_cabinet",
+            language,
+        ).format(
+            user_number=data.get(
+                "super_admin_impersonation_target_user_number"
+            )
+            or t("super_admin_value_not_specified", language)
+        )
+    )
+    await callback.message.answer(
+        format_admin_menu(summary, language),
+        reply_markup=super_admin_read_only_admin_menu_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "SA_RO_ADMIN_HOME")
+async def super_admin_read_only_admin_home(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_super_admin_admin_read_only_cabinet(
+        callback,
+        state,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_AUDIT_QUEUE:")
+)
+async def super_admin_read_only_admin_audit_queue(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        _, target_type, raw_page = (
+            callback.data or ""
+        ).split(":", 2)
+        page = max(int(raw_page), 0)
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_audit_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_audit_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_audit(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                target_type=target_type,
+                page=page,
+                page_size=ADMIN_AUDIT_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        super_admin_impersonation_admin_audit_action_ids=[
+            str(card.action_id)
+            for card in result.items
+        ],
+        super_admin_impersonation_admin_audit_target_type=(
+            result.target_type
+        ),
+        super_admin_impersonation_admin_audit_page=result.page,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_admin_audit_title",
+            language,
+        ).format(
+            target_type=result.target_type,
+            page=result.page + 1,
+            count=len(result.items),
+        )
+    )
+
+    if not result.items:
+        await callback.message.answer(
+            t("admin_audit_empty", language),
+            reply_markup=admin_audit_queue_keyboard(
+                target_type=result.target_type,
+                page=result.page,
+                has_next=False,
+                language=language,
+                prefix="SA_RO_ADMIN_AUDIT",
+                back_callback="SA_RO_ADMIN_HOME",
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = result.page * ADMIN_AUDIT_PAGE_SIZE + 1
+
+    for index, card in enumerate(result.items):
+        await callback.message.answer(
+            format_admin_audit_card(
+                card,
+                number=start_number + index,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_audit_open_btn",
+                                language,
+                            ),
+                            callback_data=(
+                                f"SA_RO_ADMIN_AUDIT_OPEN:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=admin_audit_queue_keyboard(
+            target_type=result.target_type,
+            page=result.page,
+            has_next=result.has_next,
+            language=language,
+            prefix="SA_RO_ADMIN_AUDIT",
+            back_callback="SA_RO_ADMIN_HOME",
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "SA_RO_ADMIN_AUDIT_FILTER"
+)
+async def super_admin_read_only_admin_audit_filter(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t("admin_audit_filter_title", language),
+        reply_markup=(
+            super_admin_read_only_admin_audit_filter_keyboard(
+                language
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_AUDIT_OPEN:")
+)
+async def super_admin_read_only_admin_audit_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_audit_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    action_ids = data.get(
+        "super_admin_impersonation_admin_audit_action_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+        or index < 0
+        or index >= len(action_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        action_id = UUID(action_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_audit_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_admin_audit_card(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                action_id=action_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    target_type = str(
+        data.get(
+            "super_admin_impersonation_admin_audit_target_type"
+        ) or "all"
+    )
+    page = int(
+        data.get(
+            "super_admin_impersonation_admin_audit_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        t("admin_audit_details", language).format(
+            date=card.date,
+            actor=card.actor,
+            action=card.action,
+            target=card.target,
+            target_type=card.target_type,
+            reason=card.reason,
+            source=card.source,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_admin_back_to_audit_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "SA_RO_ADMIN_AUDIT_QUEUE:"
+                            f"{target_type}:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_GLOBAL_BLACKLIST:")
+)
+async def super_admin_read_only_admin_global_blacklist(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        _, view, raw_page = (
+            callback.data or ""
+        ).split(":", 2)
+        page = max(int(raw_page), 0)
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if view not in {"active", "history"}:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await ModerationService(
+                ModerationRepository(session)
+            ).open_global_blacklist_queue(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                view=view,
+                page=page,
+                page_size=ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    view_label = t(
+        (
+            "admin_global_blacklist_history_title"
+            if result.view == "history"
+            else "admin_global_blacklist_active_title"
+        ),
+        language,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_admin_global_blacklist_title",
+            language,
+        ).format(
+            view=view_label,
+            page=result.page + 1,
+            count=len(result.items),
+        )
+    )
+
+    if result.items:
+        start_number = (
+            result.page * ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE
+            + 1
+        )
+
+        for offset, card in enumerate(result.items):
+            await callback.message.answer(
+                format_global_blacklist_card(
+                    card,
+                    number=start_number + offset,
+                    language=language,
+                )
+            )
+    else:
+        await callback.message.answer(
+            t("admin_global_blacklist_empty", language)
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_admin_global_blacklist_keyboard(
+                view=result.view,
+                page=result.page,
+                has_next=result.has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_SUPPORT:")
+)
+async def super_admin_read_only_admin_support(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int((callback.data or "").split(":", 1)[1]),
+            0,
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            ticket_page = await SupportService(
+                SupportRepository(session)
+            ).list_admin_escalated_tickets(
+                tenant_id=tenant_id,
+                admin_user_id=target_user_id,
+                page=page,
+                page_size=ADMIN_ESCALATED_TICKET_PAGE_SIZE,
+            )
+    except SupportServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        super_admin_impersonation_admin_support_ticket_ids=[
+            str(ticket.id)
+            for ticket in ticket_page.tickets
+        ],
+        super_admin_impersonation_admin_support_page=(
+            ticket_page.page
+        ),
+    )
+
+    await callback.message.answer(
+        t("admin_escalated_tickets_header", language).format(
+            page=ticket_page.page + 1,
+            count=len(ticket_page.tickets),
+        )
+    )
+
+    if not ticket_page.tickets:
+        await callback.message.answer(
+            t("admin_escalated_tickets_empty", language),
+            reply_markup=(
+                super_admin_read_only_admin_support_keyboard(
+                    page=ticket_page.page,
+                    has_next=False,
+                    language=language,
+                )
+            ),
+        )
+        await callback.answer()
+        return
+
+    for index, ticket in enumerate(ticket_page.tickets):
+        number = (
+            ticket_page.page
+            * ADMIN_ESCALATED_TICKET_PAGE_SIZE
+            + index
+            + 1
+        )
+
+        await callback.message.answer(
+            format_admin_escalated_ticket(
+                ticket,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t("admin_user_open_btn", language),
+                            callback_data=(
+                                f"SA_RO_ADMIN_SUPPORT_OPEN:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_admin_support_keyboard(
+                page=ticket_page.page,
+                has_next=ticket_page.has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_SUPPORT_OPEN:")
+)
+async def super_admin_read_only_admin_support_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    ticket_ids = data.get(
+        "super_admin_impersonation_admin_support_ticket_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+        or index < 0
+        or index >= len(ticket_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        ticket_id = UUID(ticket_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            ticket_view = await SupportService(
+                SupportRepository(session)
+            ).get_admin_escalated_ticket_view(
+                tenant_id=tenant_id,
+                admin_user_id=target_user_id,
+                ticket_id=ticket_id,
+            )
+    except SupportServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_admin_support_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        format_support_ticket_card(
+            ticket_view,
+            index=index,
+            total=len(ticket_ids),
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_admin_back_to_tickets_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_ADMIN_SUPPORT:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_SPECIALISTS:")
+)
+async def super_admin_read_only_admin_specialists(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int((callback.data or "").split(":", 1)[1]),
+            0,
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            specialist_page = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_specialists(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                status="all",
+                page=page,
+                page_size=ADMIN_SPECIALIST_PAGE_SIZE,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        super_admin_impersonation_admin_specialist_ids=[
+            str(item.specialist_id)
+            for item in specialist_page.items
+        ],
+        super_admin_impersonation_admin_specialist_page=(
+            specialist_page.page
+        ),
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_admin_specialists_title",
+            language,
+        ).format(
+            page=specialist_page.page + 1,
+            count=len(specialist_page.items),
+        )
+    )
+
+    if not specialist_page.items:
+        await callback.message.answer(
+            t("admin_specialists_empty", language),
+            reply_markup=(
+                super_admin_read_only_admin_specialists_keyboard(
+                    page=specialist_page.page,
+                    has_next=False,
+                    language=language,
+                )
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = (
+        specialist_page.page * ADMIN_SPECIALIST_PAGE_SIZE
+        + 1
+    )
+
+    for index, item in enumerate(specialist_page.items):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_admin_specialist_item(
+                item,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_admin_open_specialist_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                f"SA_RO_ADMIN_SPECIALIST_OPEN:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_admin_specialists_keyboard(
+                page=specialist_page.page,
+                has_next=specialist_page.has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_SPECIALIST_OPEN:")
+)
+async def super_admin_read_only_admin_specialist_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    specialist_ids = data.get(
+        "super_admin_impersonation_admin_specialist_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+        or index < 0
+        or index >= len(specialist_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        specialist_id = UUID(specialist_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_moderator_specialist_card(
+                moderator_user_id=target_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_admin_specialist_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        format_pending_specialist_card(
+            card,
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_admin_back_to_specialists_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_ADMIN_SPECIALISTS:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "SA_RO_ADMIN_USERS")
+async def super_admin_read_only_admin_users_start(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        AdminModerationFSM
+        .entering_super_admin_impersonation_admin_user_search
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_admin_user_search_prompt",
+            language,
+        ),
+        reply_markup=(
+            super_admin_read_only_admin_user_search_keyboard(
+                language
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.message(
+    AdminModerationFSM
+    .entering_super_admin_impersonation_admin_user_search
+)
+async def super_admin_read_only_admin_users_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    query = (message.text or "").strip()
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await state.set_state(None)
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    if not query:
+        await message.answer(
+            t(
+                "super_admin_ro_admin_user_search_prompt",
+                language,
+            )
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await state.set_state(None)
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(message.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            cards = await ModerationService(
+                ModerationRepository(session)
+            ).search_admin_users(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                query=query,
+            )
+    except ModerationError as exc:
+        await message.answer(
+            t("admin_user_search_error", language).format(
+                error=str(exc),
+            )
+        )
+        return
+
+    await state.set_state(None)
+    await state.update_data(
+        super_admin_impersonation_admin_user_search_ids=[
+            str(card.user_id)
+            for card in cards
+        ],
+    )
+
+    if not cards:
+        await message.answer(
+            t("admin_user_search_empty", language),
+            reply_markup=(
+                super_admin_read_only_admin_user_search_keyboard(
+                    language
+                )
+            ),
+        )
+        return
+
+    await message.answer(
+        t("admin_user_search_results", language).format(
+            count=len(cards),
+        )
+    )
+
+    for index, card in enumerate(cards):
+        await message.answer(
+            format_admin_user_search_card(
+                card,
+                number=index + 1,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_user_open_btn",
+                                language,
+                            ),
+                            callback_data=(
+                                f"SA_RO_ADMIN_USER_OPEN:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_admin_user_search_keyboard(
+                language
+            )
+        ),
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_USER_OPEN:")
+)
+async def super_admin_read_only_admin_user_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get(
+        "super_admin_impersonation_admin_user_search_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+        or index < 0
+        or index >= len(user_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        selected_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_admin_user_details(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                target_user_id=selected_user_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        format_admin_user_details(card, language),
+        reply_markup=(
+            super_admin_read_only_admin_user_details_keyboard(
+                index=index,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_USER_ROLES:")
+)
+async def super_admin_read_only_admin_user_roles(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get(
+        "super_admin_impersonation_admin_user_search_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+        or index < 0
+        or index >= len(user_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        selected_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_admin_user_details(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                target_user_id=selected_user_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        format_admin_user_roles(card, language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_back_to_card_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_ADMIN_USER_OPEN:{index}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_ADMIN_USER_HISTORY:")
+)
+async def super_admin_read_only_admin_user_history(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    user_ids = data.get(
+        "super_admin_impersonation_admin_user_search_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+        or index < 0
+        or index >= len(user_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        selected_user_id = UUID(user_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_user_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            history = await ModerationService(
+                ModerationRepository(session)
+            ).list_admin_user_history(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                target_user_id=selected_user_id,
+                limit=10,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t("admin_user_history_title", language).format(
+            user_number=f"user-{selected_user_id.hex[:8]}",
+            count=len(history),
+        )
+    )
+
+    if history:
+        for number, card in enumerate(history, start=1):
+            await callback.message.answer(
+                format_admin_user_history_item(
+                    card,
+                    number=number,
+                    language=language,
+                )
+            )
+    else:
+        await callback.message.answer(
+            t("admin_user_history_empty", language)
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_user_back_to_card_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_ADMIN_USER_OPEN:{index}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data == "SA_RO_ADMIN_MODERATION"
+)
+async def super_admin_read_only_admin_moderation(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "admin"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await show_super_admin_moderator_read_only_cabinet(
+        callback,
+        state,
+    )
+
+@admin_router.callback_query(F.data == "SA_RO_CLIENT_HOME")
+async def super_admin_read_only_client_home(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_super_admin_client_read_only_cabinet(
+        callback,
+        state,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_CLIENT_REQUESTS:")
+)
+async def super_admin_read_only_client_requests(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int((callback.data or "").split(":", 1)[1]),
+            0,
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "client"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, _, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await ContactChatService(
+                ContactChatRepository(session)
+            ).list_client_requests(
+                user_id=target_user_id,
+                limit=READ_ONLY_CLIENT_PAGE_SIZE + 1,
+                offset=page * READ_ONLY_CLIENT_PAGE_SIZE,
+                language=language,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_items = items[:READ_ONLY_CLIENT_PAGE_SIZE]
+    has_next = len(items) > READ_ONLY_CLIENT_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_client_request_ids=[
+            str(item.contact_request_id)
+            for item in visible_items
+        ],
+        super_admin_impersonation_client_requests_page=page,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_client_requests_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(visible_items),
+        )
+    )
+
+    if not visible_items:
+        await callback.message.answer(
+            t("client_requests_empty", language),
+            reply_markup=(
+                super_admin_read_only_client_requests_keyboard(
+                    page=page,
+                    has_next=False,
+                    language=language,
+                )
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
+
+    for index, item in enumerate(visible_items):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_super_admin_read_only_client_request(
+                item,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_client_open_request_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                f"SA_RO_CLIENT_REQUEST_OPEN:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_client_requests_keyboard(
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_CLIENT_REQUEST_OPEN:")
+)
+async def super_admin_read_only_client_request_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    request_ids = data.get(
+        "super_admin_impersonation_client_request_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "client"
+        or index < 0
+        or index >= len(request_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        request_id = UUID(request_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, _, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            detail = await ContactChatService(
+                ContactChatRepository(session)
+            ).get_client_request_detail(
+                contact_request_id=request_id,
+                user_id=target_user_id,
+                language=language,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_client_requests_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        format_super_admin_read_only_client_request_detail(
+            detail,
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_client_back_to_requests_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_CLIENT_REQUESTS:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_CLIENT_DIALOGS:")
+)
+async def super_admin_read_only_client_dialogs(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int((callback.data or "").split(":", 1)[1]),
+            0,
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "client"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, _, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await ContactChatService(
+                ContactChatRepository(session)
+            ).list_client_threads(
+                user_id=target_user_id,
+                view="active",
+                limit=READ_ONLY_CLIENT_PAGE_SIZE + 1,
+                offset=page * READ_ONLY_CLIENT_PAGE_SIZE,
+                language=language,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_items = items[:READ_ONLY_CLIENT_PAGE_SIZE]
+    has_next = len(items) > READ_ONLY_CLIENT_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_client_thread_ids=[
+            str(item.thread_id)
+            for item in visible_items
+        ],
+        super_admin_impersonation_client_dialogs_page=page,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_client_dialogs_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(visible_items),
+        )
+    )
+
+    if not visible_items:
+        await callback.message.answer(
+            t("client_dialogs_empty", language),
+            reply_markup=(
+                super_admin_read_only_client_dialogs_keyboard(
+                    page=page,
+                    has_next=False,
+                    language=language,
+                )
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
+
+    for index, item in enumerate(visible_items):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_super_admin_read_only_client_dialog(
+                item,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_client_open_dialog_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                f"SA_RO_CLIENT_DIALOG_OPEN:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_client_dialogs_keyboard(
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_CLIENT_DIALOG_OPEN:")
+)
+async def super_admin_read_only_client_dialog_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    thread_ids = data.get(
+        "super_admin_impersonation_client_thread_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "client"
+        or index < 0
+        or index >= len(thread_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        thread_id = UUID(thread_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, _, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            detail = await ContactChatService(
+                ContactChatRepository(session)
+            ).get_thread_detail(
+                thread_id=thread_id,
+                user_id=target_user_id,
+                language=language,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_client_dialogs_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        format_super_admin_read_only_client_dialog_detail(
+            detail,
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_client_back_to_dialogs_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_CLIENT_DIALOGS:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data == "SA_RO_SPECIALIST_PROFILE"
+)
+async def super_admin_read_only_specialist_profile(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "specialist"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+
+    try:
+        target_user_id = UUID(str(target_user_id_raw))
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        profile = await SpecialistService(
+            SpecialistRepository(session)
+        ).get_read_only_public_profile(
+            user_id=target_user_id,
+            language=language,
+        )
+
+    if not profile:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_specialist_profile",
+            language,
+        ).format(
+            display_name=profile.display_name,
+            professions=(
+                ", ".join(profile.professions)
+                or t(
+                    "super_admin_value_not_specified",
+                    language,
+                )
+            ),
+            location=profile.location,
+            description=(
+                profile.short_description
+                or t(
+                    "super_admin_value_not_specified",
+                    language,
+                )
+            ),
+            status=super_admin_preview_status_label(
+                profile.status,
+                language,
+            ),
+            availability=super_admin_preview_availability_label(
+                profile.is_available,
+                language,
+            ),
+        ),
+        reply_markup=super_admin_read_only_specialist_menu_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "SA_RO_SPECIALIST_HOME")
+async def super_admin_read_only_specialist_home(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_super_admin_specialist_read_only_cabinet(
+        callback,
+        state,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_SPECIALIST_REQUESTS:")
+)
+async def super_admin_read_only_specialist_requests(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int((callback.data or "").split(":", 1)[1]),
+            0,
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "specialist"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        specialist_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_specialist_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, _, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await ContactChatService(
+                ContactChatRepository(session)
+            ).list_specialist_requests(
+                specialist_id=specialist_id,
+                status="new",
+                limit=READ_ONLY_CLIENT_PAGE_SIZE + 1,
+                offset=page * READ_ONLY_CLIENT_PAGE_SIZE,
+                language=language,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_items = items[:READ_ONLY_CLIENT_PAGE_SIZE]
+    has_next = len(items) > READ_ONLY_CLIENT_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_specialist_requests=[
+            {
+                "client": item.client_name,
+                "profession": item.profession_name,
+                "status": item.status,
+                "date": (
+                    item.created_at.strftime("%Y-%m-%d")
+                    if item.created_at
+                    else "-"
+                ),
+                "message": (item.message or "").strip() or "-",
+            }
+            for item in visible_items
+        ],
+        super_admin_impersonation_specialist_requests_page=page,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_specialist_requests_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(visible_items),
+        )
+    )
+
+    if not visible_items:
+        await callback.message.answer(
+            t("admin_no_pending_requests", language),
+            reply_markup=(
+                super_admin_read_only_specialist_requests_keyboard(
+                    page=page,
+                    has_next=False,
+                    language=language,
+                )
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
+
+    for index, item in enumerate(visible_items):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_super_admin_read_only_specialist_request(
+                item,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_specialist_open_request_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                "SA_RO_SPECIALIST_REQUEST_OPEN:"
+                                f"{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_specialist_requests_keyboard(
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_SPECIALIST_REQUEST_OPEN:")
+)
+async def super_admin_read_only_specialist_request_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    requests = data.get(
+        "super_admin_impersonation_specialist_requests"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "specialist"
+        or index < 0
+        or index >= len(requests)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_specialist_requests_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        format_super_admin_read_only_specialist_request_detail(
+            requests[index],
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_specialist_back_to_requests_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_SPECIALIST_REQUESTS:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_SPECIALIST_DIALOGS:")
+)
+async def super_admin_read_only_specialist_dialogs(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int((callback.data or "").split(":", 1)[1]),
+            0,
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "specialist"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, _, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await ContactChatService(
+                ContactChatRepository(session)
+            ).list_specialist_threads(
+                user_id=target_user_id,
+                view="active",
+                limit=READ_ONLY_CLIENT_PAGE_SIZE + 1,
+                offset=page * READ_ONLY_CLIENT_PAGE_SIZE,
+                language=language,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_items = items[:READ_ONLY_CLIENT_PAGE_SIZE]
+    has_next = len(items) > READ_ONLY_CLIENT_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_specialist_thread_ids=[
+            str(item.thread_id)
+            for item in visible_items
+        ],
+        super_admin_impersonation_specialist_dialogs_page=page,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_specialist_dialogs_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(visible_items),
+        )
+    )
+
+    if not visible_items:
+        await callback.message.answer(
+            t("client_dialogs_empty", language),
+            reply_markup=(
+                super_admin_read_only_specialist_dialogs_keyboard(
+                    page=page,
+                    has_next=False,
+                    language=language,
+                )
+            ),
+        )
+        await callback.answer()
+        return
+
+    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
+
+    for index, item in enumerate(visible_items):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_super_admin_read_only_specialist_dialog(
+                item,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_specialist_open_dialog_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                "SA_RO_SPECIALIST_DIALOG_OPEN:"
+                                f"{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=(
+            super_admin_read_only_specialist_dialogs_keyboard(
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_SPECIALIST_DIALOG_OPEN:")
+)
+async def super_admin_read_only_specialist_dialog_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    thread_ids = data.get(
+        "super_admin_impersonation_specialist_thread_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "specialist"
+        or index < 0
+        or index >= len(thread_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        thread_id = UUID(thread_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, _, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            detail = await ContactChatService(
+                ContactChatRepository(session)
+            ).get_thread_detail(
+                thread_id=thread_id,
+                user_id=target_user_id,
+                language=language,
+            )
+    except ContactChatError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_specialist_dialogs_page"
+        ) or 0
+    )
+
+    await callback.message.answer(
+        format_super_admin_read_only_specialist_dialog_detail(
+            detail,
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_specialist_back_to_dialogs_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_SPECIALIST_DIALOGS:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "SA_RO_SUPPORT_HOME")
+async def super_admin_read_only_support_home(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_super_admin_support_read_only_cabinet(
+        callback,
+        state,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_SUPPORT_LIST:")
+)
+async def super_admin_read_only_support_list(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        _, view, raw_page = (
+            callback.data or ""
+        ).split(":", 2)
+        page = max(int(raw_page), 0)
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if view not in {"open", "in_progress", "resolved"}:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "support"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+
+    try:
+        target_user_id = UUID(str(target_user_id_raw))
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            tickets = await SupportService(
+                SupportRepository(session)
+            ).list_staff_tickets(
+                tenant_id=tenant_id,
+                staff_user_id=target_user_id,
+                statuses={view},
+                limit=SUPPORT_STAFF_PAGE_SIZE + 1,
+                offset=page * SUPPORT_STAFF_PAGE_SIZE,
+            )
+    except SupportServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    visible_tickets = tickets[:SUPPORT_STAFF_PAGE_SIZE]
+    has_next = len(tickets) > SUPPORT_STAFF_PAGE_SIZE
+
+    await state.update_data(
+        super_admin_impersonation_support_ticket_ids=[
+            str(ticket.id)
+            for ticket in visible_tickets
+        ],
+        super_admin_impersonation_support_view=view,
+        super_admin_impersonation_support_page=page,
+    )
+
+    await callback.message.answer(
+        t(
+            "super_admin_ro_support_list_title",
+            language,
+        ).format(
+            view=support_staff_view_label(view, language),
+            page=page + 1,
+            count=len(visible_tickets),
+        )
+    )
+
+    start_number = page * SUPPORT_STAFF_PAGE_SIZE + 1
+
+    for index, ticket in enumerate(visible_tickets):
+        number = start_number + index
+
+        await callback.message.answer(
+            format_super_admin_read_only_support_ticket(
+                ticket,
+                number=number,
+                language=language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "super_admin_ro_support_open_ticket_btn",
+                                language,
+                            ).format(number=number),
+                            callback_data=(
+                                f"SA_RO_SUPPORT_OPEN:{index}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    await callback.message.answer(
+        t("super_admin_ro_read_only_label", language),
+        reply_markup=super_admin_read_only_support_list_keyboard(
+            view=view,
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("SA_RO_SUPPORT_OPEN:")
+)
+async def super_admin_read_only_support_open_ticket(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    ticket_ids = data.get(
+        "super_admin_impersonation_support_ticket_ids"
+    ) or []
+
+    if (
+        not data.get("super_admin_impersonation_read_only")
+        or data.get(
+            "super_admin_impersonation_target_role"
+        ) != "support"
+        or index < 0
+        or index >= len(ticket_ids)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+        ticket_id = UUID(ticket_ids[index])
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            ticket_view = await SupportService(
+                SupportRepository(session)
+            ).get_staff_ticket_view(
+                tenant_id=tenant_id,
+                staff_user_id=target_user_id,
+                ticket_id=ticket_id,
+            )
+    except SupportServiceError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    page = int(
+        data.get(
+            "super_admin_impersonation_support_page"
+        ) or 0
+    )
+    view = str(
+        data.get(
+            "super_admin_impersonation_support_view"
+        ) or "open"
+    )
+    number = page * SUPPORT_STAFF_PAGE_SIZE + index + 1
+
+    await callback.message.answer(
+        format_super_admin_read_only_support_ticket_detail(
+            ticket_view,
+            number=number,
+            language=language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_ro_support_back_to_list_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"SA_RO_SUPPORT_LIST:{view}:{page}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_stop_btn",
+                            language,
+                        ),
+                        callback_data="SA_IMPERSONATE_STOP",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+async def show_super_admin_client_read_only_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    data = await state.get_data()
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+    target_role = data.get(
+        "super_admin_impersonation_target_role"
+    )
+    is_read_only = bool(
+        data.get("super_admin_impersonation_read_only")
+    )
+
+    if (
+        not target_user_id_raw
+        or target_role != "client"
+        or not is_read_only
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(str(target_user_id_raw))
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            cabinet = await ModerationService(
+                ModerationRepository(session)
+            ).get_client_read_only_cabinet(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+                language=language,
+            )
+
+    except ImpersonationRoleUnavailableError:
+        await callback.answer(
+            t(
+                "super_admin_impersonation_role_unavailable",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t(
+            "super_admin_impersonation_client_cabinet",
+            language,
+        ).format(
+            user_number=cabinet.user_number,
+            display_name=(
+                cabinet.display_name
+                or t(
+                    "super_admin_value_not_specified",
+                    language,
+                )
+            ),
+            city_name=(
+                cabinet.city_name
+                or t(
+                    "super_admin_value_not_specified",
+                    language,
+                )
+            ),
+            dialogs_unread=cabinet.dialogs_unread,
+            requests_count=(
+                cabinet.requests_new
+                + cabinet.requests_accepted
+            ),
+            requests_new=cabinet.requests_new,
+            requests_accepted=cabinet.requests_accepted,
+        ),
+        reply_markup=super_admin_read_only_client_menu_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data == "SA_IMPERSONATE_MENU"
+)
+async def super_admin_impersonation_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    data = await state.get_data()
+
+    if not data.get(
+        "super_admin_impersonation_read_only"
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t("super_admin_impersonation_menu", language),
+        reply_markup=super_admin_impersonation_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
 @admin_router.callback_query(F.data == "SA_USER_IMPERSONATE")
 async def super_admin_impersonation_start(
     callback: CallbackQuery,
@@ -7050,14 +14110,76 @@ async def super_admin_impersonation_role(
                 reason=reason,
             )
 
+    except ImpersonationRoleUnavailableError:
+        await callback.answer(
+            t(
+                "super_admin_impersonation_role_unavailable",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        super_admin_impersonation_target_user_id=str(
+            target_user_id
+        ),
+        super_admin_impersonation_target_user_number=(
+            preview.target_user_number
+        ),
+        super_admin_impersonation_target_role=(
+            preview.target_role
+        ),
+        super_admin_impersonation_read_only=True,
+    )
+
+    if preview.target_role == "client":
+        await show_super_admin_client_read_only_cabinet(
+            callback,
+            state,
+        )
+        return
+    if preview.target_role == "specialist":
+        await show_super_admin_specialist_read_only_cabinet(
+            callback,
+            state,
+        )
+        return
+    if preview.target_role == "support":
+        await show_super_admin_support_read_only_cabinet(
+            callback,
+            state,
+        )
+        return
+
+    if preview.target_role == "moderator":
+        await show_super_admin_moderator_read_only_cabinet(
+            callback,
+            state,
+        )
+        return
+
+    if preview.target_role == "admin":
+        await show_super_admin_admin_read_only_cabinet(
+            callback,
+            state,
+        )
         return
 
     await callback.message.answer(
         t("super_admin_impersonation_preview", language).format(
             user=preview.target_user_number,
-            role=preview.target_role,
+            role=super_admin_user_role_label(
+                preview.target_role,
+                language,
+            ),
         ),
         reply_markup=super_admin_impersonation_keyboard(language),
     )
@@ -7082,10 +14204,17 @@ async def super_admin_impersonation_stop(
         return
 
     data = await state.get_data()
-    target_user_id_raw = data.get("super_admin_selected_user_id")
-    reason = data.get("super_admin_impersonation_reason") or "stop read-only preview"
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+    reason = data.get(
+        "super_admin_impersonation_reason"
+    ) or "Read-only preview stopped."
 
-    if not target_user_id_raw:
+    if (
+        not target_user_id_raw
+        or not data.get("super_admin_impersonation_read_only")
+    ):
         await callback.answer(
             t("admin_item_not_found", language),
             show_alert=True,
@@ -7118,9 +14247,41 @@ async def super_admin_impersonation_stop(
 
     await state.update_data(
         super_admin_impersonation_reason=None,
+        super_admin_impersonation_target_user_id=None,
+        super_admin_impersonation_target_user_number=None,
+        super_admin_impersonation_target_role=None,
+        super_admin_impersonation_read_only=None,
     )
     await callback.message.answer(
-        t("super_admin_impersonation_stopped", language)
+        t("super_admin_impersonation_stopped", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_impersonation_to_user_btn",
+                            language,
+                        ),
+                        callback_data="SA_USER_PROFILE",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "super_admin_scopes_to_panel_btn",
+                            language,
+                        ),
+                        callback_data="SA_PANEL",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("main_menu", language),
+                        callback_data="MAIN_MENU",
+                    )
+                ],
+            ]
+        ),
     )
     await callback.answer()
 
@@ -7417,6 +14578,10 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
         or panel_roles.intersection(ADMIN_LOG_MENU_ROLES)
         or panel_roles.intersection(ADMIN_SUPPORT_MENU_ROLES)
         or panel_roles.intersection(ADMIN_SUPPORT_STATS_ROLES)
+        or panel_roles.intersection(ADMIN_DICT_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_DIALOGS_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_PROMOTION_MENU_ROLES)
+        or panel_roles.intersection(ADMIN_SYSTEM_MENU_ROLES)
     ):
         panel_text = t("admin_no_available_actions", language)
 
@@ -7441,6 +14606,6618 @@ async def admin_command(message: Message, state: FSMContext):
 @admin_router.callback_query(F.data == "ADM_PANEL")
 async def admin_panel_callback(callback: CallbackQuery, state: FSMContext):
     await show_admin_panel(callback, state)
+
+@admin_router.callback_query(F.data == "ADM_DICT")
+async def admin_dictionaries_menu(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        t("admin_dict_menu_title", language),
+        reply_markup=admin_dictionaries_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_DICT_CATEGORIES")
+@admin_router.callback_query(F.data.startswith("ADM_DICT_CATEGORIES:"))
+async def admin_categories_dictionary(callback: CallbackQuery, state: FSMContext):
+    language = normalize_language(callback.from_user.language_code)
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        items = await DictionaryService(
+            DictionaryRepository(session)
+        ).list_category_cards(
+            language=language,
+            limit=ADMIN_CATEGORIES_PAGE_SIZE + 1,
+            offset=page * ADMIN_CATEGORIES_PAGE_SIZE,
+        )
+
+    has_next = len(items) > ADMIN_CATEGORIES_PAGE_SIZE
+    visible_items = items[:ADMIN_CATEGORIES_PAGE_SIZE]
+
+    await state.update_data(
+        admin_category_ids=[
+            str(item.category_id)
+            for item in visible_items
+        ],
+        admin_category_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_categories_list(
+            visible_items,
+            language,
+            page=page,
+        ),
+        reply_markup=admin_categories_list_keyboard(
+            language,
+            page=page,
+            has_next=has_next,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_CAT_CREATE")
+async def admin_category_create_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_category_create)
+    await callback.message.answer(
+        t("admin_dict_category_create_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_category_create)
+async def admin_category_create_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).create_category(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                title=message.text or "",
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_category_id=str(item.category_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_category_create_done", language),
+    )
+    await message.answer(
+        format_admin_category_card(item, language),
+        reply_markup=admin_category_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_CAT_OPEN_STUB")
+async def admin_category_open_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    category_ids = data.get("admin_category_ids") or []
+
+    if not category_ids:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_category_number)
+
+    await callback.message.answer(
+        t("admin_dict_category_open_prompt", language).format(
+            count=len(category_ids),
+        )
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.in_(
+        {
+            "ADM_CAT_CREATE_STUB",
+            "ADM_CAT_REORDER_STUB",
+        }
+    )
+)
+async def admin_category_action_stub(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+
+    await callback.answer(
+        t("feature_disabled_beta_message", language),
+        show_alert=True,
+    )
+
+def format_admin_categories_list(
+    items,
+    language: str,
+    *,
+    page: int = 0,
+) -> str:
+    if not items:
+        return t("admin_dict_categories_empty", language)
+
+    lines = [
+        t("admin_dict_categories_title", language).format(
+            count=len(items),
+        )
+    ]
+
+    for index, item in enumerate(items, start=1):
+        lines.append(
+            t("admin_dict_category_row", language).format(
+                number=index,
+                title=item.title,
+                code=item.code,
+                status=item.status,
+                sort_order=item.sort_order,
+                professions=item.professions_count,
+                specialists=item.specialists_count,
+                release=item.release or "-",
+            )
+        )
+
+    return "\n\n".join(lines)
+
+def format_admin_professions_list(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    if not items:
+        return t("admin_dict_professions_empty", language)
+
+    lines = [
+        t("admin_dict_professions_title", language).format(
+            count=len(items),
+        )
+    ]
+
+    for index, item in enumerate(items, start=1):
+        lines.append(
+            t("admin_dict_profession_row", language).format(
+                number=index,
+                title=item.title,
+                code=item.code,
+                category=item.category_name,
+                status=item.status,
+                sort_order=item.sort_order,
+                specialists=item.specialists_count,
+                release=item.release or "-",
+            )
+        )
+
+    return "\n\n".join(lines)
+
+def format_admin_countries_list(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    if not items:
+        return t("admin_dict_countries_empty", language)
+
+    lines = [
+        t("admin_dict_countries_title", language).format(
+            count=len(items)
+        )
+    ]
+
+    for index, item in enumerate(items, start=1):
+        lines.append(
+            t("admin_dict_country_row", language).format(
+                number=index,
+                title=item.title,
+                code=item.code,
+                status=item.status,
+                cities=item.cities_count,
+                specialists=item.specialists_count,
+            )
+        )
+
+    return "\n\n".join(lines)
+
+
+def admin_countries_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_country_create_btn", language),
+                callback_data="ADM_COUNTRY_CREATE",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_country_import_btn", language),
+                callback_data="ADM_COUNTRY_IMPORT",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_country_open_btn", language),
+                callback_data="ADM_COUNTRY_OPEN",
+            )
+        ],
+    ]
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_DICT_GEO:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_DICT_GEO:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+async def read_admin_csv_payload_from_message(
+    message: Message,
+    bot: Bot,
+    language: str,
+) -> str | None:
+    if message.text:
+        return message.text
+
+    if not message.document:
+        await message.answer(t("admin_dict_import_file_required", language))
+        return None
+
+    file_name = message.document.file_name or ""
+
+    if not file_name.lower().endswith(".csv"):
+        await message.answer(t("admin_dict_import_file_invalid", language))
+        return None
+
+    file = await bot.get_file(message.document.file_id)
+    buffer = await bot.download_file(file.file_path)
+
+    if buffer is None:
+        await message.answer(t("admin_dict_import_file_encoding_error", language))
+        return None
+
+    try:
+        return buffer.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        await message.answer(t("admin_dict_import_file_encoding_error", language))
+        return None
+
+
+
+def format_admin_dictionary_import_result(
+    result,
+    language: str,
+) -> str:
+    errors = "\n".join(
+        f"- {error}"
+        for error in result.errors[:10]
+    )
+
+    if not errors:
+        errors = "-"
+
+    return t("admin_dict_import_done", language).format(
+        created=result.created_count,
+        updated=result.updated_count,
+        skipped=result.skipped_count,
+        errors=errors,
+    )
+
+
+
+def format_admin_country_card(
+    item,
+    language: str,
+) -> str:
+    return t("admin_dict_country_card", language).format(
+        title=item.title,
+        code=item.code,
+        status=item.status,
+        default_language=item.default_language or "-",
+        default_currency=item.default_currency or "-",
+        phone_code=item.phone_code or "-",
+        cities=item.cities_count,
+        specialists=item.specialists_count,
+    )
+
+
+def admin_country_card_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_country_cities_btn", language),
+                    callback_data="ADM_COUNTRY_CITIES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_city_create_btn", language),
+                    callback_data="ADM_CITY_CREATE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_city_import_btn", language),
+                    callback_data="ADM_CITY_IMPORT",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_country_update_btn", language),
+                    callback_data="ADM_COUNTRY_UPDATE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_country_toggle_btn", language),
+                    callback_data="ADM_COUNTRY_TOGGLE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_GEO",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+
+def format_admin_cities_list(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    if not items:
+        return t("admin_dict_cities_empty", language)
+
+    lines = [
+        t("admin_dict_cities_title", language).format(
+            count=len(items)
+        )
+    ]
+
+    for index, item in enumerate(items, start=1):
+        lines.append(
+            t("admin_dict_city_row", language).format(
+                number=index,
+                title=item.title,
+                status=item.status,
+                timezone=item.timezone or "-",
+                specialists=item.specialists_count,
+            )
+        )
+
+    return "\n\n".join(lines)
+
+
+def admin_cities_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_city_open_btn", language),
+                callback_data="ADM_CITY_OPEN",
+            )
+        ],
+    ]
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_COUNTRY_CITIES:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_COUNTRY_CITIES:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_GEO",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_admin_city_card(
+    item,
+    language: str,
+) -> str:
+    coordinates = "-"
+    if item.latitude is not None and item.longitude is not None:
+        coordinates = f"{item.latitude}, {item.longitude}"
+
+    return t("admin_dict_city_card", language).format(
+        title=item.title,
+        country=item.country_name,
+        status=item.status,
+        timezone=item.timezone or "-",
+        coordinates=coordinates,
+        specialists=item.specialists_count,
+    )
+
+
+def admin_city_card_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_city_update_btn", language),
+                    callback_data="ADM_CITY_UPDATE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_city_geo_update_btn", language),
+                    callback_data="ADM_CITY_GEO_UPDATE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_city_toggle_btn", language),
+                    callback_data="ADM_CITY_TOGGLE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_COUNTRY_CITIES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+def format_admin_languages_list(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    if not items:
+        return t("admin_dict_languages_empty", language)
+
+    lines = [
+        t("admin_dict_languages_title", language).format(
+            count=len(items)
+        )
+    ]
+
+    for index, item in enumerate(items, start=1):
+        lines.append(
+            t("admin_dict_language_row", language).format(
+                number=index,
+                title=item.title,
+                code=item.code,
+                native_name=item.native_name or "-",
+                status=item.status,
+                specialist_links=item.specialist_links_count,
+            )
+        )
+
+    return "\n\n".join(lines)
+
+
+def admin_languages_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_language_create_btn", language),
+                callback_data="ADM_LANGUAGE_CREATE",
+                )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_language_open_btn", language),
+                callback_data="ADM_LANGUAGE_OPEN",
+            )
+        ],
+    ]
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_DICT_LANGUAGES:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_DICT_LANGUAGES:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_admin_language_card(
+    item,
+    language: str,
+) -> str:
+    return t("admin_dict_language_card", language).format(
+        title=item.title,
+        code=item.code,
+        native_name=item.native_name or "-",
+        status=item.status,
+        specialist_links=item.specialist_links_count,
+    )
+
+
+def admin_language_card_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_language_rename_btn", language),
+                    callback_data="ADM_LANGUAGE_RENAME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_language_toggle_btn", language),
+                    callback_data="ADM_LANGUAGE_TOGGLE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_LANGUAGES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+def format_admin_skills_list(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    if not items:
+        return t("admin_dict_skills_empty", language)
+
+    lines = [
+        t("admin_dict_skills_title", language).format(
+            count=len(items),
+        )
+    ]
+
+    for index, item in enumerate(items, start=1):
+        lines.append(
+            t("admin_dict_skill_row", language).format(
+                number=index,
+                title=item.title,
+                code=item.code,
+                status=item.status,
+                profession_links=item.profession_links_count,
+                user_links=item.user_links_count,
+                vacancy_links=item.vacancy_links_count,
+            )
+        )
+
+    return "\n\n".join(lines)
+
+
+def admin_skills_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_skill_create_btn", language),
+                callback_data="ADM_SKILL_CREATE",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_skill_open_btn", language),
+                callback_data="ADM_SKILL_OPEN",
+            )
+        ],
+    ]
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("back", language),
+                callback_data=f"ADM_DICT_SKILLS:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_DICT_SKILLS:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_admin_skill_card(
+    item,
+    language: str,
+) -> str:
+    return t("admin_dict_skill_card", language).format(
+        title=item.title,
+        code=item.code,
+        status=item.status,
+        profession_links=item.profession_links_count,
+        user_links=item.user_links_count,
+        vacancy_links=item.vacancy_links_count,
+    )
+
+
+def admin_skill_card_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_skill_rename_btn", language),
+                    callback_data="ADM_SKILL_RENAME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_skill_toggle_btn", language),
+                    callback_data="ADM_SKILL_TOGGLE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_skill_merge_btn", language),
+                    callback_data="ADM_SKILL_MERGE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_SKILLS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+def admin_skill_merge_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_skill_merge_confirm_btn", language),
+                    callback_data="ADM_SKILL_MERGE_CONFIRM",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_cancel", language),
+                    callback_data="ADM_SKILL_MERGE_CANCEL",
+                )
+            ],
+        ]
+    )
+
+def admin_professions_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_profession_create_btn", language),
+                callback_data="ADM_PROF_CREATE",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_profession_open_btn", language),
+                callback_data="ADM_PROF_OPEN",
+            )
+        ],
+    ]
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("back", language),
+                callback_data=f"ADM_DICT_PROFESSIONS:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_DICT_PROFESSIONS:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def format_admin_profession_card(
+    item,
+    language: str,
+) -> str:
+    return t("admin_dict_profession_card", language).format(
+        title=item.title,
+        code=item.code,
+        category=item.category_name,
+        status=item.status,
+        sort_order=item.sort_order,
+        specialists=item.specialists_count,
+        release=item.release or "-",
+    )
+
+
+def admin_profession_card_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_profession_rename_btn", language),
+                    callback_data="ADM_PROF_RENAME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_profession_move_btn", language),
+                    callback_data="ADM_PROF_MOVE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_profession_toggle_btn", language),
+                    callback_data="ADM_PROF_TOGGLE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_profession_archive_btn", language),
+                    callback_data="ADM_PROF_ARCHIVE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_profession_specialists_btn", language),
+                    callback_data="ADM_PROF_SPECIALISTS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_PROFESSIONS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+def admin_categories_list_keyboard(
+    language: str,
+    *,
+    page: int = 0,
+    has_next: bool = False,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_category_create_btn", language),
+                callback_data="ADM_CAT_CREATE",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_category_open_btn", language),
+                callback_data="ADM_CAT_OPEN_STUB",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_category_reorder_btn", language),
+                callback_data="ADM_CAT_REORDER_STUB",
+            )
+        ],
+    ]
+
+    paging_row = []
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_prev", language),
+                callback_data=f"ADM_DICT_CATEGORIES:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_DICT_CATEGORIES:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+@admin_router.callback_query(F.data == "ADM_DICT_PROFESSIONS")
+@admin_router.callback_query(F.data.startswith("ADM_DICT_PROFESSIONS:"))
+async def admin_professions_dictionary(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        items = await DictionaryService(
+            DictionaryRepository(session)
+        ).list_profession_cards(
+            language=language,
+            limit=ADMIN_PROFESSIONS_PAGE_SIZE + 1,
+            offset=page * ADMIN_PROFESSIONS_PAGE_SIZE,
+        )
+
+    has_next = len(items) > ADMIN_PROFESSIONS_PAGE_SIZE
+    visible_items = items[:ADMIN_PROFESSIONS_PAGE_SIZE]
+
+    await state.update_data(
+        admin_profession_ids=[
+            str(item.profession_id)
+            for item in visible_items
+        ],
+        admin_profession_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_professions_list(
+            visible_items,
+            page=page,
+            language=language,
+        ),
+        reply_markup=admin_professions_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "ADM_PROF_OPEN")
+async def admin_profession_open_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    profession_ids = data.get("admin_profession_ids") or []
+
+    if not profession_ids:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_profession_number)
+
+    await callback.message.answer(
+        t("admin_dict_profession_open_prompt", language).format(
+            count=len(profession_ids),
+        )
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_profession_number)
+async def admin_profession_open_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    profession_ids = data.get("admin_profession_ids") or []
+
+    try:
+        index = int((message.text or "").strip()) - 1
+    except ValueError:
+        await message.answer(
+            t("admin_dict_profession_open_bad_number", language).format(
+                count=len(profession_ids),
+            )
+        )
+        return
+
+    if index < 0 or index >= len(profession_ids):
+        await message.answer(
+            t("admin_dict_profession_open_bad_number", language).format(
+                count=len(profession_ids),
+            )
+        )
+        return
+
+    profession_id = profession_ids[index]
+
+    async with get_session() as session:
+        item = await DictionaryService(
+            DictionaryRepository(session)
+        ).get_profession_card(
+            profession_id=profession_id,
+            language=language,
+        )
+
+    if not item:
+        await message.answer(t("admin_item_not_found", language))
+        await state.clear()
+        return
+
+    await state.update_data(
+        admin_selected_profession_id=profession_id,
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        format_admin_profession_card(item, language),
+        reply_markup=admin_profession_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_PROF_CREATE")
+async def admin_profession_create_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    category_id = data.get("admin_selected_category_id")
+
+    await state.set_state(AdminModerationFSM.entering_admin_profession_create)
+
+    if category_id:
+        await callback.message.answer(
+            t("admin_dict_profession_create_prompt_in_category", language)
+        )
+    else:
+        await callback.message.answer(
+            t("admin_dict_profession_create_prompt_with_category", language)
+        )
+
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_profession_create)
+async def admin_profession_create_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    data = await state.get_data()
+    category_id = data.get("admin_selected_category_id")
+
+    raw_text = message.text or ""
+    category_code = None
+    title = raw_text
+
+    if not category_id:
+        parts = raw_text.split("|", 1)
+        if len(parts) != 2:
+            await message.answer(
+                t("admin_dict_profession_create_format_error", language)
+            )
+            return
+
+        category_code = parts[0].strip()
+        title = parts[1].strip()
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).create_profession(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                category_id=category_id,
+                category_code=category_code,
+                title=title,
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_profession_id=str(item.profession_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_profession_create_done", language),
+    )
+    await message.answer(
+        format_admin_profession_card(item, language),
+        reply_markup=admin_profession_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_PROF_RENAME")
+async def admin_profession_rename_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    if not data.get("admin_selected_profession_id"):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_profession_rename)
+    await callback.message.answer(
+        t("admin_dict_profession_rename_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_profession_rename)
+async def admin_profession_rename_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    profession_id = data.get("admin_selected_profession_id")
+
+    if not profession_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).rename_profession(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                profession_id=profession_id,
+                title=message.text or "",
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_profession_id=str(item.profession_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_profession_rename_done", language),
+    )
+    await message.answer(
+        format_admin_profession_card(item, language),
+        reply_markup=admin_profession_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_PROF_MOVE")
+async def admin_profession_move_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    if not data.get("admin_selected_profession_id"):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_profession_move)
+    await callback.message.answer(
+        t("admin_dict_profession_move_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_profession_move)
+async def admin_profession_move_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    profession_id = data.get("admin_selected_profession_id")
+
+    if not profession_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).move_profession_to_category(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                profession_id=profession_id,
+                category_code=message.text or "",
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_profession_id=str(item.profession_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_profession_move_done", language),
+    )
+    await message.answer(
+        format_admin_profession_card(item, language),
+        reply_markup=admin_profession_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_PROF_TOGGLE")
+async def admin_profession_toggle_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    profession_id = data.get("admin_selected_profession_id")
+
+    if not profession_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).toggle_profession_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                profession_id=profession_id,
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_selected_profession_id=str(item.profession_id),
+    )
+
+    await callback.message.answer(
+        t("admin_dict_profession_visibility_done", language),
+    )
+    await callback.message.answer(
+        format_admin_profession_card(item, language),
+        reply_markup=admin_profession_card_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_PROF_ARCHIVE")
+async def admin_profession_archive(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    profession_id = data.get("admin_selected_profession_id")
+
+    if not profession_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            service = DictionaryService(DictionaryRepository(session))
+            current_item = await service.get_profession_card(
+                profession_id=profession_id,
+                language=language,
+            )
+
+            if not current_item:
+                raise DictionaryServiceError("admin_item_not_found")
+
+            if current_item.status_code == "archived":
+                item = await service.unarchive_profession(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    profession_id=profession_id,
+                    language=language,
+                )
+                done_text_key = "admin_dict_profession_unarchive_done"
+            else:
+                item = await service.archive_profession(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    profession_id=profession_id,
+                    language=language,
+                )
+                done_text_key = "admin_dict_profession_archive_done"
+
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_selected_profession_id=str(item.profession_id),
+    )
+
+    await callback.message.answer(
+        t(done_text_key, language),
+    )
+    await callback.message.answer(
+        format_admin_profession_card(item, language),
+        reply_markup=admin_profession_card_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_SPEC_MOVE_ALL")
+async def admin_specialist_move_all(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    profession_id = data.get("admin_selected_profession_id")
+
+    if not profession_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            specialist_ids = await DictionaryService(
+                DictionaryRepository(session)
+            ).list_profession_specialist_ids(
+                profession_id=profession_id,
+            )
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    if not specialist_ids:
+        await callback.answer(
+            t("admin_dict_specialist_move_empty", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_selected_specialist_move_ids=specialist_ids,
+        admin_move_source_type="profession",
+        admin_move_source_id=profession_id,
+        admin_move_specialist_ids=specialist_ids,
+        admin_move_target_category_id=None,
+        admin_move_target_category_candidate_ids=[],
+        admin_move_target_profession_ids=[],
+        admin_move_mode=None,
+    )
+    await show_admin_multi_move_categories(
+        callback.message,
+        state,
+        language,
+    )
+    await callback.answer()
+
+
+
+@admin_router.callback_query(F.data == "ADM_SPEC_MOVE_SELECT")
+async def admin_specialist_move_select_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    specialist_ids = data.get("admin_profession_specialist_ids") or []
+
+    if not specialist_ids:
+        await callback.answer(
+            t("admin_dict_specialist_move_empty", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_specialist_move_numbers)
+    await callback.message.answer(
+        t("admin_dict_specialist_move_select_prompt", language)
+    )
+    await callback.answer()
+
+@admin_router.message(AdminModerationFSM.entering_admin_specialist_move_numbers)
+async def admin_specialist_move_numbers_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+    data = await state.get_data()
+    specialist_ids = data.get("admin_profession_specialist_ids") or []
+
+    if not specialist_ids:
+        await state.clear()
+        await message.answer(t("admin_dict_specialist_move_empty", language))
+        return
+
+    raw_numbers = [
+        item.strip()
+        for item in (message.text or "").replace(";", ",").split(",")
+        if item.strip()
+    ]
+
+    selected_indexes = []
+
+    try:
+        selected_indexes = [
+            int(item) - 1
+            for item in raw_numbers
+        ]
+    except ValueError:
+        await message.answer(
+            t("admin_dict_specialist_move_bad_numbers", language).format(
+                count=len(specialist_ids),
+            )
+        )
+        return
+
+    if (
+        not selected_indexes
+        or any(index < 0 or index >= len(specialist_ids) for index in selected_indexes)
+    ):
+        await message.answer(
+            t("admin_dict_specialist_move_bad_numbers", language).format(
+                count=len(specialist_ids),
+            )
+        )
+        return
+
+    selected_specialist_ids = [
+        specialist_ids[index]
+        for index in dict.fromkeys(selected_indexes)
+    ]
+
+    await state.update_data(
+        admin_selected_specialist_move_ids=(
+            selected_specialist_ids
+        ),
+        admin_move_source_type="profession",
+        admin_move_source_id=data.get(
+            "admin_selected_profession_id"
+        ),
+        admin_move_specialist_ids=(
+            selected_specialist_ids
+        ),
+        admin_move_target_category_id=None,
+        admin_move_target_category_candidate_ids=[],
+        admin_move_target_profession_ids=[],
+        admin_move_mode=None,
+    )
+    await show_admin_multi_move_categories(
+        message,
+        state,
+        language,
+    )
+
+def admin_multi_move_confirm_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_specialist_move_confirm_btn",
+                        language,
+                    ),
+                    callback_data="ADM_MULTI_CONFIRM",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("billing_back", language),
+                    callback_data="ADM_MULTI_BACK_MODE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_specialist_move_cancel_btn",
+                        language,
+                    ),
+                    callback_data="ADM_MULTI_MOVE_CANCEL",
+                )
+            ],
+        ]
+    )
+
+def admin_multi_move_mode_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_move_mode_replace_btn",
+                        language,
+                    ),
+                    callback_data="ADM_MULTI_MODE:replace",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_move_mode_add_btn",
+                        language,
+                    ),
+                    callback_data="ADM_MULTI_MODE:add",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("billing_back", language),
+                    callback_data="ADM_MULTI_BACK_PROF",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_specialist_move_cancel_btn",
+                        language,
+                    ),
+                    callback_data="ADM_MULTI_MOVE_CANCEL",
+                )
+            ],
+        ]
+    )
+def admin_multi_move_profession_keyboard(
+    items,
+    selected_ids: list[str],
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    selected_set = set(selected_ids)
+    rows = []
+
+    for index, item in enumerate(items):
+        item_id = str(item.profession_id)
+        marker = "✓ " if item_id in selected_set else ""
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{marker}{item.title}",
+                    callback_data=f"ADM_MULTI_PROF:{index}",
+                )
+            ]
+        )
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("back", language),
+                callback_data=f"ADM_MULTI_PROF_PAGE:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_MULTI_PROF_PAGE:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_dict_move_professions_done_btn",
+                    language,
+                ),
+                callback_data="ADM_MULTI_PROF_DONE",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_dict_move_back_categories_btn",
+                    language,
+                ),
+                callback_data="ADM_MULTI_BACK_CAT",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_dict_specialist_move_cancel_btn",
+                    language,
+                ),
+                callback_data="ADM_MULTI_MOVE_CANCEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+async def show_admin_multi_move_professions(
+    message: Message,
+    state: FSMContext,
+    language: str,
+    *,
+    page: int = 0,
+    edit: bool = False,
+):
+    data = await state.get_data()
+    category_id = data.get(
+        "admin_move_target_category_id"
+    )
+    selected_ids = data.get(
+        "admin_move_selected_profession_ids"
+    ) or []
+
+    if not category_id:
+        await message.answer(
+            t("admin_item_not_found", language)
+        )
+        return
+
+    async with get_session() as session:
+        service = DictionaryService(
+            DictionaryRepository(session)
+        )
+        category = await service.get_category_card(
+            category_id=category_id,
+            language=language,
+        )
+        professions = (
+            await service
+            .list_active_professions_for_category(
+                category_id=category_id,
+                language=language,
+            )
+        )
+
+    if not category:
+        await message.answer(
+            t("admin_item_not_found", language)
+        )
+        return
+
+    start = page * ADMIN_MOVE_PROFESSIONS_PAGE_SIZE
+    end = start + ADMIN_MOVE_PROFESSIONS_PAGE_SIZE
+    visible_professions = professions[start:end]
+    has_next = end < len(professions)
+
+    if not visible_professions and page > 0:
+        page = 0
+        start = 0
+        end = ADMIN_MOVE_PROFESSIONS_PAGE_SIZE
+        visible_professions = professions[start:end]
+        has_next = end < len(professions)
+
+    await state.update_data(
+        admin_move_available_profession_ids=[
+            str(profession.profession_id)
+            for profession in visible_professions
+        ],
+        admin_move_professions_page=page,
+    )
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_move_target_professions
+    )
+
+    selected_titles = [
+        profession.title
+        for profession in professions
+        if str(profession.profession_id)
+        in set(selected_ids)
+    ]
+
+    if selected_titles:
+        selected_text = t(
+            "admin_dict_move_selected_professions",
+            language,
+        ).format(
+            items=", ".join(selected_titles),
+        )
+    else:
+        selected_text = t(
+            "admin_dict_move_selected_professions_empty",
+            language,
+        )
+
+    category_text = t(
+        "admin_dict_move_selected_category",
+        language,
+    ).format(
+        category=category.title,
+    )
+
+    screen_text = (
+        f"{t('admin_dict_move_choose_professions', language)}"
+        f"\n\n{category_text}"
+        f"\n{selected_text}"
+    )
+    keyboard = admin_multi_move_profession_keyboard(
+        visible_professions,
+        selected_ids,
+        page=page,
+        has_next=has_next,
+        language=language,
+    )
+
+    if edit:
+        await message.edit_text(
+            screen_text,
+            reply_markup=keyboard,
+        )
+    else:
+        await message.answer(
+            screen_text,
+            reply_markup=keyboard,
+        )
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_MULTI_PROF_PAGE:")
+)
+async def admin_multi_move_profession_page(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            0,
+            int((callback.data or "").split(":", 1)[1]),
+        )
+    except (TypeError, ValueError):
+        page = 0
+
+    await show_admin_multi_move_professions(
+        callback.message,
+        state,
+        language,
+        page=page,
+        edit=True,
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_MULTI_PROF:")
+)
+async def admin_multi_move_profession_toggle(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+    profession_ids = data.get(
+        "admin_move_available_profession_ids"
+    ) or []
+    selected_ids = list(
+        data.get(
+            "admin_move_selected_profession_ids"
+        ) or []
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+        profession_id = profession_ids[index]
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if profession_id in selected_ids:
+        selected_ids = [
+            item
+            for item in selected_ids
+            if item != profession_id
+        ]
+    else:
+        if (
+            len(selected_ids)
+            >= MAX_PROFESSIONS_PER_CATEGORY
+        ):
+            await callback.answer(
+                t(
+                    "spec_profession_limit_per_category",
+                    language,
+                ),
+                show_alert=True,
+            )
+            return
+
+        selected_ids.append(profession_id)
+
+    await state.update_data(
+        admin_move_selected_profession_ids=selected_ids
+    )
+
+    await show_admin_multi_move_professions(
+        callback.message,
+        state,
+        language,
+        page=int(
+            data.get("admin_move_professions_page") or 0
+        ),
+        edit=True,
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_MULTI_PROF_DONE"
+)
+async def admin_multi_move_professions_done(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+    selected_ids = data.get(
+        "admin_move_selected_profession_ids"
+    ) or []
+
+    if not selected_ids:
+        await callback.answer(
+            t("spec_profession_select_one", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        AdminModerationFSM.choosing_admin_move_mode
+    )
+    await callback.message.answer(
+        t("admin_dict_move_mode_prompt", language),
+        reply_markup=admin_multi_move_mode_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_MULTI_BACK_CAT"
+)
+async def admin_multi_move_back_categories(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await show_admin_multi_move_categories(
+        callback.message,
+        state,
+        language,
+        edit=True,
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data == "ADM_MULTI_BACK_MODE"
+)
+async def admin_multi_move_back_mode(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await state.set_state(
+        AdminModerationFSM.choosing_admin_move_mode
+    )
+    await callback.message.answer(
+        t("admin_dict_move_mode_prompt", language),
+        reply_markup=admin_multi_move_mode_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_MULTI_CONFIRM"
+)
+async def admin_multi_move_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await DictionaryService(
+                DictionaryRepository(session)
+            ).move_specialists_to_multiple_professions(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                source_type=data.get("admin_move_source_type"),
+                source_id=data.get("admin_move_source_id"),
+                target_category_id=data.get(
+                    "admin_move_target_category_id"
+                ),
+                target_profession_ids=data.get(
+                    "admin_move_selected_profession_ids"
+                ) or [],
+                specialist_ids=data.get(
+                    "admin_move_specialist_ids"
+                ) or [],
+                mode=data.get("admin_move_mode"),
+                language=language,
+            )
+
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    mode_key = (
+        "admin_dict_move_mode_replace_label"
+        if result.mode == "replace"
+        else "admin_dict_move_mode_add_label"
+    )
+
+    await state.clear()
+
+    await callback.message.answer(
+        t(
+            "admin_dict_multi_move_done",
+            language,
+        ).format(
+            target_category=result.target_category.title,
+            target_professions=", ".join(
+                profession.title
+                for profession
+                in result.target_professions
+            ),
+            mode=t(mode_key, language),
+            specialists_count=(
+                result.requested_specialists_count
+            ),
+            created_count=result.created_links_count,
+            reactivated_count=(
+                result.reactivated_links_count
+            ),
+            existing_count=result.existing_links_count,
+            deleted_count=(
+                result.deleted_old_links_count
+            ),
+            synchronized_count=(
+                result.synchronized_primary_count
+            ),
+            missing_count=(
+                result.missing_specialists_count
+            ),
+        ),
+        reply_markup=admin_dictionaries_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_MULTI_MODE:")
+)
+async def admin_multi_move_mode_selected(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    mode = (callback.data or "").split(":", 1)[1]
+
+    if mode not in {"replace", "add"}:
+        await callback.answer(
+            t("admin_dict_move_mode_invalid", language),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    source_type = data.get("admin_move_source_type")
+    source_id = data.get("admin_move_source_id")
+    category_id = data.get(
+        "admin_move_target_category_id"
+    )
+    profession_ids = data.get(
+        "admin_move_selected_profession_ids"
+    ) or []
+    specialist_ids = data.get(
+        "admin_move_specialist_ids"
+    ) or []
+
+    try:
+        async with get_session() as session:
+            preview = await DictionaryService(
+                DictionaryRepository(session)
+            ).preview_multi_profession_move(
+                source_type=source_type,
+                source_id=source_id,
+                target_category_id=category_id,
+                target_profession_ids=profession_ids,
+                specialist_ids=specialist_ids,
+                mode=mode,
+                language=language,
+            )
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_move_mode=mode
+    )
+    await state.set_state(
+        AdminModerationFSM.confirming_admin_multi_move
+    )
+
+    mode_key = (
+        "admin_dict_move_mode_replace_label"
+        if mode == "replace"
+        else "admin_dict_move_mode_add_label"
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_dict_multi_move_preview",
+            language,
+        ).format(
+            source=preview.source_title,
+            target_category=(
+                preview.target_category.title
+            ),
+            target_professions=", ".join(
+                profession.title
+                for profession
+                in preview.target_professions
+            ),
+            mode=t(mode_key, language),
+            specialists_count=len(
+                preview.selected_specialists
+            ),
+        ),
+        reply_markup=admin_multi_move_confirm_keyboard(
+            language
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_MULTI_BACK_PROF"
+)
+async def admin_multi_move_back_professions(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await show_admin_multi_move_professions(
+        callback.message,
+        state,
+        language,
+    )
+    await callback.answer()
+
+def admin_multi_move_category_keyboard(
+    items,
+    *,
+    selected_category_id: str | None,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index, item in enumerate(items):
+        item_id = str(item.category_id)
+        marker = (
+            "✓ "
+            if item_id == selected_category_id
+            else ""
+        )
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{marker}{item.title}",
+                    callback_data=f"ADM_MULTI_CAT:{index}",
+                )
+            ]
+        )
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("back", language),
+                callback_data=f"ADM_MULTI_CAT_PAGE:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_MULTI_CAT_PAGE:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_dict_specialist_move_cancel_btn",
+                    language,
+                ),
+                callback_data="ADM_MULTI_MOVE_CANCEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+async def show_admin_multi_move_categories(
+    message: Message,
+    state: FSMContext,
+    language: str,
+    *,
+    page: int = 0,
+    edit: bool = False,
+):
+    data = await state.get_data()
+    selected_category_id = data.get(
+        "admin_move_target_category_id"
+    )
+
+    async with get_session() as session:
+        categories = await DictionaryService(
+            DictionaryRepository(session)
+        ).list_specialist_move_target_categories(
+            language=language,
+        )
+
+    start = page * ADMIN_MOVE_CATEGORIES_PAGE_SIZE
+    end = start + ADMIN_MOVE_CATEGORIES_PAGE_SIZE
+    visible_categories = categories[start:end]
+    has_next = end < len(categories)
+
+    if not visible_categories and page > 0:
+        page = 0
+        start = 0
+        end = ADMIN_MOVE_CATEGORIES_PAGE_SIZE
+        visible_categories = categories[start:end]
+        has_next = end < len(categories)
+
+    await state.update_data(
+        admin_move_available_category_ids=[
+            str(category.category_id)
+            for category in visible_categories
+        ],
+        admin_move_categories_page=page,
+    )
+    await state.set_state(
+        AdminModerationFSM.choosing_admin_move_mode
+    )
+
+    keyboard = admin_multi_move_category_keyboard(
+        visible_categories,
+        selected_category_id=selected_category_id,
+        page=page,
+        has_next=has_next,
+        language=language,
+    )
+    screen_text = t(
+        "admin_dict_move_choose_category",
+        language,
+    )
+
+    if edit:
+        await message.edit_text(
+            screen_text,
+            reply_markup=keyboard,
+        )
+    else:
+        await message.answer(
+            screen_text,
+            reply_markup=keyboard,
+        )
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_MULTI_CAT_PAGE:")
+)
+async def admin_multi_move_category_page(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            0,
+            int((callback.data or "").split(":", 1)[1]),
+        )
+    except (TypeError, ValueError):
+        page = 0
+
+    await show_admin_multi_move_categories(
+        callback.message,
+        state,
+        language,
+        page=page,
+        edit=True,
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_MULTI_CAT:")
+)
+async def admin_multi_move_category_selected(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+    previous_category_id = data.get(
+        "admin_move_target_category_id"
+    )
+    previous_selected_ids = data.get(
+        "admin_move_selected_profession_ids"
+    ) or []
+    category_ids = data.get(
+        "admin_move_available_category_ids"
+    ) or []
+
+    try:
+        index = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+        category_id = category_ids[index]
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            professions = await DictionaryService(
+                DictionaryRepository(session)
+            ).list_active_professions_for_category(
+                category_id=category_id,
+                language=language,
+            )
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    selected_profession_ids = (
+        previous_selected_ids
+        if previous_category_id == category_id
+        else []
+    )
+
+    await state.update_data(
+        admin_move_target_category_id=category_id,
+        admin_move_available_profession_ids=[
+            str(profession.profession_id)
+            for profession in professions
+        ],
+        admin_move_selected_profession_ids=(
+            selected_profession_ids
+        ),
+    )
+    await show_admin_multi_move_professions(
+        callback.message,
+        state,
+        language,
+        page=0,
+        edit=True,
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_MULTI_MOVE_CANCEL"
+)
+async def admin_multi_move_cancel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await state.clear()
+    await callback.message.answer(
+        t("admin_cancelled", language),
+        reply_markup=admin_dictionaries_keyboard(language),
+    )
+    await callback.answer()
+
+def admin_specialist_move_confirm_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_specialist_move_confirm_btn",
+                        language,
+                    ),
+                    callback_data="ADM_SPEC_MOVE_CONFIRM",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_specialist_move_cancel_btn",
+                        language,
+                    ),
+                    callback_data="ADM_SPEC_MOVE_CANCEL",
+                )
+            ],
+        ]
+    )
+
+
+@admin_router.message(
+    AdminModerationFSM.entering_admin_specialist_move_target
+)
+async def admin_specialist_move_target_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+    data = await state.get_data()
+
+    source_profession_id = data.get(
+        "admin_selected_profession_id"
+    )
+    specialist_ids = data.get(
+        "admin_selected_specialist_move_ids"
+    ) or []
+    candidate_ids = data.get(
+        "admin_specialist_move_target_candidate_ids"
+    ) or []
+
+    if not source_profession_id or not specialist_ids:
+        await state.clear()
+        await message.answer(
+            t("admin_dict_specialist_move_empty", language)
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_access_denied", language)
+        )
+        return
+
+    entered_value = " ".join((message.text or "").split())
+    target_profession_id = None
+
+    try:
+        async with get_session() as session:
+            service = DictionaryService(
+                DictionaryRepository(session)
+            )
+
+            if candidate_ids and entered_value.isdigit():
+                selected_index = int(entered_value) - 1
+
+                if (
+                    selected_index < 0
+                    or selected_index >= len(candidate_ids)
+                ):
+                    await message.answer(
+                        t(
+                            "admin_dict_specialist_move_target_bad_number",
+                            language,
+                        ).format(
+                            count=len(candidate_ids),
+                        )
+                    )
+                    return
+
+                target_profession_id = candidate_ids[
+                    selected_index
+                ]
+
+            else:
+                targets = await service.find_specialist_move_targets(
+                    title=entered_value,
+                    source_profession_id=source_profession_id,
+                    language=language,
+                )
+
+                if len(targets) > 1:
+                    await state.update_data(
+                        admin_specialist_move_target_candidate_ids=[
+                            str(target.profession_id)
+                            for target in targets
+                        ]
+                    )
+
+                    choices = [
+                        t(
+                            "admin_dict_specialist_move_target_multiple",
+                            language,
+                        ),
+                        "",
+                    ]
+
+                    for index, target in enumerate(
+                        targets,
+                        start=1,
+                    ):
+                        choices.append(
+                            f"{index}. {target.title} | "
+                            f"{target.category_name}"
+                        )
+
+                    await message.answer("\n".join(choices))
+                    return
+
+                target_profession_id = str(
+                    targets[0].profession_id
+                )
+
+            preview = await service.preview_specialist_move(
+                source_profession_id=source_profession_id,
+                target_profession_id=target_profession_id,
+                specialist_ids=specialist_ids,
+                language=language,
+            )
+
+    except DictionaryServiceError as exc:
+        await message.answer(
+            t(exc.text_key, language)
+        )
+        return
+
+    await state.update_data(
+        admin_specialist_move_target_id=target_profession_id,
+        admin_specialist_move_target_candidate_ids=[],
+    )
+    await state.set_state(
+        AdminModerationFSM.confirming_admin_specialist_move
+    )
+
+    await message.answer(
+        t(
+            "admin_dict_specialist_move_preview",
+            language,
+        ).format(
+            source_profession=preview.source_profession.title,
+            source_category=preview.source_profession.category_name,
+            target_profession=preview.target_profession.title,
+            target_category=preview.target_profession.category_name,
+            count=len(preview.selected_specialists),
+        ),
+        reply_markup=admin_specialist_move_confirm_keyboard(
+            language
+        ),
+    )
+
+
+@admin_router.callback_query(
+    F.data == "ADM_SPEC_MOVE_CANCEL"
+)
+async def admin_specialist_move_cancel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await state.update_data(
+        admin_specialist_move_target_id=None,
+        admin_specialist_move_target_candidate_ids=[],
+    )
+    await state.set_state(
+        AdminModerationFSM.entering_admin_specialist_move_target
+    )
+
+    await callback.message.answer(
+        t("admin_dict_specialist_move_target_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_SPEC_MOVE_CONFIRM"
+)
+async def admin_specialist_move_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    source_profession_id = data.get(
+        "admin_selected_profession_id"
+    )
+    target_profession_id = data.get(
+        "admin_specialist_move_target_id"
+    )
+    specialist_ids = data.get(
+        "admin_selected_specialist_move_ids"
+    ) or []
+
+    if (
+        not source_profession_id
+        or not target_profession_id
+        or not specialist_ids
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await DictionaryService(
+                DictionaryRepository(session)
+            ).move_specialists_to_profession(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                source_profession_id=source_profession_id,
+                target_profession_id=target_profession_id,
+                specialist_ids=specialist_ids,
+                language=language,
+            )
+
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.clear()
+
+    await callback.message.answer(
+        t(
+            "admin_dict_specialist_move_done",
+            language,
+        ).format(
+            target_profession=result.target_profession.title,
+            target_category=result.target_profession.category_name,
+            moved_count=result.moved_count,
+            duplicate_count=result.archived_duplicate_count,
+            synchronized_count=(
+                result.synchronized_primary_count
+            ),
+            missing_count=result.missing_count,
+        ),
+        reply_markup=admin_dictionaries_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_PROF_SPECIALISTS")
+@admin_router.callback_query(F.data.startswith("ADM_PROF_SPECIALISTS:"))
+async def admin_profession_specialists(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    data = await state.get_data()
+    profession_id = data.get("admin_selected_profession_id")
+
+    if not profession_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await DictionaryService(
+                DictionaryRepository(session)
+            ).list_profession_specialists(
+                profession_id=profession_id,
+                limit=ADMIN_PROFESSION_SPECIALISTS_PAGE_SIZE + 1,
+                offset=page * ADMIN_PROFESSION_SPECIALISTS_PAGE_SIZE,
+            )
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    has_next = len(items) > ADMIN_PROFESSION_SPECIALISTS_PAGE_SIZE
+    visible_items = items[:ADMIN_PROFESSION_SPECIALISTS_PAGE_SIZE]
+
+    await state.update_data(
+        admin_profession_specialist_ids=[
+            str(item.specialist_id)
+            for item in visible_items
+        ],
+        admin_profession_specialists_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_profession_specialists_list(
+            visible_items,
+            page=page,
+            language=language,
+        ),
+        reply_markup=admin_profession_specialists_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_DICT_GEO")
+@admin_router.callback_query(F.data.startswith("ADM_DICT_GEO:"))
+async def admin_geo_dictionary(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        items = await DictionaryService(
+            DictionaryRepository(session)
+        ).list_country_cards(
+            limit=ADMIN_COUNTRIES_PAGE_SIZE + 1,
+            offset=page * ADMIN_COUNTRIES_PAGE_SIZE,
+            language=language,
+        )
+
+    has_next = len(items) > ADMIN_COUNTRIES_PAGE_SIZE
+    visible_items = items[:ADMIN_COUNTRIES_PAGE_SIZE]
+
+    await state.update_data(
+        admin_country_ids=[
+            str(item.country_id)
+            for item in visible_items
+        ],
+        admin_country_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_countries_list(
+            visible_items,
+            page=page,
+            language=language,
+        ),
+        reply_markup=admin_countries_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_COUNTRY_CREATE")
+async def admin_country_create_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_country_create)
+    await callback.message.answer(t("admin_dict_country_create_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_country_create)
+async def admin_country_create_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).create_country(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                payload=message.text or "",
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_country_id=str(item.country_id))
+    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+
+    await message.answer(t("admin_dict_country_create_done", language))
+    await message.answer(
+        format_admin_country_card(item, language),
+        reply_markup=admin_country_card_keyboard(language),
+    )
+
+
+@admin_router.callback_query(F.data == "ADM_COUNTRY_IMPORT")
+async def admin_country_import_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_country_import)
+    await callback.message.answer(t("admin_dict_country_import_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_country_import)
+async def admin_country_import_receive(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    payload = await read_admin_csv_payload_from_message(
+        message,
+        bot,
+        language,
+    )
+
+    if payload is None:
+        return
+
+    try:
+        async with get_session() as session:
+            result = await DictionaryService(
+                DictionaryRepository(session)
+            ).import_countries(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                payload=payload,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+    await message.answer(
+        format_admin_dictionary_import_result(result, language)
+    )
+
+
+@admin_router.callback_query(F.data == "ADM_COUNTRY_OPEN")
+async def admin_country_open_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    country_ids = data.get("admin_country_ids") or []
+
+    if not country_ids:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+
+    await callback.message.answer(
+        t("admin_dict_country_open_prompt", language).format(
+            count=len(country_ids)
+        )
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_country_number)
+async def admin_country_open_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+    data = await state.get_data()
+    country_ids = data.get("admin_country_ids") or []
+
+    try:
+        selected_index = int((message.text or "").strip()) - 1
+    except ValueError:
+        await message.answer(
+            t("admin_dict_country_open_bad_number", language).format(
+                count=len(country_ids)
+            )
+        )
+        return
+
+    if selected_index < 0 or selected_index >= len(country_ids):
+        await message.answer(
+            t("admin_dict_country_open_bad_number", language).format(
+                count=len(country_ids)
+            )
+        )
+        return
+
+    selected_country_id = country_ids[selected_index]
+
+    async with get_session() as session:
+        item = await DictionaryService(
+            DictionaryRepository(session)
+        ).get_country_card(
+            selected_country_id,
+            language=language,
+        )
+
+    if not item:
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    await state.update_data(admin_selected_country_id=str(item.country_id))
+    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+
+    await message.answer(
+        format_admin_country_card(item, language),
+        reply_markup=admin_country_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_COUNTRY_UPDATE")
+async def admin_country_update_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_country_update)
+    await callback.message.answer(t("admin_dict_country_update_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_country_update)
+async def admin_country_update_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).update_country(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_id=country_id,
+                payload=message.text or "",
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_country_id=str(item.country_id))
+    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+
+    await message.answer(t("admin_dict_country_update_done", language))
+    await message.answer(
+        format_admin_country_card(item, language),
+        reply_markup=admin_country_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_COUNTRY_TOGGLE")
+async def admin_country_toggle_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).toggle_country_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_id=country_id,
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await callback.message.answer(t(exc.text_key, language))
+        await callback.answer()
+        return
+
+    await state.update_data(admin_selected_country_id=str(item.country_id))
+    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+
+    await callback.message.answer(t("admin_dict_country_visibility_done", language))
+    await callback.message.answer(
+        format_admin_country_card(item, language),
+        reply_markup=admin_country_card_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_CITY_CREATE")
+async def admin_city_create_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_city_create)
+    await callback.message.answer(t("admin_dict_city_create_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_city_create)
+async def admin_city_create_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).create_city(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_id=country_id,
+                payload=message.text or "",
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_city_id=str(item.city_id))
+    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+
+    await message.answer(t("admin_dict_city_create_done", language))
+    await message.answer(
+        format_admin_city_card(item, language),
+        reply_markup=admin_city_card_keyboard(language),
+    )
+
+
+@admin_router.callback_query(F.data == "ADM_CITY_IMPORT")
+async def admin_city_import_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_city_import)
+    await callback.message.answer(t("admin_dict_city_import_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_city_import)
+async def admin_city_import_receive(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or not tenant_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    payload = await read_admin_csv_payload_from_message(
+        message,
+        bot,
+        language,
+    )
+
+    if payload is None:
+        return
+
+    try:
+        async with get_session() as session:
+            result = await DictionaryService(
+                DictionaryRepository(session)
+            ).import_cities(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_id=country_id,
+                payload=payload,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_country_id=country_id)
+    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+    await message.answer(
+        format_admin_dictionary_import_result(result, language)
+    )
+
+
+@admin_router.callback_query(F.data == "ADM_COUNTRY_CITIES")
+@admin_router.callback_query(F.data.startswith("ADM_COUNTRY_CITIES:"))
+async def admin_country_cities(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    country_id = data.get("admin_selected_country_id")
+
+    if not country_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    async with get_session() as session:
+        items = await DictionaryService(
+            DictionaryRepository(session)
+        ).list_city_cards(
+            country_id=country_id,
+            limit=ADMIN_CITIES_PAGE_SIZE + 1,
+            offset=page * ADMIN_CITIES_PAGE_SIZE,
+            language=language,
+        )
+
+    has_next = len(items) > ADMIN_CITIES_PAGE_SIZE
+    visible_items = items[:ADMIN_CITIES_PAGE_SIZE]
+
+    await state.update_data(
+        admin_city_ids=[
+            str(item.city_id)
+            for item in visible_items
+        ],
+        admin_city_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_cities_list(
+            visible_items,
+            page=page,
+            language=language,
+        ),
+        reply_markup=admin_cities_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_CITY_UPDATE")
+async def admin_city_update_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    city_id = data.get("admin_selected_city_id")
+
+    if not city_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_city_update)
+    await callback.message.answer(t("admin_dict_city_update_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_city_update)
+async def admin_city_update_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    city_id = data.get("admin_selected_city_id")
+
+    if not city_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).update_city(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                city_id=city_id,
+                payload=message.text or "",
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_city_id=str(item.city_id))
+    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+
+    await message.answer(t("admin_dict_city_update_done", language))
+    await message.answer(
+        format_admin_city_card(item, language),
+        reply_markup=admin_city_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_CITY_GEO_UPDATE")
+async def admin_city_geo_update_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    city_id = data.get("admin_selected_city_id")
+
+    if not city_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_city_geo_update)
+    await callback.message.answer(t("admin_dict_city_geo_update_prompt", language))
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_city_geo_update)
+async def admin_city_geo_update_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    city_id = data.get("admin_selected_city_id")
+
+    if not city_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).update_city_geo(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                city_id=city_id,
+                payload=message.text or "",
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_city_id=str(item.city_id))
+    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+
+    await message.answer(t("admin_dict_city_geo_update_done", language))
+    await message.answer(
+        format_admin_city_card(item, language),
+        reply_markup=admin_city_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_CITY_TOGGLE")
+async def admin_city_toggle_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    city_id = data.get("admin_selected_city_id")
+
+    if not city_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).toggle_city_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                city_id=city_id,
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await callback.message.answer(t(exc.text_key, language))
+        await callback.answer()
+        return
+
+    await state.update_data(admin_selected_city_id=str(item.city_id))
+    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+
+    await callback.message.answer(t("admin_dict_city_visibility_done", language))
+    await callback.message.answer(
+        format_admin_city_card(item, language),
+        reply_markup=admin_city_card_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_CITY_OPEN")
+async def admin_city_open_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    city_ids = data.get("admin_city_ids") or []
+
+    if not city_ids:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+
+    await callback.message.answer(
+        t("admin_dict_city_open_prompt", language).format(
+            count=len(city_ids)
+        )
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_city_number)
+async def admin_city_open_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+    data = await state.get_data()
+    city_ids = data.get("admin_city_ids") or []
+
+    try:
+        selected_index = int((message.text or "").strip()) - 1
+    except ValueError:
+        await message.answer(
+            t("admin_dict_city_open_bad_number", language).format(
+                count=len(city_ids)
+            )
+        )
+        return
+
+    if selected_index < 0 or selected_index >= len(city_ids):
+        await message.answer(
+            t("admin_dict_city_open_bad_number", language).format(
+                count=len(city_ids)
+            )
+        )
+        return
+
+    selected_city_id = city_ids[selected_index]
+
+    async with get_session() as session:
+        item = await DictionaryService(
+            DictionaryRepository(session)
+        ).get_city_card(
+            selected_city_id,
+            language=language,
+        )
+
+    if not item:
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    await state.update_data(admin_selected_city_id=str(item.city_id))
+    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+
+    await message.answer(
+        format_admin_city_card(item, language),
+        reply_markup=admin_city_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_DICT_LANGUAGES")
+@admin_router.callback_query(F.data.startswith("ADM_DICT_LANGUAGES:"))
+async def admin_languages_dictionary(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        items = await DictionaryService(
+            DictionaryRepository(session)
+        ).list_language_cards(
+            limit=ADMIN_LANGUAGES_PAGE_SIZE + 1,
+            offset=page * ADMIN_LANGUAGES_PAGE_SIZE,
+        )
+
+    has_next = len(items) > ADMIN_LANGUAGES_PAGE_SIZE
+    visible_items = items[:ADMIN_LANGUAGES_PAGE_SIZE]
+
+    await state.update_data(
+        admin_language_codes=[
+            item.code
+            for item in visible_items
+        ],
+        admin_language_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_languages_list(
+            visible_items,
+            page=page,
+            language=language,
+        ),
+        reply_markup=admin_languages_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_LANGUAGE_CREATE")
+async def admin_language_create_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_language_create)
+    await callback.message.answer(
+        t("admin_dict_language_create_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_language_create)
+async def admin_language_create_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).create_language(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                payload=message.text or "",
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_language_code=item.code)
+    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+
+    await message.answer(t("admin_dict_language_create_done", language))
+    await message.answer(
+        format_admin_language_card(item, language),
+        reply_markup=admin_language_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_LANGUAGE_TOGGLE")
+async def admin_language_toggle_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    language_code = data.get("admin_selected_language_code")
+
+    if not language_code:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).toggle_language_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                code=language_code,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await callback.message.answer(t(exc.text_key, language))
+        await callback.answer()
+        return
+
+    await state.update_data(admin_selected_language_code=item.code)
+    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+
+    await callback.message.answer(t("admin_dict_language_visibility_done", language))
+    await callback.message.answer(
+        format_admin_language_card(item, language),
+        reply_markup=admin_language_card_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_LANGUAGE_RENAME")
+async def admin_language_rename_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    language_code = data.get("admin_selected_language_code")
+
+    if not language_code:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_language_rename)
+    await callback.message.answer(
+        t("admin_dict_language_rename_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_language_rename)
+async def admin_language_rename_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    language_code = data.get("admin_selected_language_code")
+
+    if not language_code:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).rename_language(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                code=language_code,
+                payload=message.text or "",
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(admin_selected_language_code=item.code)
+    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+
+    await message.answer(t("admin_dict_language_rename_done", language))
+    await message.answer(
+        format_admin_language_card(item, language),
+        reply_markup=admin_language_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_LANGUAGE_OPEN")
+async def admin_language_open_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+    language_codes = data.get("admin_language_codes") or []
+
+    if not language_codes:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+
+    await callback.message.answer(
+        t("admin_dict_language_open_prompt", language).format(
+            count=len(language_codes)
+        )
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_language_number)
+async def admin_language_open_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+    data = await state.get_data()
+    language_codes = data.get("admin_language_codes") or []
+
+    try:
+        selected_index = int((message.text or "").strip()) - 1
+    except ValueError:
+        await message.answer(
+            t("admin_dict_language_open_bad_number", language).format(
+                count=len(language_codes)
+            )
+        )
+        return
+
+    if selected_index < 0 or selected_index >= len(language_codes):
+        await message.answer(
+            t("admin_dict_language_open_bad_number", language).format(
+                count=len(language_codes)
+            )
+        )
+        return
+
+    selected_code = language_codes[selected_index]
+
+    async with get_session() as session:
+        item = await DictionaryService(
+            DictionaryRepository(session)
+        ).get_language_card(selected_code)
+
+    if not item:
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    await state.update_data(admin_selected_language_code=item.code)
+    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+
+    await message.answer(
+        format_admin_language_card(item, language),
+        reply_markup=admin_language_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_DICT_SKILLS")
+@admin_router.callback_query(F.data.startswith("ADM_DICT_SKILLS:"))
+async def admin_skills_dictionary(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        items = await DictionaryService(
+            DictionaryRepository(session)
+        ).list_skill_cards(
+            language=language,
+            limit=ADMIN_SKILLS_PAGE_SIZE + 1,
+            offset=page * ADMIN_SKILLS_PAGE_SIZE,
+        )
+
+    has_next = len(items) > ADMIN_SKILLS_PAGE_SIZE
+    visible_items = items[:ADMIN_SKILLS_PAGE_SIZE]
+
+    await state.update_data(
+        admin_skill_ids=[
+            str(item.skill_id)
+            for item in visible_items
+        ],
+        admin_skill_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_skills_list(
+            visible_items,
+            page=page,
+            language=language,
+        ),
+        reply_markup=admin_skills_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "ADM_SKILL_OPEN")
+async def admin_skill_open_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    skill_ids = data.get("admin_skill_ids") or []
+
+    if not skill_ids:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_skill_number)
+
+    await callback.message.answer(
+        t("admin_dict_skill_open_prompt", language).format(
+            count=len(skill_ids),
+        )
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_skill_number)
+async def admin_skill_open_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    skill_ids = data.get("admin_skill_ids") or []
+
+    try:
+        index = int((message.text or "").strip()) - 1
+    except ValueError:
+        await message.answer(
+            t("admin_dict_skill_open_bad_number", language).format(
+                count=len(skill_ids),
+            )
+        )
+        return
+
+    if index < 0 or index >= len(skill_ids):
+        await message.answer(
+            t("admin_dict_skill_open_bad_number", language).format(
+                count=len(skill_ids),
+            )
+        )
+        return
+
+    skill_id = skill_ids[index]
+
+    async with get_session() as session:
+        item = await DictionaryService(
+            DictionaryRepository(session)
+        ).get_skill_card(
+            skill_id=skill_id,
+            language=language,
+        )
+
+    if not item:
+        await message.answer(t("admin_item_not_found", language))
+        await state.clear()
+        return
+
+    await state.update_data(
+        admin_selected_skill_id=skill_id,
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        format_admin_skill_card(item, language),
+        reply_markup=admin_skill_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_SKILL_CREATE")
+async def admin_skill_create_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_skill_create)
+    await callback.message.answer(
+        t("admin_dict_skill_create_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_skill_create)
+async def admin_skill_create_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).create_skill(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                title=message.text or "",
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_skill_id=str(item.skill_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_skill_create_done", language),
+    )
+    await message.answer(
+        format_admin_skill_card(item, language),
+        reply_markup=admin_skill_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_SKILL_RENAME")
+async def admin_skill_rename_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    if not data.get("admin_selected_skill_id"):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_skill_rename)
+    await callback.message.answer(
+        t("admin_dict_skill_rename_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_skill_rename)
+async def admin_skill_rename_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    skill_id = data.get("admin_selected_skill_id")
+
+    if not skill_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).rename_skill(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                skill_id=skill_id,
+                title=message.text or "",
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_skill_id=str(item.skill_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_skill_rename_done", language),
+    )
+    await message.answer(
+        format_admin_skill_card(item, language),
+        reply_markup=admin_skill_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_SKILL_TOGGLE")
+async def admin_skill_toggle_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    skill_id = data.get("admin_selected_skill_id")
+
+    if not skill_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).toggle_skill_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                skill_id=skill_id,
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_selected_skill_id=str(item.skill_id),
+    )
+
+    await callback.message.answer(
+        t("admin_dict_skill_visibility_done", language),
+    )
+    await callback.message.answer(
+        format_admin_skill_card(item, language),
+        reply_markup=admin_skill_card_keyboard(language),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "ADM_SKILL_MERGE")
+async def admin_skill_merge_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    skill_id = data.get("admin_selected_skill_id")
+
+    if not skill_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_skill_merge)
+    await callback.message.answer(
+        t("admin_dict_skill_merge_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_skill_merge)
+async def admin_skill_merge_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    skill_id = data.get("admin_selected_skill_id")
+
+    if not skill_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            preview = await DictionaryService(
+                DictionaryRepository(session)
+            ).preview_skill_merge(
+                source_skill_id=skill_id,
+                target_skill_value=message.text or "",
+                language=language,
+            )
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_skill_merge_target_value=message.text or "",
+    )
+    await state.set_state(AdminModerationFSM.confirming_admin_skill_merge)
+
+    await message.answer(
+        t("admin_dict_skill_merge_confirm_text", language).format(
+            source_title=preview.source_skill.title,
+            source_code=preview.source_skill.code,
+            target_title=preview.target_skill.title,
+            target_code=preview.target_skill.code,
+            source_profession_links=(
+                preview.source_skill.profession_links_count
+            ),
+            source_user_links=preview.source_skill.user_links_count,
+        ),
+        reply_markup=admin_skill_merge_confirm_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_SKILL_MERGE_CANCEL")
+async def admin_skill_merge_cancel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    await state.set_state(AdminModerationFSM.entering_admin_skill_number)
+    await state.update_data(admin_skill_merge_target_value=None)
+
+    await callback.message.answer(t("admin_cancelled", language))
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "ADM_SKILL_MERGE_CONFIRM")
+async def admin_skill_merge_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    skill_id = data.get("admin_selected_skill_id")
+    target_value = data.get("admin_skill_merge_target_value")
+
+    if not skill_id or not target_value:
+        await state.clear()
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await DictionaryService(
+                DictionaryRepository(session)
+            ).merge_skills(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                source_skill_id=skill_id,
+                target_skill_value=target_value,
+                language=language,
+            )
+            await session.commit()
+    except DictionaryServiceError as exc:
+        await callback.message.answer(t(exc.text_key, language))
+        await callback.answer()
+        return
+
+    await state.update_data(
+        admin_selected_skill_id=str(result.target_skill.skill_id),
+        admin_skill_merge_target_value=None,
+    )
+    await state.set_state(AdminModerationFSM.entering_admin_skill_number)
+
+    await callback.message.answer(
+        t("admin_dict_skill_merge_done", language).format(
+            moved_profession_links=result.moved_profession_links,
+            removed_duplicate_profession_links=(
+                result.removed_duplicate_profession_links
+            ),
+            moved_user_links=result.moved_user_links,
+            removed_duplicate_user_links=(
+                result.removed_duplicate_user_links
+            ),
+        )
+    )
+    await callback.message.answer(
+        format_admin_skill_card(result.target_skill, language),
+        reply_markup=admin_skill_card_keyboard(language),
+    )
+    await callback.answer()
+
+async def admin_dictionary_section_stub(callback: CallbackQuery):
+    language = normalize_language(callback.from_user.language_code)
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if not admin_user_id or "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    section_key = {
+        "ADM_DICT_CATEGORIES": "admin_dict_categories_btn",
+        "ADM_DICT_PROFESSIONS": "admin_dict_professions_btn",
+        "ADM_DICT_GEO": "admin_dict_geo_btn",
+    }.get(callback.data, "admin_dictionaries_section_btn")
+
+    await callback.message.answer(
+        t("admin_dict_section_stub", language).format(
+            section=t(section_key, language),
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t("admin_panel_back", language),
+                        callback_data="ADM_DICT",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t("search_menu", language),
+                        callback_data="MAIN_MENU",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+def admin_dialog_detection_label(
+    detected_type: str,
+    language: str,
+) -> str:
+    key_by_type = {
+        "phone": "admin_dialog_detection_phone",
+        "email": "admin_dialog_detection_email",
+        "telegram_username": (
+            "admin_dialog_detection_telegram_username"
+        ),
+        "messenger_phone": (
+            "admin_dialog_detection_messenger_phone"
+        ),
+        "external_payment": (
+            "admin_dialog_detection_external_payment"
+        ),
+    }
+
+    return t(
+        key_by_type.get(
+            detected_type,
+            "admin_dialog_detection_unknown",
+        ),
+        language,
+    )
+
+
+def admin_dialog_risk_label(
+    severity: str | None,
+    language: str,
+) -> str:
+    key_by_severity = {
+        "low": "admin_dialog_risk_low",
+        "medium": "admin_dialog_risk_medium",
+        "high": "admin_dialog_risk_high",
+        "critical": "admin_dialog_risk_critical",
+    }
+
+    key = key_by_severity.get(
+        (severity or "").strip().lower()
+    )
+
+    return t(key, language) if key else "—"
+
+def admin_dialog_context_label(
+    item,
+    language: str,
+) -> str:
+    parts = []
+
+    if item.has_complaint:
+        parts.append(
+            t(
+                "admin_dialog_context_complaint",
+                language,
+            )
+        )
+
+    if item.has_risk_flag:
+        parts.append(
+            t(
+                "admin_dialog_context_risk",
+                language,
+            )
+        )
+
+    return " + ".join(parts) or "—"
+
+def admin_dialog_queue_keyboard(
+    items,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index, item in enumerate(items):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                text=t(
+                    "admin_dialog_queue_button",
+                    language,
+                ).format(
+                    number=index + 1,
+                    context=admin_dialog_context_label(
+                        item,
+                        language,
+                    ),
+                    status=item.thread_status.replace(
+                        "_",
+                        " ",
+                    ),
+                    messages_count=item.messages_count,
+                ),
+                    callback_data=f"ADM_ADMIN_THREAD:{index}",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_dialog_back_btn",
+                    language,
+                ),
+                callback_data="ADM_PANEL",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def show_admin_dialog_contexts(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            ADMIN_DIALOGS_MENU_ROLES
+        )
+    ):
+        await callback.answer(
+            t(
+                "admin_access_denied",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_thread_contexts(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_dialog_thread_ids=[
+            str(item.thread_id)
+            for item in items
+        ],
+        admin_dialog_contexts=[
+            {
+                "has_complaint": item.has_complaint,
+                "has_risk_flag": item.has_risk_flag,
+                "thread_status": item.thread_status,
+            }
+            for item in items
+        ],
+    )
+
+    if not items:
+        await callback.message.answer(
+            t(
+                "admin_dialog_queue_empty",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_dialog_back_btn",
+                                language,
+                            ),
+                            callback_data="ADM_PANEL",
+                        )
+                    ]
+                ]
+            ),
+        )
+        await callback.answer()
+        return
+
+    await callback.message.answer(
+        t(
+            "admin_dialog_queue_title",
+            language,
+        ),
+        reply_markup=admin_dialog_queue_keyboard(
+            items,
+            language,
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_DIALOGS_STUB"
+)
+async def admin_dialogs_entry(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_admin_dialog_contexts(
+        callback,
+        state,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_ADMIN_THREAD:")
+)
+async def open_admin_dialog_thread(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+    except (
+        IndexError,
+        ValueError,
+    ):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    thread_ids = data.get(
+        "admin_dialog_thread_ids"
+    ) or []
+    contexts = data.get(
+        "admin_dialog_contexts"
+    ) or []
+
+    if index < 0 or index >= len(thread_ids):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            ADMIN_DIALOGS_MENU_ROLES
+        )
+    ):
+        await callback.answer(
+            t(
+                "admin_access_denied",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            messages = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_thread_messages(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                thread_id=UUID(
+                    thread_ids[index]
+                ),
+            )
+    except (
+        ModerationError,
+        ValueError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    if not messages:
+        history = t(
+            "admin_support_no_messages",
+            language,
+        )
+        thread_status = "—"
+    else:
+        thread_status = messages[0].thread_status
+        history_lines = []
+
+        for message in messages:
+            if message.is_masked:
+                detected_labels = [
+                    admin_dialog_detection_label(
+                        detected_type,
+                        language,
+                    )
+                    for detected_type in (
+                        message.risk_detected_types
+                    )
+                ]
+
+                reasons = ", ".join(
+                    detected_labels
+                ) or t(
+                    "admin_dialog_detection_unknown",
+                    language,
+                )
+
+                message_text = t(
+                    "admin_dialog_masked_message",
+                    language,
+                ).format(
+                    reasons=reasons,
+                    severity=admin_dialog_risk_label(
+                        message.risk_severity,
+                        language,
+                    ),
+                )
+            else:
+                message_text = (
+                    message.original_text
+                    or "[пусто]"
+                )
+
+            sender_label = (
+                "Клиент"
+                if (
+                    message.sender_user_id
+                    == message.client_user_id
+                )
+                else "Специалист"
+            )
+
+            history_lines.append(
+                f"{sender_label}: {message_text}"
+            )
+
+        history = "\n".join(history_lines)
+
+    selected_context = (
+        contexts[index]
+        if index < len(contexts)
+        else {}
+    )
+
+    context_parts = []
+
+    if selected_context.get("has_complaint"):
+        context_parts.append(
+            t(
+                "admin_dialog_context_complaint",
+                language,
+            )
+        )
+
+    if selected_context.get("has_risk_flag"):
+        context_parts.append(
+            t(
+                "admin_dialog_context_risk",
+                language,
+            )
+        )
+
+    context_label = " + ".join(context_parts) or "—"
+
+    screen_text = (
+        f"💬 Служебный диалог №{index + 1}\n\n"
+        f"Контекст: {context_label}\n"
+        "Участники: Клиент / Специалист\n"
+        f"Статус: {thread_status}\n\n"
+        f"{history}\n\n"
+        "Режим: только просмотр."
+    )
+
+    await callback.message.answer(
+        screen_text,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_dialog_back_to_list_btn",
+                            language,
+                        ),
+                        callback_data="ADM_DIALOGS_STUB",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data="ADM_PANEL",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_PROMOTION_STUB"
+)
+async def admin_promotion_section_stub(
+    callback: CallbackQuery,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_section_stub",
+            language,
+        ).format(
+            section=t(
+                "admin_promotion_section_btn",
+                language,
+            ),
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data="ADM_PANEL",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "search_menu",
+                            language,
+                        ),
+                        callback_data="MAIN_MENU",
+                    )
+                ],
+            ]
+        ),
+    )
+    await callback.answer()
+
+def format_admin_category_card(
+    item,
+    language: str,
+) -> str:
+    return t("admin_dict_category_card", language).format(
+        title=item.title,
+        code=item.code,
+        status=item.status,
+        sort_order=item.sort_order,
+        professions=item.professions_count,
+        specialists=item.specialists_count,
+        release=item.release or "-",
+    )
+
+def format_admin_category_specialists_list(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    if not items:
+        return t("admin_dict_category_specialists_empty", language)
+
+    lines = [
+        t("admin_dict_category_specialists_title", language).format(
+            count=len(items),
+        )
+    ]
+
+    start_number = page * ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE + 1
+
+    for index, item in enumerate(items, start=start_number):
+        verified = "yes" if item.is_verified else "no"
+        available = "yes" if item.is_available else "no"
+
+        lines.append(
+            t("admin_dict_category_specialist_row", language).format(
+                number=index,
+                name=item.display_name,
+                status=item.status,
+                professions=item.profession_names,
+                verified=verified,
+                available=available,
+            )
+        )
+
+    return "\n\n".join(lines)
+
+def format_admin_profession_specialists_list(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    if not items:
+        return t("admin_dict_profession_specialists_empty", language)
+
+    lines = [
+        t("admin_dict_profession_specialists_title", language).format(
+            page=page + 1,
+            count=len(items),
+        )
+    ]
+
+    start_number = page * ADMIN_PROFESSION_SPECIALISTS_PAGE_SIZE + 1
+
+    for index, item in enumerate(items, start=start_number):
+        verified = "yes" if item.is_verified else "no"
+        available = "yes" if item.is_available else "no"
+
+        lines.append(
+            t("admin_dict_category_specialist_row", language).format(
+                number=index,
+                name=item.display_name,
+                status=item.status,
+                professions=item.profession_names,
+                verified=verified,
+                available=available,
+            )
+        )
+
+    return "\n\n".join(lines)
+
+
+def admin_profession_specialists_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_specialist_move_btn", language),
+                callback_data="ADM_SPEC_MOVE_SELECT",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t("admin_dict_specialist_move_all_btn", language),
+                callback_data="ADM_SPEC_MOVE_ALL",
+            )
+        ],
+    ]
+
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("back", language),
+                callback_data=f"ADM_PROF_SPECIALISTS:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_PROF_SPECIALISTS:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_PROFESSIONS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def admin_category_specialists_keyboard(
+    *,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_dict_specialist_move_btn",
+                    language,
+                ),
+                callback_data="ADM_CAT_SPEC_MOVE_SELECT",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "admin_dict_category_specialist_move_all_btn",
+                    language,
+                ),
+                callback_data="ADM_CAT_SPEC_MOVE_ALL",
+            )
+        ],
+    ]
+    paging_row = []
+
+    if page > 0:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("back", language),
+                callback_data=f"ADM_CAT_SPECIALISTS:{page - 1}",
+            )
+        )
+
+    if has_next:
+        paging_row.append(
+            InlineKeyboardButton(
+                text=t("admin_next", language),
+                callback_data=f"ADM_CAT_SPECIALISTS:{page + 1}",
+            )
+        )
+
+    if paging_row:
+        rows.append(paging_row)
+
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_CATEGORIES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def admin_category_card_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_category_rename_btn", language),
+                    callback_data="ADM_CAT_RENAME",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_category_toggle_btn", language),
+                    callback_data="ADM_CAT_TOGGLE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_category_archive_btn", language),
+                    callback_data="ADM_CAT_ARCHIVE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_category_reorder_btn", language),
+                    callback_data="ADM_CAT_REORDER",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_profession_create_btn", language),
+                    callback_data="ADM_PROF_CREATE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_dict_category_specialists_btn", language),
+                    callback_data="ADM_CAT_SPECIALISTS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("admin_panel_back", language),
+                    callback_data="ADM_DICT_CATEGORIES",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("search_menu", language),
+                    callback_data="MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+@admin_router.callback_query(
+    F.data == "ADM_CAT_SPEC_MOVE_SELECT"
+)
+async def admin_category_specialist_move_select_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+    specialist_ids = data.get(
+        "admin_category_specialist_ids"
+    ) or []
+
+    if not specialist_ids:
+        await callback.answer(
+            t("admin_dict_specialist_move_empty", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_category_specialist_move_numbers
+    )
+    page = int(
+        data.get("admin_category_specialists_page") or 0
+    )
+    start_number = (
+        page * ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE + 1
+    )
+    end_number = start_number + len(specialist_ids) - 1
+
+    example_numbers = list(
+        range(
+            start_number,
+            min(end_number, start_number + 2) + 1,
+        )
+    )
+
+    await callback.message.answer(
+        t(
+            "admin_dict_specialist_move_select_page_prompt",
+            language,
+        ).format(
+            start=start_number,
+            end=end_number,
+            example=",".join(
+                str(number)
+                for number in example_numbers
+            ),
+        )
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_CAT_SPEC_MOVE_ALL"
+)
+async def admin_category_specialist_move_all(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+    category_id = data.get(
+        "admin_selected_category_id"
+    )
+
+    if not category_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            specialist_ids = await DictionaryService(
+                DictionaryRepository(session)
+            ).list_category_specialist_ids(
+                category_id=category_id,
+            )
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    if not specialist_ids:
+        await callback.answer(
+            t("admin_dict_specialist_move_empty", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_selected_category_specialist_move_ids=(
+            specialist_ids
+        ),
+        admin_move_source_type="category",
+        admin_move_source_id=category_id,
+        admin_move_specialist_ids=specialist_ids,
+        admin_move_target_category_id=None,
+        admin_move_target_category_candidate_ids=[],
+        admin_move_target_profession_ids=[],
+        admin_move_mode=None,
+    )
+    await show_admin_multi_move_categories(
+        callback.message,
+        state,
+        language,
+    )
+    await callback.answer()
+
+@admin_router.message(
+    AdminModerationFSM
+    .entering_admin_category_specialist_move_numbers
+)
+async def admin_category_specialist_move_numbers_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    data = await state.get_data()
+
+    specialist_ids = data.get(
+        "admin_category_specialist_ids"
+    ) or []
+    page = int(
+        data.get("admin_category_specialists_page") or 0
+    )
+
+    if not specialist_ids:
+        await state.clear()
+        await message.answer(
+            t("admin_dict_specialist_move_empty", language)
+        )
+        return
+
+    start_number = (
+        page * ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE + 1
+    )
+    end_number = start_number + len(specialist_ids) - 1
+
+    raw_numbers = [
+        item.strip()
+        for item in (
+            message.text or ""
+        ).replace(";", ",").split(",")
+        if item.strip()
+    ]
+
+    try:
+        entered_numbers = [
+            int(item)
+            for item in raw_numbers
+        ]
+    except ValueError:
+        await message.answer(
+            t(
+                "admin_dict_specialist_move_bad_page_numbers",
+                language,
+            ).format(
+                start=start_number,
+                end=end_number,
+            )
+        )
+        return
+
+    if (
+        not entered_numbers
+        or any(
+            number < start_number
+            or number > end_number
+            for number in entered_numbers
+        )
+    ):
+        await message.answer(
+            t(
+                "admin_dict_specialist_move_bad_page_numbers",
+                language,
+            ).format(
+                start=start_number,
+                end=end_number,
+            )
+        )
+        return
+
+    selected_specialist_ids = [
+        specialist_ids[number - start_number]
+        for number in dict.fromkeys(entered_numbers)
+    ]
+
+    await state.update_data(
+        admin_selected_category_specialist_move_ids=(
+            selected_specialist_ids
+        ),
+        admin_move_source_type="category",
+        admin_move_source_id=data.get(
+            "admin_selected_category_id"
+        ),
+        admin_move_specialist_ids=(
+            selected_specialist_ids
+        ),
+        admin_move_target_category_id=None,
+        admin_move_target_category_candidate_ids=[],
+        admin_move_target_profession_ids=[],
+        admin_move_mode=None,
+    )
+    await show_admin_multi_move_categories(
+        message,
+        state,
+        language,
+    )
+
+def admin_category_specialist_move_confirm_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_specialist_move_confirm_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_CAT_SPEC_MOVE_CONFIRM"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_dict_specialist_move_cancel_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_CAT_SPEC_MOVE_CANCEL"
+                    ),
+                )
+            ],
+        ]
+    )
+
+
+@admin_router.message(
+    AdminModerationFSM
+    .entering_admin_category_specialist_move_target
+)
+async def admin_category_specialist_move_target_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    data = await state.get_data()
+
+    source_category_id = data.get(
+        "admin_selected_category_id"
+    )
+    specialist_ids = data.get(
+        "admin_selected_category_specialist_move_ids"
+    ) or []
+    candidate_ids = data.get(
+        "admin_category_specialist_move_target_candidate_ids"
+    ) or []
+
+    if not source_category_id or not specialist_ids:
+        await state.clear()
+        await message.answer(
+            t("admin_dict_specialist_move_empty", language)
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_access_denied", language)
+        )
+        return
+
+    entered_value = " ".join(
+        (message.text or "").split()
+    )
+    target_profession_id = None
+
+    try:
+        async with get_session() as session:
+            service = DictionaryService(
+                DictionaryRepository(session)
+            )
+
+            if candidate_ids and entered_value.isdigit():
+                selected_index = int(entered_value) - 1
+
+                if (
+                    selected_index < 0
+                    or selected_index >= len(candidate_ids)
+                ):
+                    await message.answer(
+                        t(
+                            "admin_dict_specialist_move_target_bad_number",
+                            language,
+                        ).format(
+                            count=len(candidate_ids),
+                        )
+                    )
+                    return
+
+                target_profession_id = candidate_ids[
+                    selected_index
+                ]
+
+            else:
+                targets = (
+                    await service
+                    .find_specialist_move_targets(
+                        title=entered_value,
+                        language=language,
+                    )
+                )
+
+                if len(targets) > 1:
+                    await state.update_data(
+                        admin_category_specialist_move_target_candidate_ids=[
+                            str(target.profession_id)
+                            for target in targets
+                        ]
+                    )
+
+                    choices = [
+                        t(
+                            "admin_dict_specialist_move_target_multiple",
+                            language,
+                        ),
+                        "",
+                    ]
+
+                    for index, target in enumerate(
+                        targets,
+                        start=1,
+                    ):
+                        choices.append(
+                            f"{index}. {target.title} | "
+                            f"{target.category_name}"
+                        )
+
+                    await message.answer(
+                        "\n".join(choices)
+                    )
+                    return
+
+                target_profession_id = str(
+                    targets[0].profession_id
+                )
+
+            preview = (
+                await service
+                .preview_category_specialist_move(
+                    source_category_id=source_category_id,
+                    target_profession_id=target_profession_id,
+                    specialist_ids=specialist_ids,
+                    language=language,
+                )
+            )
+
+    except DictionaryServiceError as exc:
+        await message.answer(
+            t(exc.text_key, language)
+        )
+        return
+
+    await state.update_data(
+        admin_category_specialist_move_target_id=(
+            target_profession_id
+        ),
+        admin_category_specialist_move_target_candidate_ids=[],
+    )
+    await state.set_state(
+        AdminModerationFSM
+        .confirming_admin_category_specialist_move
+    )
+
+    await message.answer(
+        t(
+            "admin_dict_category_specialist_move_preview",
+            language,
+        ).format(
+            source_category=preview.source_category.title,
+            target_profession=(
+                preview.target_profession.title
+            ),
+            target_category=(
+                preview.target_profession.category_name
+            ),
+            count=len(preview.selected_specialists),
+        ),
+        reply_markup=(
+            admin_category_specialist_move_confirm_keyboard(
+                language
+            )
+        ),
+    )
+
+
+@admin_router.callback_query(
+    F.data == "ADM_CAT_SPEC_MOVE_CANCEL"
+)
+async def admin_category_specialist_move_cancel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await state.update_data(
+        admin_category_specialist_move_target_id=None,
+        admin_category_specialist_move_target_candidate_ids=[],
+    )
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_category_specialist_move_target
+    )
+
+    await callback.message.answer(
+        t("admin_dict_specialist_move_target_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data == "ADM_CAT_SPEC_MOVE_CONFIRM"
+)
+async def admin_category_specialist_move_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    source_category_id = data.get(
+        "admin_selected_category_id"
+    )
+    target_profession_id = data.get(
+        "admin_category_specialist_move_target_id"
+    )
+    specialist_ids = data.get(
+        "admin_selected_category_specialist_move_ids"
+    ) or []
+
+    if (
+        not source_category_id
+        or not target_profession_id
+        or not specialist_ids
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            result = await DictionaryService(
+                DictionaryRepository(session)
+            ).move_category_specialists_to_profession(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                source_category_id=source_category_id,
+                target_profession_id=target_profession_id,
+                specialist_ids=specialist_ids,
+                language=language,
+            )
+
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.clear()
+
+    await callback.message.answer(
+        t(
+            "admin_dict_category_specialist_move_done",
+            language,
+        ).format(
+            target_profession=(
+                result.target_profession.title
+            ),
+            target_category=(
+                result.target_profession.category_name
+            ),
+            moved_count=result.moved_count,
+            duplicate_count=(
+                result.archived_duplicate_count
+            ),
+            extra_links_count=(
+                result.archived_extra_links_count
+            ),
+            synchronized_count=(
+                result.synchronized_primary_count
+            ),
+            missing_count=result.missing_count,
+        ),
+        reply_markup=admin_dictionaries_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_CAT_SPECIALISTS")
+@admin_router.callback_query(F.data.startswith("ADM_CAT_SPECIALISTS:"))
+async def admin_category_specialists(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    page = 0
+    if callback.data and ":" in callback.data:
+        try:
+            page = max(0, int(callback.data.split(":", 1)[1]))
+        except ValueError:
+            page = 0
+
+    data = await state.get_data()
+    category_id = data.get("admin_selected_category_id")
+
+    if not category_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            items = await DictionaryService(
+                DictionaryRepository(session)
+            ).list_category_specialists(
+                category_id=category_id,
+                limit=ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE + 1,
+                offset=page * ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE,
+            )
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    has_next = len(items) > ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE
+    visible_items = items[:ADMIN_CATEGORY_SPECIALISTS_PAGE_SIZE]
+
+    await state.update_data(
+        admin_category_specialist_ids=[
+            str(item.specialist_id)
+            for item in visible_items
+        ],
+        admin_category_specialists_page=page,
+    )
+
+    await callback.message.answer(
+        format_admin_category_specialists_list(
+            visible_items,
+            page=page,
+            language=language,
+        ),
+        reply_markup=admin_category_specialists_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ),
+    )
+    await callback.answer()
+
+@admin_router.message(AdminModerationFSM.entering_admin_category_number)
+async def admin_category_open_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    category_ids = data.get("admin_category_ids") or []
+
+    try:
+        index = int((message.text or "").strip()) - 1
+    except ValueError:
+        await message.answer(
+            t("admin_dict_category_open_bad_number", language).format(
+                count=len(category_ids),
+            )
+        )
+        return
+
+    if index < 0 or index >= len(category_ids):
+        await message.answer(
+            t("admin_dict_category_open_bad_number", language).format(
+                count=len(category_ids),
+            )
+        )
+        return
+
+    category_id = category_ids[index]
+
+    async with get_session() as session:
+        item = await DictionaryService(
+            DictionaryRepository(session)
+        ).get_category_card(
+            category_id=category_id,
+            language=language,
+        )
+
+    if not item:
+        await message.answer(t("admin_item_not_found", language))
+        await state.clear()
+        return
+
+    await state.update_data(
+        admin_selected_category_id=category_id,
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        format_admin_category_card(item, language),
+        reply_markup=admin_category_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_CAT_RENAME")
+async def admin_category_rename_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    if not data.get("admin_selected_category_id"):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_category_rename)
+    await callback.message.answer(
+        t("admin_dict_category_rename_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_category_rename)
+async def admin_category_rename_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    category_id = data.get("admin_selected_category_id")
+
+    if not category_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).rename_category(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                category_id=category_id,
+                title=message.text or "",
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_category_id=str(item.category_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_category_rename_done", language),
+    )
+    await message.answer(
+        format_admin_category_card(item, language),
+        reply_markup=admin_category_card_keyboard(language),
+    )
+
+@admin_router.callback_query(F.data == "ADM_CAT_TOGGLE")
+async def admin_category_toggle_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    category_id = data.get("admin_selected_category_id")
+
+    if not category_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).toggle_category_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                category_id=category_id,
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_selected_category_id=str(item.category_id),
+    )
+
+    await callback.message.answer(
+        t("admin_dict_category_visibility_done", language),
+    )
+    await callback.message.answer(
+        format_admin_category_card(item, language),
+        reply_markup=admin_category_card_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_CAT_ARCHIVE")
+async def admin_category_archive(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    category_id = data.get("admin_selected_category_id")
+
+    if not category_id:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            service = DictionaryService(DictionaryRepository(session))
+            current_item = await service.get_category_card(
+                category_id=category_id,
+                language=language,
+            )
+
+            if not current_item:
+                raise DictionaryServiceError("admin_item_not_found")
+
+            if current_item.status_code == "archived":
+                item = await service.unarchive_category(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    category_id=category_id,
+                    language=language,
+                )
+                done_text_key = "admin_dict_category_unarchive_done"
+            else:
+                item = await service.archive_category(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    category_id=category_id,
+                    language=language,
+                )
+                done_text_key = "admin_dict_category_archive_done"
+
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await callback.answer(
+            t(exc.text_key, language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_selected_category_id=str(item.category_id),
+    )
+
+    await callback.message.answer(
+        t(done_text_key, language),
+    )
+    await callback.message.answer(
+        format_admin_category_card(item, language),
+        reply_markup=admin_category_card_keyboard(language),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "ADM_CAT_REORDER")
+async def admin_category_sort_order_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    data = await state.get_data()
+    if not data.get("admin_selected_category_id"):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(AdminModerationFSM.entering_admin_category_sort_order)
+    await callback.message.answer(
+        t("admin_dict_category_sort_order_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.message(AdminModerationFSM.entering_admin_category_sort_order)
+async def admin_category_sort_order_receive(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+
+    data = await state.get_data()
+    category_id = data.get("admin_selected_category_id")
+
+    if not category_id:
+        await state.clear()
+        await message.answer(t("admin_item_not_found", language))
+        return
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        message.from_user.id
+    )
+
+    if "super_admin" not in roles:
+        await state.clear()
+        await message.answer(t("admin_access_denied", language))
+        return
+
+    try:
+        async with get_session() as session:
+            item = await DictionaryService(
+                DictionaryRepository(session)
+            ).update_category_sort_order(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                category_id=category_id,
+                sort_order_text=message.text or "",
+                language=language,
+            )
+            await session.commit()
+
+    except DictionaryServiceError as exc:
+        await message.answer(t(exc.text_key, language))
+        return
+
+    await state.update_data(
+        admin_selected_category_id=str(item.category_id),
+    )
+    await state.set_state(None)
+
+    await message.answer(
+        t("admin_dict_category_sort_order_done", language),
+    )
+    await message.answer(
+        format_admin_category_card(item, language),
+        reply_markup=admin_category_card_keyboard(language),
+    )
 
 @admin_router.callback_query(F.data == "SA_PANEL")
 async def super_admin_panel_callback(
@@ -7498,6 +21275,81 @@ async def super_admin_user_profile_alias(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t(
+                "admin_access_denied",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+    target_user_id_raw = data.get(
+        "super_admin_selected_user_id"
+    )
+
+    if not target_user_id_raw:
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            target_user_id_raw
+        )
+
+        async with get_session() as session:
+            card = await ModerationService(
+                ModerationRepository(session)
+            ).get_super_admin_user_details(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+            )
+
+    except (
+        ModerationError,
+        ValueError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.message.answer(
+        format_super_admin_user_card(
+            card,
+            language,
+        ),
+        reply_markup=super_admin_user_card_keyboard(
+            language,
+        ),
+    )
+    await callback.answer()
     language = normalize_language(callback.from_user.language_code)
 
     data = await state.get_data()

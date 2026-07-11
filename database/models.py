@@ -445,6 +445,15 @@ class SavedSpecialist(Base):
     specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id", ondelete="CASCADE"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+class Language(Base):
+    __tablename__ = "languages"
+
+    code: Mapped[str] = mapped_column(String(10), primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    native_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
 class SpecialistLanguage(Base):
     __tablename__ = "specialist_languages"
 

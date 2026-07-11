@@ -98,28 +98,49 @@ class UserService:
         telegram_id: int | str,
         language: str = "ru",
     ) -> ClientProfileResult | None:
-        user = await self.get_user_by_telegram_id(telegram_id)
+        user = await self.get_user_by_telegram_id(
+            telegram_id
+        )
+
         if not user:
             return None
 
-        row = await self.repository.get_client_profile_row(
-            user.id,
+        return await self.get_client_profile_by_user_id(
+            user_id=user.id,
             language=language,
         )
+
+    async def get_client_profile_by_user_id(
+        self,
+        *,
+        user_id: uuid.UUID,
+        language: str = "ru",
+    ) -> ClientProfileResult | None:
+        row = await self.repository.get_client_profile_row(
+            user_id,
+            language=language,
+        )
+
         if not row:
             return None
 
         user_row, account, city_name = row
-        roles = await self.repository.list_active_roles(user.id)
+        roles = await self.repository.list_active_roles(
+            user_id
+        )
 
         name = None
         username = None
+
         if account:
             name = (
                 account.display_name
                 or " ".join(
                     part
-                    for part in [account.first_name, account.last_name]
+                    for part in [
+                        account.first_name,
+                        account.last_name,
+                    ]
                     if part
                 )
                 or None
@@ -135,7 +156,6 @@ class UserService:
             active_role=user_row.active_role,
             available_roles=roles,
         )
-
     async def update_interface_language(
         self,
         *,

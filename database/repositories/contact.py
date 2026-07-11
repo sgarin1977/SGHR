@@ -883,12 +883,23 @@ class ContactChatRepository:
             .limit(1)
             .scalar_subquery()
         )
-
+        counterparty_name = (
+            func.coalesce(
+                UserAccount.display_name,
+                UserAccount.first_name,
+                UserAccount.username,
+                literal("Client"),
+            ).label("counterparty_name")
+            if participant_role == "specialist"
+            else Specialist.display_name.label(
+                "counterparty_name"
+            )
+        )
         stmt = (
             select(
                 ConversationThread,
                 ConversationParticipant,
-                Specialist.display_name,
+                counterparty_name,
                 func.coalesce(
                     localized_profession_name,
                     Profession.name_ru,
@@ -903,7 +914,20 @@ class ContactChatRepository:
                 ConversationParticipant,
                 ConversationParticipant.thread_id == ConversationThread.id,
             )
-            .join(Specialist, Specialist.id == ConversationThread.specialist_id)
+            .join(
+                Specialist,
+                Specialist.id == ConversationThread.specialist_id,
+            )
+            .outerjoin(
+                ContactRequest,
+                (ConversationThread.context_type == "contact_request")
+                & (ConversationThread.context_id == ContactRequest.id),
+            )
+            .outerjoin(
+                UserAccount,
+                (UserAccount.user_id == ContactRequest.from_user_id)
+                & (UserAccount.platform == "telegram"),
+            )
             .outerjoin(
                 SpecialistProfession,
                 (SpecialistProfession.specialist_id == Specialist.id)

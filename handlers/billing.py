@@ -42,6 +42,8 @@ from services.specialist import (
     SpecialistRegistrationError,
     SpecialistService,
     SpecialistServiceItemData,
+    MAX_PROFESSIONS_PER_CATEGORY,
+    MAX_SPECIALIST_CATEGORIES,
 )
 from services.user import UserService
 from ui.texts import t
@@ -61,8 +63,6 @@ from services.contact_chat import ContactChatError, ContactChatService
 
 billing_router = Router()
 logger = logging.getLogger(__name__)
-MAX_SPECIALIST_CATEGORIES = 3
-MAX_PROFESSIONS_PER_CATEGORY = 3
 SPECIALIST_SERVICES_PAGE_SIZE = 5
 OWNER_PORTFOLIO_PAGE_SIZE = 5
 SPECIALIST_REVIEWS_PAGE_SIZE = 5

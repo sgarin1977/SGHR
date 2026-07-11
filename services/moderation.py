@@ -23,14 +23,23 @@ from database.repositories.moderation import (
     SuperAdminUserRoleRow,
     SuperAdminAuditEventDetailRow,
     SuperAdminSystemStatusRow,
-    SuperAdminUserSearchRow
+    SuperAdminUserSearchRow,
+    AdminThreadMessageRow,
+    AdminThreadContextRow,
 )
 from database.repositories.rate_limit import RateLimitRepository
+from database.repositories.contact import ContactChatRepository
+from database.repositories.specialist import SpecialistRepository
+from database.repositories.support import SupportRepository
+from services.support import SupportService, SupportServiceError
+from services.user import UserService
 from services.rate_limit import RateLimitError, RateLimitService
 
 class ModerationError(Exception):
     pass
 
+class ImpersonationRoleUnavailableError(ModerationError):
+    pass
 
 @dataclass(frozen=True)
 class ModerationActionResult:
@@ -142,6 +151,33 @@ class SuperAdminImpersonationPreview:
     target_role: str
     read_only: bool
     status: str
+
+@dataclass(frozen=True)
+class ClientReadOnlyCabinet:
+    user_number: str
+    display_name: str | None
+    city_name: str | None
+    dialogs_unread: int
+    requests_new: int
+    requests_accepted: int
+
+@dataclass(frozen=True)
+class SpecialistReadOnlyCabinet:
+    specialist_id: UUID
+    user_number: str
+    display_name: str
+    professions: tuple[str, ...]
+    status: str
+    dialogs_unread: int
+    new_requests: int
+    is_available: bool
+
+@dataclass(frozen=True)
+class SupportReadOnlyCabinet:
+    user_number: str
+    open_tickets: int
+    in_progress_tickets: int
+    resolved_tickets: int
 
 @dataclass(frozen=True)
 class AdminMenuSummary:
@@ -335,6 +371,62 @@ class ModerationService:
         else:
             self.rate_limit_service = None
 
+    async def open_admin_thread_contexts(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+    ) -> list[AdminThreadContextRow]:
+        try:
+            return await self.repository.list_admin_thread_contexts(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            raise ModerationError(str(exc)) from exc
+
+    async def open_admin_thread_messages(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        thread_id: UUID,
+    ) -> list[AdminThreadMessageRow]:
+        try:
+            messages = await self.repository.list_admin_thread_messages_for_thread(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                thread_id=thread_id,
+            )
+
+            await self.repository.log_admin_action(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                action_type="admin_thread_viewed",
+                target_type="thread",
+                target_id=thread_id,
+                before_state={},
+                after_state={
+                    "messages_count": len(messages),
+                    "read_only": True,
+                },
+                reason="Thread viewed from complaint or risk context",
+            )
+
+            await self.repository.session.commit()
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return messages
+
     async def start_super_admin_impersonation_view(
         self,
         *,
@@ -359,6 +451,25 @@ class ModerationService:
             raise ModerationError("Unsupported role for read-only preview.")
 
         try:
+            target_roles = (
+                await self.repository.list_super_admin_user_roles(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    target_user_id=target_user_id,
+                )
+            )
+
+            has_selected_role = any(
+                item.role == normalized_role
+                and item.status == "active"
+                for item in target_roles
+            )
+
+            if not has_selected_role:
+                raise ImpersonationRoleUnavailableError(
+                    "Selected user does not have this active role."
+                )
+
             await self.repository.log_super_admin_impersonation_view(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
@@ -369,7 +480,14 @@ class ModerationService:
             )
             await self.repository.session.commit()
 
-        except (ModerationAccessError, ModerationNotFoundError) as exc:
+        except ImpersonationRoleUnavailableError:
+            await self.repository.session.rollback()
+            raise
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
             await self.repository.session.rollback()
             raise ModerationError(str(exc)) from exc
 
@@ -379,6 +497,256 @@ class ModerationService:
             read_only=True,
             status="started",
         )
+
+    async def get_client_read_only_cabinet(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        language: str,
+    ) -> ClientReadOnlyCabinet:
+        try:
+            await self.repository.require_admin_role(
+                admin_user_id,
+                {"super_admin"},
+            )
+
+            user_service = UserService(
+                self.repository.session
+            )
+
+            profile = (
+                await user_service.get_client_profile_by_user_id(
+                    user_id=target_user_id,
+                    language=language,
+                )
+            )
+
+            if not profile:
+                raise ModerationNotFoundError(
+                    "Target user not found."
+                )
+
+            if "client" not in profile.available_roles:
+                raise ImpersonationRoleUnavailableError(
+                    "Selected user does not have this active role."
+                )
+
+            unread_counts = (
+                await user_service.repository.get_role_unread_counts(
+                    target_user_id
+                )
+            )
+
+            request_counts = (
+                await ContactChatRepository(
+                    self.repository.session
+                ).count_client_active_requests_by_status(
+                    user_id=target_user_id,
+                )
+            )
+
+            requests_new = int(
+                request_counts.get("new", 0)
+            )
+            requests_accepted = int(
+                request_counts.get("accepted", 0)
+            )
+
+            return ClientReadOnlyCabinet(
+                user_number=profile.user_number,
+                display_name=profile.name,
+                city_name=profile.city_name,
+                dialogs_unread=int(
+                    unread_counts.get("client", 0)
+                ),
+                requests_new=requests_new,
+                requests_accepted=requests_accepted,
+            )
+
+        except ImpersonationRoleUnavailableError:
+            raise
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            raise ModerationError(str(exc)) from exc
+
+    async def get_specialist_read_only_cabinet(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        language: str,
+    ) -> SpecialistReadOnlyCabinet:
+        try:
+            await self.repository.require_admin_role(
+                admin_user_id,
+                {"super_admin"},
+            )
+
+            user_service = UserService(
+                self.repository.session
+            )
+            active_roles = (
+                await user_service.repository.list_active_roles(
+                    target_user_id
+                )
+            )
+
+            if "specialist" not in active_roles:
+                raise ImpersonationRoleUnavailableError(
+                    "Selected user does not have this active role."
+                )
+
+            specialist_repository = SpecialistRepository(
+                self.repository.session
+            )
+            specialist = (
+                await specialist_repository.get_by_user_id(
+                    target_user_id
+                )
+            )
+
+            if (
+                not specialist
+                or specialist.tenant_id != tenant_id
+            ):
+                raise ImpersonationRoleUnavailableError(
+                    "Selected user does not have a specialist cabinet."
+                )
+
+            profession_links = (
+                await specialist_repository
+                .list_active_specialist_professions(
+                    specialist.id
+                )
+            )
+
+            localized_field = {
+                "ru": "name_ru",
+                "en": "name_en",
+                "pt": "name_pt",
+            }.get(language, "name_ru")
+
+            professions = tuple(
+                str(
+                    getattr(
+                        item.Profession,
+                        localized_field,
+                        None,
+                    )
+                    or item.Profession.name_ru
+                    or item.Profession.name_en
+                    or item.Profession.name_pt
+                    or item.Profession.name
+                )
+                for item in profession_links
+            )
+
+            unread_counts = (
+                await user_service.repository.get_role_unread_counts(
+                    target_user_id
+                )
+            )
+
+            new_requests = (
+                await ContactChatRepository(
+                    self.repository.session
+                ).count_new_requests_for_specialist(
+                    specialist_id=specialist.id,
+                )
+            )
+
+            return SpecialistReadOnlyCabinet(
+                specialist_id=specialist.id,
+                user_number=f"user-{target_user_id.hex[:8]}",
+                display_name=(
+                    specialist.display_name
+                    or f"user-{target_user_id.hex[:8]}"
+                ),
+                professions=professions,
+                status=specialist.status,
+                dialogs_unread=int(
+                    unread_counts.get("specialist", 0)
+                ),
+                new_requests=int(new_requests),
+                is_available=bool(specialist.is_available),
+            )
+
+        except ImpersonationRoleUnavailableError:
+            raise
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            raise ModerationError(str(exc)) from exc
+
+    async def get_support_read_only_cabinet(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+    ) -> SupportReadOnlyCabinet:
+        try:
+            await self.repository.require_admin_role(
+                admin_user_id,
+                {"super_admin"},
+            )
+
+            user_service = UserService(
+                self.repository.session
+            )
+            active_roles = (
+                await user_service.repository.list_active_roles(
+                    target_user_id
+                )
+            )
+
+            if "support" not in active_roles:
+                raise ImpersonationRoleUnavailableError(
+                    "Selected user does not have this active role."
+                )
+
+            counts = await SupportService(
+                SupportRepository(self.repository.session)
+            ).get_staff_ticket_counts(
+                tenant_id=tenant_id,
+                staff_user_id=target_user_id,
+                statuses={
+                    "open",
+                    "in_progress",
+                    "resolved",
+                },
+            )
+
+            return SupportReadOnlyCabinet(
+                user_number=f"user-{target_user_id.hex[:8]}",
+                open_tickets=int(counts.get("open", 0)),
+                in_progress_tickets=int(
+                    counts.get("in_progress", 0)
+                ),
+                resolved_tickets=int(
+                    counts.get("resolved", 0)
+                ),
+            )
+
+        except ImpersonationRoleUnavailableError:
+            raise
+
+        except SupportServiceError as exc:
+            raise ModerationError(str(exc)) from exc
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            raise ModerationError(str(exc)) from exc
 
     async def stop_super_admin_impersonation_view(
         self,
