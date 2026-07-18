@@ -25,6 +25,11 @@ class ContactRequestResult:
     thread_restricted: bool = False
     was_existing: bool = False
 
+@dataclass(frozen=True)
+class ExistingContactChat:
+    contact_request_id: UUID
+    thread_id: UUID
+
 @dataclass
 class ContactRequestStatusResult:
     contact_request_id: UUID
@@ -101,6 +106,14 @@ class ContactThreadCompletionRequestResult:
     requested_for_user_id: UUID
 
 @dataclass(frozen=True)
+class ContactThreadFinishResult:
+    thread_id: UUID
+    action: str
+    contact_request_id: UUID | None = None
+    requested_for_user_id: UUID | None = None
+    requested_for_role: str | None = None
+
+@dataclass(frozen=True)
 class OverdueCompletionRequest:
     contact_request_id: UUID
     tenant_id: UUID
@@ -125,6 +138,14 @@ class ContactThreadListItem:
     status: str
 
 @dataclass
+class ContactThreadMessageItem:
+    text: str
+    is_sent_by_viewer: bool
+    is_system: bool
+    created_at: datetime
+    attachment: dict | None = None
+
+@dataclass
 class ContactThreadDetail:
     thread_id: UUID
     contact_request_id: UUID | None
@@ -137,7 +158,7 @@ class ContactThreadDetail:
     active_order_id: UUID | None
     active_order_status: str | None
     active_order_created_by: UUID | None
-    messages: list[str]
+    messages: list[ContactThreadMessageItem]
 
 @dataclass
 class ContactRequestListItem:
@@ -177,6 +198,12 @@ class ServiceOrderFormData:
     schedule_text: str | None
     agreed_amount: float | None
     currency: str
+
+CHAT_ATTACHMENT_TYPES = {
+    "photo",
+    "document",
+}
+CHAT_ATTACHMENT_MAX_SIZE_BYTES = 20 * 1024 * 1024
 
 class ContactChatService:
     def __init__(
@@ -244,8 +271,8 @@ class ContactChatService:
     def _validate_contact_message(self, message: str) -> str:
         normalized = (message or "").strip()
 
-        if len(normalized) < 10:
-            raise ContactChatError("Contact message must be at least 10 characters.")
+        if not normalized:
+            raise ContactChatError("Message cannot be empty.")
 
         return normalized
 
@@ -254,6 +281,94 @@ class ContactChatService:
         if not normalized:
             raise ContactChatError("Message cannot be empty.")
         return normalized
+
+    def _validate_chat_attachment(
+        self,
+        attachment: dict | None,
+    ) -> dict | None:
+        if not attachment:
+            return None
+
+        attachment_type = str(
+            attachment.get("type") or ""
+        ).strip()
+        file_id = str(
+            attachment.get("file_id") or ""
+        ).strip()
+        file_unique_id = str(
+            attachment.get("file_unique_id") or ""
+        ).strip()
+
+        if attachment_type not in CHAT_ATTACHMENT_TYPES:
+            raise ContactChatError(
+                "Unsupported attachment type."
+            )
+
+        if not file_id:
+            raise ContactChatError(
+                "Attachment file is missing."
+            )
+
+        raw_file_size = attachment.get("file_size")
+        try:
+            file_size = (
+                int(raw_file_size)
+                if raw_file_size is not None
+                else None
+            )
+        except (TypeError, ValueError) as exc:
+            raise ContactChatError(
+                "Invalid attachment size."
+            ) from exc
+
+        if file_size is not None:
+            if file_size < 0:
+                raise ContactChatError(
+                    "Invalid attachment size."
+                )
+
+            if file_size > CHAT_ATTACHMENT_MAX_SIZE_BYTES:
+                raise ContactChatError(
+                    "Attachment is too large."
+                )
+
+        return {
+            "type": attachment_type,
+            "file_id": file_id,
+            "file_unique_id": file_unique_id or None,
+            "file_name": (
+                str(attachment.get("file_name") or "").strip()
+                or None
+            ),
+            "mime_type": (
+                str(attachment.get("mime_type") or "").strip()
+                or None
+            ),
+            "file_size": file_size,
+        }
+
+    def _message_attachment(
+        self,
+        message,
+    ) -> dict | None:
+        metadata = dict(
+            message.extra_metadata or {}
+        )
+        attachment = metadata.get("attachment")
+
+        if not isinstance(attachment, dict):
+            return None
+
+        attachment_type = attachment.get("type")
+        file_id = attachment.get("file_id")
+
+        if (
+            attachment_type not in CHAT_ATTACHMENT_TYPES
+            or not file_id
+        ):
+            return None
+
+        return dict(attachment)
 
     async def list_specialist_requests(
         self,
@@ -298,6 +413,139 @@ class ContactChatService:
 
         return items
 
+    async def find_existing_contact_chat(
+        self,
+        *,
+        tenant_id: UUID,
+        from_user_id: UUID,
+        specialist_id: UUID,
+        profession_id: UUID | None = None,
+    ) -> ExistingContactChat | None:
+        specialist = await self.repository.get_approved_specialist(
+            specialist_id,
+        )
+        if not specialist:
+            raise ContactChatError(
+                "Specialist is not available for contact."
+            )
+
+        if specialist.user_id == from_user_id:
+            raise ContactChatError(
+                "You cannot contact your own specialist profile."
+            )
+
+        resolved_profession_id = (
+            await self.repository.resolve_contact_profession_id(
+                specialist_id=specialist.id,
+                requested_profession_id=profession_id,
+            )
+        )
+        if resolved_profession_id is None:
+            raise ContactChatError(
+                "Specialist profession is not available."
+            )
+
+        contact_request = (
+            await self.repository.get_active_contact_request_for_pair(
+                tenant_id=tenant_id,
+                from_user_id=from_user_id,
+                specialist_id=specialist.id,
+                profession_id=resolved_profession_id,
+            )
+        )
+        if not contact_request:
+            return None
+
+        thread = await self.repository.get_thread_by_contact_request_id(
+            contact_request.id,
+        )
+        if not thread:
+            raise ContactChatError("Conversation thread not found.")
+
+        return ExistingContactChat(
+            contact_request_id=contact_request.id,
+            thread_id=thread.id,
+        )
+
+    async def open_contact_chat(
+        self,
+        *,
+        tenant_id: UUID,
+        from_user_id: UUID,
+        specialist_id: UUID,
+        profession_id: UUID | None = None,
+        system_message: str,
+        original_language: str | None = None,
+    ) -> ExistingContactChat:
+        existing_chat = await self.find_existing_contact_chat(
+            tenant_id=tenant_id,
+            from_user_id=from_user_id,
+            specialist_id=specialist_id,
+            profession_id=profession_id,
+        )
+        if existing_chat:
+            return existing_chat
+
+        normalized_system_message = (
+            self._validate_thread_message(system_message)
+        )
+
+        if self.rate_limit_service is not None:
+            try:
+                await (
+                    self.rate_limit_service
+                    .ensure_contact_request_allowed(
+                        tenant_id=tenant_id,
+                        user_id=from_user_id,
+                    )
+                )
+            except RateLimitError as exc:
+                raise ContactChatError(str(exc)) from exc
+
+        specialist = await self.repository.get_approved_specialist(
+            specialist_id,
+        )
+        if not specialist:
+            raise ContactChatError(
+                "Specialist is not available for contact."
+            )
+
+        if specialist.user_id == from_user_id:
+            raise ContactChatError(
+                "You cannot contact your own specialist profile."
+            )
+
+        resolved_profession_id = (
+            await self.repository.resolve_contact_profession_id(
+                specialist_id=specialist.id,
+                requested_profession_id=profession_id,
+            )
+        )
+        if resolved_profession_id is None:
+            raise ContactChatError(
+                "Specialist profession is not available."
+            )
+
+        contact_request, thread, _ = await (
+            self.repository
+            .create_contact_thread_with_system_message(
+                tenant_id=tenant_id,
+                from_user_id=from_user_id,
+                specialist_id=specialist.id,
+                profession_id=resolved_profession_id,
+                specialist_user_id=specialist.user_id,
+                system_message=normalized_system_message,
+                original_language=self._normalize_language(
+                    original_language,
+                ),
+            )
+        )
+
+        return ExistingContactChat(
+            contact_request_id=contact_request.id,
+            thread_id=thread.id,
+        )
+
     async def create_contact_request(
         self,
         *,
@@ -318,7 +566,7 @@ class ContactChatService:
             except RateLimitError as exc:
                 raise ContactChatError(str(exc)) from exc
 
-        specialist = await self.repository.get_active_specialist(specialist_id)
+        specialist = await self.repository.get_approved_specialist(specialist_id)
         if not specialist:
             raise ContactChatError("Specialist is not available for contact.")
 
@@ -395,6 +643,48 @@ class ContactChatService:
             thread_restricted=detection_result.thread_restricted,
         )
 
+    async def start_contact_chat(
+        self,
+        *,
+        tenant_id: UUID,
+        from_user_id: UUID,
+        specialist_id: UUID,
+        profession_id: UUID | None = None,
+        message: str,
+        original_language: str | None = None,
+    ) -> ContactRequestResult:
+        result = await self.create_contact_request(
+            tenant_id=tenant_id,
+            from_user_id=from_user_id,
+            specialist_id=specialist_id,
+            profession_id=profession_id,
+            message=message,
+            original_language=original_language,
+        )
+
+        if not result.was_existing:
+            return result
+
+        sent_message = await self.send_thread_message(
+            thread_id=result.thread_id,
+            sender_user_id=from_user_id,
+            text=message,
+            original_language=original_language,
+        )
+
+        return ContactRequestResult(
+            contact_request_id=result.contact_request_id,
+            thread_id=result.thread_id,
+            first_message_id=sent_message.message_id,
+            notification_id=sent_message.notification_id,
+            specialist_user_id=result.specialist_user_id,
+            contact_token=result.contact_token,
+            message_masked=sent_message.message_masked,
+            detection_types=sent_message.detection_types,
+            thread_restricted=sent_message.thread_restricted,
+            was_existing=True,
+        )
+
     async def set_contact_request_status(
         self,
         *,
@@ -460,6 +750,64 @@ class ContactChatService:
             notification_id=notification.id,
             requested_for_user_id=notification.user_id,
         )
+
+    async def finish_thread(
+        self,
+        *,
+        tenant_id: UUID,
+        thread_id: UUID,
+        actor_user_id: UUID,
+    ) -> ContactThreadFinishResult:
+        try:
+            requested_by_user_id = (
+                await self.repository.get_completion_requester_id(
+                    thread_id=thread_id,
+                )
+            )
+
+            if requested_by_user_id:
+                if str(actor_user_id) == requested_by_user_id:
+                    return ContactThreadFinishResult(
+                        thread_id=thread_id,
+                        action="pending",
+                    )
+
+                thread = await self.repository.complete_thread(
+                    thread_id=thread_id,
+                    actor_user_id=actor_user_id,
+                )
+                return ContactThreadFinishResult(
+                    thread_id=thread.id,
+                    action="completed",
+                    contact_request_id=thread.context_id,
+                )
+
+            thread, notification = (
+                await self.repository.request_thread_completion(
+                    tenant_id=tenant_id,
+                    thread_id=thread_id,
+                    actor_user_id=actor_user_id,
+                )
+            )
+            return ContactThreadFinishResult(
+                thread_id=thread.id,
+                action="requested",
+                contact_request_id=thread.context_id,
+                requested_for_user_id=notification.user_id,
+                requested_for_role=(
+                    str(
+                        notification.payload[
+                            "requested_for_role"
+                        ]
+                    )
+                    if notification.payload.get(
+                        "requested_for_role"
+                    )
+                    else None
+                ),
+            ) 
+        except ValueError as exc:
+            raise ContactChatError(str(exc)) from exc
 
     async def list_overdue_completion_requests(
         self,
@@ -859,10 +1207,16 @@ class ContactChatService:
             active_order_status=active_order_status,
             active_order_created_by=active_order_created_by,
             messages=[
-                (
-                    f"Клиент: {message.original_text}"
-                    if message.sender_user_id == thread.client_user_id
-                    else f"Специалист: {message.original_text}"
+                ContactThreadMessageItem(
+                    text=message.original_text,
+                    is_sent_by_viewer=(
+                        message.sender_user_id == user_id
+                    ),
+                    is_system=message.is_system,
+                    created_at=message.created_at,
+                    attachment=self._message_attachment(
+                        message
+                    ),
                 )
                 for message in messages
             ],
@@ -875,8 +1229,26 @@ class ContactChatService:
         sender_user_id: UUID,
         text: str,
         original_language: str | None = None,
+        attachment: dict | None = None,
     ) -> ContactThreadMessageResult:
-        normalized_text = self._validate_thread_message(text)
+        normalized_attachment = (
+            self._validate_chat_attachment(attachment)
+        )
+        normalized_text = (text or "").strip()
+
+        if normalized_text:
+            normalized_text = self._validate_thread_message(
+                normalized_text
+            )
+        elif normalized_attachment:
+            normalized_text = (
+                normalized_attachment.get("file_name")
+                or "📎 Attachment"
+            )
+        else:
+            raise ContactChatError(
+                "Message cannot be empty."
+            )
 
         if self.rate_limit_service is not None:
             try:
@@ -895,11 +1267,22 @@ class ContactChatService:
                 raise ContactChatError(str(exc)) from exc
 
         try:
-            thread, message, notification = await self.repository.create_thread_message(
-                thread_id=thread_id,
-                sender_user_id=sender_user_id,
-                original_text=normalized_text,
-                original_language=self._normalize_language(original_language),
+            thread, message, notification = (
+                await self.repository.create_thread_message(
+                    thread_id=thread_id,
+                    sender_user_id=sender_user_id,
+                    original_text=normalized_text,
+                    original_language=self._normalize_language(
+                        original_language
+                    ),
+                    message_metadata=(
+                        {
+                            "attachment": normalized_attachment,
+                        }
+                        if normalized_attachment
+                        else None
+                    ),
+                )
             )
         except ValueError as exc:
             raise ContactChatError(str(exc)) from exc
@@ -1064,7 +1447,17 @@ class ContactChatService:
             is_archived=participant.is_archived,
             is_hidden=participant.is_hidden,
         )
-    
+    async def archive_thread_after_review(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+    ) -> ContactThreadVisibilityResult:
+        return await self.set_thread_visibility(
+            thread_id=thread_id,
+            user_id=user_id,
+            is_archived=True,
+        )
     async def list_client_threads(
         self,
         *,
@@ -1073,6 +1466,7 @@ class ContactChatService:
         limit: int = 5,
         offset: int = 0,
         language: str = "ru",
+        search_query: str | None = None,
     ) -> list[ContactThreadListItem]:
         rows = await self.repository.list_threads_for_user(
             user_id=user_id,
@@ -1081,6 +1475,7 @@ class ContactChatService:
             limit=limit,
             offset=offset,
             language=language,
+            search_query=search_query,
         )
 
         return [
@@ -1111,6 +1506,7 @@ class ContactChatService:
         limit: int = 5,
         offset: int = 0,
         language: str = "ru",
+        search_query: str | None = None,
     ) -> list[ContactThreadListItem]:
         rows = await self.repository.list_threads_for_user(
             user_id=user_id,
@@ -1119,6 +1515,7 @@ class ContactChatService:
             limit=limit,
             offset=offset,
             language=language,
+            search_query=search_query,
         )
 
         return [
@@ -1140,3 +1537,14 @@ class ContactChatService:
                 last_message_at,
             ) in rows
         ]
+    
+    async def count_unread_messages(
+        self,
+        *,
+        user_id: UUID,
+        participant_role: str,
+    ) -> int:
+        return await self.repository.count_unread_messages_for_user(
+            user_id=user_id,
+            participant_role=participant_role,
+        )

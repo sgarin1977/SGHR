@@ -275,6 +275,55 @@ class SpecialistService:
             is_available=bool(specialist.is_available),
             work_format=specialist.work_format,
         )
+    
+    async def get_profile_profession_selections(
+        self,
+        *,
+        specialist_id: UUID,
+        language: str = "ru",
+    ) -> list[dict[str, str]]:
+        rows = await self.repository.list_active_specialist_professions(
+            specialist_id=specialist_id,
+        )
+
+        return [
+            {
+                "category_id": str(category.id),
+                "category_name": _localized_model_name(
+                    category,
+                    language,
+                ),
+                "profession_id": str(profession.id),
+                "profession_name": _localized_model_name(
+                    profession,
+                    language,
+                ),
+            }
+            for _, category, profession in rows
+        ]
+
+    async def list_active_categories_for_profile_editor(
+        self,
+        *,
+        limit: int = 50,
+    ):
+        return await self.repository.list_active_categories(
+            limit=limit,
+        )
+
+    async def replace_profile_professions(
+        self,
+        *,
+        specialist_id: UUID | str,
+        user_id: UUID | str,
+        profession_selections: list[dict],
+    ):
+        return await self.repository.replace_specialist_professions(
+            specialist_id=UUID(str(specialist_id)),
+            user_id=UUID(str(user_id)),
+            profession_selections=profession_selections,
+        )
+
     async def create_pending_profile(self, data: SpecialistRegistrationData):
         await self._require_specialist_consents(data)
 
@@ -580,50 +629,6 @@ class SpecialistService:
         )
 
         return service, before_status
-    async def toggle_profile_status(
-        self,
-        *,
-        user_id: UUID,
-        specialist_id: UUID,
-    ):
-        specialist = await self.repository.get_by_user_id(user_id)
-        if not specialist or specialist.id != specialist_id:
-            raise SpecialistRegistrationError("Specialist profile not found.")
-
-        before_status = specialist.status
-        after_status = "active" if before_status == "paused" else "paused"
-        action = "resume" if after_status == "active" else "pause"
-
-        specialist = await self.repository.set_specialist_profile_status(
-            user_id=user_id,
-            specialist_id=specialist_id,
-            status=after_status,
-        )
-
-        return specialist, before_status, after_status, action
-
-    async def set_profile_status(
-        self,
-        *,
-        user_id: UUID,
-        specialist_id: UUID,
-        status: str,
-    ):
-        if status not in {"active", "paused", "draft"}:
-            raise SpecialistRegistrationError("Invalid profile status.")
-
-        specialist = await self.repository.get_by_user_id(user_id)
-        if not specialist or specialist.id != specialist_id:
-            raise SpecialistRegistrationError("Specialist profile not found.")
-
-        before_status = specialist.status
-        updated_specialist = await self.repository.set_specialist_profile_status(
-            user_id=user_id,
-            specialist_id=specialist_id,
-            status=status,
-        )
-
-        return updated_specialist, before_status, status
 
     async def update_availability(
         self,

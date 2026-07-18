@@ -132,7 +132,7 @@ async def specialist_registration_start_screen(callback: CallbackQuery):
 async def specialist_registration_start_cancel(callback: CallbackQuery):
     language = normalize_language(callback.from_user.language_code)
 
-    await callback.message.answer(t("specialist_registration_cancelled", language))
+    await callback.message.answer(t("spec_cancelled", language))
     await back_to_main_menu(callback)
 
 @legal_router.callback_query(F.data == CB_SPECIALIST_START_CONFIRM)

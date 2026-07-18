@@ -8,7 +8,7 @@ from database.session import get_session
 from services.rate_limit import RateLimitError
 from services.user import TelegramUserData, UserService
 from ui.texts import t
-
+from utils.telegram_cleanup import delete_telegram_messages
 start_router = Router()
 
 
@@ -25,6 +25,8 @@ ROLE_TEXT_KEYS = {
     "moderator": "role_text_moderator",
     "admin": "role_text_admin",
     "super_admin": "role_text_super_admin",
+    "finance_admin": "role_text_finance_admin",
+    "advertiser": "role_text_advertiser",
 }
 
 
@@ -34,8 +36,8 @@ def role_label(
     role_details: dict[str, str] | None = None,
     unread_counts: dict[str, int] | None = None,
 ) -> str:
-    key = ROLE_TEXT_KEYS.get(role)
-    label = t(key, language) if key else role
+    key = ROLE_TEXT_KEYS.get(role, "role_text_other")
+    label = t(key, language)
 
     detail = (role_details or {}).get(role)
     if detail:
@@ -60,7 +62,7 @@ def role_switch_keyboard(
         text = role_label(role, language, role_details, unread_counts)
 
         if is_active:
-            text = f"* {text}"
+            text = f"✓ {text}"
 
         rows.append(
             [
@@ -140,68 +142,40 @@ def get_main_menu_keyboard(
     show_role_switch: bool = False,
     show_admin: bool = False,
 ) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=t("menu_find_specialist", language),
-                callback_data="M_FIND",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_specialist", language),
-                callback_data="M_SPECIALIST",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_rfq", language),
-                callback_data="M_RFQ_STUB",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_dialogs", language),
-                callback_data="CLIENT_DIALOGS",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_my_cabinet", language),
-                callback_data="M_CABINET",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_community", language),
-                callback_data="M_COMMUNITY_STUB",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_hr", language),
-                callback_data="M_HR_STUB",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("menu_settings", language),
-                callback_data="M_SETTINGS",
-            )
-        ],
-    ]
-
-    if show_admin:
-        rows.append(
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("menu_admin", language),
-                    callback_data="ADM_PANEL",
+                    text=t("menu_find_specialist", language),
+                    callback_data="M_FIND",
                 )
-            ]
-        )
-
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_specialist", language),
+                    callback_data="M_SPECIALIST",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_dialogs", language),
+                    callback_data="CLIENT_DIALOGS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_my_cabinet", language),
+                    callback_data="M_CABINET",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_all_services", language),
+                    callback_data="M_ALL_SERVICES",
+                )
+            ],
+        ]
+    )
 
 def jobs_menu_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -260,26 +234,60 @@ async def get_main_menu_keyboard_for_user(
     )
 
 async def get_main_menu_text(language: str) -> str:
-    async with get_session() as session:
-        stats = await UserService(session).get_public_platform_stats()
+    return t("search_main_menu", language)
 
-    return (
-        t("search_main_menu", language)
-        + "\n\n"
-        + t("main_menu_stats", language).format(
-            countries=stats.countries,
-            cities=stats.cities,
-            users=stats.users,
-            specialists=stats.specialists,
+async def replace_main_menu_message(
+    *,
+    message: Message,
+    state: FSMContext,
+    user_id: int,
+    language: str,
+    previous_message_id: int | None = None,
+) -> Message:
+    if previous_message_id is None:
+        state_data = await state.get_data()
+        previous_message_id = state_data.get(
+            "last_menu_message_id"
         )
+
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=(
+            [previous_message_id]
+            if previous_message_id
+            else []
+        ),
     )
+
+    menu_message = await message.answer(
+        await get_main_menu_text(language),
+        reply_markup=(
+            await get_main_menu_keyboard_for_user(
+                user_id,
+                language,
+            )
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
+
+    return menu_message
 
 async def send_global_main_menu(
     callback: CallbackQuery,
     state: FSMContext | None = None,
     language: str | None = None,
 ):
+    previous_message_id = None
+
     if state:
+        state_data = await state.get_data()
+        previous_message_id = state_data.get(
+            "last_menu_message_id"
+        )
         await state.clear()
 
     language = normalize_language(language or callback.from_user.language_code)
@@ -291,10 +299,25 @@ async def send_global_main_menu(
             language = normalize_language(settings.interface_language or user.language_code)
             await session.commit()
 
-    await callback.message.answer(
-        await get_main_menu_text(language),
-        reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
-    )
+    if state:
+        await replace_main_menu_message(
+            message=callback.message,
+            state=state,
+            user_id=callback.from_user.id,
+            language=language,
+            
+        )
+    else:
+        await callback.message.answer(
+            await get_main_menu_text(language),
+            reply_markup=(
+                await get_main_menu_keyboard_for_user(
+                    callback.from_user.id,
+                    language,
+                )
+            ),
+        )
+
     await callback.answer()
 
 @start_router.callback_query(F.data == "JOBS_MENU")
@@ -371,7 +394,7 @@ async def send_active_role_cabinet_from_message(
         return
 
     if role == "client":
-        from handlers.billing import client_cabinet_keyboard, get_client_cabinet_counts
+        from handlers.billing import client_cabinet_keyboard
 
         async with get_session() as session:
             service = UserService(session)
@@ -395,12 +418,10 @@ async def send_active_role_cabinet_from_message(
         show_role_switch = bool(
             role_context and len(role_context.available_roles) > 1
         )
-        counts = await get_client_cabinet_counts(message.from_user.id)
-
         await message.answer(
             t("client_cabinet_title", language)
             + "\n\n"
-            + t("client_cabinet_summary", language).format(**counts),
+            + t("client_cabinet_summary", language),
             reply_markup=client_cabinet_keyboard(
                 language,
                 show_role_switch=show_role_switch,
@@ -421,6 +442,77 @@ async def send_active_role_cabinet_from_message(
 async def global_main_menu(callback: CallbackQuery, state: FSMContext):
     await send_global_main_menu(callback, state)
 
+def all_services_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t("all_services_community_btn", language),
+                    callback_data="M_COMMUNITY_STUB",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("all_services_companies_btn", language),
+                    callback_data="M_HR_STUB",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("all_services_crm_btn", language),
+                    callback_data="CAB_CRM_STUB",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("all_services_finance_btn", language),
+                    callback_data="CAB_FINANCE_STUB",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("all_services_promotion_btn", language),
+                    callback_data="M_PROMOTION_STUB",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("menu_settings", language),
+                    callback_data="M_SETTINGS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("all_services_help_btn", language),
+                    callback_data="SUPPORT_MENU",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("main_menu", language),
+                    callback_data="GLOBAL_MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+@start_router.callback_query(F.data == "M_ALL_SERVICES")
+async def open_all_services(
+    callback: CallbackQuery,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await callback.message.answer(
+        (
+            f"{t('all_services_title', language)}\n\n"
+            f"{t('all_services_hint', language)}"
+        ),
+        reply_markup=all_services_keyboard(language),
+    )
+    await callback.answer()
+
 @start_router.callback_query(F.data == "M_SPECIALIST")
 async def main_menu_specialist(
     callback: CallbackQuery,
@@ -434,7 +526,14 @@ async def main_menu_specialist(
 
 
 @start_router.callback_query(
-    F.data.in_({"M_RFQ_STUB", "M_COMMUNITY_STUB", "M_HR_STUB"})
+    F.data.in_(
+        {
+            "M_RFQ_STUB",
+            "M_COMMUNITY_STUB",
+            "M_HR_STUB",
+            "M_PROMOTION_STUB",
+        }
+    )
 )
 async def main_menu_beta_stub(
     callback: CallbackQuery,
@@ -443,8 +542,9 @@ async def main_menu_beta_stub(
 
     text_key = {
         "M_RFQ_STUB": "main_rfq_stub",
-        "M_COMMUNITY_STUB": "main_community_stub",
-        "M_HR_STUB": "main_hr_stub",
+        "M_COMMUNITY_STUB": "all_services_community_stub",
+        "M_HR_STUB": "all_services_companies_stub",
+        "M_PROMOTION_STUB": "all_services_promotion_stub",
     }.get(callback.data, "feature_disabled_beta_message")
 
     await callback.message.answer(
@@ -500,23 +600,13 @@ async def cmd_start(message: Message, state: FSMContext):
         await message.answer(t("error_rate_limited", language))
         return
 
-    if result.role == "super_admin":
-        role_text = t("role_text_super_admin", language)
-    else:
-        role_text = t("role_text_client", language)
 
     if result.is_new:
-        text = t("start_welcome_new", language).format(
-            first_name=first_name,
-            role_text=role_text,
-        )
-        await message.answer(text, parse_mode="HTML")
-        await message.answer(
-            await get_main_menu_text(language),
-            reply_markup=await get_main_menu_keyboard_for_user(
-                message.from_user.id,
-                language,
-            ),
+        await replace_main_menu_message(
+            message=message,
+            state=state,
+            language=language,
+            user_id=message.from_user.id,
         )
 
         from handlers.search import resume_post_auth_action
@@ -530,8 +620,6 @@ async def cmd_start(message: Message, state: FSMContext):
 
         return
 
-    text = t("start_welcome_existing", language).format(first_name=first_name)
-    await message.answer(text)
     from handlers.search import resume_post_auth_action
 
     if await resume_post_auth_action(
@@ -541,12 +629,11 @@ async def cmd_start(message: Message, state: FSMContext):
     ):
         return
 
-    await message.answer(
-        await get_main_menu_text(language),
-        reply_markup=await get_main_menu_keyboard_for_user(
-            message.from_user.id,
-            language,
-        ),
+    await replace_main_menu_message(
+        message=message,
+        state=state,
+        user_id=message.from_user.id,
+        language=language,
     )
 
 @start_router.callback_query(F.data == "ROLE_SWITCH_MENU")

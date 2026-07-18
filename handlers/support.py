@@ -240,7 +240,7 @@ def support_ticket_card_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{index + 1}. {t('client_request_open', language)}",
+                    text=f"{index + 1}. {t('support_ticket_details_btn', language)}",
                     callback_data=f"SUPPORT_VIEW:{index}",
                 )
             ]

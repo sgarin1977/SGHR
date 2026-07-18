@@ -34,7 +34,13 @@ from services.rate_limit import RateLimitError, RateLimitService
 from services.specialist import SpecialistSearchTextService
 from services.translation import TranslationError, TranslationService
 from ui.texts import t
+from utils.telegram_cleanup import (
+    delete_telegram_messages,
+    send_telegram_attachment,
+    split_telegram_text,
+)
 from database.repositories.favorites import FavoriteRepository
+from services.favorites import FavoriteService
 from database.repositories.portfolio import PortfolioRepository
 from database.repositories.reviews import ReviewRepository
 from services.reviews import ReviewService, ReviewServiceError
@@ -56,10 +62,7 @@ class SpecialistSearchFSM(StatesGroup):
     waiting_geo = State()
     choosing_filters = State()
     viewing_results = State()
-    entering_contact_message = State()
-    confirming_contact_message = State()
     entering_thread_message = State()
-    entering_order_form = State()
     entering_report_comment = State()
     confirming_report = State()
     choosing_review_rating = State()
@@ -179,12 +182,17 @@ async def show_callback_message(
     callback: CallbackQuery,
     text: str,
     reply_markup: InlineKeyboardMarkup | None = None,
-):
+) -> Message:
     try:
-        await callback.message.edit_text(text, reply_markup=reply_markup)
+        return await callback.message.edit_text(
+            text,
+            reply_markup=reply_markup,
+        )
     except TelegramBadRequest:
-        await callback.message.answer(text, reply_markup=reply_markup)
-
+        return await callback.message.answer(
+            text,
+            reply_markup=reply_markup,
+        )
 
 async def get_requester_context(platform_user_id: int | str) -> tuple[UUID | None, UUID | None]:
     async with get_session() as session:
@@ -221,52 +229,71 @@ async def resume_post_auth_action(
     data = await state.get_data()
     action = data.get("post_auth_action")
     specialist_id = data.get("selected_specialist_id")
+    profession_id = data.get("profession_id")
 
     if not action or not specialist_id:
         return False
 
-    user_id, tenant_id = await get_requester_context(message.from_user.id)
+    user_id, tenant_id = await get_requester_context(
+        message.from_user.id,
+    )
     if not user_id or not tenant_id:
         return False
 
     await state.update_data(post_auth_action=None)
-    await message.answer(t("auth_action_restored", language))
 
     if action == "contact":
-        pending_message = (data.get("pending_contact_message") or "").strip()
-
-        if pending_message:
-            await state.set_state(SpecialistSearchFSM.confirming_contact_message)
+        try:
+            async with get_session() as session:
+                chat = await ContactChatService(
+                    ContactChatRepository(session)
+                ).open_contact_chat(
+                    tenant_id=tenant_id,
+                    from_user_id=user_id,
+                    specialist_id=UUID(specialist_id),
+                    profession_id=(
+                        UUID(profession_id)
+                        if profession_id
+                        else None
+                    ),
+                    system_message=t(
+                        "contact_chat_first_prompt",
+                        language,
+                    ),
+                    original_language=language,
+                )
+        except (ContactChatError, ValueError) as exc:
+            logger.warning(
+                "post_auth_contact_chat_open_failed "
+                "telegram_id=%s specialist_id=%s error=%s",
+                message.from_user.id,
+                specialist_id,
+                exc,
+            )
             await message.answer(
-                t("contact_message_confirm_prompt", language).format(
-                    message=pending_message,
-                ),
-                reply_markup=contact_message_confirm_keyboard(language),
+                t("contact_chat_error", language)
             )
             return True
 
-        await state.set_state(SpecialistSearchFSM.viewing_results)
-        await message.answer(
-            t("contact_disclaimer_text", language),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t("contact_disclaimer_continue", language),
-                            callback_data="contact_disclaimer_continue",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text=t("search_menu", language),
-                            callback_data="search_menu",
-                        )
-                    ],
-                ]
+        await state.update_data(
+            active_contact_request_id=str(
+                chat.contact_request_id
             ),
+            active_thread_id=str(chat.thread_id),
+            active_thread_role="client",
+            pending_contact_message=None,
+        )
+        await state.set_state(
+            SpecialistSearchFSM.entering_thread_message,
+        )
+
+        await show_client_contact_chat(
+            message=message,
+            thread_id=str(chat.thread_id),
+            user_id=user_id,
+            language=language,
         )
         return True
-
     if action == "favorite":
         try:
             async with get_session() as session:
@@ -292,7 +319,6 @@ async def resume_post_auth_action(
         return True
     if action == "reviews":
         await state.set_state(SpecialistSearchFSM.viewing_results)
-        await message.answer(t("auth_action_restored", language))
         return True
     return False
 
@@ -319,17 +345,33 @@ def paged_keyboard(
     page: int,
     language: str,
     back_callback: str = "search_filters",
+    back_text_key: str = "search_back_to_filters_btn",
     page_size: int = PER_PAGE,
+    extra_rows: list[list[InlineKeyboardButton]] | None = None,
+    selected_item_id: str | None = None,
 ) -> InlineKeyboardMarkup:
     start = page * page_size
     end = start + page_size
 
     rows = []
-    for index, item in enumerate(items[start:end], start=start):
+    for index, item in enumerate(
+        items[start:end],
+        start=start,
+    ):
+        item_id = str(item.id)
+        marker = (
+            "✓ "
+            if item_id == selected_item_id
+            else ""
+        )
+
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=item_name(item, language),
+                    text=(
+                        f"{marker}"
+                        f"{item_name(item, language)}"
+                    ),
                     callback_data=f"{item_prefix}:{index}",
                 )
             ]
@@ -337,17 +379,91 @@ def paged_keyboard(
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton(text="<", callback_data=f"{page_prefix}:{page - 1}"))
+        nav.append(
+            InlineKeyboardButton(
+                text=t(
+                    "search_previous_categories",
+                    language,
+                ),
+                callback_data=(
+                    f"{page_prefix}:{page - 1}"
+                ),
+            )
+        )
     if end < len(items):
-        nav.append(InlineKeyboardButton(text=">", callback_data=f"{page_prefix}:{page + 1}"))
+        nav.append(
+            InlineKeyboardButton(
+                text=t(
+                    "search_more_categories",
+                    language,
+                ),
+                callback_data=(
+                    f"{page_prefix}:{page + 1}"
+                ),
+            )
+        )
     if nav:
         rows.append(nav)
 
-    rows.append([InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data=back_callback)])
+    if extra_rows:
+        rows.extend(extra_rows)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(back_text_key, language),
+                callback_data=back_callback,
+            )
+        ]
+    )
     rows.append([InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def category_selection_text(
+    language: str,
+    selected_names: list[str],
+) -> str:
+    screen_text = t(
+        "search_choose_category",
+        language,
+    )
+
+    if not selected_names:
+        return screen_text
+
+    selected_count_text = t(
+        "search_selected_professions_count",
+        language,
+    ).format(
+        count=len(selected_names),
+    )
+
+    return (
+        f"{screen_text}\n\n"
+        f"{selected_count_text}\n"
+        f"{', '.join(selected_names)}"
+    )
+
+
+def category_selection_rows(
+    language: str,
+    selected_ids: list[str],
+) -> list[list[InlineKeyboardButton]] | None:
+    if not selected_ids:
+        return None
+
+    return [
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "search_show_specialists_btn",
+                    language,
+                ),
+                callback_data="search_professions_apply",
+            )
+        ]
+    ]
 
 def profession_keyboard(
     *,
@@ -355,6 +471,7 @@ def profession_keyboard(
     page: int,
     language: str,
     selected_ids: set[str] | None = None,
+    show_filters_back: bool = False,
 ) -> InlineKeyboardMarkup:
     selected_ids = selected_ids or set()
     page_size = PER_PAGE
@@ -365,7 +482,7 @@ def profession_keyboard(
         [
             InlineKeyboardButton(
                 text=t("search_all_professions", language),
-                callback_data="search_profession_all",
+                callback_data="search_professions_select_all",
             )
         ]
     ]
@@ -386,20 +503,38 @@ def profession_keyboard(
     if page > 0:
         nav.append(
             InlineKeyboardButton(
-                text="<",
-                callback_data=f"search_professions_page:{page - 1}",
+                text=t(
+                    "search_previous_professions",
+                    language,
+                ),
+                callback_data=(
+                    f"search_professions_page:{page - 1}"
+                ),
             )
         )
     if end < len(professions):
         nav.append(
             InlineKeyboardButton(
-                text=">",
-                callback_data=f"search_professions_page:{page + 1}",
+                text=t(
+                    "search_more_professions",
+                    language,
+                ),
+                callback_data=(
+                    f"search_professions_page:{page + 1}"
+                ),
             )
         )
     if nav:
         rows.append(nav)
 
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t("search_reset_directions_btn", language),
+                callback_data="search_professions_reset",
+            )
+        ]
+    )
     rows.append(
         [
             InlineKeyboardButton(
@@ -411,185 +546,110 @@ def profession_keyboard(
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("search_other_category_btn", language),
-                callback_data="search_filter_category",
-            ),
-            InlineKeyboardButton(
-                text=t("search_reset_directions_btn", language),
-                callback_data="search_professions_reset",
-            ),
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_back", language),
+                text=t(
+                    "search_back_to_categories_btn",
+                    language,
+                ),
                 callback_data="search_filter_category",
             )
         ]
     )
+    if show_filters_back:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_back_to_filters_btn",
+                        language,
+                    ),
+                    callback_data="search_filters",
+                )
+            ]
+        )
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("search_menu", language),
+                text=t(
+                    "search_menu",
+                    language,
+                ),
                 callback_data="search_menu",
             )
         ]
     )
 
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows,
+    )
 
-def result_card_keyboard(index: int, language: str) -> InlineKeyboardMarkup:
+def profession_selection_text(
+    language: str,
+    selected_ids: list[str] | set[str] | None,
+) -> str:
+    selected_count = len(selected_ids or [])
+
+    return (
+        f"{t('search_choose_profession', language)}\n\n"
+        f"{t('search_selected_professions_count', language).format(count=selected_count)}"
+    )
+
+
+
+def result_card_keyboard(
+    index: int,
+    language: str,
+    *,
+    is_saved: bool = False,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("search_profile_btn", language),
+                    text=t("search_result_details_btn", language),
                     callback_data=f"search_result:{index}",
                 ),
                 InlineKeyboardButton(
-                    text=t("contact", language),
+                    text=t("search_result_message_btn", language),
                     callback_data=f"search_result_contact:{index}",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=t("favorite", language),
+                    text=t(
+                        "search_result_saved_btn"
+                        if is_saved
+                        else "search_result_save_btn",
+                        language,
+                    ),
                     callback_data=f"search_result_favorite:{index}",
                 )
             ],
         ]
     )
 
-def results_keyboard(
-    *,
+
+def results_navigation_keyboard(
     page: int,
     has_next: bool,
     language: str,
-    indexes: list[int] | None = None,
 ) -> InlineKeyboardMarkup:
     rows = []
 
-    for index in indexes or []:
+    if has_next:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=t("search_profile_btn", language),
-                    callback_data=f"search_result:{index}",
-                ),
-                InlineKeyboardButton(
-                    text=t("contact", language),
-                    callback_data=f"search_result_contact:{index}",
-                ),
-            ]
-        )
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("favorite", language),
-                    callback_data=f"search_result_favorite:{index}",
+                    text=t("search_next_specialists", language),
+                    callback_data=f"search_results_page:{page + 1}",
                 )
             ]
         )
 
-    nav = []
-    if page > 0:
-        nav.append(
-            InlineKeyboardButton(
-                text="<",
-                callback_data=f"search_results_page:{page - 1}",
-            )
-        )
-    if has_next:
-        nav.append(
-            InlineKeyboardButton(
-                text=">",
-                callback_data=f"search_results_page:{page + 1}",
-            )
-        )
-    if nav:
-        rows.append(nav)
-
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("search_back_to_filters", language),
+                text=t("search_filters_btn", language),
                 callback_data="search_filters",
-            )
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_refine_location_btn", language),
-                callback_data="search_filter_location",
-            )
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_menu", language),
-                callback_data="search_menu",
-            )
-        ]
-    )
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-def results_navigation_keyboard(page: int, has_next: bool, language: str) -> InlineKeyboardMarkup:
-    rows = []
-
-    nav = []
-    if page > 0:
-        nav.append(
-            InlineKeyboardButton(
-                text="<",
-                callback_data=f"search_results_page:{page - 1}",
-            )
-        )
-    if has_next:
-        nav.append(
-            InlineKeyboardButton(
-                text=">",
-                callback_data=f"search_results_page:{page + 1}",
-            )
-        )
-    if nav:
-        rows.append(nav)
-
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_new", language),
-                callback_data="search_start",
-            )
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_write_query_btn", language),
-                callback_data="SEARCH_AI",
-            ),
-            InlineKeyboardButton(
-                text=t("search_choose_category_btn", language),
-                callback_data="search_filter_category",
-            ),
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_back_to_filters", language),
-                callback_data="search_filters",
-            )
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_refine_location_btn", language),
-                callback_data="search_filter_location",
             )
         ]
     )
@@ -604,43 +664,74 @@ def results_navigation_keyboard(page: int, has_next: bool, language: str) -> Inl
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
-def card_keyboard(language: str, results_page: int = 0) -> InlineKeyboardMarkup:
+def card_keyboard(
+    language: str,
+    results_page: int = 0,
+    *,
+    is_saved: bool = False,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("contact", language),
+                    text=t(
+                        "contact",
+                        language,
+                    ),
                     callback_data="search_contact_pending",
                 ),
                 InlineKeyboardButton(
-                    text=t("favorite", language),
+                    text=t(
+                        (
+                            "search_result_saved_btn"
+                            if is_saved
+                            else "search_result_save_btn"
+                        ),
+                        language,
+                    ),
                     callback_data="search_favorite_pending",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=t("specialist_profile_portfolio_btn", language),
+                    text=t(
+                        "specialist_profile_portfolio_btn",
+                        language,
+                    ),
                     callback_data="search_portfolio_pending",
                 ),
                 InlineKeyboardButton(
-                    text=t("specialist_profile_reviews_btn", language),
+                    text=t(
+                        "specialist_profile_reviews_btn",
+                        language,
+                    ),
                     callback_data="search_reviews_pending",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_back", language),
-                    callback_data=f"search_results_page:{results_page}",
+                    text=t(
+                        "search_back",
+                        language,
+                    ),
+                    callback_data=(
+                        f"search_results_page:"
+                        f"{results_page}"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_menu", language),
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
                     callback_data="search_menu",
                 )
             ],
         ]
     )
+
 def public_portfolio_caption(view, language: str) -> str:
     is_photo = view.storage_object.file_type == "photo"
     label = t(
@@ -1101,7 +1192,7 @@ def complaint_reason_keyboard(language: str) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text=t("search_back", language),
-                    callback_data="search_contact_cancel",
+                    callback_data="search_report_cancel",
                 )
             ],
             [
@@ -1113,86 +1204,51 @@ def complaint_reason_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-def contact_request_action_keyboard(contact_token: str, language: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=t("contact_accept_btn", language),
-                    callback_data=f"contact_accept:{contact_token}",
-                ),
-                InlineKeyboardButton(
-                    text=t("contact_reject_btn", language),
-                    callback_data=f"contact_reject:{contact_token}",
-                ),
-            ]
-        ]
-    )
-
 
 def contact_thread_keyboard(
     language: str,
-    order_id: str | None = None,
-    order_status: str | None = None,
-    can_create_order: bool = True,
 ) -> InlineKeyboardMarkup:
-    order_rows = []
-
-    if order_id and order_status == "draft":
-        order_rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("order_confirm_btn", language),
-                    callback_data=f"ORDER_CONFIRM:{order_id}",
-                )
-            ]
-        )
-
-    if order_id and order_status == "confirmed":
-        order_rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("order_complete_btn", language),
-                    callback_data=f"ORDER_COMPLETE:{order_id}",
-                )
-            ]
-        )
-
-    if order_id and order_status == "completed":
-        order_rows.append(
-            [
-                InlineKeyboardButton(
-                    text=t("review_leave_btn", language),
-                    callback_data=f"review_start_order:{order_id}",
-                )
-            ]
-        )
-
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=t("contact_reply_btn", language), callback_data="contact_reply")],
-            *order_rows,
             [
-                InlineKeyboardButton(text=t("contact_archive_btn", language), callback_data="contact_archive"),
-                InlineKeyboardButton(text=t("contact_hide_btn", language), callback_data="contact_hide"),
+                InlineKeyboardButton(
+                    text=t(
+                        "contact_chat_attach_btn",
+                        language,
+                    ),
+                    callback_data="CONTACT_ATTACH_FILE",
+                )
             ],
-            *(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text=t("order_create_btn", language),
-                            callback_data="ORDER_CREATE_FROM_THREAD",
-                        )
-                    ]
-                ]
-                if can_create_order
-                else []
-            ),
-            [InlineKeyboardButton(text=t("contact_report_btn", language), callback_data="search_report_pending")],
-            [InlineKeyboardButton(text=t("contact_back_to_dialogs_btn", language), callback_data="CLIENT_DIALOGS")],
-            [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "contact_chat_finish_btn",
+                        language,
+                    ),
+                    callback_data="SPEC_THREAD_COMPLETE",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "contact_chat_report_btn",
+                        language,
+                    ),
+                    callback_data="search_report_pending",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "contact_chat_back_btn",
+                        language,
+                    ),
+                    callback_data="CLIENT_DIALOGS",
+                )
+            ],
         ]
     )
+
 
 def contact_thread_keyboard_for_role(
     language: str,
@@ -1203,42 +1259,38 @@ def contact_thread_keyboard_for_role(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("contact_reply_btn", language),
-                        callback_data="contact_reply",
+                        text=t(
+                            "contact_chat_attach_btn",
+                            language,
+                        ),
+                        callback_data="CONTACT_ATTACH_FILE",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("contact_archive_btn", language),
-                        callback_data="SPEC_THREAD_ARCHIVE",
-                    ),
-                    InlineKeyboardButton(
-                        text=t("contact_hide_btn", language),
-                        callback_data="SPEC_THREAD_HIDE",
-                    ),
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("order_create_btn", language),
-                        callback_data="ORDER_CREATE_FROM_THREAD",
+                        text=t(
+                            "contact_chat_finish_btn",
+                            language,
+                        ),
+                        callback_data="SPEC_THREAD_COMPLETE",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("contact_report_btn", language),
+                        text=t(
+                            "contact_chat_report_btn",
+                            language,
+                        ),
                         callback_data="SPEC_THREAD_REPORT",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("contact_back_to_dialogs_btn", language),
+                        text=t(
+                            "contact_chat_back_btn",
+                            language,
+                        ),
                         callback_data="SPEC_DIALOGS",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("search_menu", language),
-                        callback_data="BILL_MENU",
                     )
                 ],
             ]
@@ -1257,7 +1309,7 @@ def contact_completed_keyboard(contact_request_id: str, language: str) -> Inline
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_back_to_filters", language),
+                    text=t("search_back_to_filters_btn", language),
                     callback_data="search_filters",
                 )
             ],
@@ -1309,73 +1361,391 @@ def review_skip_text_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-def contact_message_confirm_keyboard(language: str) -> InlineKeyboardMarkup:
+def review_completed_keyboard(
+    *,
+    language: str,
+    role: str,
+) -> InlineKeyboardMarkup:
+    back_callback = (
+        "CLIENT_DIALOGS"
+        if role == "client"
+        else "SPEC_DIALOGS"
+    )
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("contact_check_draft_btn", language),
-                    callback_data="contact_draft_check",
-                ),
+                    text=t("contact_chat_back_btn", language),
+                    callback_data=back_callback,
+                )
+            ]
+        ]
+    )
+
+def format_chat_message_body(
+    item,
+    language: str,
+) -> str:
+    text = str(item.text or "").strip()
+    attachment = (
+        item.attachment
+        if isinstance(item.attachment, dict)
+        else None
+    )
+
+    if not attachment:
+        return text
+
+    attachment_type = attachment.get("type")
+    file_name = str(
+        attachment.get("file_name") or ""
+    ).strip()
+
+    if file_name:
+        attachment_label = file_name
+    elif attachment_type == "photo":
+        attachment_label = t(
+            "contact_attachment_photo_label",
+            language,
+        )
+    else:
+        attachment_label = t(
+            "contact_attachment_file_label",
+            language,
+        )
+
+    fallback_texts = {
+        "📎 Attachment",
+    }
+    if file_name:
+        fallback_texts.add(file_name)
+
+    lines: list[str] = []
+
+    if text and text not in fallback_texts:
+        lines.append(text)
+
+    lines.append(f"📎 {attachment_label}")
+
+    return "\n".join(lines)
+
+def contact_chat_status_text(
+    status: str | None,
+    *,
+    viewer_role: str,
+    language: str,
+) -> str:
+    if status in {"completed", "closed"}:
+        return t(
+            "messages_card_status_completed",
+            language,
+        )
+
+    waiting_for_viewer = (
+        "waiting_client"
+        if viewer_role == "client"
+        else "waiting_specialist"
+    )
+
+    if status == waiting_for_viewer:
+        return t(
+            "messages_card_status_waiting_you",
+            language,
+        )
+
+    if status in {
+        "waiting_client",
+        "waiting_specialist",
+    }:
+        return t(
+            "messages_card_status_waiting_other",
+            language,
+        )
+
+    return t(
+        "messages_card_status_in_progress",
+        language,
+    )
+
+
+def format_contact_chat_text(
+    detail,
+    *,
+    viewer_role: str,
+    language: str,
+) -> str:
+    counterpart_name = (
+        detail.specialist_name
+        if viewer_role == "client"
+        else detail.client_name
+    )
+    history_lines = []
+
+    for item in detail.messages:
+        if item.is_system:
+            history_lines.append(
+                format_chat_message_body(
+                    item,
+                    language,
+                )
+            )
+            continue
+
+        sender_name = (
+            t("contact_chat_you_label", language)
+            if item.is_sent_by_viewer
+            else counterpart_name
+        )
+        sent_at = item.created_at.strftime(
+            "%d.%m %H:%M"
+        )
+
+        history_lines.append(
+            f"{sender_name} · {sent_at}\n"
+            f"{format_chat_message_body(item, language)}"
+        )
+
+    lines = [f"💬 {counterpart_name}"]
+
+    if detail.profession_name:
+        lines.append(
+            f"💼 {detail.profession_name}"
+        )
+
+    lines.append(
+        contact_chat_status_text(
+            detail.thread_status,
+            viewer_role=viewer_role,
+            language=language,
+        )
+    )
+
+    if history_lines:
+        lines.extend(
+            [
+                "",
+                "\n\n".join(history_lines),
+            ]
+        )
+
+    return "\n".join(lines)
+
+
+def format_client_contact_chat_text(
+    detail,
+    language: str,
+) -> str:
+    return format_contact_chat_text(
+        detail,
+        viewer_role="client",
+        language=language,
+    )
+
+
+def format_specialist_contact_chat_text(
+    detail,
+    language: str,
+) -> str:
+    return format_contact_chat_text(
+        detail,
+        viewer_role="specialist",
+        language=language,
+    )
+
+
+def client_contact_chat_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
                 InlineKeyboardButton(
-                    text=t("contact_edit_draft_btn", language),
-                    callback_data="contact_draft_edit",
-                ),
+                    text=t(
+                        "contact_chat_attach_btn",
+                        language,
+                    ),
+                    callback_data="CONTACT_ATTACH_FILE",
+                )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("contact_send_confirm", language),
-                    callback_data="contact_send_confirm",
-                ),
-                InlineKeyboardButton(
-                    text=t("contact_cancel_btn", language),
-                    callback_data="search_contact_cancel",
-                ),
+                    text=t("contact_chat_finish_btn", language),
+                    callback_data="SPEC_THREAD_COMPLETE",
+                )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_menu", language),
-                    callback_data="search_menu",
+                    text=t("contact_chat_report_btn", language),
+                    callback_data="search_report_pending",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t("contact_chat_back_btn", language),
+                    callback_data="CLIENT_DIALOGS",
                 )
             ],
         ]
     )
 
-async def format_contact_draft_summary(
-    *,
-    specialist_id: str,
-    message_text: str,
-    distance_km,
-    language: str,
-) -> str:
-    specialist_name = ""
-    profession = ""
+@search_router.callback_query(
+    F.data == "CONTACT_ATTACH_FILE"
+)
+async def prompt_contact_attachment(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    data = await state.get_data()
 
-    async with get_session() as session:
-        card = await GeoSearchService(
-            SpecialistSearchRepository(session)
-        ).get_public_card(
-            specialist_id=UUID(specialist_id),
-            distance_km=distance_km,
-            log_event=False,
+    if not data.get("active_thread_id"):
+        await callback.answer(
+            t("contact_thread_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        SpecialistSearchFSM.entering_thread_message
+    )
+
+    await callback.message.answer(
+        t("contact_chat_attach_prompt", language)
+    )
+    await callback.answer()
+
+async def show_contact_chat(
+    *,
+    message: Message,
+    thread_id: str,
+    user_id: UUID,
+    viewer_role: str,
+    language: str,
+    include_attachments: bool = True,
+) -> None:
+    normalized_role = (
+        "specialist"
+        if viewer_role == "specialist"
+        else "client"
+    )
+
+    try:
+        async with get_session() as session:
+            detail = await ContactChatService(
+                ContactChatRepository(session)
+            ).get_thread_detail(
+                thread_id=UUID(thread_id),
+                user_id=user_id,
+                language=language,
+            )
+    except ContactChatError:
+        logger.exception(
+            "contact_chat_open_failed thread_id=%s",
+            thread_id,
+        )
+        await message.answer(
+            t("contact_chat_error", language)
+        )
+        return
+
+    if not detail:
+        await message.answer(
+            t("contact_chat_error", language)
+        )
+        return
+
+    counterpart_name = (
+        detail.client_name
+        if normalized_role == "specialist"
+        else detail.specialist_name
+    )
+    keyboard = contact_thread_keyboard_for_role(
+        language,
+        normalized_role,
+    )
+    attachment_items = (
+        [
+            item
+            for item in detail.messages
+            if item.attachment
+        ]
+        if include_attachments
+        else []
+    )
+    chat_chunks = split_telegram_text(
+        format_contact_chat_text(
+            detail,
+            viewer_role=normalized_role,
             language=language,
         )
+    )
 
-    if card:
-        specialist_name = card.display_name
-        profession = card.profession_name or ""
-
-    profession_line = ""
-    if profession:
-        profession_line = (
-            f"\n{t('search_filter_profession_label', language)}: {profession}"
+    for index, chunk in enumerate(chat_chunks):
+        is_last_chunk = (
+            index == len(chat_chunks) - 1
         )
 
-    return t("contact_draft_summary", language).format(
-        specialist=specialist_name,
-        profession_line=profession_line,
-        message=message_text,
-        disclaimer=t("contact_disclaimer_text", language),
+        await message.answer(
+            chunk,
+            reply_markup=(
+                keyboard
+                if (
+                    is_last_chunk
+                    and not attachment_items
+                )
+                else None
+            ),
+        )
+
+    for index, item in enumerate(
+        attachment_items
+    ):
+        is_last_attachment = (
+            index == len(attachment_items) - 1
+        )
+        sender_name = (
+            t("contact_chat_you_label", language)
+            if item.is_sent_by_viewer
+            else counterpart_name
+        )
+        sent_at = item.created_at.strftime(
+            "%d.%m %H:%M"
+        )
+        attachment_caption = (
+            f"{sender_name} · {sent_at}\n"
+            f"{format_chat_message_body(item, language)}"
+        )
+
+        await send_telegram_attachment(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            attachment=item.attachment,
+            caption=attachment_caption,
+            reply_markup=(
+                keyboard
+                if is_last_attachment
+                else None
+            ),
+        )
+
+
+async def show_client_contact_chat(
+    *,
+    message: Message,
+    thread_id: str,
+    user_id: UUID,
+    language: str,
+) -> None:
+    await show_contact_chat(
+        message=message,
+        thread_id=thread_id,
+        user_id=user_id,
+        viewer_role="client",
+        language=language,
     )
 
 async def translate_message_for_notification(
@@ -1398,88 +1768,48 @@ async def translate_message_for_notification(
 
 
 def format_search_filters_summary(data: dict, language: str) -> str:
-    lines = [t("search_filters_title", language)]
-
-    category = data.get("category_name")
-    profession = data.get("profession_name")
+    category = (
+        data.get("category_name")
+        or t("search_filter_category_not_selected", language)
+    )
+    professions = (
+        data.get("profession_name")
+        or ", ".join(data.get("selected_profession_names") or [])
+        or t("search_filter_professions_not_selected", language)
+    )
 
     if data.get("location_state") == "without":
-        city = t("search_location_without", language)
+        location = t("search_location_without", language)
     else:
-        city = data.get("city_name")
+        location = (
+            data.get("city_name")
+            or t("search_location_without", language)
+        )
 
-    radius = None
     if data.get("country_wide"):
         radius = t("search_radius_country", language)
-    elif data.get("city_id") or data.get("latitude") is not None:
+    else:
         radius = f"{data.get('radius_km') or DEFAULT_RADIUS_KM} km"
 
-    language_code = data.get("language_code")
-    work_format = data.get("work_format")
-    sort_by = data.get("sort_by")
-    rating_min = data.get("rating_min")
-    verified_only = bool(data.get("verified_only"))
-    available_only = bool(data.get("available_only"))
+    return "\n".join(
+        [
+            t("search_filters_title", language),
+            "",
+            f"{t('search_filter_category_label', language)}: {category}",
+            f"{t('search_filter_profession_label', language)}: {professions}",
+            f"{t('search_filter_location_label', language)}: {location}",
+            f"{t('search_filter_radius_label', language)}: {radius}",
+            (
+                f"{t('search_filter_sort_label', language)}: "
+                f"{sort_label(data.get('sort_by'), language)}"
+            ),
+        ]
+    )
 
-    if category:
-        lines.append(f"{t('search_filter_category_label', language)}: {category}")
-
-    if profession:
-        lines.append(f"{t('search_filter_profession_label', language)}: {profession}")
-
-    if city:
-        lines.append(f"{t('search_filter_location_label', language)}: {city}")
-
-    if radius:
-        lines.append(f"{t('search_filter_radius_label', language)}: {radius}")
-
-    if work_format:
-        lines.append(
-            f"{t('search_filter_work_label', language)}: "
-            f"{work_format_label(work_format, language)}"
-        )
-
-    if language_code:
-        lines.append(
-            f"{t('search_filter_language_label', language)}: "
-            f"{language_filter_label(language_code, language)}"
-        )
-
-    if available_only:
-        lines.append(
-            f"{t('search_filter_availability_label', language)}: "
-            f"{t('search_filter_available_now', language)}"
-        )
-
-    if rating_min is not None:
-        lines.append(
-            f"{t('search_filter_rating_label', language)}: "
-            f"{t('search_filter_rating_from', language).format(rating=rating_min)}"
-        )
-
-    if verified_only:
-        lines.append(
-            f"{t('search_filter_verified_label', language)}: "
-            f"{t('search_filter_verified_only', language)}"
-        )
-
-    if sort_by:
-        lines.append(
-            f"{t('search_filter_sort_label', language)}: "
-            f"{sort_label(sort_by, language)}"
-        )
-
-    return "\n".join(lines)
 
 def search_start_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=t("search_write_query_btn", language),
-                    callback_data="SEARCH_AI",
-                )
-            ],
             [
                 InlineKeyboardButton(
                     text=t("search_choose_category_btn", language),
@@ -1501,18 +1831,15 @@ def search_start_keyboard(language: str) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text=t("search_back", language),
-                    callback_data="search_menu",
-                )
-            ],
-            [
+                    callback_data="GLOBAL_MAIN_MENU",
+                ),
                 InlineKeyboardButton(
                     text=t("search_menu", language),
                     callback_data="search_menu",
-                )
+                ),
             ],
         ]
     )
-
 def search_filters_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -1538,8 +1865,17 @@ def search_filters_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_advanced_filters", language),
-                    callback_data="search_advanced_filters",
+                    text=t("search_filter_sort", language),
+                    callback_data="search_filter_sort",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_show_specialists_btn",
+                        language,
+                    ),
+                    callback_data="search_professions_apply",
                 )
             ],
             [
@@ -1604,7 +1940,7 @@ def search_advanced_filters_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_back_to_filters", language),
+                    text=t("search_back_to_filters_btn", language),
                     callback_data="search_filters",
                 )
             ],
@@ -1641,7 +1977,7 @@ def search_radius_keyboard(language: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="100 km", callback_data="search_radius:100"),
                 InlineKeyboardButton(text=t("search_radius_country", language), callback_data="search_radius:country"),
             ],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+            [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
@@ -1655,7 +1991,7 @@ def search_work_format_keyboard(language: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t("search_work_at_specialist", language), callback_data="search_work:at_specialist")],
             [InlineKeyboardButton(text=t("search_work_remote", language), callback_data="search_work:remote")],
             [InlineKeyboardButton(text=t("search_work_mixed", language), callback_data="search_work:mixed")],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+            [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
@@ -1672,7 +2008,7 @@ def search_language_keyboard(language: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text=t("search_language_pt", language), callback_data="search_lang:pt"),
                 InlineKeyboardButton(text=t("search_language_en", language), callback_data="search_lang:en"),
             ],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+            [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
@@ -1695,7 +2031,7 @@ def search_availability_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_back_to_filters", language),
+                    text=t("search_back_to_filters_btn", language),
                     callback_data="search_filters",
                 )
             ],
@@ -1726,7 +2062,7 @@ def search_verified_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_back_to_filters", language),
+                    text=t("search_back_to_filters_btn", language),
                     callback_data="search_filters",
                 )
             ],
@@ -1757,7 +2093,7 @@ def search_rating_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_back_to_filters", language),
+                    text=t("search_back_to_filters_btn", language),
                     callback_data="search_filters",
                 )
             ],
@@ -1775,7 +2111,7 @@ def search_sort_keyboard(language: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text=t("search_sort_distance", language), callback_data="search_sort:distance")],
             [InlineKeyboardButton(text=t("search_sort_relevance", language), callback_data="search_sort:relevance")],
-            [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+            [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
             [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
         ]
     )
@@ -1853,7 +2189,7 @@ def search_geo_candidates_keyboard(candidates: list[dict], language: str) -> Inl
             ),
         ]
     )
-    rows.append([InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")])
+    rows.append([InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")])
     rows.append([InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -1961,7 +2297,7 @@ def empty_results_keyboard(data: dict, language: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    text=t("search_back_to_filters", language),
+                    text=t("search_back_to_filters_btn", language),
                     callback_data="search_filters",
                 )
             ],
@@ -1998,36 +2334,12 @@ def format_results_header(
 ) -> str:
     start = page * PER_PAGE + 1 if visible_count else 0
     end = page * PER_PAGE + visible_count
-    shown_range = f"{start}-{end} {t('search_results_of', language)} {total_count}"
-
-    context_parts = []
-
-    category_name = data.get("category_name")
-    profession_name = data.get("profession_name")
-    city_name = data.get("city_name")
-    work_format = data.get("work_format")
-
-    if category_name:
-        context_parts.append(category_name)
-
-    if profession_name:
-        context_parts.append(profession_name)
-
-    if work_format == "remote":
-        context_parts.append(work_format_label("remote", language))
-    elif city_name:
-        context_parts.append(city_name)
-        if data.get("radius_km"):
-            context_parts.append(f"{data.get('radius_km')} km")
-
-    context = " • ".join(context_parts)
-    if not context:
-        context = t("search_results_global_context", language)
+    shown_range = f"{start}–{end}"
 
     return t("search_results_header", language).format(
         found=total_count,
-        context=context,
         range=shown_range,
+        context="",
     )
 
 def search_result_badge(specialist) -> str:
@@ -2071,7 +2383,15 @@ def public_safe_description(text: str | None, limit: int = 300) -> str:
 
     clean = " ".join(str(text).split())
     lowered = clean.lower()
-
+    test_description_markers = (
+        "beta testing",
+        "seed",
+        "test automation",
+        "тестовый профиль",
+        "ручной проверки",
+    )
+    if any(marker in lowered for marker in test_description_markers):
+        return ""
     if (
         "http://" in lowered
         or "https://" in lowered
@@ -2088,73 +2408,57 @@ def public_safe_description(text: str | None, limit: int = 300) -> str:
 
 def format_specialist_result(result, index: int, language: str) -> str:
     specialist = result.specialist
-
-    badge = search_result_badge(specialist)
-    badge_prefix = f"{badge} " if badge else ""
-
-    category = result.category_name
     profession = result.profession_name
-    languages = ", ".join(result.languages) if result.languages else None
-    location_parts = [part for part in [result.city_name] if part]
+
+    if specialist.reviews_count and specialist.rating is not None:
+        rating = f"⭐ {float(specialist.rating):.1f}"
+    else:
+        rating = f"⭐ {t('search_no_reviews', language)}"
 
     is_remote = getattr(specialist, "work_format", None) == "remote"
+    location_parts = []
+
     if is_remote:
-        distance = None if is_remote else result.distance_km
-        remote_label = work_format_label("remote", language)
-        distance_text = f"📍{remote_label}"
-    elif result.distance_km is not None:
-        distance = None if is_remote else result.distance_km
-        distance_text = f"📍{distance:.0f} км"
+        location_parts.append(work_format_label("remote", language))
     else:
-        distance = None if is_remote else result.distance_km
-        distance_text = f"📍{', '.join(location_parts)}" if location_parts else ""
+        if result.city_name:
+            location_parts.append(result.city_name)
+        if result.distance_km is not None:
+            location_parts.append(f"{result.distance_km:.0f} км")
 
-    rating_label = t("search_rating", language)
-    if specialist.reviews_count and specialist.rating is not None:
-        rating = f"⭐{float(specialist.rating):.1f}"
-    else:
-        rating = f"⭐{t('search_no_reviews', language)}"
+    availability = (
+        t("search_filter_available_now", language)
+        if getattr(specialist, "is_available", False)
+        else t("search_unavailable_now", language)
+    )
 
-    status_parts = []
-    if getattr(specialist, "is_verified", False):
-        status_parts.append(f"✅ {t('search_verified_label', language)}")
-    if getattr(specialist, "is_available", False):
-        status_parts.append(t("search_filter_available_now", language))
-
-    verified = " | ".join(status_parts)
-    language_label = t("search_filter_language_label", language)
+    languages = [
+        language_filter_label(language_code, language)
+        for language_code in (result.languages or [])
+    ]
     description = public_safe_description(specialist.short_description)
-    meta_parts = []
-    direction_parts = []
-    if category:
-        direction_parts.append(category)
-    if profession:
-        direction_parts.append(profession)
-    if direction_parts:
-        meta_parts.append(" • ".join(direction_parts))
-    if languages:
-        meta_parts.append(f"{language_label}: {languages}")
-
-    first_line_parts = [f"{rating}"]
-    if distance_text:
-        first_line_parts.append(distance_text)
-    if verified:
-        first_line_parts.append(verified)
-
-    first_line = " | ".join(first_line_parts)
-    second_line = " | ".join(meta_parts)
 
     lines = [
-        f"{index}. {badge_prefix}{specialist.display_name} | {first_line}"
+        f"👤 {specialist.display_name}",
+        rating,
     ]
 
-    if second_line:
-        lines.append(second_line)
+    if location_parts:
+        lines.append(f"📍 {' • '.join(location_parts)}")
+
+    lines.append(f"🟢 {availability}")
+
+    if profession:
+        lines.append(f"💼 {profession}")
+
+    if languages:
+        lines.append(f"🌍 {', '.join(languages)}")
 
     if description:
-        lines.append(description)
+        lines.extend(["", description])
 
     return "\n".join(lines)
+
 def format_public_card(card: SpecialistPublicCard, language: str) -> str:
     labels = []
     if card.is_verified:
@@ -2229,11 +2533,12 @@ def format_public_card(card: SpecialistPublicCard, language: str) -> str:
     if description:
         lines.extend(["", description])
 
-    lines.extend(["", t("search_legal_warning", language)])
-
     return "\n".join(lines)
 
 async def show_filters(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(
+        search_category_source="filters",
+    )
     data = await state.get_data()
     language = await get_search_language(state, callback)
 
@@ -2254,6 +2559,32 @@ async def render_results(
 ):
     data = await state.get_data()
     language = await get_search_language(state, event)
+
+    if isinstance(event, CallbackQuery):
+        processing_message = await event.message.answer(
+            t("search_searching_specialists", language)
+        )
+    else:
+        processing_message = await event.answer(
+            t("search_searching_specialists", language)
+        )
+    source_message = (
+        event.message
+        if isinstance(event, CallbackQuery)
+        else event
+    )
+
+    await delete_telegram_messages(
+        bot=source_message.bot,
+        chat_id=source_message.chat.id,
+        message_ids=(
+            data.get("last_search_result_message_ids")
+            or []
+        ),
+    )
+    await state.update_data(
+        last_search_result_message_ids=[],
+    )
 
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
     profession_id = UUID(data["profession_id"]) if data.get("profession_id") else None
@@ -2480,6 +2811,25 @@ async def render_results(
     has_next = (page + 1) * PER_PAGE < total_count
     visible_results = results[:PER_PAGE]
 
+    saved_specialist_ids: set[UUID] = set()
+
+    if (
+        requester_user_id
+        and tenant_id
+        and visible_results
+    ):
+        async with get_session() as session:
+            saved_specialist_ids = await FavoriteRepository(
+                session
+            ).list_saved_specialist_ids(
+                tenant_id=tenant_id,
+                user_id=requester_user_id,
+                specialist_ids=[
+                    result.specialist.id
+                    for result in visible_results
+                ],
+            )
+
     await log_results_viewed(
         platform_user_id=platform_user_id,
         tenant_id=tenant_id,
@@ -2540,44 +2890,104 @@ async def render_results(
 
     await state.set_state(SpecialistSearchFSM.viewing_results)
 
+    rendered_message_ids: list[int] = []
+
     if isinstance(event, CallbackQuery):
         if visible_results:
+            header_message = await event.message.answer(text)
+            rendered_message_ids.append(
+                header_message.message_id,
+            )
+
             for index, result in enumerate(visible_results):
-                await event.message.answer(
+                card_message = await event.message.answer(
                     format_specialist_result(
                         result,
                         start_number + index,
                         language,
                     ),
-                    reply_markup=result_card_keyboard(index, language),
+                reply_markup=result_card_keyboard(
+                    index,
+                    language,
+                    is_saved=(
+                        result.specialist.id
+                        in saved_specialist_ids
+                    ),
+                ),
+                )
+                rendered_message_ids.append(
+                    card_message.message_id,
                 )
 
-            await event.message.answer(
-                text,
+            navigation_message = await event.message.answer(
+                t("search_results_navigation", language),
                 reply_markup=keyboard,
             )
+            rendered_message_ids.append(
+                navigation_message.message_id,
+            )
         else:
-            await show_callback_message(event, text, keyboard)
+            empty_message = await show_callback_message(
+                event,
+                text,
+                keyboard,
+            )
+            rendered_message_ids.append(
+                empty_message.message_id,
+            )
 
         await event.answer()
     else:
         if visible_results:
+            header_message = await event.answer(text)
+            rendered_message_ids.append(
+                header_message.message_id,
+            )
+
             for index, result in enumerate(visible_results):
-                await event.answer(
+                card_message = await event.answer(
                     format_specialist_result(
                         result,
                         start_number + index,
                         language,
                     ),
-                    reply_markup=result_card_keyboard(index, language),
+                reply_markup=result_card_keyboard(
+                    index,
+                    language,
+                    is_saved=(
+                        result.specialist.id
+                        in saved_specialist_ids
+                    ),
+                ),
+                )
+                rendered_message_ids.append(
+                    card_message.message_id,
                 )
 
-            await event.answer(
+            navigation_message = await event.answer(
+                t("search_results_navigation", language),
+                reply_markup=keyboard,
+            )
+            rendered_message_ids.append(
+                navigation_message.message_id,
+            )
+        else:
+            empty_message = await event.answer(
                 text,
                 reply_markup=keyboard,
             )
-        else:
-            await event.answer(text, reply_markup=keyboard)
+            rendered_message_ids.append(
+                empty_message.message_id,
+            )
+
+    await state.update_data(
+        last_search_result_message_ids=rendered_message_ids,
+    )
+    try:
+        await processing_message.delete()
+    except TelegramBadRequest:
+        pass
+
 
 async def log_results_viewed(
     *,
@@ -2657,6 +3067,7 @@ async def start_search(callback: CallbackQuery, state: FSMContext):
         location_state=None,
         sort_by="distance",
         page=0,
+        search_category_source="start",
     )
 
     await show_callback_message(
@@ -2664,6 +3075,7 @@ async def start_search(callback: CallbackQuery, state: FSMContext):
         t("search_start_screen", language),
         search_start_keyboard(language),
     )
+    await state.set_state(SpecialistSearchFSM.entering_text_query)
     await callback.answer()
 
 @search_router.callback_query(F.data == "SEARCH_AI")
@@ -2840,7 +3252,12 @@ async def open_advanced_search_filters(callback: CallbackQuery, state: FSMContex
 async def open_category_filter(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = await get_search_language(state, callback)
-
+    selected_ids = list(
+        data.get("selected_profession_ids") or []
+    )
+    selected_names = list(
+        data.get("selected_profession_names") or []
+    )
     async with get_session() as session:
         categories = await SpecialistRepository(session).list_active_categories(limit=100)
 
@@ -2856,51 +3273,112 @@ async def open_category_filter(callback: CallbackQuery, state: FSMContext):
 
     await show_callback_message(
         callback,
-        t("search_choose_category", language),
+        category_selection_text(
+            language,
+            selected_names,
+        ),
         paged_keyboard(
             items=categories,
             item_prefix="search_category",
             page_prefix="search_categories_page",
             page=0,
             language=language,
-            back_callback="search_filters",
-            page_size=CATEGORY_PAGE_SIZE,   
+            back_callback=(
+                "search_filters"
+                if data.get("search_category_source")
+                == "filters"
+                else "search_start"
+            ),
+            back_text_key=(
+                "search_back_to_filters_btn"
+                if data.get("search_category_source")
+                == "filters"
+                else "search_back"
+            ),
+            page_size=CATEGORY_PAGE_SIZE,
+            extra_rows=category_selection_rows(
+                language,
+                selected_ids,
+            ),
+            selected_item_id=data.get("category_id"),
         ),
     )
     await state.set_state(SpecialistSearchFSM.choosing_category)
     await callback.answer()
 
 
-@search_router.callback_query(F.data.startswith("search_categories_page:"))
-async def paginate_categories(callback: CallbackQuery, state: FSMContext):
+@search_router.callback_query(
+    F.data.startswith("search_categories_page:")
+)
+async def paginate_categories(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     page = callback_index(callback)
     if page is None:
         await callback.answer()
         return
 
     data = await state.get_data()
-    language = await get_search_language(state, callback)
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    selected_ids = list(
+        data.get("selected_profession_ids") or []
+    )
+    selected_names = list(
+        data.get("selected_profession_names") or []
+    )
 
     async with get_session() as session:
-        categories = await SpecialistRepository(session).list_active_categories(limit=100)
+        categories = await SpecialistRepository(
+            session
+        ).list_active_categories(
+            limit=100,
+        )
 
-    await state.update_data(category_ids=[str(category.id) for category in categories])
+    await state.update_data(
+        category_ids=[
+            str(category.id)
+            for category in categories
+        ],
+        category_page=page,
+    )
 
     await show_callback_message(
         callback,
-        t("search_choose_category", language),
+        category_selection_text(
+            language,
+            selected_names,
+        ),
         paged_keyboard(
             items=categories,
             item_prefix="search_category",
             page_prefix="search_categories_page",
             page=page,
             language=language,
-            back_callback="search_filters",
+            back_callback=(
+                "search_filters"
+                if data.get("search_category_source")
+                == "filters"
+                else "search_start"
+            ),
+            back_text_key=(
+                "search_back_to_filters_btn"
+                if data.get("search_category_source")
+                == "filters"
+                else "search_back"
+            ),
             page_size=CATEGORY_PAGE_SIZE,
+            extra_rows=category_selection_rows(
+                language,
+                selected_ids,
+            ),
+            selected_item_id=data.get("category_id"),
         ),
     )
     await callback.answer()
-
 
 @search_router.callback_query(F.data.startswith("search_category:"))
 async def choose_category(callback: CallbackQuery, state: FSMContext):
@@ -2946,47 +3424,93 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
         location_state="without",
         page=0,
     )
-    await render_results(event=callback, state=state, page=0)
+    await open_profession_filter(callback, state)
 
 
-@search_router.callback_query(F.data == "search_filter_profession")
-async def open_profession_filter(callback: CallbackQuery, state: FSMContext):
+@search_router.callback_query(
+    F.data == "search_filter_profession"
+)
+async def open_profession_filter(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = await get_search_language(state, callback)
-    category_id = UUID(data["category_id"]) if data.get("category_id") else None
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    category_id = (
+        UUID(data["category_id"])
+        if data.get("category_id")
+        else None
+    )
 
     async with get_session() as session:
+        repository = SpecialistRepository(session)
+
         if category_id:
-            professions = await SpecialistRepository(session).list_active_professions_by_category(
-                category_id,
-                limit=100,
+            professions = (
+                await repository
+                .list_active_professions_by_category(
+                    category_id,
+                    limit=100,
+                )
             )
         else:
-            professions = await SpecialistRepository(session).list_active_professions(limit=100)
+            professions = (
+                await repository
+                .list_active_professions(
+                    limit=100,
+                )
+            )
 
     if not professions:
-        await callback.message.answer(t("search_professions_missing", language))
+        await callback.message.answer(
+            t(
+                "search_professions_missing",
+                language,
+            )
+        )
         await callback.answer()
         return
 
+    selected_ids = list(
+        data.get("selected_profession_ids") or []
+    )
+    selected_names = list(
+        data.get("selected_profession_names") or []
+    )
+
     await state.update_data(
-        profession_ids=[str(profession.id) for profession in professions],
-        selected_profession_ids=[],
-        selected_profession_names=[],
+        profession_ids=[
+            str(profession.id)
+            for profession in professions
+        ],
+        selected_profession_ids=selected_ids,
+        selected_profession_names=selected_names,
         profession_page=0,
     )
 
     await show_callback_message(
         callback,
-        t("search_choose_profession", language),
+        profession_selection_text(
+            language,
+            selected_ids,
+        ),
         profession_keyboard(
             professions=professions,
             page=0,
             language=language,
-            selected_ids=set(),
+            selected_ids=set(selected_ids),
+            show_filters_back=(
+                data.get("search_category_source")
+                == "filters"
+            ),
         ),
     )
-    await state.set_state(SpecialistSearchFSM.choosing_profession)
+    await state.set_state(
+        SpecialistSearchFSM.choosing_profession
+    )
     await callback.answer()
 
 
@@ -3009,31 +3533,122 @@ async def paginate_professions(callback: CallbackQuery, state: FSMContext):
             )
         else:
             professions = await SpecialistRepository(session).list_active_professions(limit=100)
-    await state.update_data(profession_ids=[str(item.id) for item in professions])
+    await state.update_data(
+        profession_ids=[str(item.id) for item in professions],
+        profession_page=page,
+    )
 
     await show_callback_message(
         callback,
-        t("search_choose_profession", language),
+        profession_selection_text(
+            language,
+            data.get("selected_profession_ids") or [],
+        ),
         profession_keyboard(
             professions=professions,
             page=page,
             language=language,
-            selected_ids=set(data.get("selected_profession_ids") or []),
+            selected_ids=set(
+                data.get("selected_profession_ids") or []
+            ),
+            show_filters_back=(
+                data.get("search_category_source")
+                == "filters"
+            ),
         ),
     )
     await callback.answer()
 
 
-@search_router.callback_query(F.data == "search_profession_all")
-async def choose_all_professions(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(
-        profession_id=None,
-        profession_name=None,
-        location_state="without",
-        page=0,
+@search_router.callback_query(
+    F.data == "search_professions_select_all"
+)
+async def select_all_professions(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    data = await state.get_data()
+    language = await get_search_language(
+        state,
+        callback,
     )
-    await render_results(event=callback, state=state, page=0)
+    category_id = (
+        UUID(data["category_id"])
+        if data.get("category_id")
+        else None
+    )
+    page = int(
+        data.get("profession_page") or 0
+    )
 
+    async with get_session() as session:
+        repository = SpecialistRepository(session)
+
+        if category_id:
+            professions = (
+                await repository
+                .list_active_professions_by_category(
+                    category_id,
+                    limit=100,
+                )
+            )
+        else:
+            professions = (
+                await repository
+                .list_active_professions(
+                    limit=100,
+                )
+            )
+
+    selected_ids = list(
+        data.get("selected_profession_ids") or []
+    )
+    selected_names = list(
+        data.get("selected_profession_names") or []
+    )
+
+    for profession in professions:
+        profession_id = str(profession.id)
+
+        if profession_id in selected_ids:
+            continue
+
+        selected_ids.append(profession_id)
+        selected_names.append(
+            item_name(
+                profession,
+                language,
+            )
+        )
+
+    await state.update_data(
+        profession_ids=[
+            str(profession.id)
+            for profession in professions
+        ],
+        selected_profession_ids=selected_ids,
+        selected_profession_names=selected_names,
+        profession_page=page,
+    )
+
+    await show_callback_message(
+        callback,
+        profession_selection_text(
+            language,
+            selected_ids,
+        ),
+        profession_keyboard(
+            professions=professions,
+            page=page,
+            language=language,
+            selected_ids=set(selected_ids),
+            show_filters_back=(
+                data.get("search_category_source")
+                == "filters"
+            ),
+        ),
+    )
+    await callback.answer()
 
 @search_router.callback_query(F.data.startswith("search_profession_toggle:"))
 async def toggle_profession(callback: CallbackQuery, state: FSMContext):
@@ -3090,12 +3705,16 @@ async def toggle_profession(callback: CallbackQuery, state: FSMContext):
 
     await show_callback_message(
         callback,
-        t("search_choose_profession", language),
+        profession_selection_text(language, selected_ids),
         profession_keyboard(
             professions=professions,
             page=page,
             language=language,
             selected_ids=set(selected_ids),
+            show_filters_back=(
+                data.get("search_category_source")
+                == "filters"
+            ),
         ),
     )
     await callback.answer()
@@ -3126,12 +3745,16 @@ async def reset_selected_professions(callback: CallbackQuery, state: FSMContext)
 
     await show_callback_message(
         callback,
-        t("search_choose_profession", language),
+        profession_selection_text(language, []),
         profession_keyboard(
             professions=professions,
             page=page,
             language=language,
             selected_ids=set(),
+            show_filters_back=(
+                data.get("search_category_source")
+                == "filters"
+            ),
         ),
     )
     await callback.answer()
@@ -3249,7 +3872,7 @@ async def start_location_city_search(callback: CallbackQuery, state: FSMContext)
         t("search_location_city_prompt", language),
         InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+                [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
                 [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
             ]
         ),
@@ -3444,7 +4067,7 @@ async def search_geo_other_options(callback: CallbackQuery, state: FSMContext):
         t("search_location_city_prompt", language),
         InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
+                [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
                 [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
             ]
         ),
@@ -3917,6 +4540,7 @@ async def contact_from_result(callback: CallbackQuery, state: FSMContext):
     await state.update_data(
         selected_specialist_id=specialist_ids[index],
         selected_specialist_distance=distance_km,
+        selected_result_index=index,
     )
 
     await contact_start(callback, state)
@@ -3938,6 +4562,7 @@ async def favorite_from_result(callback: CallbackQuery, state: FSMContext):
     await state.update_data(
         selected_specialist_id=specialist_ids[index],
         selected_specialist_distance=distance_km,
+        selected_result_index=index,
     )
 
     await favorite_pending(callback, state)
@@ -4233,55 +4858,90 @@ async def back_to_selected_specialist_card(callback: CallbackQuery, state: FSMCo
     )
     await callback.answer()
 
-@search_router.callback_query(F.data == "search_contact_pending")
-async def contact_start(callback: CallbackQuery, state: FSMContext):
+@search_router.callback_query(
+    F.data == "search_contact_pending"
+)
+async def contact_start(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     data = await state.get_data()
     language = await get_search_language(state, callback)
+    specialist_id = data.get("selected_specialist_id")
+    profession_id = data.get("profession_id")
 
-    if not data.get("selected_specialist_id"):
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+    if not specialist_id:
+        await callback.answer(
+            t("search_contact_no_specialist", language),
+            show_alert=True,
+        )
+        return
+
+    requester_user_id, tenant_id = await get_requester_context(
+        callback.from_user.id,
+    )
+    if not requester_user_id or not tenant_id:
+        await store_post_auth_action(
+            callback=callback,
+            state=state,
+            action="contact",
+            language=language,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            chat = await ContactChatService(
+                ContactChatRepository(session)
+            ).open_contact_chat(
+                tenant_id=tenant_id,
+                from_user_id=requester_user_id,
+                specialist_id=UUID(specialist_id),
+                profession_id=(
+                    UUID(profession_id)
+                    if profession_id
+                    else None
+                ),
+                system_message=t(
+                    "contact_chat_first_prompt",
+                    language,
+                ),
+                original_language=language,
+            )
+    except (ContactChatError, ValueError) as exc:
+        logger.warning(
+            "contact_chat_open_failed "
+            "telegram_id=%s specialist_id=%s error=%s",
+            callback.from_user.id,
+            specialist_id,
+            exc,
+        )
+        await callback.answer(
+            t("contact_chat_error", language),
+            show_alert=True,
+        )
         return
 
     await state.update_data(
-        pending_report_target_type="specialist",
-        pending_report_target_id=data.get("selected_specialist_id"),
+        active_contact_request_id=str(
+            chat.contact_request_id
+        ),
+        active_thread_id=str(chat.thread_id),
+        active_thread_role="client",
+        pending_contact_message=None,
+    )
+    await state.set_state(
+        SpecialistSearchFSM.entering_thread_message,
     )
 
-    await show_callback_message(
-        callback,
-        t("contact_disclaimer_text", language),
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=t("contact_disclaimer_continue", language), callback_data="contact_disclaimer_continue")],
-                [InlineKeyboardButton(text=t("search_back", language), callback_data=f"search_results_page:{int(data.get('results_page') or 0)}")],
-                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
-            ]
-        ),
+    await show_client_contact_chat(
+        message=callback.message,
+        thread_id=str(chat.thread_id),
+        user_id=requester_user_id,
+        language=language,
     )
     await callback.answer()
 
-
-@search_router.callback_query(F.data == "contact_disclaimer_continue")
-async def contact_disclaimer_continue(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-
-    if not data.get("selected_specialist_id"):
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
-        return
-
-    await show_callback_message(
-        callback,
-        t("contact_request_prompt", language),
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=t("search_back", language), callback_data=f"search_results_page:{int(data.get('results_page') or 0)}")],
-                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
-            ]
-        ),
-    )
-    await state.set_state(SpecialistSearchFSM.entering_contact_message)
-    await callback.answer()
 
 @search_router.callback_query(F.data == "search_contact_cancel")
 async def cancel_contact_flow(callback: CallbackQuery, state: FSMContext):
@@ -4305,258 +4965,6 @@ async def cancel_contact_flow(callback: CallbackQuery, state: FSMContext):
         page=page,
     )
 
-@search_router.message(SpecialistSearchFSM.entering_contact_message)
-async def receive_contact_message(message: Message, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, message)
-    text = (message.text or "").strip()
-
-    if not data.get("selected_specialist_id"):
-        await message.answer(t("search_contact_no_specialist", language))
-        await state.set_state(SpecialistSearchFSM.viewing_results)
-        return
-
-    if len(text) < 10:
-        await message.answer(t("contact_message_too_short", language))
-        return
-
-    await state.update_data(pending_contact_message=text)
-    await state.set_state(SpecialistSearchFSM.confirming_contact_message)
-
-    draft_text = await format_contact_draft_summary(
-        specialist_id=data["selected_specialist_id"],
-        message_text=text,
-        distance_km=data.get("selected_specialist_distance"),
-        language=language,
-    )
-
-    await message.answer(
-        draft_text,
-        reply_markup=contact_message_confirm_keyboard(language),
-    )
-
-@search_router.callback_query(F.data == "contact_draft_check")
-async def check_contact_draft(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-    message_text = (data.get("pending_contact_message") or "").strip()
-
-    if len(message_text) < 10:
-        await callback.answer(t("contact_message_too_short", language), show_alert=True)
-        await state.set_state(SpecialistSearchFSM.entering_contact_message)
-        return
-
-    draft_text = await format_contact_draft_summary(
-        specialist_id=data["selected_specialist_id"],
-        message_text=message_text,
-        distance_km=data.get("selected_specialist_distance"),
-        language=language,
-    )
-
-    await show_callback_message(
-        callback,
-        draft_text,
-        contact_message_confirm_keyboard(language),
-    )
-    await callback.answer()
-
-
-@search_router.callback_query(F.data == "contact_draft_edit")
-async def edit_contact_draft(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-
-    await show_callback_message(
-        callback,
-        t("contact_request_prompt", language),
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t("contact_cancel_btn", language),
-                        callback_data="search_contact_cancel",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("search_menu", language),
-                        callback_data="search_menu",
-                    )
-                ],
-            ]
-        ),
-    )
-    await state.set_state(SpecialistSearchFSM.entering_contact_message)
-    await callback.answer()
-
-@search_router.callback_query(F.data == "contact_send_confirm")
-async def confirm_contact_message(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-    specialist_id = data.get("selected_specialist_id")
-    profession_id = data.get("profession_id")
-    message_text = (data.get("pending_contact_message") or "").strip()
-
-    if not specialist_id:
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
-        await state.set_state(SpecialistSearchFSM.viewing_results)
-        return
-
-    if len(message_text) < 10:
-        await callback.answer(t("contact_message_too_short", language), show_alert=True)
-        await state.set_state(SpecialistSearchFSM.entering_contact_message)
-        return
-
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not requester_user_id or not tenant_id:
-        await store_post_auth_action(
-            callback=callback,
-            state=state,
-            action="contact",
-            language=language,
-        )
-        return
-
-    specialist_platform_user_id = None
-    specialist_language = language
-    specialist_notification_message = message_text
-    specialist_used_translation = False
-    specialist_translation_status = "not_needed"
-    result = None
-
-    try:
-        async with get_session() as session:
-            result = await ContactChatService(ContactChatRepository(session)).create_contact_request(
-                tenant_id=tenant_id,
-                from_user_id=requester_user_id,
-                specialist_id=UUID(specialist_id),
-                profession_id=(
-                    UUID(profession_id)
-                    if profession_id
-                    else None
-                ),
-                message=message_text,
-                original_language=language,
-            )
-            if result.was_existing:
-                await state.update_data(
-                    active_contact_request_id=str(result.contact_request_id),
-                    active_thread_id=str(result.thread_id),
-                    pending_contact_message=None,
-                )
-                await state.set_state(SpecialistSearchFSM.viewing_results)
-
-                await callback.message.answer(
-                    t("contact_request_existing", language),
-                    reply_markup=contact_thread_keyboard(language),
-                )
-                await callback.answer()
-                return
-            specialist_user = await session.get(User, result.specialist_user_id)
-            if specialist_user:
-                specialist_language = normalize_language(specialist_user.language_code)
-
-            specialist_account = await UserRepository(session).get_telegram_account_by_user_id(
-                result.specialist_user_id
-            )
-            if specialist_account:
-                specialist_platform_user_id = specialist_account.platform_user_id
-
-            (
-                specialist_notification_message,
-                specialist_used_translation,
-                specialist_translation_status,
-            ) = await translate_message_for_notification(
-                session=session,
-                message_id=result.first_message_id,
-                receiver_user_id=result.specialist_user_id,
-            )
-
-        logger.info(
-            "contact_request_created telegram_id=%s request_id=%s thread_id=%s specialist_id=%s",
-            callback.from_user.id,
-            result.contact_request_id,
-            result.thread_id,
-            specialist_id,
-        )
-    except ContactChatError as exc:
-        logger.warning(
-            "contact_request_failed telegram_id=%s specialist_id=%s error=%s",
-            callback.from_user.id,
-            specialist_id,
-            exc,
-        )
-        await callback.message.answer(
-            t("contact_request_error", language).format(error=str(exc))
-        )
-        await callback.answer()
-        return
-
-    specialist_chat_id = telegram_chat_id(specialist_platform_user_id)
-
-    specialist_notification_key = (
-        "contact_translated_message_received"
-        if specialist_used_translation
-        else "contact_request_specialist_notification"
-    )
-    if specialist_translation_status == "failed":
-        specialist_notification_key = "contact_translation_failed_original_shown"
-
-    if specialist_chat_id and result.contact_token:
-        try:
-            await callback.message.bot.send_message(
-                chat_id=specialist_chat_id,
-                text=t(specialist_notification_key, specialist_language).format(
-                    message=specialist_notification_message,
-                ),
-                reply_markup=contact_request_action_keyboard(
-                    result.contact_token,
-                    specialist_language,
-                ),
-            )
-            logger.info(
-                "contact_request_notification_sent request_id=%s specialist_chat_id=%s specialist_id=%s",
-                result.contact_request_id,
-                specialist_chat_id,
-                specialist_id,
-            )
-        except Exception:
-            logger.exception(
-                "contact_request_notification_failed request_id=%s specialist_chat_id=%s specialist_id=%s",
-                result.contact_request_id,
-                specialist_chat_id,
-                specialist_id,
-            )
-    else:
-        logger.warning(
-            "contact_request_notification_skipped request_id=%s specialist_chat_id=%s token_present=%s specialist_id=%s",
-            result.contact_request_id,
-            specialist_chat_id,
-            bool(result.contact_token),
-            specialist_id,
-        )
-
-    await state.update_data(
-        active_contact_request_id=str(result.contact_request_id),
-        active_thread_id=str(result.thread_id),
-        pending_contact_message=None,
-    )
-    await state.set_state(SpecialistSearchFSM.viewing_results)
-
-    await callback.message.answer(
-        t("contact_request_created", language),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
-                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
-            ]
-        ),
-    )
-
-    if result.message_masked:
-        await callback.message.answer(t("contact_detection_warning", language))
-
-    await callback.answer()
-
 def callback_token(callback: CallbackQuery) -> str | None:
     try:
         return (callback.data or "").split(":", 1)[1]
@@ -4564,180 +4972,22 @@ def callback_token(callback: CallbackQuery) -> str | None:
         return None
 
 
-@search_router.callback_query(F.data.startswith("contact_accept:"))
-async def accept_contact_request(callback: CallbackQuery, state: FSMContext):
-    token = callback_token(callback)
-    language = await get_interface_language(callback.from_user.id, callback.from_user.language_code)
-
-    if not token:
-        await callback.answer(t("contact_request_not_found", language), show_alert=True)
-        return
-
-    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not actor_user_id or not tenant_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            result = await ContactChatService(ContactChatRepository(session)).set_contact_request_status_by_token(
-                contact_token=token,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
-                action="accept",
-            )
-
-        logger.info(
-            "contact_request_accepted telegram_id=%s actor_user_id=%s thread_id=%s",
-            callback.from_user.id,
-            actor_user_id,
-            result.thread_id,
-        )
-    except ContactChatError as exc:
-        logger.warning(
-            "contact_request_accept_failed telegram_id=%s actor_user_id=%s error=%s",
-            callback.from_user.id,
-            actor_user_id,
-            exc,
-        )
-        await callback.answer(t("contact_request_error", language).format(error=str(exc)), show_alert=True)
-        return
-
-    await state.update_data(active_thread_id=str(result.thread_id))
-    await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.message.answer(
-        t("contact_request_accepted_specialist", language),
-        reply_markup=contact_thread_keyboard(language),
-    )
-    await callback.answer()
-
-
-@search_router.callback_query(F.data.startswith("contact_reject:"))
-async def reject_contact_request(callback: CallbackQuery, state: FSMContext):
-    token = callback_token(callback)
-    language = await get_interface_language(callback.from_user.id, callback.from_user.language_code)
-
-    if not token:
-        await callback.answer(t("contact_request_not_found", language), show_alert=True)
-        return
-
-    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not actor_user_id or not tenant_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            await ContactChatService(ContactChatRepository(session)).set_contact_request_status_by_token(
-                contact_token=token,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
-                action="reject",
-            )
-
-        logger.info(
-            "contact_request_rejected telegram_id=%s actor_user_id=%s",
-            callback.from_user.id,
-            actor_user_id,
-        )
-    except ContactChatError as exc:
-        logger.warning(
-            "contact_request_reject_failed telegram_id=%s actor_user_id=%s error=%s",
-            callback.from_user.id,
-            actor_user_id,
-            exc,
-        )
-        await callback.answer(t("contact_request_error", language).format(error=str(exc)), show_alert=True)
-        return
-
-    await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.message.answer(t("contact_request_rejected_specialist", language))
-    await callback.answer()
-
-
-@search_router.callback_query(F.data == "contact_reply")
-async def start_thread_reply(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
+@search_router.callback_query(
+    F.data.startswith("contact_accept:")
+)
+@search_router.callback_query(
+    F.data.startswith("contact_reject:")
+)
+async def block_legacy_contact_request_callbacks(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = await get_search_language(state, callback)
 
-    if not data.get("active_thread_id"):
-        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
-        return
-
-    active_thread_role = data.get("active_thread_role")
-
-    await show_callback_message(
-        callback,
-        t("contact_reply_prompt", language),
-        contact_thread_keyboard_for_role(language, active_thread_role),
+    await callback.answer(
+        t("legacy_contact_request_unavailable", language),
+        show_alert=True,
     )
-    await state.set_state(SpecialistSearchFSM.entering_thread_message)
-    await callback.answer()
-
-@search_router.callback_query(F.data == "contact_archive")
-async def archive_contact_thread(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-    thread_id = data.get("active_thread_id")
-
-    if not thread_id:
-        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
-        return
-
-    user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not user_id or not tenant_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            await ContactChatService(ContactChatRepository(session)).set_thread_visibility(
-                thread_id=UUID(thread_id),
-                user_id=user_id,
-                is_archived=True,
-            )
-    except ContactChatError as exc:
-        await callback.answer(str(exc), show_alert=True)
-        return
-
-    await callback.message.answer(
-        t("contact_thread_archived", language),
-        reply_markup=contact_thread_keyboard(language),
-    )
-    await callback.answer()
-
-
-@search_router.callback_query(F.data == "contact_hide")
-async def hide_contact_thread(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-    thread_id = data.get("active_thread_id")
-
-    if not thread_id:
-        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
-        return
-
-    user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not user_id or not tenant_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            await ContactChatService(ContactChatRepository(session)).set_thread_visibility(
-                thread_id=UUID(thread_id),
-                user_id=user_id,
-                is_hidden=True,
-            )
-    except ContactChatError as exc:
-        await callback.answer(str(exc), show_alert=True)
-        return
-
-    await callback.message.answer(
-        t("contact_thread_hidden", language),
-        reply_markup=contact_thread_keyboard(language),
-    )
-    await callback.answer()
 
 @search_router.message(SpecialistSearchFSM.entering_thread_message)
 async def receive_thread_message(message: Message, state: FSMContext):
@@ -4755,25 +5005,70 @@ async def receive_thread_message(message: Message, state: FSMContext):
         await message.answer(t("search_contact_user_not_found", language))
         return
 
-    receiver_platform_user_id = None
+    message_text = (
+        message.text
+        or message.caption
+        or ""
+    ).strip()
+    attachment: dict | None = None
+
+    if message.photo:
+        photo = message.photo[-1]
+        attachment = {
+            "type": "photo",
+            "file_id": photo.file_id,
+            "file_unique_id": photo.file_unique_id,
+            "file_name": None,
+            "mime_type": "image/jpeg",
+            "file_size": photo.file_size,
+        }
+    elif message.document:
+        document = message.document
+        attachment = {
+            "type": "document",
+            "file_id": document.file_id,
+            "file_unique_id": document.file_unique_id,
+            "file_name": document.file_name,
+            "mime_type": document.mime_type,
+            "file_size": document.file_size,
+        }
+    elif not message_text:
+        await message.answer(
+            t("contact_attachment_unsupported", language),
+            reply_markup=contact_thread_keyboard_for_role(
+                language,
+                data.get("active_thread_role"),
+            ),
+        )
+        return
+
     receiver_platform_user_id = None
     receiver_language = language
-    receiver_notification_message = (message.text or "").strip()
+    receiver_notification_message = message_text
     receiver_used_translation = False
     receiver_translation_status = "not_needed"
 
     try:
         async with get_session() as session:
-            result = await ContactChatService(ContactChatRepository(session)).send_thread_message(
+            result = await ContactChatService(
+                ContactChatRepository(session)
+            ).send_thread_message(
                 thread_id=UUID(thread_id),
                 sender_user_id=sender_user_id,
-                text=message.text or "",
+                text=message_text,
                 original_language=language,
+                attachment=attachment,
             )
 
-            receiver_user = await session.get(User, result.receiver_user_id)
-            if receiver_user:
-                receiver_language = normalize_language(receiver_user.language_code)
+            receiver_language_code = await UserRepository(
+                session
+            ).get_language_code(
+                result.receiver_user_id
+            )
+            if receiver_language_code:
+                receiver_language = normalize_language(
+                    receiver_language_code
+                )
 
             receiver_account = await UserRepository(session).get_telegram_account_by_user_id(
                 result.receiver_user_id
@@ -4813,7 +5108,45 @@ async def receive_thread_message(message: Message, state: FSMContext):
                     data.get("active_thread_role"),
                 ),
             )
-            await state.set_state(SpecialistSearchFSM.viewing_results)
+            await state.set_state(
+                SpecialistSearchFSM.entering_thread_message,
+            )
+            return
+
+        if "Attachment is too large." in error_text:
+            await message.answer(
+                t(
+                    "contact_attachment_too_large",
+                    language,
+                ),
+                reply_markup=contact_thread_keyboard_for_role(
+                    language,
+                    data.get("active_thread_role"),
+                ),
+            )
+            await state.set_state(
+                SpecialistSearchFSM.entering_thread_message
+            )
+            return
+
+        if (
+            "Unsupported attachment type." in error_text
+            or "Attachment file is missing." in error_text
+            or "Invalid attachment size." in error_text
+        ):
+            await message.answer(
+                t(
+                    "contact_attachment_unsupported",
+                    language,
+                ),
+                reply_markup=contact_thread_keyboard_for_role(
+                    language,
+                    data.get("active_thread_role"),
+                ),
+            )
+            await state.set_state(
+                SpecialistSearchFSM.entering_thread_message
+            )
             return
 
         await message.answer(
@@ -4823,8 +5156,11 @@ async def receive_thread_message(message: Message, state: FSMContext):
                 data.get("active_thread_role"),
             ),
         )
-        await state.set_state(SpecialistSearchFSM.viewing_results)
+        await state.set_state(
+            SpecialistSearchFSM.entering_thread_message,
+        )
         return
+
 
     receiver_chat_id = telegram_chat_id(receiver_platform_user_id)
 
@@ -4837,37 +5173,98 @@ async def receive_thread_message(message: Message, state: FSMContext):
         receiver_notification_key = "contact_translation_failed_original_shown"
 
     if receiver_chat_id:
-        await message.bot.send_message(
-            chat_id=receiver_chat_id,
-            text=t(receiver_notification_key, receiver_language).format(
-                message=receiver_notification_message,
-            ),
-            reply_markup=contact_thread_keyboard(receiver_language),
+        receiver_notification_text = t(
+            receiver_notification_key,
+            receiver_language,
+        ).format(
+            message=receiver_notification_message,
         )
-    await state.update_data(active_thread_id=str(result.thread_id))
-    await state.set_state(SpecialistSearchFSM.viewing_results)
 
-    await message.answer(
-        t("contact_message_sent", language),
-        reply_markup=contact_thread_keyboard_for_role(
-            language,
-            data.get("active_thread_role"),
-        ),
+        if attachment:
+            attachment_caption = (
+                receiver_notification_text[:1000]
+            )
+
+            if attachment["type"] == "photo":
+                await message.bot.send_photo(
+                    chat_id=receiver_chat_id,
+                    photo=attachment["file_id"],
+                    caption=attachment_caption,
+                    reply_markup=contact_thread_keyboard(
+                        receiver_language
+                    ),
+                )
+            else:
+                await message.bot.send_document(
+                    chat_id=receiver_chat_id,
+                    document=attachment["file_id"],
+                    caption=attachment_caption,
+                    reply_markup=contact_thread_keyboard(
+                        receiver_language
+                    ),
+                )
+        else:
+            await message.bot.send_message(
+                chat_id=receiver_chat_id,
+                text=receiver_notification_text,
+                reply_markup=contact_thread_keyboard(
+                    receiver_language
+                ),
+            )
+    await state.update_data(
+        active_thread_id=str(result.thread_id)
     )
-    if result.message_masked:
-        await message.answer(t("contact_detection_warning", language))
+    await state.set_state(
+        SpecialistSearchFSM.entering_thread_message,
+    )
 
-@search_router.callback_query(F.data == "search_favorite_pending")
-async def favorite_pending(callback: CallbackQuery, state: FSMContext):
+    if attachment is None:
+        await show_contact_chat(
+            message=message,
+            thread_id=str(result.thread_id),
+            user_id=sender_user_id,
+            viewer_role=(
+                data.get("active_thread_role")
+                or "client"
+            ),
+            language=language,
+            include_attachments=False,
+        )
+
+    if result.message_masked:
+        await message.answer(
+            t("contact_detection_warning", language),
+        )
+
+@search_router.callback_query(
+    F.data == "search_favorite_pending"
+)
+async def favorite_pending(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = await get_search_language(state, callback)
-    specialist_id = data.get("selected_specialist_id")
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    specialist_id = data.get(
+        "selected_specialist_id"
+    )
 
     if not specialist_id:
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    user_id, tenant_id = await get_requester_context(
+        callback.from_user.id
+    )
     if not user_id or not tenant_id:
         await store_post_auth_action(
             callback=callback,
@@ -4879,32 +5276,73 @@ async def favorite_pending(callback: CallbackQuery, state: FSMContext):
 
     try:
         async with get_session() as session:
-            is_saved = await FavoriteRepository(session).toggle_specialist(
+            is_saved = await FavoriteService(
+                FavoriteRepository(session)
+            ).toggle_specialist(
                 tenant_id=tenant_id,
                 user_id=user_id,
-                specialist_id=UUID(specialist_id),
+                specialist_id=UUID(
+                    specialist_id
+                ),
             )
     except ValueError as exc:
         logger.warning(
-            "favorite_toggle_failed telegram_id=%s specialist_id=%s error=%s",
+            "favorite_toggle_failed "
+            "telegram_id=%s specialist_id=%s error=%s",
             callback.from_user.id,
             specialist_id,
             exc,
         )
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
     logger.info(
-        "favorite_toggled telegram_id=%s user_id=%s specialist_id=%s is_saved=%s",
+        "favorite_toggled "
+        "telegram_id=%s user_id=%s "
+        "specialist_id=%s is_saved=%s",
         callback.from_user.id,
         user_id,
         specialist_id,
         is_saved,
     )
 
-    text_key = "favorite_saved" if is_saved else "favorite_removed"
-    await callback.answer(t(text_key, language), show_alert=True)
+    await state.update_data(
+        selected_specialist_is_saved=is_saved,
+    )
 
+    try:
+        if callback.data == "search_favorite_pending":
+            results_page = int(
+                data.get("results_page") or 0
+            )
+
+            await callback.message.edit_reply_markup(
+                reply_markup=card_keyboard(
+                    language,
+                    results_page,
+                    is_saved=is_saved,
+                )
+            )
+        else:
+            result_index = data.get(
+                "selected_result_index"
+            )
+
+            if isinstance(result_index, int):
+                await callback.message.edit_reply_markup(
+                    reply_markup=result_card_keyboard(
+                        result_index,
+                        language,
+                        is_saved=is_saved,
+                    )
+                )
+    except TelegramBadRequest:
+        pass
+
+    await callback.answer()
 
 @search_router.callback_query(F.data == "search_report_pending")
 async def report_pending(callback: CallbackQuery, state: FSMContext):
@@ -4994,7 +5432,10 @@ async def send_report(callback: CallbackQuery, state: FSMContext):
     )
 
 @search_router.callback_query(F.data == "search_report_cancel")
-async def cancel_report(callback: CallbackQuery, state: FSMContext):
+async def cancel_report(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     data = await state.get_data()
     language = await get_search_language(state, callback)
 
@@ -5005,7 +5446,29 @@ async def cancel_report(callback: CallbackQuery, state: FSMContext):
         pending_report_target_id=None,
         pending_report_target_summary=None,
     )
-    await state.set_state(SpecialistSearchFSM.viewing_results)
+
+    if data.get("active_thread_id"):
+        await state.set_state(
+            SpecialistSearchFSM.entering_thread_message
+        )
+        back_callback = (
+            "SPEC_DIALOGS"
+            if data.get("active_thread_role") == "specialist"
+            else "CLIENT_DIALOGS"
+        )
+        back_text = t(
+            "contact_back_to_dialogs_btn",
+            language,
+        )
+    else:
+        await state.set_state(
+            SpecialistSearchFSM.viewing_results
+        )
+        back_callback = "search_filters"
+        back_text = t(
+            "search_back_to_filters_btn",
+            language,
+        )
 
     await callback.message.answer(
         t("complaint_cancelled", language),
@@ -5013,8 +5476,8 @@ async def cancel_report(callback: CallbackQuery, state: FSMContext):
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("search_back_to_filters", language),
-                        callback_data="search_filters",
+                        text=back_text,
+                        callback_data=back_callback,
                     )
                 ],
                 [
@@ -5232,99 +5695,36 @@ async def show_original_message(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
-@search_router.callback_query(F.data == "ORDER_CREATE_FROM_THREAD")
-async def start_order_from_thread_form(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-    thread_id = data.get("active_thread_id")
-
-    if not thread_id:
-        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
-        return
-
-    await state.update_data(
-        pending_order_thread_id=thread_id,
-        pending_order_thread_role=data.get("active_thread_role"),
-    )
-    await state.set_state(SpecialistSearchFSM.entering_order_form)
-
-    await show_callback_message(
+@search_router.callback_query(
+    (F.data == "ORDER_CREATE_FROM_THREAD")
+    | (F.data == "ORDER_FORM_CANCEL")
+    | F.data.startswith("ORDER_CONFIRM:")
+    | F.data.startswith("ORDER_COMPLETE:")
+    | F.data.startswith("review_start_order:")
+)
+async def block_legacy_order_callbacks(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
         callback,
-        t("order_form_prompt", language),
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t("cancel", language),
-                        callback_data="ORDER_FORM_CANCEL",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("search_menu", language),
-                        callback_data="search_menu",
-                    )
-                ],
-            ]
+    )
+
+    await state.set_state(None)
+
+    await callback.answer(
+        t(
+            "order_actions_unavailable",
+            language,
         ),
+        show_alert=True,
     )
-    await callback.answer()
-
-def localized_order_error(error: Exception | str, language: str) -> str:
-    error_text = str(error)
-
-    mapping = {
-        "Order description is required.": "order_description_required",
-        "Order description is too short.": "order_description_too_short",
-        "Order amount must be a number or '-'.": "order_amount_invalid",
-        "Order amount cannot be negative.": "order_amount_negative",
-        "Order currency must use 3 letters, for example EUR.": "order_currency_invalid",
-        "Order not found.": "order_not_found_error",
-        "Service order not found.": "order_not_found_error",
-        "Only draft order can be confirmed.": "order_confirm_not_allowed",
-        "Order must be confirmed by the other side.": "order_other_side_confirm_required",
-        "Only order participants can confirm the order.": "order_participant_required",
-        "Only confirmed order can be completed.": "order_complete_not_allowed",
-        "Only order participants can complete the order.": "order_participant_required",
-    }
-
-    return t(mapping.get(error_text, "contact_request_error"), language).format(
-        error=error_text,
-    )
-
-def service_order_status_label(status: str | None, language: str) -> str:
-    labels = {
-        "draft": {
-            "ru": "Ожидает подтверждения",
-            "en": "Waiting for confirmation",
-            "pt": "Aguardando confirmação",
-        },
-        "confirmed": {
-            "ru": "Подтвержден",
-            "en": "Confirmed",
-            "pt": "Confirmado",
-        },
-        "completed": {
-            "ru": "Завершен",
-            "en": "Completed",
-            "pt": "Concluído",
-        },
-        "cancelled": {
-            "ru": "Отменен",
-            "en": "Cancelled",
-            "pt": "Cancelado",
-        },
-    }
-
-    normalized_language = language if language in {"ru", "en", "pt"} else "ru"
-    return labels.get(status or "", {}).get(normalized_language, "")
 
 def localized_review_error(error: Exception | str, language: str) -> str:
     error_text = str(error)
 
     mapping = {
-        "Only completed service orders can be reviewed.": "review_order_completed_required",
-        "This service order already has a review.": "review_already_exists",
         "invalid rating": "review_invalid_rating",
         "missing review data": "review_missing_data",
     }
@@ -5333,294 +5733,60 @@ def localized_review_error(error: Exception | str, language: str) -> str:
         error=error_text,
     )
 
-@search_router.message(SpecialistSearchFSM.entering_order_form)
-async def receive_order_form(message: Message, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, message)
-    thread_id = data.get("pending_order_thread_id")
-
-    if not thread_id:
-        await state.set_state(None)
-        await message.answer(t("contact_thread_not_found", language))
-        return
-
-    actor_user_id, tenant_id = await get_requester_context(message.from_user.id)
-    if not actor_user_id or not tenant_id:
-        await state.set_state(None)
-        await message.answer(t("billing_start_required", language))
-        return
-
-    service = ContactChatService(None)
-
-    try:
-        form = service.parse_service_order_form(message.text or "")
-    except ContactChatError as exc:
-        await message.answer(localized_order_error(exc, language))
-        return
-
-    try:
-        async with get_session() as session:
-            result = await ContactChatService(
-                ContactChatRepository(session)
-            ).create_service_order_draft_from_thread(
-                thread_id=UUID(thread_id),
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
-                description=form.description,
-                schedule_text=form.schedule_text,
-                agreed_amount=form.agreed_amount,
-                currency=form.currency,
-            )
-    except ContactChatError as exc:
-        await message.answer(localized_order_error(exc, language))
-        return
-
-    await state.update_data(
-        pending_order_thread_id=None,
-        pending_order_thread_role=None,
-    )
-    await state.set_state(None)
-
-    await message.answer(
-        t("order_draft_created_from_thread", language).format(
-            order_id=str(result.order_id)[:8],
-            status=service_order_status_label(result.status, language),
-        ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t("order_confirm_btn", language),
-                        callback_data=f"ORDER_CONFIRM:{result.order_id}",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("contact_back_to_dialogs_btn", language),
-                        callback_data=(
-                            "SPEC_DIALOGS"
-                            if data.get("pending_order_thread_role") == "specialist"
-                            else "CLIENT_DIALOGS"
-                        ),
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("search_menu", language),
-                        callback_data="search_menu",
-                    )
-                ],
-            ]
-        ),
-    )
-
-@search_router.callback_query(F.data == "ORDER_FORM_CANCEL")
-async def cancel_order_form(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-
-    await state.update_data(
-        pending_order_thread_id=None,
-        pending_order_thread_role=None,
-    )
-    await state.set_state(None)
-
-    await show_callback_message(
+@search_router.callback_query(
+    F.data == "contact_finish"
+)
+async def finish_contact_thread(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
         callback,
-        t("order_form_cancelled", language),
-        contact_thread_keyboard_for_role(language, None),
     )
-    await callback.answer()
 
-@search_router.callback_query(F.data.startswith("ORDER_CONFIRM:"))
-async def confirm_service_order(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-
-    try:
-        order_id = UUID((callback.data or "").split(":", 1)[1])
-    except (IndexError, TypeError, ValueError):
-        await callback.answer(
-            localized_order_error("Order not found.", language),
-            show_alert=True,
-        )
-        return
-
-    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not actor_user_id or not tenant_id:
-        await callback.answer(t("billing_start_required", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            result = await ContactChatService(
-                ContactChatRepository(session)
-            ).confirm_service_order(
-                order_id=order_id,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
-            )
-    except ContactChatError as exc:
-        await callback.answer(
-            localized_order_error(exc, language),
-            show_alert=True,
-        )
-        return
-
-    await show_callback_message(
-        callback,
-        t("order_confirmed", language).format(
-            order_id=str(result.order_id)[:8],
-            status=service_order_status_label(result.status, language),
+    await callback.answer(
+        t(
+            "contact_thread_completion_not_available",
+            language,
         ),
-        contact_thread_keyboard(language),
+        show_alert=True,
     )
-    await callback.answer()
-
-@search_router.callback_query(F.data.startswith("ORDER_COMPLETE:"))
-async def complete_service_order(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-
-    try:
-        order_id = UUID((callback.data or "").split(":", 1)[1])
-    except (IndexError, TypeError, ValueError):
-        await callback.answer(
-            localized_order_error("Order not found.", language),
-            show_alert=True,
-        )
-        return
-
-    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not actor_user_id or not tenant_id:
-        await callback.answer(t("billing_start_required", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            result = await ContactChatService(
-                ContactChatRepository(session)
-            ).complete_service_order(
-                order_id=order_id,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
-            )
-    except ContactChatError as exc:
-        await callback.answer(
-            localized_order_error(exc, language),
-            show_alert=True,
-        )
-        return
-
-    await show_callback_message(
-        callback,
-        t("order_completed", language).format(
-            order_id=str(result.order_id)[:8],
-            status=service_order_status_label(result.status, language),
-        ),
-        contact_thread_keyboard(language),
-    )
-    await callback.answer()
-
-@search_router.callback_query(F.data == "contact_finish")
-async def finish_contact_thread(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-    thread_id = data.get("active_thread_id")
-
-    if not thread_id:
-        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
-        return
-
-    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not actor_user_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            await ContactChatService(ContactChatRepository(session)).complete_thread(
-                thread_id=UUID(thread_id),
-                actor_user_id=actor_user_id,
-            )
-
-        logger.info(
-            "contact_thread_completed telegram_id=%s thread_id=%s actor_user_id=%s",
-            callback.from_user.id,
-            thread_id,
-            actor_user_id,
-        )
-    except ContactChatError as exc:
-        logger.warning(
-            "contact_thread_complete_failed telegram_id=%s thread_id=%s error=%s",
-            callback.from_user.id,
-            thread_id,
-            exc,
-        )
-        await callback.answer(t("contact_request_error", language).format(error=str(exc)), show_alert=True)
-        return
-
-    contact_request_id = data.get("active_contact_request_id")
-
-    await state.update_data(active_thread_id=None)
-    await callback.message.answer(
-        t("contact_thread_completed", language),
-        reply_markup=(
-            contact_completed_keyboard(contact_request_id, language)
-            if contact_request_id
-            else InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
-                    [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
-                ]
-            )
-        ),
-    )
-    await callback.answer()
-
-@search_router.callback_query(F.data.startswith("review_start_order:"))
-async def start_service_order_review(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-    service_order_id = callback.data.split(":", 1)[1]
-
-    if not service_order_id:
-        await callback.answer(t("admin_item_not_found", language), show_alert=True)
-        return
-
-    await state.update_data(
-        review_contact_request_id=None,
-        review_service_order_id=service_order_id,
-        review_rating=None,
-        review_text=None,
-    )
-    await state.set_state(SpecialistSearchFSM.choosing_review_rating)
-
-    await callback.message.answer(
-        t("review_rating_prompt", language),
-        reply_markup=review_rating_keyboard(language),
-    )
-    await callback.answer()
 
 @search_router.callback_query(F.data.startswith("review_start:"))
-async def start_contact_review(callback: CallbackQuery, state: FSMContext):
+async def start_contact_review(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = await get_search_language(state, callback)
     contact_request_id = callback.data.split(":", 1)[1]
+    data = await state.get_data()
 
     if not contact_request_id:
-        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
         return
 
     await state.update_data(
         review_contact_request_id=contact_request_id,
-        review_service_order_id=None,
         review_rating=None,
         review_text=None,
+        review_thread_id=data.get("review_thread_id"),
+        review_thread_role=data.get(
+            "review_thread_role"
+        ) or "client",
     )
-    await state.set_state(SpecialistSearchFSM.choosing_review_rating)
+    await state.set_state(
+        SpecialistSearchFSM.choosing_review_rating,
+    )
 
     await callback.message.answer(
         t("review_rating_prompt", language),
         reply_markup=review_rating_keyboard(language),
     )
     await callback.answer()
-
 
 @search_router.callback_query(F.data.startswith("review_rating:"))
 async def choose_review_rating(callback: CallbackQuery, state: FSMContext):
@@ -5663,72 +5829,118 @@ async def receive_review_text(message: Message, state: FSMContext):
     await create_review_from_state(message, state, text=text)
 
 
-async def create_review_from_state(event: CallbackQuery | Message, state: FSMContext, text: str | None):
+async def create_review_from_state(
+    event: CallbackQuery | Message,
+    state: FSMContext,
+    text: str | None,
+):
     data = await state.get_data()
     language = await get_search_language(state, event)
-    contact_request_id = data.get("review_contact_request_id")
-    service_order_id = data.get("review_service_order_id")
+    contact_request_id = data.get(
+        "review_contact_request_id"
+    )
+    review_thread_id = data.get(
+        "review_thread_id"
+    )
+    review_thread_role = data.get(
+        "review_thread_role"
+    ) or "client"
     rating = data.get("review_rating")
 
-    if not (contact_request_id or service_order_id) or not rating:
-        target = event.message if isinstance(event, CallbackQuery) else event
-        await target.answer(localized_review_error("missing review data", language))
+    target = (
+        event.message
+        if isinstance(event, CallbackQuery)
+        else event
+    )
+
+    if not contact_request_id or not rating:
+        await target.answer(
+            localized_review_error(
+                "missing review data",
+                language,
+            )
+        )
         if isinstance(event, CallbackQuery):
             await event.answer()
         return
 
-    reviewer_user_id, tenant_id = await get_requester_context(event.from_user.id)
+    reviewer_user_id, tenant_id = await get_requester_context(
+        event.from_user.id,
+    )
     if not reviewer_user_id or not tenant_id:
-        target = event.message if isinstance(event, CallbackQuery) else event
-        await target.answer(t("search_contact_user_not_found", language))
+        await target.answer(
+            t("search_contact_user_not_found", language)
+        )
         if isinstance(event, CallbackQuery):
             await event.answer()
         return
 
     try:
         async with get_session() as session:
-            review_service = ReviewService(ReviewRepository(session))
-            if service_order_id:
-                await review_service.create_service_order_review(
-                    tenant_id=tenant_id,
-                    reviewer_user_id=reviewer_user_id,
-                    service_order_id=UUID(service_order_id),
-                    rating=int(rating),
-                    text=text,
+            review_service = ReviewService(
+                ReviewRepository(session)
+            )
+
+            await review_service.create_contact_review(
+                tenant_id=tenant_id,
+                reviewer_user_id=reviewer_user_id,
+                contact_request_id=UUID(
+                    contact_request_id
+                ),
+                rating=int(rating),
+                text=text,
+            )
+
+            if review_thread_id:
+                await ContactChatService(
+                    ContactChatRepository(session)
+                ).archive_thread_after_review(
+                    thread_id=UUID(
+                        review_thread_id
+                    ),
+                    user_id=reviewer_user_id,
                 )
-            else:
-                await review_service.create_contact_review(
-                    tenant_id=tenant_id,
-                    reviewer_user_id=reviewer_user_id,
-                    contact_request_id=UUID(contact_request_id),
-                    rating=int(rating),
-                    text=text,
-                )
-    except ReviewServiceError as exc:
-        target = event.message if isinstance(event, CallbackQuery) else event
-        await target.answer(localized_review_error(exc, language))
+    except (ContactChatError, ReviewServiceError) as exc:
+        await target.answer(
+            localized_review_error(exc, language)
+        )
         if isinstance(event, CallbackQuery):
             await event.answer()
         return
 
-    await state.update_data(
-        review_contact_request_id=None,
-        review_service_order_id=None,
-        review_rating=None,
-        review_text=None,
-    )
-    await state.set_state(SpecialistSearchFSM.viewing_results)
+    await state.clear()
 
-    target = event.message if isinstance(event, CallbackQuery) else event
-    await target.answer(
-        t("review_created", language),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=t("search_back_to_filters", language), callback_data="search_filters")],
-                [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
-            ]
-        ),
-    )
+    if contact_request_id and review_thread_id:
+        await target.answer(
+            t("review_created_archived", language),
+            reply_markup=review_completed_keyboard(
+                language=language,
+                role=review_thread_role,
+            ),
+        )
+    else:
+        await target.answer(
+            t("review_created", language),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_back_to_filters_btn",
+                                language,
+                            ),
+                            callback_data="search_filters",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t("search_menu", language),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
 
     if isinstance(event, CallbackQuery):
         await event.answer()

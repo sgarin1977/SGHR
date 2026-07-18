@@ -1849,7 +1849,7 @@ class ModerationService:
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
-        status: str = "active",
+        status: str = "approved",
         page: int = 0,
         page_size: int = 5,
     ) -> AdminSpecialistPage:
@@ -1857,14 +1857,16 @@ class ModerationService:
             "all",
             "draft",
             "pending_moderation",
-            "active",
-            "paused",
+            "approved",
             "rejected",
+            "hidden",
             "blocked",
             "deleted",
         }
 
-        normalized_status = (status or "active").strip().lower()
+        normalized_status = (
+            status or "approved"
+        ).strip().lower()
 
         if normalized_status not in allowed_statuses:
             raise ModerationError(
@@ -2093,6 +2095,88 @@ class ModerationService:
             entity_id=specialist.id,
             status=specialist.status,
             message="Specialist profile returned for changes.",
+        )
+
+    async def hide_specialist(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        reason: str,
+    ) -> ModerationActionResult:
+        return await self._change_specialist_visibility(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+            reason=reason,
+            expected_status="approved",
+            target_status="hidden",
+            moderation_comment=reason,
+            action_type="hide_specialist",
+            message="Specialist profile hidden.",
+        )
+
+    async def restore_specialist(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        reason: str,
+    ) -> ModerationActionResult:
+        return await self._change_specialist_visibility(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+            reason=reason,
+            expected_status="hidden",
+            target_status="approved",
+            moderation_comment=None,
+            action_type="restore_specialist",
+            message="Specialist profile restored.",
+        )
+
+    async def _change_specialist_visibility(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        reason: str,
+        expected_status: str,
+        target_status: str,
+        moderation_comment: str | None,
+        action_type: str,
+        message: str,
+    ) -> ModerationActionResult:
+        normalized_reason = self._require_reason(reason)
+
+        try:
+            specialist = (
+                await self.repository.update_specialist_visibility(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                    expected_status=expected_status,
+                    target_status=target_status,
+                    moderation_comment=moderation_comment,
+                    reason=normalized_reason,
+                    action_type=action_type,
+                )
+            )
+            await self.repository.session.commit()
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(str(exc)) from exc
+
+        return ModerationActionResult(
+            entity_id=specialist.id,
+            status=specialist.status,
+            message=message,
         )
 
     async def create_complaint(
@@ -3365,18 +3449,15 @@ class ModerationService:
             "cities",
         )
 
-        active_result = await self.repository.session.execute(
-            text("""
-                SELECT count(*)
-                FROM specialists
-                WHERE status = 'active'
-            """)
+        approved_count = (
+            await self.repository.count_specialists_by_status(
+                status="approved"
+            )
         )
-        active_count = int(active_result.scalar_one() or 0)
 
         return (
             "Search prerequisites ok. "
-            f"active_specialists={active_count}, "
+            f"approved_specialists={approved_count}, "
             f"professions={counts['professions']}, "
             f"cities={counts['cities']}."
         )

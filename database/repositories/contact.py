@@ -1,7 +1,7 @@
 import secrets
 from uuid import UUID
 
-from sqlalchemy import func, select, literal
+from sqlalchemy import case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database.models import (
@@ -69,7 +69,7 @@ class ContactChatRepository:
         await self.session.flush()
 
         return None
-    async def get_active_specialist(
+    async def get_approved_specialist(
         self,
         specialist_id: UUID,
     ) -> Specialist | None:
@@ -78,7 +78,7 @@ class ContactChatRepository:
             .join(User, User.id == Specialist.user_id)
             .where(
                 Specialist.id == specialist_id,
-                Specialist.status == "active",
+                Specialist.status == "approved",
                 User.status.notin_(["blocked", "deleted"]),
             )
         )
@@ -168,6 +168,42 @@ class ContactChatRepository:
         )
         return int(result.scalar_one() or 0)
 
+    async def get_completion_requester_id(
+        self,
+        *,
+        thread_id: UUID,
+    ) -> str | None:
+        thread = await self.session.get(
+            ConversationThread,
+            thread_id,
+        )
+        if (
+            not thread
+            or thread.context_type != "contact_request"
+            or not thread.context_id
+        ):
+            return None
+
+        contact_request = await self.session.get(
+            ContactRequest,
+            thread.context_id,
+        )
+        if not contact_request:
+            return None
+
+        metadata = dict(
+            contact_request.extra_metadata or {}
+        )
+        requested_by_user_id = metadata.get(
+            "completion_requested_by_user_id",
+        )
+
+        return (
+            str(requested_by_user_id)
+            if requested_by_user_id
+            else None
+        )
+
     async def request_thread_completion(
         self,
         *,
@@ -196,10 +232,29 @@ class ContactChatRepository:
             Specialist,
             thread.specialist_id,
         )
-        if not specialist or specialist.user_id != actor_user_id:
+        if not specialist:
+            raise ValueError("Specialist not found.")
+
+        participant_user_ids = {
+            thread.client_user_id,
+            specialist.user_id,
+        }
+        if actor_user_id not in participant_user_ids:
             raise ValueError(
-                "Only specialist can request completion."
+                "User is not a conversation participant."
             )
+
+        requested_for_user_id = (
+            specialist.user_id
+            if actor_user_id == thread.client_user_id
+            else thread.client_user_id
+        )
+
+        requested_for_role = (
+            "specialist"
+            if actor_user_id == thread.client_user_id
+            else "client"
+        )
 
         contact_request = await self.session.get(
             ContactRequest,
@@ -211,9 +266,9 @@ class ContactChatRepository:
         ):
             raise ValueError("Contact request not found.")
 
-        if contact_request.status != "accepted":
+        if contact_request.status not in {"new", "accepted"}:
             raise ValueError(
-                "Only accepted contact request can be completed."
+                "Conversation cannot be completed."
             )
 
         if thread.status in {
@@ -245,13 +300,14 @@ class ContactChatRepository:
 
         notification = Notification(
             tenant_id=tenant_id,
-            user_id=thread.client_user_id,
+            user_id=requested_for_user_id,
             notification_type="completion_requested",
             channel=platform,
             payload={
                 "thread_id": str(thread.id),
                 "contact_request_id": str(contact_request.id),
                 "requested_by_user_id": str(actor_user_id),
+                "requested_for_role": requested_for_role,
                 "requested_at": requested_at.isoformat(),
             },
             status="pending",
@@ -268,7 +324,7 @@ class ContactChatRepository:
                 payload={
                     "thread_id": str(thread.id),
                     "requested_for_user_id": str(
-                        thread.client_user_id
+                        requested_for_user_id
                     ),
                     "requested_at": requested_at.isoformat(),
                 },
@@ -667,6 +723,128 @@ class ContactChatRepository:
         await self.session.flush()
         return contact_request, thread
 
+    async def create_contact_thread_with_system_message(
+        self,
+        *,
+        tenant_id: UUID,
+        from_user_id: UUID,
+        specialist_id: UUID,
+        profession_id: UUID,
+        specialist_user_id: UUID,
+        system_message: str,
+        original_language: str,
+        platform: str = "telegram",
+    ) -> tuple[
+        ContactRequest,
+        ConversationThread,
+        Message,
+    ]:
+        contact_token = secrets.token_urlsafe(9)
+
+        contact_request = ContactRequest(
+            tenant_id=tenant_id,
+            from_user_id=from_user_id,
+            specialist_id=specialist_id,
+            profession_id=profession_id,
+            message=system_message,
+            original_language=original_language,
+            status="new",
+            extra_metadata={
+                "contact_token": contact_token,
+                "initial_message_type": "system",
+            },
+        )
+        self.session.add(contact_request)
+        await self.session.flush()
+
+        thread = ConversationThread(
+            tenant_id=tenant_id,
+            context_type="contact_request",
+            context_id=contact_request.id,
+            client_user_id=from_user_id,
+            specialist_id=specialist_id,
+            status="waiting_specialist",
+        )
+        self.session.add(thread)
+        await self.session.flush()
+
+        client_participant = ConversationParticipant(
+            thread_id=thread.id,
+            user_id=from_user_id,
+            participant_role="client",
+            unread_count=0,
+        )
+        specialist_participant = ConversationParticipant(
+            thread_id=thread.id,
+            user_id=specialist_user_id,
+            participant_role="specialist",
+            unread_count=0,
+        )
+        self.session.add_all(
+            [
+                client_participant,
+                specialist_participant,
+            ]
+        )
+
+        system_message_row = Message(
+            tenant_id=tenant_id,
+            thread_id=thread.id,
+            sender_user_id=from_user_id,
+            receiver_user_id=specialist_user_id,
+            original_text=system_message,
+            original_language=original_language,
+            translation_status="not_needed",
+            is_system=True,
+            is_masked=False,
+            extra_metadata={
+                "message_type": "chat_prompt",
+            },
+        )
+        self.session.add(system_message_row)
+        await self.session.flush()
+
+        self.session.add_all(
+            [
+                EventLog(
+                    tenant_id=tenant_id,
+                    user_id=from_user_id,
+                    event_type="contact_request_created",
+                    entity_type="contact_request",
+                    entity_id=contact_request.id,
+                    platform=platform,
+                    payload={
+                        "specialist_id": str(specialist_id),
+                        "thread_id": str(thread.id),
+                        "source": "chat_opened",
+                    },
+                ),
+                EventLog(
+                    tenant_id=tenant_id,
+                    user_id=from_user_id,
+                    event_type="thread_created",
+                    entity_type="conversation_thread",
+                    entity_id=thread.id,
+                    platform=platform,
+                    payload={
+                        "contact_request_id": str(
+                            contact_request.id
+                        ),
+                        "specialist_id": str(specialist_id),
+                        "initial_message_type": "system",
+                    },
+                ),
+            ]
+        )
+
+        await self.session.commit()
+
+        return (
+            contact_request,
+            thread,
+            system_message_row,
+        )
+
     async def create_contact_request_with_thread(
         self,
         *,
@@ -862,6 +1040,7 @@ class ContactChatRepository:
         limit: int = 5,
         offset: int = 0,
         language: str = "ru",
+        search_query: str | None = None,
     ) -> list[tuple]:
         localized_profession_name = {
             "ru": Profession.name_ru,
@@ -895,18 +1074,21 @@ class ContactChatRepository:
                 "counterparty_name"
             )
         )
+        profession_name_expression = func.coalesce(
+            localized_profession_name,
+            Profession.name_ru,
+            Profession.name_en,
+            Profession.name_pt,
+            Profession.name,
+        )
         stmt = (
             select(
                 ConversationThread,
                 ConversationParticipant,
                 counterparty_name,
-                func.coalesce(
-                    localized_profession_name,
-                    Profession.name_ru,
-                    Profession.name_en,
-                    Profession.name_pt,
-                    Profession.name,
-                ).label("profession_name"),
+                profession_name_expression.label(
+                    "profession_name",
+                ),
                 last_message_text.label("last_message_text"),
                 last_message_at.label("last_message_at"),
             )
@@ -940,13 +1122,39 @@ class ContactChatRepository:
                 ConversationParticipant.participant_role == participant_role,
             )
         )
+        normalized_search_query = (search_query or "").strip()
 
+        if normalized_search_query:
+            search_pattern = f"%{normalized_search_query}%"
+
+            message_matches = (
+                select(Message.id)
+                .where(
+                    Message.thread_id == ConversationThread.id,
+                    Message.original_text.ilike(search_pattern),
+                )
+                .exists()
+            )
+
+            stmt = stmt.where(
+                or_(
+                    counterparty_name.ilike(search_pattern),
+                    profession_name_expression.ilike(search_pattern),
+                    ContactRequest.message.ilike(search_pattern),
+                    message_matches,
+                )
+            )
         messageable_statuses = {
             "open",
             "waiting_client",
             "waiting_specialist",
             "in_discussion",
         }
+        waiting_for_current_user_status = (
+            "waiting_client"
+            if participant_role == "client"
+            else "waiting_specialist"
+        )
 
         if view == "new":
             stmt = stmt.where(
@@ -954,6 +1162,12 @@ class ContactChatRepository:
                 ConversationParticipant.is_archived.is_(False),
                 ConversationParticipant.is_hidden.is_(False),
                 ConversationThread.status.in_(messageable_statuses),
+            )
+        elif view == "completed":
+            stmt = stmt.where(
+                ConversationParticipant.is_archived.is_(False),
+                ConversationParticipant.is_hidden.is_(False),
+                ConversationThread.status.in_({"completed", "closed"}),
             )
         elif view == "archive":
             stmt = stmt.where(ConversationParticipant.is_archived.is_(True))
@@ -968,6 +1182,15 @@ class ContactChatRepository:
 
         stmt = (
             stmt.order_by(
+                ConversationParticipant.unread_count.desc(),
+                case(
+                    (
+                        ConversationThread.status
+                        == waiting_for_current_user_status,
+                        0,
+                    ),
+                    else_=1,
+                ).asc(),
                 last_message_at.desc().nullslast(),
                 ConversationThread.created_at.desc(),
             )
@@ -978,6 +1201,27 @@ class ContactChatRepository:
         result = await self.session.execute(stmt)
         return list(result.all())
 
+    async def count_unread_messages_for_user(
+        self,
+        *,
+        user_id: UUID,
+        participant_role: str,
+    ) -> int:
+        result = await self.session.execute(
+            select(
+                func.coalesce(
+                    func.sum(ConversationParticipant.unread_count),
+                    0,
+                )
+            ).where(
+                ConversationParticipant.user_id == user_id,
+                ConversationParticipant.participant_role == participant_role,
+                ConversationParticipant.is_archived.is_(False),
+                ConversationParticipant.is_hidden.is_(False),
+            )
+        )
+
+        return int(result.scalar_one() or 0)
 
     async def list_contact_requests_for_client(
         self,
@@ -1187,7 +1431,7 @@ class ContactChatRepository:
         thread_id: UUID,
         user_id: UUID,
         language: str = "ru",
-        messages_limit: int = 10,
+        messages_limit: int | None = None,
     ) -> tuple | None:
         localized_profession_name = {
             "ru": Profession.name_ru,
@@ -1247,13 +1491,23 @@ class ContactChatRepository:
         if not detail:
             return None
 
-        messages_result = await self.session.execute(
+        messages_query = (
             select(Message)
             .where(Message.thread_id == thread_id)
             .order_by(Message.created_at.desc())
-            .limit(messages_limit)
         )
-        messages = list(reversed(messages_result.scalars().all()))
+
+        if messages_limit is not None:
+            messages_query = messages_query.limit(
+                max(1, int(messages_limit))
+            )
+
+        messages_result = await self.session.execute(
+            messages_query
+        )
+        messages = list(
+            reversed(messages_result.scalars().all())
+        )
 
         return (*detail, messages)
 
@@ -1283,6 +1537,7 @@ class ContactChatRepository:
         sender_user_id: UUID,
         original_text: str,
         original_language: str,
+        message_metadata: dict | None = None,
         platform: str = "telegram",
     ) -> tuple[ConversationThread, Message, Notification]:
         thread = await self.get_thread_for_user(
@@ -1327,6 +1582,7 @@ class ContactChatRepository:
             translation_status="pending",
             is_system=False,
             is_masked=False,
+            extra_metadata=dict(message_metadata or {}),
         )
         self.session.add(message)
         await self.session.flush()
@@ -1727,9 +1983,20 @@ class ContactChatRepository:
         if not thread:
             raise ValueError("Conversation thread not found.")
 
-        if actor_user_id != thread.client_user_id:
+        specialist = await self.session.get(
+            Specialist,
+            thread.specialist_id,
+        )
+        if not specialist:
+            raise ValueError("Specialist not found.")
+
+        participant_user_ids = {
+            thread.client_user_id,
+            specialist.user_id,
+        }
+        if actor_user_id not in participant_user_ids:
             raise ValueError(
-                "Only client can confirm request completion."
+                "User is not a conversation participant."
             )
 
         if (
@@ -1747,17 +2014,25 @@ class ContactChatRepository:
         if not contact_request:
             raise ValueError("Contact request not found.")
 
-        if contact_request.status != "accepted":
+        if contact_request.status not in {"new", "accepted"}:
             raise ValueError(
-                "Only accepted contact request can be completed."
+                "Conversation cannot be completed."
             )
 
         metadata = dict(
             contact_request.extra_metadata or {}
         )
-        if not metadata.get("completion_requested_at"):
+        requested_by_user_id = metadata.get(
+            "completion_requested_by_user_id",
+        )
+        if not requested_by_user_id:
             raise ValueError(
-                "Specialist has not requested completion."
+                "Completion has not been requested."
+            )
+
+        if str(actor_user_id) == str(requested_by_user_id):
+            raise ValueError(
+                "The other participant must confirm completion."
             )
 
         if thread.status in {
@@ -1780,7 +2055,12 @@ class ContactChatRepository:
 
         metadata["completed_at"] = completed_at.isoformat()
         metadata["completed_by_user_id"] = str(actor_user_id)
-        metadata["completion_source"] = "client"
+        completion_source = (
+            "client"
+            if actor_user_id == thread.client_user_id
+            else "specialist"
+        )
+        metadata["completion_source"] = completion_source
         contact_request.extra_metadata = metadata
 
         self.session.add_all(
@@ -1807,7 +2087,7 @@ class ContactChatRepository:
                     platform=platform,
                     payload={
                         "thread_id": str(thread.id),
-                        "completion_source": "client",
+                        "completion_source": completion_source,
                     },
                 ),
             ]

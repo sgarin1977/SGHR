@@ -38,38 +38,6 @@ class PrivacyRepository:
         )
         return result.scalar_one_or_none()
 
-    async def pause_specialist_profile(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-        platform: str = "telegram",
-    ) -> Specialist | None:
-        specialist = await self.get_specialist_by_user_id(user_id)
-        if not specialist:
-            return None
-
-        before_status = specialist.status
-        specialist.status = "paused"
-        specialist.updated_at = datetime.utcnow()
-
-        self.session.add(
-            EventLog(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                event_type="specialist_profile_paused",
-                entity_type="specialist",
-                entity_id=specialist.id,
-                platform=platform,
-                payload={
-                    "before_status": before_status,
-                    "after_status": "paused",
-                },
-            )
-        )
-
-        await self.session.commit()
-        return specialist
 
     async def schedule_profile_deletion(
         self,

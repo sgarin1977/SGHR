@@ -325,6 +325,20 @@ class ModerationRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+
+    async def count_specialists_by_status(
+        self,
+        *,
+        status: str,
+    ) -> int:
+        result = await self.session.execute(
+            select(func.count(Specialist.id)).where(
+                Specialist.status == status
+            )
+        )
+
+        return int(result.scalar_one() or 0)
+
     async def get_admin_roles(self, user_id: UUID) -> set[str]:
         result = await self.session.execute(
             select(UserRoleMapping.role).where(
@@ -3067,7 +3081,7 @@ class ModerationRepository:
 
         before_state = self._specialist_audit_state(specialist)
 
-        specialist.status = "active"
+        specialist.status = "approved"
         specialist.moderation_comment = None
         specialist.updated_at = datetime.utcnow()
 
@@ -3094,7 +3108,7 @@ class ModerationRepository:
                 "decision": "approved",
                 "reason": normalized_reason,
                 "before_status": before_state["status"],
-                "after_status": "active",
+                "after_status": "approved",
             },
         )
 
@@ -3246,6 +3260,79 @@ class ModerationRepository:
                 "reason": normalized_reason,
                 "before_status": before_state["status"],
                 "after_status": "draft",
+            },
+        )
+
+        await self.session.flush()
+        return specialist
+
+    async def update_specialist_visibility(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        expected_status: str,
+        target_status: str,
+        moderation_comment: str | None,
+        reason: str,
+        action_type: str,
+    ) -> Specialist:
+        await self.require_admin_role(
+            admin_user_id,
+            MODERATION_ROLES,
+        )
+
+        result = await self.session.execute(
+            select(Specialist).where(
+                Specialist.id == specialist_id,
+                Specialist.tenant_id == tenant_id,
+            )
+        )
+        specialist = result.scalar_one_or_none()
+
+        if not specialist:
+            raise ModerationNotFoundError("Specialist not found.")
+
+        if specialist.user_id == admin_user_id:
+            raise ModerationAccessError(
+                "You cannot change visibility of your own profile."
+            )
+
+        if specialist.status != expected_status:
+            raise ModerationAccessError(
+                "Specialist profile status has changed."
+            )
+
+        before_state = self._specialist_audit_state(specialist)
+
+        specialist.status = target_status
+        specialist.moderation_comment = moderation_comment
+        specialist.updated_at = datetime.utcnow()
+
+        await self.session.flush()
+
+        await self.log_admin_action(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+            action_type=action_type,
+            target_type="specialist",
+            target_id=specialist.id,
+            before_state=before_state,
+            after_state=self._specialist_audit_state(specialist),
+            reason=reason,
+        )
+
+        await self.log_event(
+            tenant_id=tenant_id,
+            user_id=admin_user_id,
+            event_type="profile_visibility_changed",
+            entity_type="specialist",
+            entity_id=specialist.id,
+            payload={
+                "reason": reason,
+                "before_status": before_state["status"],
+                "after_status": target_status,
             },
         )
 

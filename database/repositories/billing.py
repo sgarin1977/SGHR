@@ -180,7 +180,7 @@ class BillingRepository:
 
         return feature
 
-    async def get_active_specialist_for_user(
+    async def get_approved_specialist_for_user(
         self,
         *,
         user_id: UUID,
@@ -191,16 +191,17 @@ class BillingRepository:
                 select(Specialist).where(
                     Specialist.user_id == user_id,
                     Specialist.tenant_id == tenant_id,
-                    Specialist.status == "active",
+                    Specialist.status == "approved",
                 )
             )
         ).scalar_one_or_none()
 
         if not specialist:
-            raise BillingNotFoundError("Active specialist profile not found.")
+            raise BillingNotFoundError(
+                "Approved specialist profile not found."
+            )
 
         return specialist
-
     async def create_manual_invoice(
         self,
         *,

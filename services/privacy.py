@@ -30,20 +30,6 @@ class PrivacyService:
     def __init__(self, repository: PrivacyRepository):
         self.repository = repository
 
-    async def hide_specialist_profile(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-    ) -> Specialist:
-        specialist = await self.repository.pause_specialist_profile(
-            tenant_id=tenant_id,
-            user_id=user_id,
-        )
-        if not specialist:
-            raise PrivacyError("Specialist profile not found.")
-
-        return specialist
 
     async def schedule_profile_deletion(
         self,

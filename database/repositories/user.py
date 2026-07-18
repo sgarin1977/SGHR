@@ -47,6 +47,17 @@ class UserRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_language_code(
+        self,
+        user_id: uuid.UUID,
+    ) -> str | None:
+        result = await self.session.execute(
+            select(User.language_code).where(
+                User.id == user_id
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_public_platform_stats(self) -> dict[str, int]:
         countries_result = await self.session.execute(
             select(func.count(Country.id)).where(Country.is_active.is_(True))
@@ -61,7 +72,6 @@ class UserRepository:
             select(func.count(Specialist.id)).where(
                 Specialist.status.in_(
                     [
-                        "active",
                         "approved",
                         "pending_moderation",
                         "draft",

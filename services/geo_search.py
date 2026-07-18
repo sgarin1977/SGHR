@@ -145,7 +145,9 @@ class GeoSearchService:
         log_event: bool = False,
         language: str = "ru",
     ) -> SpecialistPublicCard | None:
-        specialist = await self.repository.get_active_specialist_for_card(specialist_id)
+        specialist = await self.repository.get_approved_specialist_for_card(
+    specialist_id
+)
         if not specialist:
             return None
 
@@ -236,7 +238,7 @@ class GeoSearchService:
             available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
-            status="active",
+            status="approved",
             limit=limit,
             offset=offset,
             sort_by=sort_by,
@@ -253,7 +255,7 @@ class GeoSearchService:
             available_only=available_only,
             work_format=work_format,
             rating_min=rating_min,
-            status="active",
+            status="approved",
             limit=200,
             offset=0,
             sort_by=sort_by,
@@ -351,7 +353,7 @@ class GeoSearchService:
             available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
-            status="active",
+            status="approved",
             limit=limit,
             offset=offset,
             sort_by="relevance" if sort_by == "distance" else sort_by,

@@ -40,6 +40,63 @@ class FavoriteRepository:
         )
         return saved is not None
 
+    async def list_saved_specialist_ids(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_ids: list[UUID],
+    ) -> set[UUID]:
+        if not specialist_ids:
+            return set()
+
+        result = await self.session.execute(
+            select(
+                SavedSpecialist.specialist_id
+            ).where(
+                SavedSpecialist.tenant_id == tenant_id,
+                SavedSpecialist.user_id == user_id,
+                SavedSpecialist.specialist_id.in_(
+                    specialist_ids
+                ),
+            )
+        )
+
+        return set(result.scalars().all())
+
+    async def save_specialist(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+    ) -> bool:
+        specialist = await self.session.get(Specialist, specialist_id)
+        if (
+            not specialist
+            or specialist.tenant_id != tenant_id
+            or specialist.status != "approved"
+        ):
+            raise ValueError("Specialist is not available.")
+
+        saved = await self.get_saved_specialist(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            specialist_id=specialist_id,
+        )
+        if saved:
+            return False
+
+        self.session.add(
+            SavedSpecialist(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                specialist_id=specialist_id,
+            )
+        )
+        await self.session.commit()
+        return True
+
     async def toggle_specialist(
         self,
         *,
@@ -48,7 +105,7 @@ class FavoriteRepository:
         specialist_id: UUID,
     ) -> bool:
         specialist = await self.session.get(Specialist, specialist_id)
-        if not specialist or specialist.tenant_id != tenant_id or specialist.status != "active":
+        if not specialist or specialist.tenant_id != tenant_id or specialist.status != "approved":
             raise ValueError("Specialist is not available.")
 
         saved = await self.get_saved_specialist(
@@ -92,7 +149,7 @@ class FavoriteRepository:
                 SavedSpecialist.tenant_id == tenant_id,
                 SavedSpecialist.user_id == user_id,
                 Specialist.tenant_id == tenant_id,
-                Specialist.status == "active",
+                Specialist.status == "approved",
             )
             .order_by(SavedSpecialist.created_at.desc())
             .limit(limit)

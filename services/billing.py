@@ -62,7 +62,7 @@ class BillingService:
         normalized_feature_code = self._require_code(feature_code)
 
         try:
-            specialist = await self.repository.get_active_specialist_for_user(
+            specialist = await self.repository.get_approved_specialist_for_user(
                 user_id=payer_user_id,
                 tenant_id=tenant_id,
             )

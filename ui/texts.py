@@ -1,8 +1,8 @@
 translations = {
     "legal_accept_continue_btn": {
-    "ru": "✅ Принять и продолжить",
-    "en": "✅ Accept and continue",
-    "pt": "✅ Aceitar e continuar",
+        "ru": "✅ Принять",
+        "en": "✅ Accept",
+        "pt": "✅ Aceitar",
     },
     "legal_back_to_menu_btn": {
         "ru": "⬅️ Назад в меню",
@@ -10,14 +10,23 @@ translations = {
         "pt": "⬅️ Voltar ao menu",
     },
     "legal_continue_specialist_registration_btn": {
-        "ru": "Продолжить регистрацию специалиста",
-        "en": "Continue specialist registration",
-        "pt": "Continuar registro de especialista",
+        "ru": "Создать профиль специалиста",
+        "en": "Create specialist profile",
+        "pt": "Criar perfil de especialista",
     },
     "legal_gate_intro": {
-        "ru": "Перед созданием профиля специалиста нужно принять обязательные юридические согласия SGHR Beta.",
-        "en": "Before creating a specialist profile, you need to accept the required SGHR Beta legal consents.",
-        "pt": "Antes de criar um perfil de especialista, você precisa aceitar os consentimentos legais obrigatórios do SGHR Beta.",
+        "ru": (
+            "Перед созданием профиля специалиста примите "
+            "обязательные юридические документы."
+        ),
+        "en": (
+            "Before creating a specialist profile, accept "
+            "the required legal documents."
+        ),
+        "pt": (
+            "Antes de criar um perfil de especialista, aceite "
+            "os documentos legais obrigatorios."
+        ),
     },
     "legal_gate_required_docs": {
         "ru": "Обязательные документы:",
@@ -30,14 +39,14 @@ translations = {
         "pt": "Ao continuar, você confirma consentimento com as regras do serviço, processamento de dados, publicação do perfil de especialista, uso de cidade/geolocalização para busca e tradução automática de mensagens.",
     },
     "legal_start_required": {
-        "ru": "Сначала нажмите /start, чтобы зарегистрироваться в SGHR Beta.",
-        "en": "Please press /start first to register in SGHR Beta.",
-        "pt": "Pressione /start primeiro para se registrar no SGHR Beta.",
+        "ru": "Сначала нажмите /start, чтобы продолжить.",
+        "en": "Press /start first to continue.",
+        "pt": "Primeiro pressione /start para continuar.",
     },
     "legal_documents_not_configured": {
-        "ru": "Юридические документы для Beta 0.3 ещё не настроены. Передайте администратору: {error}",
-        "en": "Legal documents for Beta 0.3 are not configured yet. Please forward this to the administrator: {error}",
-        "pt": "Os documentos legais da Beta 0.3 ainda não estão configurados. Encaminhe ao administrador: {error}",
+        "ru": "Юридические документы временно недоступны. Попробуйте позже.",
+        "en": "Legal documents are temporarily unavailable. Try again later.",
+        "pt": "Os documentos legais estao temporariamente indisponiveis. Tente mais tarde.",
     },
     "legal_already_accepted": {
         "ru": "Юридические согласия уже приняты. Можно продолжить регистрацию специалиста.",
@@ -45,9 +54,9 @@ translations = {
         "pt": "Os consentimentos legais já foram aceitos. Você pode continuar o registro de especialista.",
     },
     "legal_accept_failed": {
-        "ru": "Не удалось принять согласия: юридические документы не настроены. Передайте администратору: {error}",
-        "en": "Could not accept consents: legal documents are not configured. Please forward this to the administrator: {error}",
-        "pt": "Não foi possível aceitar os consentimentos: documentos legais não configurados. Encaminhe ao administrador: {error}",
+        "ru": "Не удалось сохранить согласие. Попробуйте позже.",
+        "en": "Could not save your consent. Try again later.",
+        "pt": "Nao foi possivel salvar o seu consentimento. Tente mais tarde.",
     },
     "legal_accepted": {
         "ru": "Согласия приняты. Теперь можно продолжить регистрацию специалиста.",
@@ -55,9 +64,9 @@ translations = {
         "pt": "Consentimentos aceitos. Agora você pode continuar o registro de especialista.",
     },
     "legal_main_menu": {
-        "ru": "Главное меню SGHR Beta.",
-        "en": "SGHR Beta main menu.",
-        "pt": "Menu principal SGHR Beta.",
+        "ru": "🏠 Главное меню",
+        "en": "🏠 Main menu",
+        "pt": "🏠 Menu principal",
     },
 
     "spec_back_btn": {
@@ -126,11 +135,6 @@ translations = {
         "en": "Specialist profile already exists.",
         "pt": "O perfil de especialista já existe.",
     },
-    "spec_categories_missing": {
-        "ru": "Категории специалистов не настроены. Запустите seed beta data.",
-        "en": "Specialist categories are not configured. Run seed beta data.",
-        "pt": "Categorias de especialistas não configuradas. Execute seed beta data.",
-    },
     "spec_category_prompt": {
         "ru": "Выберите категорию услуг:",
         "en": "Choose a service category:",
@@ -145,11 +149,6 @@ translations = {
         "ru": "Категория не найдена или отключена.",
         "en": "Category not found or inactive.",
         "pt": "Categoria não encontrada ou inativa.",
-    },
-    "spec_professions_missing": {
-        "ru": "Для этой категории пока нет активных профессий.",
-        "en": "There are no active professions for this category yet.",
-        "pt": "Ainda não há profissões ativas para esta categoria.",
     },
     "spec_profession_prompt": {
         "ru": "Выберите профессию:",
@@ -166,15 +165,78 @@ translations = {
         "en": "Profession not found or inactive.",
         "pt": "Profissão não encontrada ou inativa.",
     },
+    "spec_categories_missing": {
+        "ru": "Сферы услуг пока недоступны. Попробуйте позже.",
+        "en": "Service areas are temporarily unavailable. Please try again later.",
+        "pt": "As áreas de serviço estão temporariamente indisponíveis. Tente novamente mais tarde.",
+    },
+    "spec_professions_missing": {
+        "ru": "В этой сфере пока нет доступных профессий. Выберите другую сферу.",
+        "en": "There are no available professions in this service area yet. Choose another area.",
+        "pt": "Ainda não há profissões disponíveis nesta área de serviço. Escolha outra área.",
+    },
+    "spec_contact_prompt": {
+        "ru": (
+            "Связь с клиентами\n"
+            "Отправьте «-», чтобы получать сообщения только через SGHR, "
+            "или укажите контакт для профиля."
+        ),
+        "en": (
+            "Contact with clients\n"
+            "Send “-” to receive messages only through SGHR, "
+            "or enter a contact for your profile."
+        ),
+        "pt": (
+            "Contacto com clientes\n"
+            "Envie “-” para receber mensagens apenas através do SGHR "
+            "ou indique um contacto para o perfil."
+        ),
+    },
+    "spec_summary": {
+        "ru": (
+            "Кабинет специалиста\n"
+            "Данные перед отправкой на модерацию.\n\n"
+            "Категория: {category}\n"
+            "Профессии: {profession}\n"
+            "Локация: {location}\n"
+            "Имя: {display_name}\n"
+            "Описание: {description}\n"
+            "Стоимость: {price}\n"
+            "Языки: {languages}\n"
+            "Формат работы: {work_format}\n"
+            "Связь: {contact}"
+        ),
+        "en": (
+            "Specialist cabinet\n"
+            "Details before submission for moderation.\n\n"
+            "Category: {category}\n"
+            "Professions: {profession}\n"
+            "Location: {location}\n"
+            "Name: {display_name}\n"
+            "Description: {description}\n"
+            "Price: {price}\n"
+            "Languages: {languages}\n"
+            "Work format: {work_format}\n"
+            "Contact: {contact}"
+        ),
+        "pt": (
+            "Painel de especialista\n"
+            "Dados antes do envio para moderação.\n\n"
+            "Categoria: {category}\n"
+            "Profissões: {profession}\n"
+            "Localização: {location}\n"
+            "Nome: {display_name}\n"
+            "Descrição: {description}\n"
+            "Preço: {price}\n"
+            "Idiomas: {languages}\n"
+            "Formato de trabalho: {work_format}\n"
+            "Contacto: {contact}"
+        ),
+    },
     "spec_location_prompt": {
         "ru": "Выберите город или отправьте геолокацию:",
         "en": "Choose a city or send geolocation:",
         "pt": "Escolha uma cidade ou envie geolocalização:",
-    },
-    "spec_cities_missing": {
-        "ru": "Города не настроены. Запустите seed beta data.",
-        "en": "Cities are not configured. Run seed beta data.",
-        "pt": "Cidades não configuradas. Execute seed beta data.",
     },
     "spec_city_prompt": {
         "ru": "Выберите город:",
@@ -272,30 +334,30 @@ translations = {
         "en": "Could not recognize price. Example: 50 or 50-100.",
         "pt": "Não foi possível reconhecer o preço. Exemplo: 50 ou 50-100.",
     },
+    "specialist_languages_title": {
+        "ru": "🌐 Языки",
+        "en": "🌐 Languages",
+        "pt": "🌐 Idiomas",
+    },
+    "specialist_languages_hint": {
+        "ru": "Укажите языки общения с клиентами.",
+        "en": "Choose the languages you use with clients.",
+        "pt": "Indique os idiomas que você usa com os clientes.",
+    },
+    "specialist_languages_selected": {
+        "ru": "Выбрано: {languages}",
+        "en": "Selected: {languages}",
+        "pt": "Selecionado: {languages}",
+    },
     "spec_languages_prompt": {
         "ru": "Выберите языки, на которых можете общаться:",
         "en": "Choose languages you can communicate in:",
         "pt": "Escolha os idiomas em que você pode se comunicar:",
     },
-    "spec_contact_prompt": {
-        "ru": "Укажите контактную заметку для Beta. Например: связь внутри SGHR beta chat.",
-        "en": "Enter a contact note for Beta. For example: contact inside SGHR beta chat.",
-        "pt": "Digite uma nota de contato para Beta. Por exemplo: contato dentro do SGHR beta chat.",
-    },
-    "spec_contact_required": {
-        "ru": "Контактная заметка обязательна для Beta 0.4.",
-        "en": "Contact note is required for Beta 0.4.",
-        "pt": "A nota de contato é obrigatória para Beta 0.4.",
-    },
     "spec_price_not_set": {
-        "ru": "Стоимость обсудим в диалоге",
-        "en": "Price will be discussed in chat",
-        "pt": "O preço será combinado no chat",
-    },
-    "spec_summary": {
-        "ru": "Проверьте профиль специалиста:\n\nКатегория: {category}\nНаправление: {profession}\nЛокация: {location}\nПрофиль: {display_name}\nОписание: {description}\nФормат работы: {work_format}\nЯзыки: {languages}\nКонтакт: {contact}\n\nПосле подтверждения профиль будет отправлен на модерацию.",
-        "en": "Check specialist profile:\n\nCategory: {category}\nDirection: {profession}\nLocation: {location}\nProfile: {display_name}\nDescription: {description}\nWork format: {work_format}\nLanguages: {languages}\nContact: {contact}\n\nAfter confirmation, the profile will be sent to moderation.",
-        "pt": "Verifique o perfil de especialista:\n\nCategoria: {category}\nDireção: {profession}\nLocalização: {location}\nPerfil: {display_name}\nDescrição: {description}\nFormato de trabalho: {work_format}\nIdiomas: {languages}\nContato: {contact}\n\nApós a confirmação, o perfil será enviado para moderação.",
+        "ru": "Стоимость обсудим в переписке",
+        "en": "Price will be discussed in the conversation",
+        "pt": "O preço será combinado na conversa",
     },
     "spec_create_failed": {
         "ru": "Не удалось создать профиль: {error}",
@@ -319,14 +381,23 @@ translations = {
         "pt": "amigo",
     },   
     "start_welcome_existing": {
-        "ru": "Привет, {first_name}! 👋\n\nРады видеть тебя снова в SGHR Beta.",
-        "en": "Hi, {first_name}! 👋\n\nGlad to see you again in SGHR Beta.",
-        "pt": "Olá, {first_name}! 👋\n\nBom ver você novamente no SGHR Beta.",
+        "ru": "Привет, {first_name}! 👋",
+        "en": "Hi, {first_name}! 👋",
+        "pt": "Ola, {first_name}! 👋",
     },
     "start_welcome_new": {
-        "ru": "🎉 Добро пожаловать в SGHR Beta, {first_name}!\n\nВы успешно зарегистрированы.\nВаша роль в системе: <b>{role_text}</b>",
-        "en": "🎉 Welcome to SGHR Beta, {first_name}!\n\nYou have been registered successfully.\nYour system role: <b>{role_text}</b>",
-        "pt": "🎉 Bem-vindo ao SGHR Beta, {first_name}!\n\nVocê foi registrado com sucesso.\nSua função no sistema: <b>{role_text}</b>",
+        "ru": (
+            "🎉 Добро пожаловать, {first_name}!\n\n"
+            "Регистрация завершена."
+        ),
+        "en": (
+            "🎉 Welcome, {first_name}!\n\n"
+            "Registration is complete."
+        ),
+        "pt": (
+            "🎉 Bem-vindo, {first_name}!\n\n"
+            "O registo foi concluido."
+        ),
     },
     "role_text_client": {
         "ru": "Клиент 👤",
@@ -349,9 +420,69 @@ translations = {
         "pt": "💼 Oferecer serviços",
     },
     "menu_my_cabinet": {
-        "ru": "👤 Кабинет",
+        "ru": "👤 Мой кабинет",
         "en": "👤 My cabinet",
-        "pt": "👤 Minha conta",
+        "pt": "👤 Meu gabinete",
+    },
+    "menu_all_services": {
+        "ru": "📦 Все сервисы",
+        "en": "📦 All services",
+        "pt": "📦 Todos os servicos",
+    },
+    "all_services_title": {
+        "ru": "📦 Все сервисы",
+        "en": "📦 All services",
+        "pt": "📦 Todos os servicos",
+    },
+    "all_services_hint": {
+        "ru": "Дополнительные возможности платформы.",
+        "en": "Additional platform features.",
+        "pt": "Recursos adicionais da plataforma.",
+    },
+    "all_services_help_btn": {
+        "ru": "❓ Помощь",
+        "en": "❓ Help",
+        "pt": "❓ Ajuda",
+    },
+    "all_services_community_btn": {
+        "ru": "🌍 Сообщество",
+        "en": "🌍 Community",
+        "pt": "🌍 Comunidade",
+    },
+    "all_services_companies_btn": {
+        "ru": "🏢 Для компаний",
+        "en": "🏢 For companies",
+        "pt": "🏢 Para empresas",
+    },
+    "all_services_crm_btn": {
+        "ru": "📊 Клиенты и заказы / CRM",
+        "en": "📊 Clients and orders / CRM",
+        "pt": "📊 Clientes e pedidos / CRM",
+    },
+    "all_services_finance_btn": {
+        "ru": "💳 Финансы",
+        "en": "💳 Finance",
+        "pt": "💳 Financas",
+    },
+    "all_services_promotion_btn": {
+        "ru": "📈 Продвижение",
+        "en": "📈 Promotion",
+        "pt": "📈 Promocao",
+    },
+    "all_services_community_stub": {
+        "ru": "🌍 Сообщество\n\nРаздел станет доступен позже.",
+        "en": "🌍 Community\n\nThis section will be available later.",
+        "pt": "🌍 Comunidade\n\nEsta secao estara disponivel mais tarde.",
+    },
+    "all_services_companies_stub": {
+        "ru": "🏢 Для компаний\n\nРаздел станет доступен позже.",
+        "en": "🏢 For companies\n\nThis section will be available later.",
+        "pt": "🏢 Para empresas\n\nEsta secao estara disponivel mais tarde.",
+    },
+    "all_services_promotion_stub": {
+        "ru": "📈 Продвижение\n\nРаздел станет доступен позже.",
+        "en": "📈 Promotion\n\nThis section will be available later.",
+        "pt": "📈 Promocao\n\nEsta secao estara disponivel mais tarde.",
     },
     "menu_settings": {
         "ru": "⚙️ Настройки",
@@ -367,9 +498,9 @@ translations = {
     "en": "Hello! I will help you find a job or employees."
 },
     "menu_specialist": {
-        "ru": "🧰 Я специалист",
-        "en": "🧰 I am a specialist",
-        "pt": "🧰 Sou especialista",
+        "ru": "🧰 Мои услуги",
+        "en": "🧰 My services",
+        "pt": "🧰 Meus servicos",
     },
     "menu_rfq": {
         "ru": "📋 Заявки / RFQ",
@@ -377,9 +508,9 @@ translations = {
         "pt": "📋 Pedidos / RFQ",
     },
     "menu_dialogs": {
-        "ru": "💬 Диалоги",
-        "en": "💬 Dialogs",
-        "pt": "💬 Diálogos",
+        "ru": "💬 Сообщения",
+        "en": "💬 Messages",
+        "pt": "💬 Mensagens",
     },
     "menu_community": {
         "ru": "🌍 Community",
@@ -424,12 +555,6 @@ translations = {
     "ru": "Вакансии",
     "pt": "Vagas",
     "en": "Vacancies"
-},
-
-    "current_role": {
-    "ru": "Текущая роль",
-    "pt": "Função atual",
-    "en": "Current role"
 },
 "role_specialist": {
     "ru": "Специалист",
@@ -582,16 +707,6 @@ translations = {
         "pt": "❌ Cidade não encontrada. Tente novamente.",
         "en": "❌ City not found. Please try again."
     },
-    "message_sent_to_specialist": {
-        "ru": "Сообщение отправлено специалисту ✅",
-        "pt": "Mensagem enviada ao especialista ✅",
-        "en": "Message sent to specialist ✅"
-    },
-    "message_sent_to_user": {
-        "ru": "Сообщение отправлено пользователю ✅",
-        "pt": "Mensagem enviada ao usuário ✅",
-        "en": "Message sent to user ✅"
-    },
     "no_cities": {
         "ru": "Нет доступных городов", "pt": "Nenhuma cidade disponível", "en": "No available cities"
     },
@@ -661,9 +776,9 @@ translations = {
         "en": "Specialist not found or unavailable."
     },
     "switch_profile": {
-        "ru": "Переключить кабинет",
-        "en": "Switch cabinet",
-        "pt": "Trocar gabinete",
+        "ru": "🔄 Мои кабинеты",
+        "en": "🔄 My cabinets",
+        "pt": "🔄 Meus gabinetes",
     },
     "view_resume": {
         "ru": "📄 Посмотреть резюме", "pt": "📄 Ver currículo", "en": "📄 View resume"
@@ -688,9 +803,9 @@ translations = {
         "pt": "⬅️ Voltar",
     },
     "search_menu": {
-        "ru": "🏠 В меню",
-        "en": "🏠 Menu",
-        "pt": "🏠 Menu",
+        "ru": "🏠 Главное меню",
+        "en": "🏠 Main menu",
+        "pt": "🏠 Menu principal",
     },
     "search_choose_city_btn": {
         "ru": "Выбрать город",
@@ -706,11 +821,6 @@ translations = {
         "ru": "Новый поиск",
         "en": "New search",
         "pt": "Nova busca",
-    },
-    "search_price_not_set": {
-        "ru": "Стоимость обсуждается в диалоге",
-        "en": "Price is discussed in chat",
-        "pt": "O preço é combinado no chat",
     },
     "search_distance": {
         "ru": "Расстояние",
@@ -728,9 +838,9 @@ translations = {
         "pt": "Categorias de especialistas nao configuradas.",
     },
     "search_choose_category": {
-        "ru": "Выберите категорию специалиста:",
-        "en": "Choose specialist category:",
-        "pt": "Escolha a categoria do especialista:",
+        "ru": "Выберите сферу услуг.",
+        "en": "Choose a service area.",
+        "pt": "Escolha uma área de serviços.",
     },
     "search_category_not_found": {
         "ru": "Категория не найдена или отключена.",
@@ -778,9 +888,9 @@ translations = {
         "pt": "Buscando especialistas por perto...",
     },
     "search_main_menu": {
-        "ru": "Главное меню SGHR Beta.",
-        "en": "SGHR Beta main menu.",
-        "pt": "Menu principal SGHR Beta.",
+        "ru": "🏠 Главное меню\n\nВыберите нужный раздел.",
+        "en": "🏠 Main menu\n\nChoose a section.",
+        "pt": "🏠 Menu principal\n\nEscolha uma secao.",
     },
     "search_rating": {
         "ru": "Рейтинг",
@@ -798,14 +908,19 @@ translations = {
         "pt": "premium",
     },
     "search_choose_profession": {
-        "ru": "Выберите одно или несколько направлений:",
-        "en": "Choose one or more directions:",
-        "pt": "Escolha uma ou mais direções:",
+        "ru": "Выберите одно или несколько направлений.",
+        "en": "Choose one or more directions.",
+        "pt": "Escolha uma ou mais direções.",
+    },
+    "search_selected_professions_count": {
+        "ru": "Выбрано: {count}",
+        "en": "Selected: {count}",
+        "pt": "Selecionados: {count}",
     },
     "search_all_professions": {
-        "ru": "Все направления",
-        "en": "All directions",
-        "pt": "Todas as direções",
+        "ru": "☑ Выбрать все",
+        "en": "☑ Select all",
+        "pt": "☑ Selecionar todos",
     },
     "search_professions_missing": {
         "ru": "Направления для категории не настроены.",
@@ -947,30 +1062,25 @@ translations = {
         "en": "Choose a minimum rating. New specialists without reviews are not hidden unless you select the filter.",
         "pt": "Escolha uma avaliação mínima. Novos especialistas sem avaliações não são ocultados se o filtro não for escolhido.",
     },
-    "search_contact_placeholder": {
-        "ru": "Связь со специалистом будет доступна в Beta 0.6.",
-        "en": "Contacting a specialist will be available in Beta 0.6.",
-        "pt": "O contato com o especialista estará disponível no Beta 0.6.",
-    },
-    "search_favorite_placeholder": {
-        "ru": "Избранное будет доступно в следующих версиях Beta.",
-        "en": "Favorites will be available in the next Beta versions.",
-        "pt": "Favoritos estarão disponíveis nas próximas versões Beta.",
-    },
-    "search_report_placeholder": {
-        "ru": "Жалобы будут доступны в модерации Beta.",
-        "en": "Reports will be available in Beta moderation.",
-        "pt": "Denúncias estarão disponíveis na moderação Beta.",
-    },
     "contact_request_prompt": {
         "ru": "Опишите задачу специалисту. Минимум 10 символов.",
         "en": "Describe the task for the specialist. Minimum 10 characters.",
         "pt": "Descreva a tarefa para o especialista. Mínimo de 10 caracteres.",
     },
+    "contact_chat_first_prompt": {
+        "ru": "Опишите, что нужно сделать.",
+        "en": "Describe what needs to be done.",
+        "pt": "Descreva o que precisa ser feito.",
+    },
+    "legacy_contact_request_unavailable": {
+        "ru": "Эта старая заявка больше не используется. Откройте сообщения.",
+        "en": "This old request is no longer used. Open Messages.",
+        "pt": "Esta solicitação antiga não é mais usada. Abra Mensagens.",
+    },
     "contact_request_created": {
-        "ru": "Заявка отправлена специалисту. Диалог создан внутри SGHR Beta.",
-        "en": "Request sent to the specialist. The chat was created inside SGHR Beta.",
-        "pt": "Pedido enviado ao especialista. O chat foi criado dentro do SGHR Beta.",
+        "ru": "Переписка открыта. Напишите первое сообщение.",
+        "en": "Conversation opened. Write your first message.",
+        "pt": "A conversa foi aberta. Escreva sua primeira mensagem.",
     },
     "contact_request_error": {
         "ru": "Не удалось отправить заявку: {error}",
@@ -1003,9 +1113,9 @@ translations = {
         "pt": "Novo pedido de um cliente:\n\n{message}",
     },
     "contact_request_accepted_specialist": {
-        "ru": "Заявка принята. Диалог открыт внутри SGHR Beta.",
-        "en": "Request accepted. The chat is open inside SGHR Beta.",
-        "pt": "Pedido aceito. O chat está aberto dentro do SGHR Beta.",
+        "ru": "Переписка открыта.",
+        "en": "Conversation opened.",
+        "pt": "A conversa foi aberta.",
     },
     "contact_request_rejected_specialist": {
         "ru": "Заявка отклонена.",
@@ -1016,11 +1126,6 @@ translations = {
         "ru": "Заявка не найдена или уже обработана.",
         "en": "Request not found or already processed.",
         "pt": "Pedido não encontrado ou já processado.",
-    },
-        "contact_reply_btn": {
-        "ru": "Ответить",
-        "en": "Reply",
-        "pt": "Responder",
     },
     "contact_show_original_btn": {
         "ru": "Показать оригинал",
@@ -1037,48 +1142,13 @@ translations = {
         "en": "Report",
         "pt": "Denunciar",
     },
-    "contact_reply_prompt": {
-        "ru": "Введите сообщение для диалога внутри SGHR Beta.",
-        "en": "Enter a message for the chat inside SGHR Beta.",
-        "pt": "Digite uma mensagem para o chat dentro do SGHR Beta.",
-    },
-    "contact_message_sent": {
-        "ru": "Сообщение отправлено внутри SGHR Beta.",
-        "en": "Message sent inside SGHR Beta.",
-        "pt": "Mensagem enviada dentro do SGHR Beta.",
-    },
-
     "contact_thread_message_received": {
-        "ru": "Новое сообщение внутри SGHR Beta:\n\n{message}",
-        "en": "New message inside SGHR Beta:\n\n{message}",
-        "pt": "Nova mensagem dentro do SGHR Beta:\n\n{message}",
-    },
-
-
-    "contact_disclaimer_text": {
-        "ru": (
-            "SGHR передает вашу заявку специалисту и не гарантирует качество, "
-            "сроки или результат услуги. Используйте жалобу, если профиль или "
-            "переписка нарушают правила."
-        ),
-        "en": (
-            "SGHR forwards your request to the specialist and does not guarantee "
-            "the quality, timing, or result of the service. Use a report if the "
-            "profile or chat violates the rules."
-        ),
-        "pt": (
-            "A SGHR encaminha sua solicitação ao especialista e não garante "
-            "qualidade, prazo ou resultado do serviço. Use a denúncia se o perfil "
-            "ou a conversa violar as regras."
-        ),
-    },
-    "contact_disclaimer_continue": {
-        "ru": "Продолжить",
-        "en": "Continue",
-        "pt": "Continuar",
+        "ru": "Новое сообщение:\n\n{message}",
+        "en": "New message:\n\n{message}",
+        "pt": "Nova mensagem:\n\n{message}",
     },
     "contact_thread_not_found": {
-        "ru": "Диалог не найден. Вернитесь к заявке или начните новый поиск.",
+        "ru": "Переписка не найдена. Вернитесь к поиску и попробуйте снова.",
         "en": "Chat not found. Return to the request or start a new search.",
         "pt": "Chat não encontrado. Volte ao pedido ou inicie uma nova busca.",
     },
@@ -1093,11 +1163,11 @@ translations = {
     "en": "Show original",
     "pt": "Mostrar original",
 },
-"contact_translated_message_received": {
-    "ru": "Новое сообщение внутри SGHR Beta, переведено автоматически:\n\n{message}",
-    "en": "New message inside SGHR Beta, translated automatically:\n\n{message}",
-    "pt": "Nova mensagem dentro do SGHR Beta, traduzida automaticamente:\n\n{message}",
-},
+    "contact_translated_message_received": {
+        "ru": "Новое сообщение с переводом:\n\n{message}",
+        "en": "New translated message:\n\n{message}",
+        "pt": "Nova mensagem traduzida:\n\n{message}",
+    },
 "contact_translation_failed_original_shown": {
     "ru": "Перевод временно недоступен. Показан оригинал сообщения:\n\n{message}",
     "en": "Translation is temporarily unavailable. Original message is shown:\n\n{message}",
@@ -1119,14 +1189,8 @@ translations = {
         "en": "Could not show original: {error}",
         "pt": "Nao foi possivel mostrar o original: {error}",
     },
-
-    "contact_finish_pending": {
-        "ru": "Завершение диалога будет подключено в следующем шаге Beta 0.6.",
-        "en": "Finishing the chat will be connected in the next Beta 0.6 step.",
-        "pt": "Finalizar o chat será conectado no próximo passo do Beta 0.6.",
-    },
     "contact_thread_completed": {
-        "ru": "Диалог завершен.",
+        "ru": "Переписка завершена.",
         "en": "Chat completed.",
         "pt": "Chat finalizado.",
     },
@@ -1141,9 +1205,14 @@ translations = {
         "pt": "qualquer",
     },
     "search_filters_title": {
-        "ru": "Фильтры поиска специалистов:",
-        "en": "Specialist search filters:",
-        "pt": "Filtros de busca de especialistas:",
+        "ru": "⚙️ Фильтры поиска",
+        "en": "⚙️ Search filters",
+        "pt": "⚙️ Filtros de pesquisa",
+    },
+    "search_searching_specialists": {
+        "ru": "🔍 Ищем специалистов...",
+        "en": "🔍 Searching for specialists...",
+        "pt": "🔍 Procurando especialistas...",
     },
     "search_filter_category_label": {
         "ru": "Категория",
@@ -1151,9 +1220,9 @@ translations = {
         "pt": "Categoria",
     },
     "search_filter_profession_label": {
-        "ru": "Направление",
-        "en": "Direction",
-        "pt": "Direção",
+        "ru": "Профессии",
+        "en": "Professions",
+        "pt": "Profissões",
     },
     "search_filter_location_label": {
         "ru": "Локация",
@@ -1191,9 +1260,9 @@ translations = {
         "pt": "Categoria",
     },
     "search_filter_profession": {
-        "ru": "Направление",
-        "en": "Direction",
-        "pt": "Direção",
+        "ru": "Профессии",
+        "en": "Professions",
+        "pt": "Profissões",
     },
     "search_filter_location": {
         "ru": "Город / гео",
@@ -1231,14 +1300,19 @@ translations = {
         "pt": "Limpar filtros",
     },
     "search_back_to_filters": {
-        "ru": "⚙️ Изменить фильтры",
-        "en": "⚙️ Change filters",
-        "pt": "⚙️ Alterar filtros",
+        "ru": "⚙️ Фильтры поиска",
+        "en": "⚙️ Search filters",
+        "pt": "⚙️ Filtros de pesquisa",
     },
     "search_back_to_filters_btn": {
         "ru": "⬅️ Назад к фильтрам",
         "en": "⬅️ Back to filters",
         "pt": "⬅️ Voltar aos filtros",
+    },
+    "search_back_to_categories_btn": {
+        "ru": "⬅️ Назад к категориям",
+        "en": "⬅️ Back to categories",
+        "pt": "⬅️ Voltar às categorias",
     },
     "search_location_prompt": {
         "ru": "Выберите способ указать локацию.",
@@ -1405,16 +1479,6 @@ translations = {
         "en": "Reset all filters",
         "pt": "Limpar todos os filtros",
     },
-    "contact_send_confirm": {
-        "ru": "Отправить заявку",
-        "en": "Send request",
-        "pt": "Enviar pedido",
-    },
-    "contact_message_confirm_prompt": {
-        "ru": "Отправить специалисту это сообщение?\n\n{message}",
-        "en": "Send this message to the specialist?\n\n{message}",
-        "pt": "Enviar esta mensagem ao especialista?\n\n{message}",
-    },
     "contact_message_too_short": {
         "ru": "Сообщение должно быть минимум 10 символов.",
         "en": "Message must be at least 10 characters.",
@@ -1439,16 +1503,6 @@ translations = {
         "ru": "Статус",
         "en": "Status",
         "pt": "Status",
-    },
-    "search_status_active": {
-        "ru": "активен",
-        "en": "active",
-        "pt": "ativo",
-    },
-    "search_legal_warning": {
-        "ru": "SGHR не является стороной договора услуги между клиентом и специалистом.",
-        "en": "SGHR is not a party to the service agreement between the client and the specialist.",
-        "pt": "A SGHR nao e parte do acordo de servico entre cliente e especialista.",
     },
     "search_services_label": {
         "ru": "Услуги",
@@ -1486,9 +1540,9 @@ translations = {
         "pt": "Original: mostrar botão",
     },
     "settings_show_original_off": {
-        "ru": "Оригинал: скрыть кнопку",
-        "en": "Original: hide button",
-        "pt": "Original: ocultar botão",
+        "ru": "Оригинал: не показывать",
+        "en": "Original: do not show",
+        "pt": "Original: nao mostrar",
     },
     "settings_enabled": {
         "ru": "включено",
@@ -1537,9 +1591,9 @@ translations = {
         "pt": "Não há perfis pendentes.",
     },
     "admin_no_open_complaints": {
-        "ru": "Открытых жалоб нет.",
-        "en": "No open complaints.",
-        "pt": "Não há denúncias abertas.",
+        "ru": "Нерассмотренных жалоб нет.",
+        "en": "There are no unresolved complaints.",
+        "pt": "Nao ha denuncias por analisar.",
     },
     "admin_pending_profile_title": {
         "ru": "Профиль на модерации {index}/{total}",
@@ -1565,6 +1619,16 @@ translations = {
         "ru": "Отклонить",
         "en": "Reject",
         "pt": "Rejeitar",
+    },
+    "admin_hide_specialist_btn": {
+        "ru": "👁 Скрыть профиль",
+        "en": "👁 Hide profile",
+        "pt": "👁 Ocultar perfil",
+    },
+    "admin_restore_specialist_btn": {
+        "ru": "👁 Показать профиль",
+        "en": "👁 Show profile",
+        "pt": "👁 Mostrar perfil",
     },
     "admin_prev": {
         "ru": "Назад",
@@ -1929,21 +1993,40 @@ translations = {
         "en": "Could not update profile: {error}",
         "pt": "Não foi possível atualizar o perfil: {error}",
     },
+    "specialist_professions_title": {
+        "ru": "📂 Профессии",
+        "en": "📂 Professions",
+        "pt": "📂 Profissões",
+    },
+    "specialist_professions_hint": {
+        "ru": "Выберите услуги, по которым вас будут находить клиенты.",
+        "en": "Choose the services clients can find you by.",
+        "pt": "Escolha os serviços pelos quais os clientes poderão encontrar você.",
+    },
     "cabinet_choose_direction": {
-        "ru": "Выберите направление:",
-        "en": "Choose a direction:",
-        "pt": "Escolha uma direção:",
+        "ru": "Выберите категорию.",
+        "en": "Choose a category.",
+        "pt": "Escolha uma categoria.",
     },
     "cabinet_choose_profession": {
-        "ru": "Выберите профессию:",
-        "en": "Choose a profession:",
-        "pt": "Escolha uma profissão:",
+        "ru": "Выберите одну или несколько профессий.",
+        "en": "Choose one or more professions.",
+        "pt": "Escolha uma ou mais profissões.",
     },
 
     "cabinet_location_prompt": {
-        "ru": "Выберите способ обновления локации:",
-        "en": "Choose how to update location:",
-        "pt": "Escolha como atualizar a localização:",
+        "ru": (
+            "Локация\n"
+            "Укажите, где вы работаете."
+        ),
+        "en": (
+            "Location\n"
+            "Specify where you work."
+        ),
+        "pt": (
+            "Localizacao\n"
+            "Indique onde trabalha."
+        ),
     },
     "cabinet_location_manual": {
         "ru": "Ввести город",
@@ -1956,9 +2039,18 @@ translations = {
         "pt": "Enviar localização",
     },
     "cabinet_location_query_prompt": {
-        "ru": "Введите город или район.",
-        "en": "Enter city or district.",
-        "pt": "Digite cidade ou região.",
+        "ru": (
+            "Поиск города\n"
+            "Введите город или район, где вы работаете."
+        ),
+        "en": (
+            "City search\n"
+            "Enter the city or district where you work."
+        ),
+        "pt": (
+            "Pesquisa de cidade\n"
+            "Introduza a cidade ou zona onde trabalha."
+        ),
     },
     "cabinet_send_geo_btn": {
         "ru": "Отправить геолокацию",
@@ -2059,27 +2151,22 @@ translations = {
 
 "privacy_settings_title": {
     "ru": (
-        "Приватность и данные:\n\n"
-        "Здесь можно скрыть профиль, запросить экспорт данных, удалить геолокацию или запросить удаление профиля."
+        "Приватность и данные\n"
+        "Управляйте экспортом и удалением личных данных."
     ),
     "en": (
-        "Privacy and data:\n\n"
-        "Here you can hide your profile, request a data export, delete location data, or request profile deletion."
+        "Privacy and data\n"
+        "Manage the export and deletion of your personal data."
     ),
     "pt": (
-        "Privacidade e dados:\n\n"
-        "Aqui pode ocultar o perfil, pedir exportação de dados, apagar geolocalização ou pedir remoção do perfil."
+        "Privacidade e dados\n"
+        "Gira a exportacao e eliminacao dos seus dados pessoais."
     ),
 },
 "privacy_open_btn": {
     "ru": "Приватность и данные",
     "en": "Privacy and data",
     "pt": "Privacidade e dados",
-},
-"privacy_hide_profile_btn": {
-    "ru": "Скрыть профиль",
-    "en": "Hide profile",
-    "pt": "Ocultar perfil",
 },
 "privacy_delete_profile_btn": {
     "ru": "Удалить профиль",
@@ -2097,14 +2184,32 @@ translations = {
     "pt": "Apagar geolocalização",
 },
 "privacy_confirm_delete_profile": {
-    "ru": "Запрос на удаление профиля будет поставлен в очередь. Продолжить?",
-    "en": "Profile deletion will be scheduled. Continue?",
-    "pt": "A eliminação do perfil será agendada. Continuar?",
+    "ru": (
+        "Запрос на удаление профиля будет поставлен в очередь. "
+        "Подтвердите удаление."
+    ),
+    "en": (
+        "Profile deletion will be scheduled. "
+        "Confirm profile deletion."
+    ),
+    "pt": (
+        "A eliminacao do perfil sera agendada. "
+        "Confirme a eliminacao."
+    ),
 },
 "privacy_confirm_delete_geo": {
-    "ru": "Геолокация будет удалена из профиля и истории локаций. Продолжить?",
-    "en": "Location data will be removed from your profile and location history. Continue?",
-    "pt": "A geolocalização será removida do perfil e do histórico. Continuar?",
+    "ru": (
+        "Геолокация будет удалена из профиля и истории локаций. "
+        "Подтвердите удаление."
+    ),
+    "en": (
+        "Location data will be removed from your profile "
+        "and location history. Confirm deletion."
+    ),
+    "pt": (
+        "A geolocalizacao sera removida do perfil e do historico. "
+        "Confirme a eliminacao."
+    ),
 },
 "privacy_confirm_btn": {
     "ru": "Подтвердить",
@@ -2115,11 +2220,6 @@ translations = {
     "ru": "Отмена",
     "en": "Cancel",
     "pt": "Cancelar",
-},
-"privacy_profile_hidden": {
-    "ru": "Профиль скрыт. Он больше не отображается в поиске.",
-    "en": "Profile hidden. It no longer appears in search.",
-    "pt": "Perfil ocultado. Já não aparece na pesquisa.",
 },
 "privacy_profile_not_found": {
     "ru": "Профиль специалиста не найден.",
@@ -2174,9 +2274,18 @@ translations = {
     "pt": "Selecione uma ou mais especialidades. A primeira selecionada será a principal.",
 },
 "spec_work_format_prompt": {
-    "ru": "Выберите формат работы.",
-    "en": "Choose work format.",
-    "pt": "Escolha o formato de trabalho.",
+    "ru": (
+        "Формат работы\n"
+        "Укажите, как вы работаете с клиентами."
+    ),
+    "en": (
+        "Work format\n"
+        "Specify how you work with clients."
+    ),
+    "pt": (
+        "Formato de trabalho\n"
+        "Indique como trabalha com os clientes."
+    ),
 },
 "spec_work_format_invalid": {
     "ru": "Неизвестный формат работы.",
@@ -2200,9 +2309,18 @@ translations = {
     "pt": "Todo o país",
 },
 "spec_country_search_prompt": {
-    "ru": "Введите страну, где вы готовы работать:",
-    "en": "Enter the country where you can work:",
-    "pt": "Digite o país onde você pode trabalhar:",
+    "ru": (
+        "Страна работы\n"
+        "Введите страну, где вы готовы работать."
+    ),
+    "en": (
+        "Work country\n"
+        "Enter the country where you can work."
+    ),
+    "pt": (
+        "Pais de trabalho\n"
+        "Introduza o pais onde pode trabalhar."
+    ),
 },
 "spec_country_selected": {
     "ru": "Выбрана вся страна: {country}",
@@ -2224,11 +2342,6 @@ translations = {
     "en": "Country not found. Try again.",
     "pt": "País não encontrado. Tente novamente.",
 },
-"spec_profession_continue_btn": {
-    "ru": "Продолжить",
-    "en": "Continue",
-    "pt": "Continuar",
-},
 "spec_profession_limit_categories": {
     "ru": "Можно выбрать не более 2 разделов.",
     "en": "You can select no more than 2 sections.",
@@ -2245,9 +2358,19 @@ translations = {
         "pt": "⭐ Favoritos",
     },
     "favorites_title": {
-        "ru": "Избранные специалисты:",
-        "en": "Favorite specialists:",
-        "pt": "Especialistas favoritos:",
+        "ru": "⭐ Избранные специалисты",
+        "en": "⭐ Favorite specialists",
+        "pt": "⭐ Especialistas favoritos",
+    },
+    "favorites_hint": {
+        "ru": "Сохранённые профили для быстрого доступа.",
+        "en": "Saved profiles for quick access.",
+        "pt": "Perfis guardados para acesso rápido.",
+    },
+    "favorites_navigation": {
+        "ru": "Другие сохранённые специалисты.",
+        "en": "Other saved specialists.",
+        "pt": "Outros especialistas guardados.",
     },
     "favorites_empty": {
         "ru": "У вас пока нет избранных специалистов.",
@@ -2286,14 +2409,32 @@ translations = {
         "pt": "Revogar função",
     },
     "admin_role_grant_prompt": {
-        "ru": "Отправьте: telegram_id role причина\nНапример: 123456789 moderator beta access",
-        "en": "Send: telegram_id role reason\nExample: 123456789 moderator beta access",
-        "pt": "Envie: telegram_id role motivo\nExemplo: 123456789 moderator beta access",
+        "ru": (
+            "Отправьте: Telegram ID, роль и причину.\n"
+            "Например: 123456789 moderator временный доступ"
+        ),
+        "en": (
+            "Send: Telegram ID, role, and reason.\n"
+            "Example: 123456789 moderator temporary access"
+        ),
+        "pt": (
+            "Envie: Telegram ID, função e motivo.\n"
+            "Exemplo: 123456789 moderator acesso temporário"
+        ),
     },
     "admin_role_revoke_prompt": {
-        "ru": "Отправьте: telegram_id role причина\nНапример: 123456789 moderator removed from beta",
-        "en": "Send: telegram_id role reason\nExample: 123456789 moderator removed from beta",
-        "pt": "Envie: telegram_id role motivo\nExemplo: 123456789 moderator removed from beta",
+        "ru": (
+            "Отправьте: Telegram ID, роль и причину.\n"
+            "Например: 123456789 moderator доступ больше не требуется"
+        ),
+        "en": (
+            "Send: Telegram ID, role, and reason.\n"
+            "Example: 123456789 moderator access no longer required"
+        ),
+        "pt": (
+            "Envie: Telegram ID, função e motivo.\n"
+            "Exemplo: 123456789 moderator acesso não é mais necessário"
+        ),
     },
     "admin_role_bad_format": {
         "ru": "Неверный формат. Нужно: telegram_id role причина",
@@ -2367,11 +2508,6 @@ translations = {
         "en": "Target",
         "pt": "Alvo",
     },
-    "admin_review_context": {
-        "ru": "Контекст",
-        "en": "Context",
-        "pt": "Contexto",
-    },
     "admin_review_text": {
         "ru": "Текст отзыва",
         "en": "Review text",
@@ -2418,6 +2554,11 @@ translations = {
         "en": "Thank you. The review was sent for moderation.",
         "pt": "Obrigado. A avaliação foi enviada para moderação.",
     },
+    "review_created_archived": {
+        "ru": "Спасибо. Отзыв отправлен на модерацию. Переписка перенесена в архив.",
+        "en": "Thank you. The review was sent for moderation. The conversation was moved to archive.",
+        "pt": "Obrigado. A avaliação foi enviada para moderação. A conversa foi movida para o arquivo.",
+    },
     "review_error": {
         "ru": "Не удалось создать отзыв: {error}",
         "en": "Could not create review: {error}",
@@ -2428,6 +2569,16 @@ translations = {
         "ru": "Портфолио",
         "en": "Portfolio",
         "pt": "Portfólio",
+    },
+    "specialist_portfolio_title": {
+        "ru": "🖼 Портфолио",
+        "en": "🖼 Portfolio",
+        "pt": "🖼 Portfólio",
+    },
+    "specialist_portfolio_hint": {
+        "ru": "Добавьте примеры работ и документы.",
+        "en": "Add work examples and documents.",
+        "pt": "Adicione exemplos de trabalhos e documentos.",
     },
     "portfolio_title": {
         "ru": "Портфолио специалиста",
@@ -2465,9 +2616,9 @@ translations = {
         "pt": "Envie uma foto permitida ou PDF.",
     },
     "portfolio_open_button": {
-        "ru": "Открыть",
-        "en": "Open",
-        "pt": "Abrir",
+        "ru": "Открыть файл",
+        "en": "Open file",
+        "pt": "Abrir ficheiro",
     },
     "portfolio_delete_button": {
         "ru": "Удалить",
@@ -2531,7 +2682,11 @@ translations = {
         "en": "Approve again",
         "pt": "Aprovar novamente",
     },
-
+    "admin_portfolio_updated": {
+        "ru": "Статус файла обновлён: {status}.",
+        "en": "File status updated: {status}.",
+        "pt": "Estado do ficheiro atualizado: {status}.",
+    },
     "support_open_btn": {
         "ru": "Поддержка",
         "en": "Support",
@@ -2539,19 +2694,16 @@ translations = {
     },
     "support_title": {
         "ru": (
-            "Поддержка SGHR Beta.\n\n"
-            "Здесь можно создать обращение по аккаунту, профилю специалиста, "
-            "заявке, диалогу, жалобе или другой теме."
+            "🛟 Поддержка\n\n"
+            "Напишите, если нужна помощь с аккаунтом, профилем или сообщениями."
         ),
         "en": (
-            "SGHR Beta support.\n\n"
-            "Here you can create a ticket about your account, specialist profile, "
-            "request, dialog, complaint, or another topic."
+            "🛟 Support\n\n"
+            "Write to us if you need help with your account, profile, or messages."
         ),
         "pt": (
-            "Suporte SGHR Beta.\n\n"
-            "Aqui pode criar um pedido sobre conta, perfil de especialista, "
-            "pedido, dialogo, reclamacao ou outro tema."
+            "🛟 Suporte\n\n"
+            "Escreva se precisar de ajuda com a conta, perfil ou mensagens."
         ),
     },
     "support_create_btn": {
@@ -2671,9 +2823,9 @@ translations = {
         "pt": "Chamados de suporte",
     },
     "admin_no_support_tickets": {
-        "ru": "Открытых обращений в поддержку нет.",
-        "en": "There are no open support tickets.",
-        "pt": "Não há chamados de suporte abertos.",
+        "ru": "Нет обращений, требующих ответа.",
+        "en": "There are no support requests awaiting a response.",
+        "pt": "Nao ha pedidos de suporte a aguardar resposta.",
     },
     "admin_support_ticket_title": {
         "ru": "Обращение #{ticket_id} ({index}/{total})",
@@ -2777,14 +2929,14 @@ translations = {
     },
 
     "feature_disabled_beta": {
-        "ru": "Функция появится после controlled Beta",
-        "en": "This feature will appear after controlled Beta",
-        "pt": "Este recurso aparecerá após o controlled Beta",
+        "ru": "Скоро будет доступно",
+        "en": "Coming soon",
+        "pt": "Disponivel em breve",
     },
     "feature_disabled_beta_message": {
-        "ru": "Функция появится после controlled Beta.",
-        "en": "This feature will appear after controlled Beta.",
-        "pt": "Este recurso aparecerá após o controlled Beta.",
+        "ru": "Раздел пока недоступен.",
+        "en": "This section is currently unavailable.",
+        "pt": "Esta secao ainda nao esta disponivel.",
     },
     "role_text_specialist": {
         "ru": "Специалист",
@@ -2807,19 +2959,19 @@ translations = {
         "pt": "Administrador",
     },
     "role_switch_prompt": {
-        "ru": "Выберите активный кабинет:",
-        "en": "Choose active cabinet:",
-        "pt": "Escolha o gabinete ativo:",
+        "ru": "🔄 Мои кабинеты\n\nВыберите кабинет, который хотите открыть.",
+        "en": "🔄 My cabinets\n\nChoose the cabinet you want to open.",
+        "pt": "🔄 Meus gabinetes\n\nEscolha o gabinete que deseja abrir.",
     },
     "role_switch_done": {
-        "ru": "Активный кабинет: {role}",
-        "en": "Active cabinet: {role}",
-        "pt": "Gabinete ativo: {role}",
+        "ru": "Открыт кабинет: {role}.",
+        "en": "Opened cabinet: {role}.",
+        "pt": "Gabinete aberto: {role}.",
     },
     "role_switch_failed": {
-        "ru": "Эта роль недоступна.",
-        "en": "This role is not available.",
-        "pt": "Esta função não está disponível.",
+        "ru": "Этот кабинет недоступен.",
+        "en": "This cabinet is unavailable.",
+        "pt": "Este gabinete não está disponível.",
     },
     "role_switch_not_available": {
         "ru": "Для этого пользователя доступен только один кабинет.",
@@ -2827,9 +2979,9 @@ translations = {
         "pt": "Apenas um gabinete está disponível para este usuário.",
     },
     "active_cabinet_menu": {
-        "ru": "К активному кабинету",
-        "en": "Active cabinet",
-        "pt": "Gabinete ativo",
+        "ru": "К текущему кабинету",
+        "en": "Current cabinet",
+        "pt": "Gabinete atual",
     },
     "auth_required_start": {
         "ru": "Для этого действия нужно сначала запустить бота. Нажмите /start, затем действие продолжится.",
@@ -2842,59 +2994,19 @@ translations = {
         "pt": "Continuando a ação que você iniciou antes.",
     },
     "client_cabinet_title": {
-        "ru": "Кабинет клиента",
-        "en": "Client cabinet",
-        "pt": "Gabinete do cliente",
+        "ru": "👤 Мой кабинет",
+        "en": "👤 My cabinet",
+        "pt": "👤 Meu gabinete",
     },
     "client_cabinet_summary": {
-        "ru": "Диалоги: {dialogs_unread}\nЗаявки: {requests_count}\nНовые: {requests_new}\nПринятые: {requests_accepted}",
-        "en": "Dialogs: {dialogs_unread}\nRequests: {requests_count}\nNew: {requests_new}\nAccepted: {requests_accepted}",
-        "pt": "Diálogos: {dialogs_unread}\nPedidos: {requests_count}\nNovos: {requests_new}\nAceitos: {requests_accepted}",
-    },
-    "client_dialogs_btn": {
-        "ru": "Диалоги",
-        "en": "Dialogs",
-        "pt": "Diálogos",
-    },
-    "client_requests_btn": {
-        "ru": "Мои заявки",
-        "en": "My requests",
-        "pt": "Meus pedidos",
-    },
-    "client_dialogs_title": {
-        "ru": "Диалоги клиента",
-        "en": "Client dialogs",
-        "pt": "Diálogos do cliente",
+        "ru": "Управляйте профилем и сохраненными специалистами.",
+        "en": "Manage your profile and saved specialists.",
+        "pt": "Gerencie seu perfil e especialistas salvos.",
     },
     "client_dialogs_empty": {
-        "ru": "Диалогов пока нет.",
-        "en": "No dialogs yet.",
-        "pt": "Ainda não há diálogos.",
-    },
-    "client_dialog_open": {
-        "ru": "Открыть",
-        "en": "Open",
-        "pt": "Abrir",
-    },
-    "client_dialogs_new": {
-        "ru": "Новые",
-        "en": "New",
-        "pt": "Novos",
-    },
-    "client_dialogs_active": {
-        "ru": "Активные",
-        "en": "Active",
-        "pt": "Ativos",
-    },
-    "client_dialogs_archive": {
-        "ru": "Архив",
-        "en": "Archive",
-        "pt": "Arquivo",
-    },
-    "client_dialogs_hidden": {
-        "ru": "Скрытые",
-        "en": "Hidden",
-        "pt": "Ocultos",
+        "ru": "💬 Сообщений пока нет.",
+        "en": "💬 No messages yet.",
+        "pt": "💬 Ainda não há mensagens.",
     },
     "client_dialogs_prev": {
         "ru": "Пред.",
@@ -2917,9 +3029,9 @@ translations = {
         "pt": "Aguardando sua resposta",
     },
     "client_dialog_status_open": {
-        "ru": "Открыт",
-        "en": "Open",
-        "pt": "Aberto",
+        "ru": "Переписка начата",
+        "en": "Conversation started",
+        "pt": "Conversa iniciada",
     },
     "client_dialog_status_in_discussion": {
         "ru": "В обсуждении",
@@ -2937,9 +3049,9 @@ translations = {
         "pt": "Fechado",
     },
     "client_dialog_status_other": {
-        "ru": "Активен",
-        "en": "Active",
-        "pt": "Ativo",
+        "ru": "В процессе",
+        "en": "In progress",
+        "pt": "Em andamento",
     },
     "client_dialog_unread_label": {
         "ru": "Непрочитано",
@@ -2952,14 +3064,24 @@ translations = {
         "pt": "Última",
     },
     "search_advanced_filters": {
-        "ru": "Доп. фильтры",
-        "en": "More filters",
-        "pt": "Mais filtros",
+        "ru": "⚙️ Другие фильтры",
+        "en": "⚙️ More filters",
+        "pt": "⚙️ Mais filtros",
     },
     "search_location_without": {
-        "ru": "🌍 Искать без локации",
-        "en": "🌍 Search without location",
-        "pt": "🌍 Pesquisar sem localizacao",
+        "ru": "Без локации",
+        "en": "No location",
+        "pt": "Sem localização",
+    },
+    "search_filter_category_not_selected": {
+        "ru": "не выбрана",
+        "en": "not selected",
+        "pt": "não selecionada",
+    },
+    "search_filter_professions_not_selected": {
+        "ru": "не выбраны",
+        "en": "not selected",
+        "pt": "não selecionadas",
     },
     "search_geo_other": {
         "ru": "Другие",
@@ -2977,9 +3099,9 @@ translations = {
         "pt": "Aplicar",
     },
     "search_results_header": {
-        "ru": "Результаты поиска\nПрофессия: {profession}\nЛокация: {location}\nРадиус: {radius}\nНайдено: {found}\nПоказаны: {range}",
-        "en": "Search results\nProfession: {profession}\nLocation: {location}\nRadius: {radius}\nFound: {found}\nShown: {range}",
-        "pt": "Resultados da busca\nProfissao: {profession}\nLocalizacao: {location}\nRaio: {radius}\nEncontrado: {found}\nMostrando: {range}",
+        "ru": "Найдено {found} специалистов\nПоказаны {range}",
+        "en": "Found {found} specialists\nShowing {range}",
+        "pt": "Encontrados {found} especialistas\nMostrados {range}",
     },
     "search_results_range": {
         "ru": "{start}-{end}",
@@ -3011,41 +3133,17 @@ translations = {
         "en": "Reset price",
         "pt": "Limpar preco",
     },
-    "contact_check_draft_btn": {
-        "ru": "Проверить",
-        "en": "Check",
-        "pt": "Verificar",
-    },
-    "contact_edit_draft_btn": {
-        "ru": "Изменить",
-        "en": "Edit",
-        "pt": "Editar",
-    },
     "contact_cancel_btn": {
         "ru": "Отмена",
         "en": "Cancel",
         "pt": "Cancelar",
     },
-    "contact_draft_summary": {
-        "ru": "Проверьте заявку:\n\nСпециалист: {specialist}{profession_line}\nЗадача: {message}\n\n{disclaimer}",
-        "en": "Check the request:\n\nSpecialist: {specialist}{profession_line}\nTask: {message}\n\n{disclaimer}",
-        "pt": "Verifique o pedido:\n\nEspecialista: {specialist}{profession_line}\nTarefa: {message}\n\n{disclaimer}",
-    },
     "contact_request_existing": {
-        "ru": "У вас уже есть активная заявка к этому специалисту. Открываю диалог.",
-        "en": "You already have an active request with this specialist. Opening the thread.",
-        "pt": "Voce ja tem um pedido ativo com este especialista. Abrindo o dialogo.",
+        "ru": "У вас уже есть переписка с этим специалистом. Открываю сообщения.",
+        "en": "You already have a conversation with this specialist. Opening messages.",
+        "pt": "Voce ja tem uma conversa com este especialista. Abrindo mensagens.",
     },
-    "client_dialog_opened": {
-        "ru": "Диалог открыт.",
-        "en": "Thread opened.",
-        "pt": "Dialogo aberto.",
-    },
-    "client_thread_detail_title": {
-        "ru": "Открытый диалог",
-        "en": "Open thread",
-        "pt": "Dialogo aberto",
-    },
+
     "client_thread_specialist_label": {
         "ru": "Специалист",
         "en": "Specialist",
@@ -3066,71 +3164,17 @@ translations = {
         "en": "No messages yet. The request text is shown above.",
         "pt": "Ainda nao ha mensagens. O texto do pedido esta acima.",
     },
-    "contact_archive_btn": {
-        "ru": "Архивировать",
-        "en": "Archive",
-        "pt": "Arquivar",
-    },
-    "contact_hide_btn": {
-        "ru": "Скрыть",
-        "en": "Hide",
-        "pt": "Ocultar",
-    },
     "contact_back_to_dialogs_btn": {
-        "ru": "К диалогам",
-        "en": "To dialogs",
-        "pt": "Para dialogos",
+        "ru": "💬 К сообщениям",
+        "en": "💬 Back to messages",
+        "pt": "💬 Voltar as mensagens",
     },
-    "contact_thread_archived": {
-        "ru": "Диалог перенесен в архив.",
-        "en": "Thread moved to archive.",
-        "pt": "Dialogo movido para o arquivo.",
+    "legacy_requests_unavailable": {
+        "ru": "Этот раздел больше не используется. Откройте сообщения.",
+        "en": "This section is no longer used. Open messages.",
+        "pt": "Esta secao nao e mais utilizada. Abra as mensagens.",
     },
-    "contact_thread_hidden": {
-        "ru": "Диалог скрыт.",
-        "en": "Thread hidden.",
-        "pt": "Dialogo ocultado.",
-    },
-    "client_requests_title": {
-        "ru": "Мои заявки",
-        "en": "My requests",
-        "pt": "Meus pedidos",
-    },
-    "client_requests_empty": {
-        "ru": "Заявок пока нет.",
-        "en": "No requests yet.",
-        "pt": "Ainda nao ha pedidos.",
-    },
-    "client_request_open": {
-        "ru": "Открыть",
-        "en": "Open",
-        "pt": "Abrir",
-    },
-    "client_request_dialog": {
-        "ru": "Диалог",
-        "en": "Thread",
-        "pt": "Dialogo",
-    },
-    "client_request_cancel": {
-        "ru": "Отменить",
-        "en": "Cancel",
-        "pt": "Cancelar",
-    },
-    "client_request_date": {
-        "ru": "Дата",
-        "en": "Date",
-        "pt": "Data",
-    },
-    "client_request_cancelled": {
-        "ru": "Заявка отменена.",
-        "en": "Request cancelled.",
-        "pt": "Pedido cancelado.",
-    },
-    "client_request_detail_title": {
-        "ru": "Карточка заявки",
-        "en": "Request card",
-        "pt": "Cartao do pedido",
-    },
+
     "public_reviews_title": {
         "ru": "Отзывы специалиста",
         "en": "Specialist reviews",
@@ -3191,25 +3235,10 @@ translations = {
         "en": "Report",
         "pt": "Denunciar",
     },
-    "client_request_status_updated": {
-        "ru": "Статус заявки обновлён.",
-        "en": "Request status updated.",
-        "pt": "Status do pedido atualizado.",
-    },
-    "client_request_back_to_requests": {
-        "ru": "Назад к заявкам",
-        "en": "Back to requests",
-        "pt": "Voltar aos pedidos",
-    },
-    "specialist_new_requests_btn": {
-        "ru": "Новые заявки",
-        "en": "New requests",
-        "pt": "Novos pedidos",
-    },
     "specialist_dialogs_btn": {
-        "ru": "Диалоги",
-        "en": "Dialogs",
-        "pt": "Dialogos",
+        "ru": "💬 Сообщения",
+        "en": "💬 Messages",
+        "pt": "💬 Mensagens",
     },
     "specialist_services_btn": {
         "ru": "Услуги",
@@ -3221,11 +3250,7 @@ translations = {
         "en": "Specialist cabinet",
         "pt": "Painel do especialista",
     },
-    "specialist_new_requests_label": {
-        "ru": "Новые заявки",
-        "en": "New requests",
-        "pt": "Novos pedidos",
-    },
+
     "specialist_unread_label": {
         "ru": "Непрочитанные",
         "en": "Unread",
@@ -3235,11 +3260,6 @@ translations = {
         "ru": "Профиль специалиста ещё не создан. Начните регистрацию специалиста.",
         "en": "Specialist profile has not been created yet. Start specialist registration.",
         "pt": "O perfil de especialista ainda nao foi criado. Inicie o cadastro.",
-    },
-    "specialist_status_active_notice": {
-        "ru": "Профиль активен и виден клиентам.",
-        "en": "Profile is active and visible to clients.",
-        "pt": "O perfil esta ativo e visivel para clientes.",
     },
     "specialist_status_pending_notice": {
         "ru": "Профиль ожидает модерации. Клиенты пока его не видят.",
@@ -3251,35 +3271,10 @@ translations = {
         "en": "Profile was rejected. Update the data or contact support.",
         "pt": "O perfil foi rejeitado. Atualize os dados ou contacte o suporte.",
     },
-    "specialist_status_paused_notice": {
-        "ru": "Профиль на паузе и не показывается клиентам.",
-        "en": "Profile is paused and not shown to clients.",
-        "pt": "O perfil esta pausado e nao aparece para clientes.",
-    },
     "specialist_status_generic_notice": {
         "ru": "Текущий статус профиля: {status}",
         "en": "Current profile status: {status}",
         "pt": "Status atual do perfil: {status}",
-    },
-    "specialist_requests_placeholder": {
-        "ru": "Новые заявки специалиста. Полный экран будет в S9.",
-        "en": "Specialist new requests. Full screen will be implemented in S9.",
-        "pt": "Novos pedidos do especialista. A tela completa sera implementada no S9.",
-    },
-    "specialist_dialogs_placeholder": {
-        "ru": "Диалоги специалиста. Полный экран будет в S10.",
-        "en": "Specialist dialogs. Full screen will be implemented in S10.",
-        "pt": "Dialogos do especialista. A tela completa sera implementada no S10.",
-    },
-    "specialist_reviews_placeholder": {
-        "ru": "Отзывы специалиста. Полный экран будет в S17.",
-        "en": "Specialist reviews. Full screen will be implemented in S17.",
-        "pt": "Avaliacoes do especialista. A tela completa sera implementada no S17.",
-    },
-    "specialist_settings_placeholder": {
-        "ru": "Настройки специалиста. Полный экран будет в S19.",
-        "en": "Specialist settings. Full screen will be implemented in S19.",
-        "pt": "Configuracoes do especialista. A tela completa sera implementada no S19.",
     },
     "specialist_registration_start_text": {
         "ru": "Создание кабинета специалиста.\n\nВы сможете указать профессию, локацию, описание, услуги и портфолио. Перед публикацией нужно принять обязательные документы.",
@@ -3321,15 +3316,10 @@ translations = {
         "en": "Private",
         "pt": "Privado",
     },
-    "spec_continue_btn": {
-        "ru": "Продолжить",
-        "en": "Continue",
-        "pt": "Continuar",
-    },
     "spec_platform_contact_default": {
-        "ru": "Связь внутри SGHR Beta chat",
-        "en": "Contact through SGHR Beta chat",
-        "pt": "Contacto pelo chat SGHR Beta",
+        "ru": "Связь через сообщения SGHR",
+        "en": "Contact through SGHR messages",
+        "pt": "Contacto por mensagens SGHR",
     },
     "spec_contact_visibility_summary": {
         "ru": "Видимость контакта",
@@ -3340,61 +3330,6 @@ translations = {
         "ru": "Черновик профиля не найден. Начните регистрацию заново.",
         "en": "Profile draft was not found. Please start registration again.",
         "pt": "O rascunho do perfil não foi encontrado. Inicie o registo novamente.",
-    },
-    "specialist_requests_title": {
-        "ru": "Новые заявки",
-        "en": "New requests",
-        "pt": "Novos pedidos",
-    },
-    "specialist_requests_empty": {
-        "ru": "Новых заявок пока нет.",
-        "en": "There are no new requests yet.",
-        "pt": "Ainda não há novos pedidos.",
-    },
-    "specialist_request_status_updated": {
-        "ru": "Статус заявки обновлён.",
-        "en": "Request status updated.",
-        "pt": "Estado do pedido atualizado.",
-    },
-    "specialist_dialogs_title": {
-        "ru": "Диалоги специалиста",
-        "en": "Specialist dialogs",
-        "pt": "Diálogos do especialista",
-    },
-    "specialist_dialogs_empty": {
-        "ru": "Диалогов пока нет.",
-        "en": "No dialogs yet.",
-        "pt": "Ainda não há diálogos.",
-    },
-    "specialist_request_decline_reason_prompt": {
-        "ru": "Укажите причину отклонения заявки.",
-        "en": "Please enter the reason for declining the request.",
-        "pt": "Informe o motivo para recusar a solicitação.",
-    },
-    "specialist_request_decline_reason_required": {
-        "ru": "Причина обязательна. Введите минимум 3 символа.",
-        "en": "Reason is required. Enter at least 3 characters.",
-        "pt": "O motivo é obrigatório. Digite pelo menos 3 caracteres.",
-    },
-    "specialist_request_declined": {
-        "ru": "Заявка отклонена.",
-        "en": "Request declined.",
-        "pt": "Solicitação recusada.",
-    },
-    "client_dialogs_view_label": {
-        "ru": "Раздел",
-        "en": "View",
-        "pt": "Secao",
-    },
-    "client_dialogs_unread": {
-        "ru": "Непрочитанные",
-        "en": "Unread",
-        "pt": "Nao lidas",
-    },
-    "client_dialogs_last_message": {
-        "ru": "Последнее сообщение",
-        "en": "Last message",
-        "pt": "Ultima mensagem",
     },
     "contact_complete_btn": {
         "ru": "Запросить завершение",
@@ -3412,9 +3347,18 @@ translations = {
         "pt": "A solicitação de conclusão foi enviada ao cliente.",
     },
     "contact_thread_completion_not_available": {
-        "ru": "Этот диалог нельзя завершить.",
-        "en": "This dialog cannot be completed.",
-        "pt": "Este diálogo não pode ser concluído.",
+        "ru": (
+            "Откройте переписку в разделе «Сообщения» "
+            "и завершите её там."
+        ),
+        "en": (
+            "Open the conversation in Messages "
+            "and complete it there."
+        ),
+        "pt": (
+            "Abra a conversa em Mensagens "
+            "e conclua-a lá."
+        ),
     },
     "cabinet_profile_title": {
         "ru": "Профиль специалиста",
@@ -3451,6 +3395,20 @@ translations = {
         "en": "Visibility updated: {visibility}",
         "pt": "Visibilidade atualizada: {visibility}",
     },
+    "specialist_profile_status_managed_by_moderation": {
+        "ru": (
+            "Статус профиля устанавливает модерация. "
+            "Вы можете изменить данные профиля и отправить его на проверку."
+        ),
+        "en": (
+            "Profile status is managed by moderation. "
+            "You can update your profile and submit it for review."
+        ),
+        "pt": (
+            "O status do perfil e gerido pela moderacao. "
+            "Voce pode atualizar o perfil e envia-lo para revisao."
+        ),
+    },
     "cabinet_edit_work_format": {
         "ru": "Формат работы",
         "en": "Work format",
@@ -3462,9 +3420,18 @@ translations = {
         "pt": "Idiomas",
     },
     "cabinet_critical_edit_blocked": {
-        "ru": "Изменение этого поля требует модерации. В controlled Beta изменение заблокировано, чтобы не обновить активный профиль без проверки. Администратор увидит событие в аудите.",
-        "en": "Changing this field requires moderation. In controlled Beta this change is blocked so the active profile is not updated without review. Admin can see the audit event.",
-        "pt": "Alterar este campo requer moderação. No controlled Beta esta alteração está bloqueada para não atualizar o perfil ativo sem revisão. O administrador verá o evento no audit.",
+        "ru": (
+            "Изменение этого поля требует повторной модерации "
+            "и пока недоступно."
+        ),
+        "en": (
+            "Changing this field requires another moderation review "
+            "and is currently unavailable."
+        ),
+        "pt": (
+            "A alteracao deste campo requer uma nova moderacao "
+            "e nao esta disponivel neste momento."
+        ),
     },
     "cabinet_profile_no_changes": {
         "ru": "Изменений нет.",
@@ -3476,20 +3443,25 @@ translations = {
         "en": "Specialist services",
         "pt": "Serviços do especialista",
     },
+    "specialist_services_hint": {
+        "ru": "Добавьте то, что поможет клиенту выбрать вас.",
+        "en": "Add details that help clients choose you.",
+        "pt": "Adicione informacoes que ajudem os clientes a escolher voce.",
+    },
     "specialist_services_empty": {
         "ru": "Услуг пока нет. Добавьте первую услугу.",
         "en": "No services yet. Add your first service.",
         "pt": "Ainda não há serviços. Adicione o primeiro serviço.",
     },
     "specialist_service_price_not_set": {
-        "ru": "Стоимость обсуждается в диалоге",
-        "en": "Price is discussed in chat",
-        "pt": "O preço é combinado no chat",
+        "ru": "Стоимость обсуждается в переписке",
+        "en": "Price is discussed in the conversation",
+        "pt": "O preço é combinado na conversa",
     },
     "specialist_service_status_active": {
-        "ru": "Активна",
-        "en": "Active",
-        "pt": "Ativa",
+        "ru": "Опубликована",
+        "en": "Published",
+        "pt": "Publicada",
     },
     "specialist_service_status_paused": {
         "ru": "На паузе",
@@ -3557,19 +3529,32 @@ translations = {
         "pt": "O preço deve ser um número >= 0. Exemplo: 50 ou 50-100.",
     },
     "specialist_service_preview": {
-        "ru": "Проверьте услугу:\n\nНазвание: {title}\nОписание: {description}\nЦена: {price}\nВалюта: {currency}",
-        "en": "Check service:\n\nTitle: {title}\nDescription: {description}\nPrice: {price}\nCurrency: {currency}",
-        "pt": "Verifique o serviço:\n\nTítulo: {title}\nDescrição: {description}\nPreço: {price}\nMoeda: {currency}",
+        "ru": (
+            "Новая услуга\n\n"
+            "Название: {title}\n"
+            "Описание: {description}\n"
+            "Цена: {price}\n"
+            "Валюта: {currency}"
+        ),
+        "en": (
+            "New service\n\n"
+            "Title: {title}\n"
+            "Description: {description}\n"
+            "Price: {price}\n"
+            "Currency: {currency}"
+        ),
+        "pt": (
+            "Novo servico\n\n"
+            "Titulo: {title}\n"
+            "Descricao: {description}\n"
+            "Preco: {price}\n"
+            "Moeda: {currency}"
+        ),
     },
     "specialist_service_saved": {
         "ru": "Услуга сохранена.",
         "en": "Service saved.",
         "pt": "Serviço salvo.",
-    },
-    "specialist_service_continue_btn": {
-        "ru": "Продолжить",
-        "en": "Continue",
-        "pt": "Continuar",
     },
     "specialist_service_skip_price_btn": {
         "ru": "Пропустить цену",
@@ -3607,9 +3592,30 @@ translations = {
         "pt": "Sem legenda",
     },
     "portfolio_upload_preview": {
-        "ru": "Проверьте загрузку:\n\nФайл: {filename}\nТип: {file_type}\nРазмер: {size_kb} KB\nПодпись: {caption}\n\nПосле подтверждения файл будет отправлен на модерацию.",
-        "en": "Check upload:\n\nFile: {filename}\nType: {file_type}\nSize: {size_kb} KB\nCaption: {caption}\n\nAfter confirmation, the file will be sent for moderation.",
-        "pt": "Verifique o upload:\n\nArquivo: {filename}\nTipo: {file_type}\nTamanho: {size_kb} KB\nLegenda: {caption}\n\nApós confirmar, o arquivo será enviado para moderação.",
+        "ru": (
+            "Файл для портфолио\n\n"
+            "Файл: {filename}\n"
+            "Тип: {file_type}\n"
+            "Размер: {size_kb} KB\n"
+            "Подпись: {caption}\n\n"
+            "После отправки файл поступит на модерацию."
+        ),
+        "en": (
+            "Portfolio file\n\n"
+            "File: {filename}\n"
+            "Type: {file_type}\n"
+            "Size: {size_kb} KB\n"
+            "Caption: {caption}\n\n"
+            "After submission, the file will be sent for moderation."
+        ),
+        "pt": (
+            "Ficheiro do portfolio\n\n"
+            "Ficheiro: {filename}\n"
+            "Tipo: {file_type}\n"
+            "Tamanho: {size_kb} KB\n"
+            "Legenda: {caption}\n\n"
+            "Depois do envio, o ficheiro sera enviado para moderacao."
+        ),
     },
     "portfolio_upload_confirm_btn": {
         "ru": "Подтвердить",
@@ -3647,9 +3653,18 @@ translations = {
         "pt": "Exclusao",
     },
     "specialist_notifications_settings": {
-        "ru": "Уведомления включены по умолчанию для заявок, диалогов и важных системных событий.",
-        "en": "Notifications are enabled by default for requests, dialogs, and important system events.",
-        "pt": "As notificacoes ficam ativadas por padrao para pedidos, dialogos e eventos importantes do sistema.",
+        "ru": (
+            "Уведомления включены по умолчанию для новых сообщений "
+            "и важных системных событий."
+        ),
+        "en": (
+            "Notifications are enabled by default for new messages "
+            "and important system events."
+        ),
+        "pt": (
+            "As notificações são ativadas por padrão para novas mensagens "
+            "e eventos importantes do sistema."
+        ),
     },
     "settings_consents_title": {
         "ru": "Согласия",
@@ -3657,14 +3672,14 @@ translations = {
         "pt": "Consentimentos",
     },
     "settings_consents_empty": {
-        "ru": "Активных согласий пока нет.",
-        "en": "No active consents yet.",
-        "pt": "Ainda nao ha consentimentos ativos.",
+        "ru": "Действующих согласий пока нет.",
+        "en": "No valid consents yet.",
+        "pt": "Ainda nao ha consentimentos validos.",
     },
     "settings_consent_active": {
-        "ru": "активно",
-        "en": "active",
-        "pt": "ativo",
+        "ru": "действует",
+        "en": "valid",
+        "pt": "valido",
     },
     "settings_consent_revoked": {
         "ru": "отозвано",
@@ -3707,9 +3722,18 @@ translations = {
         "pt": "Eliminar dados",
     },
     "client_notifications_settings": {
-        "ru": "Уведомления включены по умолчанию для заявок, диалогов и важных системных событий.",
-        "en": "Notifications are enabled by default for requests, dialogs, and important system events.",
-        "pt": "As notificacoes ficam ativadas por padrao para pedidos, dialogos e eventos importantes do sistema.",
+        "ru": (
+            "Уведомления включены по умолчанию для новых сообщений "
+            "и важных системных событий."
+        ),
+        "en": (
+            "Notifications are enabled by default for new messages "
+            "and important system events."
+        ),
+        "pt": (
+            "As notificações são ativadas por padrão para novas mensagens "
+            "e eventos importantes do sistema."
+        ),
     },
     "specialist_language_settings_title": {
         "ru": (
@@ -3778,23 +3802,23 @@ translations = {
         "pt": "Pedido",
     },
     "support_category_dialog": {
-        "ru": "Диалог",
-        "en": "Dialog",
-        "pt": "Dialogo",
+        "ru": "Сообщения",
+        "en": "Messages",
+        "pt": "Mensagens",
     },
     "support_ticket_draft": {
         "ru": (
-            "Проверьте обращение:\n\n"
+            "Новое обращение\n\n"
             "Категория: {category}\n"
             "Сообщение: {message}"
         ),
         "en": (
-            "Check the ticket:\n\n"
+            "New support request\n\n"
             "Category: {category}\n"
             "Message: {message}"
         ),
         "pt": (
-            "Verifique o chamado:\n\n"
+            "Novo pedido de suporte\n\n"
             "Categoria: {category}\n"
             "Mensagem: {message}"
         ),
@@ -3825,9 +3849,9 @@ translations = {
         "pt": "A mensagem não pode estar vazia.",
     },
     "support_tickets_active_btn": {
-    "ru": "Активные",
-    "en": "Active",
-    "pt": "Ativos",
+        "ru": "В работе",
+        "en": "In progress",
+        "pt": "Em andamento",
     },
     "support_tickets_resolved_btn": {
         "ru": "Решённые",
@@ -3835,9 +3859,9 @@ translations = {
         "pt": "Resolvidos",
     },
     "support_status_open": {
-        "ru": "Открыто",
-        "en": "Open",
-        "pt": "Aberto",
+        "ru": "Новое",
+        "en": "New",
+        "pt": "Novo",
     },
     "support_status_in_progress": {
         "ru": "В работе",
@@ -3864,6 +3888,11 @@ translations = {
         "en": "{number}. #{ticket_id}\nCategory: {category}\nStatus: {status}\nUpdated: {updated_at}",
         "pt": "{number}. #{ticket_id}\nCategoria: {category}\nEstado: {status}\nAtualizado: {updated_at}",
     },
+    "support_ticket_details_btn": {
+        "ru": "Подробнее",
+        "en": "Details",
+        "pt": "Detalhes",
+    },
     "support_close_btn": {
     "ru": "Закрыть",
     "en": "Close",
@@ -3880,9 +3909,14 @@ translations = {
         "pt": "O pedido ja esta fechado.",
     },
     "search_results_navigation": {
-        "ru": "Навигация по результатам",
-        "en": "Search navigation",
-        "pt": "Navegação dos resultados",
+        "ru": "Другие специалисты.",
+        "en": "More specialists.",
+        "pt": "Mais especialistas.",
+    },
+    "search_next_specialists": {
+        "ru": "➡️ Следующие специалисты",
+        "en": "➡️ Next specialists",
+        "pt": "➡️ Próximos especialistas",
     },
     "search_results_title": {
         "ru": "Результаты поиска",
@@ -3919,26 +3953,9 @@ translations = {
         "en": "Profile status",
         "pt": "Status do perfil",
     },
-    "specialist_profile_status_active": {
-        "ru": "🟢 Активен",
-        "en": "🟢 Active",
-        "pt": "🟢 Ativo",
-    },
-    "specialist_profile_status_active_hint": {
-        "ru": "Показывать в поиске",
-        "en": "Shown in search",
-        "pt": "Mostrar na pesquisa",
-    },
-    "specialist_profile_status_paused": {
-        "ru": "⏸ На паузе",
-        "en": "⏸ Paused",
-        "pt": "⏸ Pausado",
-    },
-    "specialist_profile_status_paused_hint": {
-        "ru": "Не показывать в поиске",
-        "en": "Hidden from search",
-        "pt": "Não mostrar na pesquisa",
-    },
+
+
+
     "specialist_profile_status_draft": {
         "ru": "🔒 Черновик",
         "en": "🔒 Draft",
@@ -3954,16 +3971,7 @@ translations = {
         "en": "Profile status",
         "pt": "Status do perfil",
     },
-    "specialist_status_active": {
-        "ru": "🟢 Профиль одобрен\nПоказывается клиентам в поиске",
-        "en": "🟢 Profile approved\nVisible to clients in search",
-        "pt": "🟢 Perfil aprovado\nVisível para clientes na busca",
-    },
-    "specialist_status_paused": {
-        "ru": "⏸ Профиль на паузе\nВременно не показывается в поиске",
-        "en": "⏸ Profile paused\nTemporarily hidden from search",
-        "pt": "⏸ Perfil pausado\nTemporariamente oculto na busca",
-    },
+
     "specialist_status_draft": {
         "ru": "🔒 Профиль не опубликован\nКлиенты пока не видят его в поиске",
         "en": "🔒 Profile is not published\nClients do not see it in search yet",
@@ -3999,11 +4007,6 @@ translations = {
         "en": "Visibility mode not selected",
         "pt": "Modo de visibilidade não selecionado",
     },
-    "dialogs_showing_range": {
-        "ru": "Показано {start}-{end}",
-        "en": "Showing {start}-{end}",
-        "pt": "Mostrando {start}-{end}",
-    },
     "dialog_unread_badge": {
         "ru": "🔴 {count}",
         "en": "🔴 {count}",
@@ -4019,16 +4022,6 @@ translations = {
         "en": "List actions",
         "pt": "Ações da lista",
     },
-    "dialogs_header_title": {
-        "ru": "💬 Диалоги",
-        "en": "💬 Dialogs",
-        "pt": "💬 Diálogos",
-    },
-    "dialogs_header_view_count": {
-        "ru": "{view} ({count})",
-        "en": "{view} ({count})",
-        "pt": "{view} ({count})",
-    },
     "cabinet_profile_status_visibility": {
         "ru": "Статус и видимость",
         "en": "Status and visibility",
@@ -4039,16 +4032,7 @@ translations = {
         "en": "Profile management",
         "pt": "Gestão do perfil",
     },
-    "specialist_status_active_btn": {
-        "ru": "🟢 Активен",
-        "en": "🟢 Active",
-        "pt": "🟢 Ativo",
-    },
-    "specialist_status_paused_btn": {
-        "ru": "⏸ На паузе",
-        "en": "⏸ Paused",
-        "pt": "⏸ Pausado",
-    },
+
     "specialist_status_draft_btn": {
         "ru": "🔒 Черновик",
         "en": "🔒 Draft",
@@ -4065,9 +4049,9 @@ translations = {
     "pt": "🛠 Serviços",
     },
     "specialist_profile_portfolio_btn": {
-        "ru": "🖼 Портфолио и сертификаты",
-        "en": "🖼 Portfolio and certificates",
-        "pt": "🖼 Portfólio e certificados",
+        "ru": "🖼 Портфолио",
+        "en": "🖼 Portfolio",
+        "pt": "🖼 Portfólio",
     },
     "specialist_profile_reviews_btn": {
         "ru": "⭐ Отзывы",
@@ -4104,11 +4088,6 @@ translations = {
         "en": "🔒 Hidden from search",
         "pt": "🔒 Oculto da busca",
     },
-    "search_results_header": {
-        "ru": "🔎 Найдено: {found} специалистов\n{context}\n{range}",
-        "en": "🔎 Found: {found} specialists\n{context}\n{range}",
-        "pt": "🔎 Encontrados: {found} especialistas\n{context}\n{range}",
-    },
     "search_results_global_context": {
         "ru": "Все направления",
         "en": "All directions",
@@ -4124,20 +4103,15 @@ translations = {
         "en": "of",
         "pt": "de",
     },
-    "client_dialogs_archived": {
-        "ru": "Архив",
-        "en": "Archive",
-        "pt": "Arquivo",
-    },
     "support_staff_menu_title": {
         "ru": "Кабинет Support\n\nОткрытые: {open_count}\nВ работе: {in_progress_count}\nРешённые: {resolved_count}",
         "en": "Support cabinet\n\nOpen: {open_count}\nIn progress: {in_progress_count}\nResolved: {resolved_count}",
         "pt": "Painel de suporte\n\nAbertos: {open_count}\nEm andamento: {in_progress_count}\nResolvidos: {resolved_count}",
     },
     "support_staff_open_btn": {
-        "ru": "Открытые",
-        "en": "Open",
-        "pt": "Abertos",
+        "ru": "Новые",
+        "en": "New",
+        "pt": "Novos",
     },
     "support_staff_in_progress_btn": {
         "ru": "В работе",
@@ -4165,9 +4139,18 @@ translations = {
         "pt": "Não foi possível enviar a mensagem: {error}",
     },
     "contact_thread_read_only_blacklisted": {
-        "ru": "Диалог доступен только для просмотра. Отправка сообщений заблокирована.",
-        "en": "This chat is read-only. Sending messages is blocked.",
-        "pt": "Este chat está disponível apenas para leitura. O envio de mensagens está bloqueado.",
+        "ru": (
+            "Переписка доступна только для просмотра. "
+            "Отправка сообщений заблокирована."
+        ),
+        "en": (
+            "The conversation is read-only. "
+            "Sending messages is blocked."
+        ),
+        "pt": (
+            "A conversa está disponível apenas para leitura. "
+            "O envio de mensagens está bloqueado."
+        ),
     },
     "support_staff_list_title": {
         "ru": "Очередь Support",
@@ -4270,9 +4253,9 @@ translations = {
         "pt": "Sistema",
     },
     "support_message_deleted_by_user": {
-        "ru": "Сообщение удалено по запросу пользователя.",
-        "en": "Message deleted by user request.",
-        "pt": "Mensagem removida a pedido do usuário.",
+        "ru": "Сообщение недоступно.",
+        "en": "Message is unavailable.",
+        "pt": "A mensagem nao esta disponivel.",
     },
     "support_staff_search_prompt": {
         "ru": "Введите номер обращения, username, Telegram ID, категорию или статус.",
@@ -4404,9 +4387,9 @@ translations = {
         "pt": "Item do portfólio",
     },
     "complaint_target_dialog": {
-        "ru": "Диалог",
-        "en": "Dialog",
-        "pt": "Diálogo",
+        "ru": "Переписка",
+        "en": "Conversation",
+        "pt": "Conversa",
     },
     "complaint_target_message": {
         "ru": "Сообщение",
@@ -4419,9 +4402,24 @@ translations = {
         "pt": "Não informado",
     },
     "complaint_draft": {
-        "ru": "Проверьте жалобу:\n\nОбъект: {target}\nПричина: {reason}\nКомментарий: {comment}",
-        "en": "Check the complaint:\n\nTarget: {target}\nReason: {reason}\nComment: {comment}",
-        "pt": "Verifique a denúncia:\n\nObjeto: {target}\nMotivo: {reason}\nComentário: {comment}",
+        "ru": (
+            "Жалоба\n\n"
+            "Объект: {target}\n"
+            "Причина: {reason}\n"
+            "Комментарий: {comment}"
+        ),
+        "en": (
+            "Complaint\n\n"
+            "Target: {target}\n"
+            "Reason: {reason}\n"
+            "Comment: {comment}"
+        ),
+        "pt": (
+            "Denuncia\n\n"
+            "Objeto: {target}\n"
+            "Motivo: {reason}\n"
+            "Comentario: {comment}"
+        ),
     },
     "complaint_add_comment_btn": {
         "ru": "Комментарий",
@@ -4525,6 +4523,11 @@ translations = {
         "en": "Specialists ({count})",
         "pt": "Especialistas ({count})",
     },
+    "admin_specialist_management_btn": {
+        "ru": "👤 Управление профилями специалистов",
+        "en": "👤 Manage specialist profiles",
+        "pt": "👤 Gerir perfis de especialistas",
+    },
     "moderator_portfolio_btn": {
         "ru": "Портфолио ({count})",
         "en": "Portfolio ({count})",
@@ -4576,9 +4579,9 @@ translations = {
         "pt": "Nao indicada",
     },
     "moderator_open_btn": {
-        "ru": "Открыть",
-        "en": "Open",
-        "pt": "Abrir",
+        "ru": "Подробнее",
+        "en": "Details",
+        "pt": "Detalhes",
     },
     "moderator_back_btn": {
         "ru": "Назад",
@@ -4712,20 +4715,17 @@ translations = {
         "ru": (
             "Подтвердите одобрение профиля:\n\n"
             "Причина: {reason}\n\n"
-            "Статус будет изменён:\n"
-            "pending_moderation → active"
+            "Профиль станет одобренным и будет виден в поиске."
         ),
         "en": (
             "Confirm profile approval:\n\n"
             "Reason: {reason}\n\n"
-            "Status will change:\n"
-            "pending_moderation → active"
+            "The profile will be approved and visible in search."
         ),
         "pt": (
             "Confirme a aprovacao do perfil:\n\n"
             "Motivo: {reason}\n\n"
-            "O estado sera alterado:\n"
-            "pending_moderation → active"
+            "O perfil sera aprovado e ficara visivel na pesquisa."
         ),
     },
     "moderator_reject_confirmation": {
@@ -4748,6 +4748,40 @@ translations = {
             "pending_moderation → rejected"
         ),
     },
+    "moderator_hide_specialist_confirmation": {
+        "ru": (
+            "Подтвердите скрытие профиля:\n\n"
+            "Причина: {reason}\n\n"
+            "Профиль перестанет отображаться в поиске."
+        ),
+        "en": (
+            "Confirm profile hiding:\n\n"
+            "Reason: {reason}\n\n"
+            "The profile will no longer appear in search."
+        ),
+        "pt": (
+            "Confirme a ocultacao do perfil:\n\n"
+            "Motivo: {reason}\n\n"
+            "O perfil deixara de aparecer na pesquisa."
+        ),
+    },
+    "moderator_restore_specialist_confirmation": {
+        "ru": (
+            "Подтвердите публикацию профиля:\n\n"
+            "Причина: {reason}\n\n"
+            "Профиль снова появится в поиске."
+        ),
+        "en": (
+            "Confirm profile publication:\n\n"
+            "Reason: {reason}\n\n"
+            "The profile will appear in search again."
+        ),
+        "pt": (
+            "Confirme a publicacao do perfil:\n\n"
+            "Motivo: {reason}\n\n"
+            "O perfil voltara a aparecer na pesquisa."
+        ),
+    },
     "moderator_decision_confirm_btn": {
         "ru": "Подтвердить",
         "en": "Confirm",
@@ -4767,6 +4801,16 @@ translations = {
         "ru": "Профиль отклонён.",
         "en": "Profile rejected.",
         "pt": "Perfil rejeitado.",
+    },
+    "moderator_specialist_hidden": {
+        "ru": "Профиль скрыт из поиска.",
+        "en": "Profile hidden from search.",
+        "pt": "Perfil ocultado da pesquisa.",
+    },
+    "moderator_specialist_restored": {
+        "ru": "Профиль снова отображается в поиске.",
+        "en": "Profile is visible in search again.",
+        "pt": "O perfil esta visivel na pesquisa novamente.",
     },
     "moderator_decision_cancelled": {
         "ru": "Решение отменено.",
@@ -5012,9 +5056,9 @@ translations = {
         "pt": "Selecione o status das denúncias:",
     },
     "moderator_complaint_filter_open": {
-        "ru": "Открытые",
-        "en": "Open",
-        "pt": "Abertas",
+        "ru": "Требуют решения",
+        "en": "Awaiting decision",
+        "pt": "Aguardam decisao",
     },
     "moderator_complaint_filter_new": {
         "ru": "Новые",
@@ -5195,9 +5239,9 @@ translations = {
         ),
     },
     "moderator_blacklist_active_btn": {
-        "ru": "Активные",
-        "en": "Active",
-        "pt": "Ativos",
+        "ru": "Действующие",
+        "en": "Current",
+        "pt": "Vigentes",
     },
     "moderator_blacklist_history_btn": {
         "ru": "История",
@@ -5205,9 +5249,9 @@ translations = {
         "pt": "Histórico",
     },
     "moderator_blacklist_active_title": {
-        "ru": "Активные",
-        "en": "Active",
-        "pt": "Ativos",
+        "ru": "Действующие ограничения",
+        "en": "Current restrictions",
+        "pt": "Restricoes vigentes",
     },
     "moderator_blacklist_history_title": {
         "ru": "История",
@@ -5498,9 +5542,9 @@ translations = {
         ),
     },
     "admin_user_open_btn": {
-        "ru": "Открыть",
-        "en": "Open",
-        "pt": "Abrir",
+        "ru": "Подробнее",
+        "en": "Details",
+        "pt": "Detalhes",
     },
     "admin_user_search_again_btn": {
         "ru": "Найти ещё",
@@ -5824,10 +5868,10 @@ translations = {
         "en": "All",
         "pt": "Todos",
     },
-    "admin_specialist_filter_active": {
-        "ru": "Активные",
-        "en": "Active",
-        "pt": "Ativos",
+    "admin_specialist_filter_approved": {
+        "ru": "Одобренные",
+        "en": "Approved",
+        "pt": "Aprovados",
     },
     "admin_specialist_filter_pending": {
         "ru": "На модерации",
@@ -5839,10 +5883,10 @@ translations = {
         "en": "Drafts",
         "pt": "Rascunhos",
     },
-    "admin_specialist_filter_paused": {
-        "ru": "На паузе",
-        "en": "Paused",
-        "pt": "Em pausa",
+    "admin_specialist_filter_hidden": {
+        "ru": "Скрытые",
+        "en": "Hidden",
+        "pt": "Ocultos",
     },
     "admin_specialist_filter_rejected": {
         "ru": "Отклонённые",
@@ -5983,9 +6027,9 @@ translations = {
         ),
     },
     "admin_global_blacklist_active_btn": {
-        "ru": "Активные",
-        "en": "Active",
-        "pt": "Ativos",
+        "ru": "Действующие",
+        "en": "Current",
+        "pt": "Vigentes",
     },
     "admin_global_blacklist_history_btn": {
         "ru": "История",
@@ -5993,9 +6037,9 @@ translations = {
         "pt": "Histórico",
     },
     "admin_global_blacklist_active_title": {
-        "ru": "Активные",
-        "en": "Active",
-        "pt": "Ativos",
+        "ru": "Действующие ограничения",
+        "en": "Current restrictions",
+        "pt": "Restricoes vigentes",
     },
     "admin_global_blacklist_history_title": {
         "ru": "История",
@@ -6134,9 +6178,9 @@ translations = {
         "pt": "Blacklist",
     },
     "admin_audit_open_btn": {
-        "ru": "Открыть",
-        "en": "Open",
-        "pt": "Abrir",
+        "ru": "Подробнее",
+        "en": "Details",
+        "pt": "Detalhes",
     },
     "admin_audit_back_to_list_btn": {
         "ru": "Назад к Audit",
@@ -6285,11 +6329,6 @@ translations = {
         "en": "Users",
         "pt": "Utilizadores",
     },
-    "super_admin_roles_btn": {
-        "ru": "Роли",
-        "en": "Roles",
-        "pt": "Funções",
-    },
     "super_admin_permissions_btn": {
         "ru": "Права",
         "en": "Permissions",
@@ -6354,15 +6393,15 @@ translations = {
     "super_admin_user_search_card": {
         "ru": (
             "{number}. {name}\n"
-            "User ID: {user_number}\n"
+            "Номер пользователя: {user_number}\n"
             "Telegram: {telegram_id}\n"
-            "Username: {username}\n"
+            "Имя пользователя: {username}\n"
             "Статус: {status}\n"
             "Роли: {roles}"
         ),
         "en": (
             "{number}. {name}\n"
-            "User ID: {user_number}\n"
+            "User number: {user_number}\n"
             "Telegram: {telegram_id}\n"
             "Username: {username}\n"
             "Status: {status}\n"
@@ -6370,17 +6409,12 @@ translations = {
         ),
         "pt": (
             "{number}. {name}\n"
-            "User ID: {user_number}\n"
+            "Número do utilizador: {user_number}\n"
             "Telegram: {telegram_id}\n"
-            "Username: {username}\n"
+            "Nome de utilizador: {username}\n"
             "Estado: {status}\n"
             "Funções: {roles}"
         ),
-    },
-    "super_admin_user_open_btn": {
-        "ru": "Открыть",
-        "en": "Open",
-        "pt": "Abrir",
     },
     "super_admin_back_to_menu_btn": {
         "ru": "К Super Admin",
@@ -6948,170 +6982,222 @@ translations = {
             "Mode: read-only"
         ),
     },
+    "super_admin_system_value_unknown": {
+        "ru": "Не указано",
+        "en": "Not specified",
+        "pt": "Não indicado",
+    },
+    "super_admin_system_value_ok": {
+        "ru": "Работает",
+        "en": "Operational",
+        "pt": "Operacional",
+    },
+    "super_admin_system_value_error": {
+        "ru": "Ошибка",
+        "en": "Error",
+        "pt": "Erro",
+    },
+    "super_admin_system_value_configured": {
+        "ru": "Настроено",
+        "en": "Configured",
+        "pt": "Configurado",
+    },
+    "super_admin_system_value_not_configured": {
+        "ru": "Не настроено",
+        "en": "Not configured",
+        "pt": "Não configurado",
+    },
+    "super_admin_system_value_enabled": {
+        "ru": "Включён",
+        "en": "Enabled",
+        "pt": "Ativado",
+    },
+    "super_admin_system_value_disabled": {
+        "ru": "Выключен",
+        "en": "Disabled",
+        "pt": "Desativado",
+    },
+    "super_admin_system_value_env_available": {
+        "ru": "Доступно, секреты скрыты",
+        "en": "Available, secrets hidden",
+        "pt": "Disponível, segredos ocultos",
+    },
     "super_admin_system_status": {
         "ru": (
-            "Система\n\n"
-            "App version: {app_version}\n"
-            "DB health: {db_status}\n"
-            "DB version: {db_version}\n"
-            "Telegram health: {telegram_status}\n"
-            "Migrations: {migrations_status}\n"
-            "Migration version: {migration_version}\n"
-            "Maintenance mode: {maintenance_mode}\n"
-            "Feature flags: {feature_flags_status}\n"
-            "Env status: {env_status}\n\n"
-            "Секреты и env values не отображаются."
+            "Система\n"
+            "Состояние сервисов и конфигурации.\n\n"
+            "Версия приложения: {app_version}\n"
+            "Состояние базы данных: {db_status}\n"
+            "Версия базы данных: {db_version}\n"
+            "Подключение Telegram: {telegram_status}\n"
+            "Миграции: {migrations_status}\n"
+            "Версия миграции: {migration_version}\n"
+            "Режим обслуживания: {maintenance_mode}\n"
+            "Управление функциями: {feature_flags_status}\n"
+            "Окружение: {env_status}\n\n"
+            "Секреты и значения переменных окружения скрыты."
         ),
         "en": (
-            "System\n\n"
-            "App version: {app_version}\n"
-            "DB health: {db_status}\n"
-            "DB version: {db_version}\n"
-            "Telegram health: {telegram_status}\n"
+            "System\n"
+            "Service and configuration status.\n\n"
+            "Application version: {app_version}\n"
+            "Database status: {db_status}\n"
+            "Database version: {db_version}\n"
+            "Telegram connection: {telegram_status}\n"
             "Migrations: {migrations_status}\n"
             "Migration version: {migration_version}\n"
             "Maintenance mode: {maintenance_mode}\n"
-            "Feature flags: {feature_flags_status}\n"
-            "Env status: {env_status}\n\n"
-            "Secrets and env values are never shown."
+            "Feature management: {feature_flags_status}\n"
+            "Environment: {env_status}\n\n"
+            "Secrets and environment variable values are hidden."
         ),
         "pt": (
-            "Sistema\n\n"
-            "App version: {app_version}\n"
-            "DB health: {db_status}\n"
-            "DB version: {db_version}\n"
-            "Telegram health: {telegram_status}\n"
-            "Migrations: {migrations_status}\n"
-            "Migration version: {migration_version}\n"
-            "Maintenance mode: {maintenance_mode}\n"
-            "Feature flags: {feature_flags_status}\n"
-            "Env status: {env_status}\n\n"
-            "Secrets and env values are never shown."
+            "Sistema\n"
+            "Estado dos serviços e da configuração.\n\n"
+            "Versão da aplicação: {app_version}\n"
+            "Estado da base de dados: {db_status}\n"
+            "Versão da base de dados: {db_version}\n"
+            "Ligação ao Telegram: {telegram_status}\n"
+            "Migrações: {migrations_status}\n"
+            "Versão da migração: {migration_version}\n"
+            "Modo de manutenção: {maintenance_mode}\n"
+            "Gestão de funcionalidades: {feature_flags_status}\n"
+            "Ambiente: {env_status}\n\n"
+            "Os segredos e valores das variáveis de ambiente estão ocultos."
         ),
     },
     "super_admin_feature_flags_btn": {
-        "ru": "Feature Flags",
-        "en": "Feature Flags",
-        "pt": "Feature Flags",
+        "ru": "Управление функциями",
+        "en": "Feature management",
+        "pt": "Gestão de funcionalidades",
     },
     "super_admin_health_check_btn": {
-        "ru": "Health Check",
-        "en": "Health Check",
-        "pt": "Health Check",
+        "ru": "Проверка состояния",
+        "en": "Health check",
+        "pt": "Verificação do sistema",
     },
     "super_admin_maintenance_btn": {
-        "ru": "Maintenance Mode",
-        "en": "Maintenance Mode",
-        "pt": "Maintenance Mode",
+        "ru": "Режим обслуживания",
+        "en": "Maintenance mode",
+        "pt": "Modo de manutenção",
     },
     "super_admin_migrations_btn": {
-        "ru": "Migrations",
+        "ru": "Миграции",
         "en": "Migrations",
-        "pt": "Migrations",
+        "pt": "Migrações",
     },
     "super_admin_env_status_btn": {
-        "ru": "Env status",
-        "en": "Env status",
-        "pt": "Env status",
+        "ru": "Окружение",
+        "en": "Environment",
+        "pt": "Ambiente",
     },
     "super_admin_system_health_detail": {
         "ru": (
-            "Health Check\n\n"
-            "DB health: {db_status}\n"
-            "Telegram health: {telegram_status}\n"
-            "Maintenance mode: {maintenance_mode}\n\n"
-            "Mode: read-only"
+            "Проверка состояния\n"
+            "Текущее состояние основных компонентов.\n\n"
+            "База данных: {db_status}\n"
+            "Telegram: {telegram_status}\n"
+            "Режим обслуживания: {maintenance_mode}\n\n"
+            "Режим только просмотра."
         ),
         "en": (
-            "Health Check\n\n"
-            "DB health: {db_status}\n"
-            "Telegram health: {telegram_status}\n"
+            "Health check\n"
+            "Current status of the main components.\n\n"
+            "Database: {db_status}\n"
+            "Telegram: {telegram_status}\n"
             "Maintenance mode: {maintenance_mode}\n\n"
-            "Mode: read-only"
+            "Read-only mode."
         ),
         "pt": (
-            "Health Check\n\n"
-            "DB health: {db_status}\n"
-            "Telegram health: {telegram_status}\n"
-            "Maintenance mode: {maintenance_mode}\n\n"
-            "Mode: read-only"
+            "Verificação do sistema\n"
+            "Estado atual dos componentes principais.\n\n"
+            "Base de dados: {db_status}\n"
+            "Telegram: {telegram_status}\n"
+            "Modo de manutenção: {maintenance_mode}\n\n"
+            "Modo somente de leitura."
         ),
     },
     "super_admin_system_migrations_detail": {
         "ru": (
-            "Migrations\n\n"
-            "Status: {migrations_status}\n"
-            "Version: {migration_version}\n\n"
-            "Mode: read-only"
+            "Миграции\n"
+            "Состояние структуры базы данных.\n\n"
+            "Статус: {migrations_status}\n"
+            "Текущая версия: {migration_version}\n\n"
+            "Режим только просмотра."
         ),
         "en": (
-            "Migrations\n\n"
+            "Migrations\n"
+            "Database structure status.\n\n"
             "Status: {migrations_status}\n"
-            "Version: {migration_version}\n\n"
-            "Mode: read-only"
+            "Current version: {migration_version}\n\n"
+            "Read-only mode."
         ),
         "pt": (
-            "Migrations\n\n"
-            "Status: {migrations_status}\n"
-            "Version: {migration_version}\n\n"
-            "Mode: read-only"
+            "Migrações\n"
+            "Estado da estrutura da base de dados.\n\n"
+            "Estado: {migrations_status}\n"
+            "Versão atual: {migration_version}\n\n"
+            "Modo somente de leitura."
         ),
     },
     "super_admin_system_env_detail": {
         "ru": (
-            "Env status\n\n"
+            "Окружение\n"
+            "Состояние конфигурации приложения.\n\n"
             "{env_status}\n\n"
-            "Env values, tokens and secrets are hidden."
+            "Значения переменных, токены и секреты скрыты."
         ),
         "en": (
-            "Env status\n\n"
+            "Environment\n"
+            "Application configuration status.\n\n"
             "{env_status}\n\n"
-            "Env values, tokens and secrets are hidden."
+            "Variable values, tokens, and secrets are hidden."
         ),
         "pt": (
-            "Env status\n\n"
+            "Ambiente\n"
+            "Estado da configuração da aplicação.\n\n"
             "{env_status}\n\n"
-            "Env values, tokens and secrets are hidden."
+            "Os valores, tokens e segredos estão ocultos."
         ),
     },
     "super_admin_system_feature_flags_detail": {
         "ru": (
-            "Feature Flags\n\n"
-            "Status: {feature_flags_status}\n\n"
-            "Feature flag storage is not configured for controlled Beta.\n"
-            "Mode: read-only"
+            "Управление функциями\n\n"
+            "Состояние: {feature_flags_status}\n\n"
+            "Хранилище настроек функций не подключено.\n"
+            "Режим: только просмотр."
         ),
         "en": (
-            "Feature Flags\n\n"
+            "Feature management\n\n"
             "Status: {feature_flags_status}\n\n"
-            "Feature flag storage is not configured for controlled Beta.\n"
-            "Mode: read-only"
+            "Feature settings storage is not connected.\n"
+            "Read-only mode."
         ),
         "pt": (
-            "Feature Flags\n\n"
-            "Status: {feature_flags_status}\n\n"
-            "Feature flag storage is not configured for controlled Beta.\n"
-            "Mode: read-only"
+            "Gestao de funcionalidades\n\n"
+            "Estado: {feature_flags_status}\n\n"
+            "O armazenamento das definicoes nao esta ligado.\n"
+            "Modo somente leitura."
         ),
     },
     "super_admin_system_maintenance_detail": {
         "ru": (
-            "Maintenance Mode\n\n"
-            "Current status: {maintenance_mode}\n\n"
-            "Changing maintenance mode requires a separate confirmation flow.\n"
-            "For controlled Beta this action is disabled."
+            "Режим обслуживания\n\n"
+            "Текущее состояние: {maintenance_mode}\n\n"
+            "Изменение режима требует отдельного подтверждения.\n"
+            "Управление пока недоступно."
         ),
         "en": (
-            "Maintenance Mode\n\n"
+            "Maintenance mode\n\n"
             "Current status: {maintenance_mode}\n\n"
-            "Changing maintenance mode requires a separate confirmation flow.\n"
-            "For controlled Beta this action is disabled."
+            "Changing this mode requires separate confirmation.\n"
+            "Management is currently unavailable."
         ),
         "pt": (
-            "Maintenance Mode\n\n"
-            "Current status: {maintenance_mode}\n\n"
-            "Changing maintenance mode requires a separate confirmation flow.\n"
-            "For controlled Beta this action is disabled."
+            "Modo de manutencao\n\n"
+            "Estado atual: {maintenance_mode}\n\n"
+            "A alteracao deste modo requer confirmacao separada.\n"
+            "A gestao ainda nao esta disponivel."
         ),
     },
     "super_admin_smoke_title": {
@@ -7247,34 +7333,16 @@ translations = {
     },
     "main_rfq_stub": {
         "ru": (
-            "📋 Заявки / RFQ\n\n"
-            "Скоро здесь можно будет создать заявку, описать задачу и получить отклики от подходящих специалистов."
+            "🔎 Найти специалиста\n\n"
+            "Введите, кто вам нужен, или выберите категорию."
         ),
         "en": (
-            "📋 Requests / RFQ\n\n"
-            "Soon you will be able to describe a task and specialists will respond.\n\n"
-            "For the Beta launch, please use specialist search and dialogs."
+            "🔎 Find a specialist\n\n"
+            "Enter who you need or choose a category."
         ),
         "pt": (
-            "📋 Pedidos / RFQ\n\n"
-            "Em breve você poderá descrever uma tarefa e especialistas poderão responder.\n\n"
-            "Para o lançamento Beta, use a busca de especialistas e os diálogos."
-        ),
-    },
-    "main_community_stub": {
-        "ru": (
-            "🌍 Community\n\n"
-            "Скоро здесь появятся профессиональные обсуждения, локальные сообщества и тематические ветки."
-        ),
-        "en": (
-            "🌍 Community\n\n"
-            "Professional discussions, threads and local communities will appear later.\n\n"
-            "The Beta focus is specialist search and protected dialogs."
-        ),
-        "pt": (
-            "🌍 Community\n\n"
-            "Discussões profissionais, tópicos e comunidades locais aparecerão mais tarde.\n\n"
-            "O foco da Beta é busca de especialistas e diálogos protegidos."
+            "🔎 Encontrar especialista\n\n"
+            "Digite quem você procura ou escolha uma categoria."
         ),
     },
     "main_hr_stub": {
@@ -7294,71 +7362,79 @@ translations = {
         ),
     },
     "cabinet_crm_btn": {
-        "ru": "💼 CRM специалиста",
-        "en": "💼 Specialist CRM",
-        "pt": "💼 CRM do especialista",
+        "ru": "💼 CRM",
+        "en": "💼 CRM",
+        "pt": "💼 CRM",
     },
     "cabinet_finance_btn": {
-        "ru": "💳 Финансы",
-        "en": "💳 Finance",
-        "pt": "💳 Finanças",
+        "ru": "💳 Подписка",
+        "en": "💳 Subscription",
+        "pt": "💳 Assinatura",
     },
     "cabinet_crm_stub": {
         "ru": (
-            "💼 CRM специалиста\n\n"
-            "Скоро здесь будут лиды, клиенты, календарь, заказы, "
-            "заметки и аналитика.\n\n"
-            "Сейчас используйте Диалоги и Мои заказы."
+            "💼 CRM\n\n"
+            "Здесь будут клиенты, сделки и рабочие задачи. "
+            "Раздел появится после запуска CRM."
         ),
         "en": (
-            "💼 Specialist CRM\n\n"
-            "Soon this section will include leads, clients, calendar, orders, "
-            "notes and analytics.\n\n"
-            "For now, use Dialogs and My orders."
+            "💼 CRM\n\n"
+            "Clients, deals, and work tasks will appear here "
+            "after the CRM launch."
         ),
         "pt": (
-            "💼 CRM do especialista\n\n"
-            "Em breve esta secção terá leads, clientes, calendário, pedidos, "
-            "notas e analytics.\n\n"
-            "Por agora, use Diálogos e Meus pedidos."
+            "💼 CRM\n\n"
+            "Clientes, acordos e tarefas de trabalho aparecerão aqui "
+            "após o lançamento do CRM."
         ),
     },
     "cabinet_finance_stub": {
         "ru": (
-            "💳 Финансы\n\n"
-            "Скоро здесь будут подписки, продвижение, платежи и документы."
+            "💳 Подписка\n\n"
+            "Здесь появятся тарифы, платежи и управление подпиской."
         ),
         "en": (
-            "💳 Finance\n\n"
-            "Soon this section will include subscriptions, promotion, payments and documents."
+            "💳 Subscription\n\n"
+            "Plans, payments, and subscription management will appear here."
         ),
         "pt": (
-            "💳 Finanças\n\n"
-            "Em breve esta secção terá subscrições, promoção, pagamentos e documentos."
+            "💳 Assinatura\n\n"
+            "Planos, pagamentos e gestão de assinatura aparecerão aqui."
         ),
     },
     "search_start_screen": {
         "ru": (
             "🔎 Найти специалиста\n\n"
-            "Выберите категорию или напишите, кто вам нужен.\n\n"
-            "Пример: «сантехник в Лиссабоне», «мастер маникюра», "
-            "«roof repair remote»."
+            "Введите, кто вам нужен,\n"
+            "или выберите категорию.\n\n"
+            "Примеры:\n"
+            "• сантехник\n"
+            "• мастер маникюра\n"
+            "• plumber Lisbon"
         ),
         "en": (
             "🔎 Find a specialist\n\n"
-            "Choose a category or write who you need.\n\n"
-            "Example: plumber in Lisbon, manicure master, roof repair remote."
+            "Enter who you need,\n"
+            "or choose a category.\n\n"
+            "Examples:\n"
+            "• plumber\n"
+            "• manicure specialist\n"
+            "• plumber Lisbon"
         ),
         "pt": (
             "🔎 Encontrar especialista\n\n"
-            "Escolha uma categoria ou escreva quem procura.\n\n"
-            "Exemplo: canalizador em Lisboa, manicure, roof repair remote."
+            "Escreva quem você procura\n"
+            "ou escolha uma categoria.\n\n"
+            "Exemplos:\n"
+            "• canalizador\n"
+            "• especialista em manicure\n"
+            "• canalizador Lisboa"
         ),
     },
     "search_write_query_btn": {
-        "ru": "✍️ Написать запрос",
-        "en": "✍️ Write a request",
-        "pt": "✍️ Escrever pedido",
+        "ru": "✍️ Новый поиск",
+        "en": "✍️ New search",
+        "pt": "✍️ Nova pesquisa",
     },
     "search_choose_category_btn": {
         "ru": "📂 Выбрать категорию",
@@ -7366,19 +7442,19 @@ translations = {
         "pt": "📂 Escolher categoria",
     },
     "search_history_btn": {
-        "ru": "🕘 Последние поиски",
-        "en": "🕘 Recent searches",
-        "pt": "🕘 Pesquisas recentes",
+        "ru": "🕘 История поиска",
+        "en": "🕘 Search history",
+        "pt": "🕘 Histórico de pesquisa",
     },
     "search_history_title": {
-        "ru": "🕘 Последние поиски",
-        "en": "🕘 Recent searches",
-        "pt": "🕘 Pesquisas recentes",
+        "ru": "🕘 История поиска",
+        "en": "🕘 Search history",
+        "pt": "🕘 Histórico de pesquisa",
     },
     "search_history_empty": {
-        "ru": "Последних поисков пока нет. Напишите запрос или выберите категорию.",
-        "en": "No recent searches yet. Write a query or choose a category.",
-        "pt": "Ainda não há pesquisas recentes. Escreva uma consulta ou escolha uma categoria.",
+        "ru": "История поиска пока пуста. Введите, кто вам нужен, или выберите категорию.",
+        "en": "Search history is empty. Enter who you need or choose a category.",
+        "pt": "O histórico de pesquisa está vazio. Escreva quem procura ou escolha uma categoria.",
     },
     "search_history_item": {
         "ru": "{number}. {query}",
@@ -7406,14 +7482,19 @@ translations = {
         "pt": "✅ Mostrar especialistas",
     },
     "search_other_category_btn": {
-        "ru": "📂 Другая категория",
-        "en": "📂 Another category",
-        "pt": "📂 Outra categoria",
+        "ru": "➡️ Еще категории",
+        "en": "➡️ More categories",
+        "pt": "➡️ Mais categorias",
+    },
+    "search_filters_btn": {
+        "ru": "⚙️ Фильтры поиска",
+        "en": "⚙️ Search filters",
+        "pt": "⚙️ Filtros de pesquisa",
     },
     "search_reset_directions_btn": {
-        "ru": "♻️ Сбросить",
-        "en": "♻️ Reset",
-        "pt": "♻️ Limpar",
+        "ru": "↩ Сбросить выбор",
+        "en": "↩ Clear selection",
+        "pt": "↩ Limpar seleção",
     },
     "search_selected_directions_required": {
         "ru": "Выберите хотя бы одно направление или нажмите «Все направления».",
@@ -7425,10 +7506,10 @@ translations = {
         "en": "👤 Profile",
         "pt": "👤 Perfil",
     },
-    "order_create_btn": {
-        "ru": "📦 Создать заказ",
-        "en": "📦 Create order",
-        "pt": "📦 Criar pedido",
+    "order_actions_unavailable": {
+        "ru": "Управление заказами в переписке недоступно.",
+        "en": "Order management is not available in messages.",
+        "pt": "O gerenciamento de pedidos nao esta disponivel nas mensagens.",
     },
     "cabinet_my_profile_btn": {
         "ru": "👤 Мой профиль",
@@ -7451,39 +7532,39 @@ translations = {
         "pt": "🧰 Gabinete especialista",
     },
     "spec_public_profile_btn": {
-        "ru": "👤 Публичный профиль",
-        "en": "👤 Public profile",
-        "pt": "👤 Perfil público",
+        "ru": "👤 Карточка специалиста",
+        "en": "👤 Specialist card",
+        "pt": "👤 Cartão do especialista",
     },
     "spec_categories_directions_btn": {
-        "ru": "📂 Категории и направления",
-        "en": "📂 Categories and directions",
-        "pt": "📂 Categorias e direções",
+        "ru": "📂 Профессии",
+        "en": "📂 Professions",
+        "pt": "📂 Profissões",
     },
     "spec_skills_btn": {
-        "ru": "🧩 Навыки",
-        "en": "🧩 Skills",
-        "pt": "🧩 Competências",
+        "ru": "🧩 Навыки и услуги",
+        "en": "🧩 Skills and services",
+        "pt": "🧩 Competências e serviços",
     },
     "spec_geo_work_btn": {
-        "ru": "📍 География и формат работы",
-        "en": "📍 Geography and work format",
-        "pt": "📍 Geografia e formato de trabalho",
+        "ru": "📍 Локация и формат",
+        "en": "📍 Location and format",
+        "pt": "📍 Localização e formato",
     },
     "spec_availability_btn": {
-        "ru": "🟢 Доступность",
-        "en": "🟢 Availability",
-        "pt": "🟢 Disponibilidade",
+        "ru": "🟢 Статус работы",
+        "en": "🟢 Work status",
+        "pt": "🟢 Estado de trabalho",
     },
     "spec_moderation_btn": {
-        "ru": "🛡 Модерация",
-        "en": "🛡 Moderation",
-        "pt": "🛡 Moderação",
+        "ru": "🛡 Проверка профиля",
+        "en": "🛡 Profile review",
+        "pt": "🛡 Revisão do perfil",
     },
     "search_text_query_prompt": {
-        "ru": "Напишите, кто вам нужен. Например: электрик, розетки, стиралка, клопы, nif, бот.",
-        "en": "Write who you need. For example: electrician, sockets, washing machine, pest control, NIF, bot.",
-        "pt": "Escreva de quem precisa. Por exemplo: eletricista, tomadas, máquina de lavar, pragas, NIF, bot.",
+        "ru": "Введите, кто вам нужен. Например: сантехник, мастер маникюра или plumber Lisbon.",
+        "en": "Enter who you need. For example: plumber, manicure specialist, or plumber Lisbon.",
+        "pt": "Escreva quem você procura. Por exemplo: canalizador, especialista em manicure ou canalizador Lisboa.",
     },
     "search_text_query_too_short": {
         "ru": "Напишите минимум 2 символа.",
@@ -7505,81 +7586,19 @@ translations = {
         "en": "Client",
         "pt": "Cliente",
     },
-    "order_draft_created_from_thread": {
-        "ru": "Заказ создан.\nНомер: order-{order_id}\n{status}\n\nВторая сторона должна подтвердить заказ.",
-        "en": "Order created.\nNumber: order-{order_id}\n{status}\n\nThe other side must confirm the order.",
-        "pt": "Pedido criado.\nNumero: order-{order_id}\n{status}\n\nA outra parte deve confirmar o pedido.",
-    },
-    "order_confirm_btn": {
-        "ru": "Подтвердить заказ",
-        "en": "Confirm order",
-        "pt": "Confirmar pedido",
-    },
-    "order_confirmed": {
-        "ru": "Заказ подтвержден.\nНомер: order-{order_id}\n{status}",
-        "en": "Order confirmed.\nNumber: order-{order_id}\n{status}",
-        "pt": "Pedido confirmado.\nNumero: order-{order_id}\n{status}",
-    },
-    "order_form_prompt": {
-        "ru": "📦 Создание заказа\n\nВведите данные заказа одним сообщением.\n\nФормат:\nОписание\nДата или срок\nСумма или -\n\nПример:\nЗаменить розетку и проверить проводку\n2026-07-05 вечером\n50 EUR",
-        "en": "📦 Create order\n\nSend order details in one message.\n\nFormat:\nDescription\nDate or deadline\nAmount or -\n\nExample:\nReplace a socket and check wiring\n2026-07-05 evening\n50 EUR",
-        "pt": "📦 Criar pedido\n\nEnvie os detalhes do pedido em uma mensagem.\n\nFormato:\nDescricao\nData ou prazo\nValor ou -\n\nExemplo:\nSubstituir uma tomada e verificar a fiacao\n2026-07-05 a noite\n50 EUR",
-    },
-    "order_form_cancelled": {
-        "ru": "Создание заказа отменено.",
-        "en": "Order creation has been cancelled.",
-        "pt": "A criacao do pedido foi cancelada.",
-    },
-    "order_description_required": {
-        "ru": "Введите описание заказа.",
-        "en": "Enter the order description.",
-        "pt": "Indique a descrição do pedido.",
-    },
-    "order_description_too_short": {
-        "ru": "Описание заказа слишком короткое. Напишите хотя бы 5 символов.",
-        "en": "Order description is too short. Enter at least 5 characters.",
-        "pt": "A descrição do pedido é muito curta. Escreva pelo menos 5 caracteres.",
-    },
-    "order_amount_invalid": {
-        "ru": "Сумма должна быть числом или символом «-».",
-        "en": "Amount must be a number or '-'.",
-        "pt": "O valor deve ser um número ou '-'.",
-    },
-    "order_amount_negative": {
-        "ru": "Сумма заказа не может быть отрицательной.",
-        "en": "Order amount cannot be negative.",
-        "pt": "O valor do pedido não pode ser negativo.",
-    },
-    "order_currency_invalid": {
-        "ru": "Валюта должна быть из 3 букв, например EUR.",
-        "en": "Currency must use 3 letters, for example EUR.",
-        "pt": "A moeda deve ter 3 letras, por exemplo EUR.",
-    },
-    "order_not_found_error": {
-        "ru": "Заказ не найден. Откройте диалог заново.",
-        "en": "Order was not found. Open the dialog again.",
-        "pt": "Pedido não encontrado. Abra o diálogo novamente.",
-    },
-    "order_confirm_not_allowed": {
-        "ru": "Этот заказ сейчас нельзя подтвердить.",
-        "en": "This order cannot be confirmed now.",
-        "pt": "Este pedido não pode ser confirmado agora.",
-    },
-    "order_complete_not_allowed": {
-        "ru": "Этот заказ сейчас нельзя завершить.",
-        "en": "This order cannot be completed now.",
-        "pt": "Este pedido não pode ser concluído agora.",
-    },
-    "order_other_side_confirm_required": {
-        "ru": "Заказ должна подтвердить вторая сторона.",
-        "en": "The order must be confirmed by the other side.",
-        "pt": "O pedido deve ser confirmado pela outra parte.",
-    },
-    "order_participant_required": {
-        "ru": "Действие доступно только участникам заказа.",
-        "en": "Only order participants can do this.",
-        "pt": "A ação está disponível apenas para participantes do pedido.",
-    },
+
+
+
+
+
+
+
+
+
+
+
+
+
     "review_order_completed_required": {
         "ru": "Отзыв можно оставить только после завершения заказа.",
         "en": "You can leave a review only after the order is completed.",
@@ -7596,39 +7615,18 @@ translations = {
         "pt": "Escolha uma avaliação de 1 a 5.",
     },
     "review_missing_data": {
-        "ru": "Не удалось найти данные для отзыва. Откройте заказ заново.",
-        "en": "Review data was not found. Open the order again.",
-        "pt": "Dados da avaliação não encontrados. Abra o pedido novamente.",
-    },
-    "order_active_title": {
-        "ru": "📦 Заказ",
-        "en": "📦 Order",
-        "pt": "📦 Pedido",
-    },
-    "order_number_label": {
-        "ru": "Номер",
-        "en": "Number",
-        "pt": "Numero",
-    },
-    "order_complete_btn": {
-        "ru": "Завершить заказ",
-        "en": "Complete order",
-        "pt": "Concluir pedido",
-    },
-    "order_completed": {
-        "ru": "Заказ завершен.\nНомер: order-{order_id}\n{status}\n\nТеперь можно оставить отзыв.",
-        "en": "Order completed.\nNumber: order-{order_id}\n{status}\n\nYou can now leave a review.",
-        "pt": "Pedido concluido.\nNumero: order-{order_id}\n{status}\n\nAgora voce pode deixar uma avaliacao.",
-    },
-    "cabinet_orders_title": {
-        "ru": "📦 Мои заказы",
-        "en": "📦 My orders",
-        "pt": "📦 Meus pedidos",
-    },
-    "cabinet_orders_empty": {
-        "ru": "📦 Мои заказы\n\nПока заказов нет. Заказ можно создать из диалога со специалистом.",
-        "en": "📦 My orders\n\nNo orders yet. You can create an order from a dialog with a specialist.",
-        "pt": "📦 Meus pedidos\n\nAinda não há pedidos. Pode criar um pedido a partir de um diálogo com um especialista.",
+        "ru": (
+            "Не удалось найти данные для отзыва. "
+            "Откройте переписку заново."
+        ),
+        "en": (
+            "Review data was not found. "
+            "Open the conversation again."
+        ),
+        "pt": (
+            "Os dados da avaliacao nao foram encontrados. "
+            "Abra a conversa novamente."
+        ),
     },
     "search_profile_photo_placeholder": {
         "ru": "👤 Фото пока не добавлено",
@@ -7644,11 +7642,6 @@ translations = {
         "ru": "Навыки",
         "en": "Skills",
         "pt": "Competências",
-    },
-    "dialog_context_profession": {
-        "ru": "Контекст: по направлению {profession}",
-        "en": "Context: about {profession}",
-        "pt": "Contexto: sobre {profession}",
     },
     "cabinet_user_profile_title": {
         "ru": "👤 Мой профиль",
@@ -7676,14 +7669,39 @@ translations = {
         "pt": "Cidade",
     },
     "cabinet_user_profile_active_role": {
-        "ru": "Активная роль",
-        "en": "Active role",
-        "pt": "Funcao ativa",
+        "ru": "Текущий кабинет",
+        "en": "Current cabinet",
+        "pt": "Gabinete atual",
+    },
+    "role_text_finance_admin": {
+        "ru": "Финансы",
+        "en": "Finance",
+        "pt": "Financas",
+    },
+    "role_text_advertiser": {
+        "ru": "Продвижение",
+        "en": "Promotion",
+        "pt": "Promocao",
+    },
+    "role_text_other": {
+        "ru": "Другой кабинет",
+        "en": "Another cabinet",
+        "pt": "Outro gabinete",
     },
     "cabinet_user_profile_roles": {
-        "ru": "Роли",
-        "en": "Roles",
-        "pt": "Funcoes",
+        "ru": "Доступные кабинеты",
+        "en": "Available cabinets",
+        "pt": "Gabinetes disponiveis",
+    },
+    "specialist_skills_title": {
+        "ru": "🧩 Навыки и услуги",
+        "en": "🧩 Skills and services",
+        "pt": "🧩 Competências e serviços",
+    },
+    "specialist_skills_hint": {
+        "ru": "Добавьте то, что помогает клиенту выбрать вас.",
+        "en": "Add details that help clients choose you.",
+        "pt": "Adicione informações que ajudam o cliente a escolher você.",
     },
     "spec_skills_prompt": {
         "ru": "🧩 Выберите навыки, которые точнее описывают ваши услуги.",
@@ -7706,24 +7724,29 @@ translations = {
         "pt": "Habilidades salvas.",
     },
     "spec_availability_title": {
-        "ru": "🟢 Доступность",
-        "en": "🟢 Availability",
-        "pt": "🟢 Disponibilidade",
+        "ru": "🟢 Статус работы",
+        "en": "🟢 Work status",
+        "pt": "🟢 Status de trabalho",
+    },
+    "spec_availability_hint": {
+        "ru": "Укажите, принимаете ли вы заказы сейчас.",
+        "en": "Let clients know whether you are accepting requests now.",
+        "pt": "Informe se voce esta aceitando pedidos agora.",
     },
     "spec_availability_now": {
-        "ru": "Сейчас вы отмечены как свободный специалист.",
-        "en": "You are currently marked as available.",
-        "pt": "Voce esta marcado como disponivel agora.",
+        "ru": "🟢 Принимаю заказы",
+        "en": "🟢 Available for requests",
+        "pt": "🟢 Aceito pedidos",
     },
     "spec_availability_busy": {
-        "ru": "Сейчас вы отмечены как частично занятый специалист.",
-        "en": "You are currently marked as partly busy.",
-        "pt": "Voce esta marcado como parcialmente ocupado.",
+        "ru": "🟠 Сейчас занят",
+        "en": "🟠 Currently busy",
+        "pt": "🟠 Ocupado no momento",
     },
     "spec_availability_from_date": {
-        "ru": "Вы будете доступны с: {date}",
-        "en": "You will be available from: {date}",
-        "pt": "Voce estara disponivel a partir de: {date}",
+        "ru": "🟡 Буду доступен с {date}",
+        "en": "🟡 Available from {date}",
+        "pt": "🟡 Disponivel a partir de {date}",
     },
     "spec_availability_now_btn": {
         "ru": "Свободен сейчас",
@@ -7755,15 +7778,37 @@ translations = {
         "en": "🛡 Profile moderation",
         "pt": "🛡 Moderação do perfil",
     },
-    "spec_moderation_status_active": {
+
+
+    "spec_moderation_status_approved": {
         "ru": "Профиль одобрен",
         "en": "Profile approved",
         "pt": "Perfil aprovado",
     },
-    "spec_moderation_status_active_hint": {
+    "spec_moderation_status_approved_hint": {
         "ru": "Профиль виден клиентам в поиске.",
         "en": "The profile is visible to clients in search.",
-        "pt": "O perfil está visível para clientes na busca.",
+        "pt": "O perfil esta visivel para clientes na busca.",
+    },
+    "spec_moderation_status_blocked": {
+        "ru": "Профиль заблокирован",
+        "en": "Profile blocked",
+        "pt": "Perfil bloqueado",
+    },
+    "spec_moderation_status_blocked_hint": {
+        "ru": "Профиль недоступен клиентам. Обратитесь в поддержку.",
+        "en": "The profile is unavailable to clients. Contact support.",
+        "pt": "O perfil nao esta disponivel para clientes. Contacte o suporte.",
+    },
+    "spec_moderation_status_deleted": {
+        "ru": "Профиль удален",
+        "en": "Profile deleted",
+        "pt": "Perfil eliminado",
+    },
+    "spec_moderation_status_deleted_hint": {
+        "ru": "Профиль недоступен клиентам.",
+        "en": "The profile is unavailable to clients.",
+        "pt": "O perfil nao esta disponivel para clientes.",
     },
     "spec_moderation_status_pending": {
         "ru": "Профиль на проверке",
@@ -7795,16 +7840,7 @@ translations = {
         "en": "The profile was hidden by an administrator and is not shown in search.",
         "pt": "O perfil foi ocultado por um administrador e não aparece na busca.",
     },
-    "spec_moderation_status_paused": {
-        "ru": "Профиль на паузе",
-        "en": "Profile paused",
-        "pt": "Perfil pausado",
-    },
-    "spec_moderation_status_paused_hint": {
-        "ru": "Профиль временно не показывается в поиске.",
-        "en": "The profile is temporarily not shown in search.",
-        "pt": "O perfil não aparece temporariamente na busca.",
-    },
+
     "spec_moderation_status_draft": {
         "ru": "Черновик",
         "en": "Draft",
@@ -7846,9 +7882,9 @@ translations = {
         "pt": "🧾 Moderação",
     },
     "admin_dialogs_section_btn": {
-        "ru": "💬 Диалоги",
-        "en": "💬 Dialogs",
-        "pt": "💬 Diálogos",
+        "ru": "💬 Сообщения",
+        "en": "💬 Messages",
+        "pt": "💬 Mensagens",
     },
     "admin_finance_section_btn": {
         "ru": "💰 Финансы",
@@ -7899,11 +7935,6 @@ translations = {
         "ru": "Страны / города",
         "en": "Countries / cities",
         "pt": "Países / cidades",
-    },
-    "admin_dict_section_stub": {
-        "ru": "{section}\n\nРедактор будет подключён следующим шагом. Сейчас раздел зафиксирован в структуре Super Admin.",
-        "en": "{section}\n\nThe editor will be connected in the next step. The section is now fixed in the Super Admin structure.",
-        "pt": "{section}\n\nO editor será conectado no próximo passo. A seção agora está fixa na estrutura Super Admin.",
     },
     "admin_dict_categories_title": {
         "ru": "Категории\nПоказано: {count}",
@@ -8399,6 +8430,11 @@ translations = {
         "ru": "⬅️ Отмена",
         "en": "⬅️ Cancel",
         "pt": "⬅️ Cancelar",
+    },
+    "admin_cancelled": {
+        "ru": "Действие отменено.",
+        "en": "Action cancelled.",
+        "pt": "Ação cancelada.",
     },
     "admin_dict_languages_title": {
         "ru": "Языки\nПоказано: {count}",
@@ -9077,7 +9113,7 @@ translations = {
             "Количество специалистов: {count}\n\n"
             "Все активные связи выбранных специалистов внутри "
             "исходной категории будут перенесены или архивированы. "
-            "Профили, отзывы, диалоги, заказы и платежи не изменятся."
+            "Профили, отзывы, сообщения, заказы и платежи не изменятся."
         ),
         "en": (
             "Confirm the transfer from the category.\n\n"
@@ -9087,7 +9123,7 @@ translations = {
             "Specialists: {count}\n\n"
             "Active relations of the selected specialists inside the "
             "source category will be moved or archived. Profiles, "
-            "reviews, dialogs, orders and payments will not change."
+            "reviews, messages, orders and payments will not change."
         ),
         "pt": (
             "Confirme a transferência da categoria.\n\n"
@@ -9097,7 +9133,7 @@ translations = {
             "Especialistas: {count}\n\n"
             "As relações ativas dos especialistas selecionados dentro "
             "da categoria de origem serão movidas ou arquivadas. "
-            "Perfis, avaliações, diálogos, pedidos e pagamentos "
+            "Perfis, avaliações, mensagens, pedidos e pagamentos "
             "não serão alterados."
         ),
     },
@@ -9186,9 +9222,9 @@ translations = {
         "pt": "Digite um número da categoria da lista exibida: 1-{count}.",
     },
     "admin_dict_target_category_no_professions": {
-        "ru": "В выбранной категории нет активных направлений.",
-        "en": "The selected category has no active professions.",
-        "pt": "A categoria selecionada não possui profissões ativas.",
+        "ru": "В выбранной категории нет доступных направлений.",
+        "en": "The selected category has no available professions.",
+        "pt": "A categoria selecionada nao possui profissoes disponiveis.",
     },
     "admin_dict_move_professions_prompt": {
         "ru": (
@@ -9374,24 +9410,69 @@ translations = {
         "pt": "Categoria de destino: {category}",
     },
     "admin_dialog_queue_title": {
-        "ru": "💬 Служебные диалоги\nДоступны только диалоги со скаргой или risk flag.",
-        "en": "💬 Service dialogs\nOnly dialogs with a complaint or risk flag are available.",
-        "pt": "💬 Diálogos de serviço\nDisponíveis apenas diálogos com reclamação ou risk flag.",
+        "ru": (
+            "💬 Служебные сообщения\n"
+            "Доступны только переписки с жалобой или risk flag."
+        ),
+        "en": (
+            "💬 Service messages\n"
+            "Only conversations with a complaint or risk flag are available."
+        ),
+        "pt": (
+            "💬 Mensagens de serviço\n"
+            "Apenas conversas com reclamação ou risk flag estão disponíveis."
+        ),
+    },
+    "admin_dialog_detail": {
+        "ru": (
+            "💬 Служебные сообщения №{number}\n\n"
+            "Основание просмотра: {context}\n"
+            "Участники: Клиент / Специалист\n"
+            "Статус: {status}\n\n"
+            "{history}\n\n"
+            "Режим: только просмотр."
+        ),
+        "en": (
+            "💬 Service messages #{number}\n\n"
+            "Review reason: {context}\n"
+            "Participants: Client / Specialist\n"
+            "Status: {status}\n\n"
+            "{history}\n\n"
+            "Read-only mode."
+        ),
+        "pt": (
+            "💬 Mensagens de serviço nº {number}\n\n"
+            "Motivo da revisão: {context}\n"
+            "Participantes: Cliente / Especialista\n"
+            "Estado: {status}\n\n"
+            "{history}\n\n"
+            "Modo somente leitura."
+        ),
+    },
+    "admin_dialog_sender_client": {
+        "ru": "Клиент",
+        "en": "Client",
+        "pt": "Cliente",
+    },
+    "admin_dialog_sender_specialist": {
+        "ru": "Специалист",
+        "en": "Specialist",
+        "pt": "Especialista",
+    },
+    "admin_dialog_empty_message": {
+        "ru": "[пустое сообщение]",
+        "en": "[empty message]",
+        "pt": "[mensagem vazia]",
     },
     "admin_dialog_queue_empty": {
-        "ru": "Открытых диалогов со скаргами или risk flags нет.",
-        "en": "No open dialogs with complaints or risk flags.",
-        "pt": "Não há diálogos abertos com reclamações ou risk flags.",
-    },
-    "admin_dialog_queue_item": {
-        "ru": "{number}. Thread: {status}\nКонтекст: {context}\nСообщений: {messages_count}",
-        "en": "{number}. Thread: {status}\nContext: {context}\nMessages: {messages_count}",
-        "pt": "{number}. Thread: {status}\nContexto: {context}\nMensagens: {messages_count}",
+        "ru": "Переписок с жалобами или risk flags пока нет.",
+        "en": "There are no conversations with complaints or risk flags yet.",
+        "pt": "Ainda não há conversas com reclamações ou risk flags.",
     },
     "admin_dialog_open_btn": {
-        "ru": "💬 Открыть диалог №{number}",
-        "en": "💬 Open dialog #{number}",
-        "pt": "💬 Abrir diálogo nº {number}",
+        "ru": "💬 Открыть переписку №{number}",
+        "en": "💬 Open conversation #{number}",
+        "pt": "💬 Abrir conversa nº {number}",
     },
     "admin_dialog_back_btn": {
         "ru": "⬅️ К админ-панели",
@@ -9408,15 +9489,50 @@ translations = {
         "en": "Risk flag",
         "pt": "Risk flag",
     },
+    "admin_dialog_status_waiting_specialist": {
+        "ru": "Ожидается ответ специалиста",
+        "en": "Waiting for specialist reply",
+        "pt": "Aguardando resposta do especialista",
+    },
+    "admin_dialog_status_waiting_client": {
+        "ru": "Ожидается ответ клиента",
+        "en": "Waiting for client reply",
+        "pt": "Aguardando resposta do cliente",
+    },
+    "admin_dialog_status_open": {
+        "ru": "Переписка начата",
+        "en": "Conversation started",
+        "pt": "Conversa iniciada",
+    },
+    "admin_dialog_status_in_discussion": {
+        "ru": "Обсуждение",
+        "en": "In discussion",
+        "pt": "Em discussão",
+    },
+    "admin_dialog_status_completed": {
+        "ru": "Завершено",
+        "en": "Completed",
+        "pt": "Concluído",
+    },
+    "admin_dialog_status_closed": {
+        "ru": "Закрыто",
+        "en": "Closed",
+        "pt": "Fechado",
+    },
+    "admin_dialog_status_other": {
+        "ru": "В процессе",
+        "en": "In progress",
+        "pt": "Em andamento",
+    },
     "admin_dialog_queue_button": {
         "ru": "💬 №{number} · {context} · {status} · сообщений: {messages_count}",
         "en": "💬 #{number} · {context} · {status} · messages: {messages_count}",
         "pt": "💬 Nº {number} · {context} · {status} · mensagens: {messages_count}",
     },
     "admin_dialog_back_to_list_btn": {
-        "ru": "⬅️ К служебным диалогам",
-        "en": "⬅️ Service dialogs",
-        "pt": "⬅️ Diálogos de serviço",
+        "ru": "⬅️ К служебным сообщениям",
+        "en": "⬅️ Back to service messages",
+        "pt": "⬅️ Voltar às mensagens de serviço",
     },
     "admin_dialog_masked_message": {
         "ru": "Сообщение скрыто системой.\nПричина: {reasons}.\nУровень риска: {severity}.",
@@ -9474,9 +9590,9 @@ translations = {
         "pt": "crítico",
     },
     "super_admin_user_status_active": {
-        "ru": "Активен",
-        "en": "Active",
-        "pt": "Ativo",
+        "ru": "Доступен",
+        "en": "Available",
+        "pt": "Disponivel",
     },
     "super_admin_user_status_blocked": {
         "ru": "Заблокирован",
@@ -9534,9 +9650,9 @@ translations = {
         "pt": "Não atribuídas",
     },
     "super_admin_user_risk_none": {
-        "ru": "Нет активных рисков",
-        "en": "No active risks",
-        "pt": "Sem riscos ativos",
+        "ru": "Нет текущих рисков",
+        "en": "No current risks",
+        "pt": "Sem riscos atuais",
     },
     "super_admin_user_risk_score": {
         "ru": "Уровень {score}",
@@ -9564,9 +9680,9 @@ translations = {
         "pt": "Para o utilizador: {user_number}",
     },
     "super_admin_scopes_view_active": {
-        "ru": "Активные",
-        "en": "Active",
-        "pt": "Ativas",
+        "ru": "Действующие",
+        "en": "Valid",
+        "pt": "Validas",
     },
     "super_admin_scopes_view_history": {
         "ru": "История",
@@ -9634,9 +9750,9 @@ translations = {
         "pt": "Comunidade",
     },
     "super_admin_scope_status_active": {
-        "ru": "Активна",
-        "en": "Active",
-        "pt": "Ativa",
+        "ru": "Действует",
+        "en": "Valid",
+        "pt": "Valida",
     },
     "super_admin_scope_status_revoked": {
         "ru": "Отозвана",
@@ -9735,10 +9851,7 @@ translations = {
             "Пользователь: {user_number}\n"
             "Имя: {display_name}\n"
             "Город: {city_name}\n\n"
-            "Непрочитанные диалоги: {dialogs_unread}\n"
-            "Заявки: {requests_count}\n"
-            "Новые заявки: {requests_new}\n"
-            "Принятые заявки: {requests_accepted}\n\n"
+            "Непрочитанные сообщения: {dialogs_unread}\n\n"
             "Режим: только просмотр. "
             "Изменение данных недоступно."
         ),
@@ -9748,10 +9861,7 @@ translations = {
             "User: {user_number}\n"
             "Name: {display_name}\n"
             "City: {city_name}\n\n"
-            "Unread dialogs: {dialogs_unread}\n"
-            "Requests: {requests_count}\n"
-            "New requests: {requests_new}\n"
-            "Accepted requests: {requests_accepted}\n\n"
+            "Unread messages: {dialogs_unread}\n\n"
             "Read-only mode. Changes are disabled."
         ),
         "pt": (
@@ -9760,10 +9870,7 @@ translations = {
             "Utilizador: {user_number}\n"
             "Nome: {display_name}\n"
             "Cidade: {city_name}\n\n"
-            "Dialogos nao lidos: {dialogs_unread}\n"
-            "Pedidos: {requests_count}\n"
-            "Novos pedidos: {requests_new}\n"
-            "Pedidos aceites: {requests_accepted}\n\n"
+            "Mensagens nao lidas: {dialogs_unread}\n\n"
             "Modo apenas de leitura. Alteracoes desativadas."
         ),
     },
@@ -9781,8 +9888,7 @@ translations = {
             "Направления: {professions}\n"
             "Статус профиля: {status}\n"
             "Доступность: {availability}\n\n"
-            "Непрочитанные диалоги: {dialogs_unread}\n"
-            "Новые заявки: {new_requests}\n\n"
+            "Непрочитанные сообщения: {dialogs_unread}\n\n"
             "Режим: только просмотр. "
             "Изменение данных недоступно."
         ),
@@ -9794,8 +9900,7 @@ translations = {
             "Professions: {professions}\n"
             "Profile status: {status}\n"
             "Availability: {availability}\n\n"
-            "Unread dialogs: {dialogs_unread}\n"
-            "New requests: {new_requests}\n\n"
+            "Unread messages: {dialogs_unread}\n\n"
             "Read-only mode. Changes are disabled."
         ),
         "pt": (
@@ -9806,8 +9911,7 @@ translations = {
             "Especialidades: {professions}\n"
             "Estado do perfil: {status}\n"
             "Disponibilidade: {availability}\n\n"
-            "Dialogos nao lidos: {dialogs_unread}\n"
-            "Novos pedidos: {new_requests}\n\n"
+            "Mensagens nao lidas: {dialogs_unread}\n\n"
             "Modo apenas de leitura. Alteracoes desativadas."
         ),
     },
@@ -9820,11 +9924,6 @@ translations = {
         "ru": "Ожидает модерации",
         "en": "Pending moderation",
         "pt": "A aguardar moderacao",
-    },
-    "super_admin_preview_status_active": {
-        "ru": "Активен",
-        "en": "Active",
-        "pt": "Ativo",
     },
     "super_admin_preview_status_approved": {
         "ru": "Одобрен",
@@ -10311,115 +10410,29 @@ translations = {
         "en": "To administrator cabinet",
         "pt": "Para o painel do administrador",
     },
-    "super_admin_ro_client_requests_btn": {
-        "ru": "Мои заявки",
-        "en": "My requests",
-        "pt": "Meus pedidos",
-    },
     "super_admin_ro_client_dialogs_btn": {
-        "ru": "Диалоги",
-        "en": "Dialogs",
-        "pt": "Dialogos",
+        "ru": "💬 Сообщения",
+        "en": "💬 Messages",
+        "pt": "💬 Mensagens",
     },
-    "super_admin_ro_client_requests_title": {
-        "ru": (
-            "Заявки клиента\n"
-            "Страница: {page}\n"
-            "Показано: {count}\n\n"
-            "Режим только просмотра."
-        ),
-        "en": (
-            "Client requests\n"
-            "Page: {page}\n"
-            "Shown: {count}\n\n"
-            "Read-only mode."
-        ),
-        "pt": (
-            "Pedidos do cliente\n"
-            "Pagina: {page}\n"
-            "Exibidos: {count}\n\n"
-            "Modo somente leitura."
-        ),
-    },
-    "super_admin_ro_client_open_request_btn": {
-        "ru": "Открыть заявку №{number}",
-        "en": "Open request #{number}",
-        "pt": "Abrir pedido #{number}",
-    },
-    "super_admin_ro_client_back_to_requests_btn": {
-        "ru": "К заявкам клиента",
-        "en": "To client requests",
-        "pt": "Para os pedidos do cliente",
-    },
-    "super_admin_ro_client_request_item": {
-        "ru": (
-            "{number}. {specialist}\n"
-            "Направление: {profession}\n"
-            "Статус: {status}\n"
-            "Дата: {date}\n"
-            "{message}"
-        ),
-        "en": (
-            "{number}. {specialist}\n"
-            "Profession: {profession}\n"
-            "Status: {status}\n"
-            "Date: {date}\n"
-            "{message}"
-        ),
-        "pt": (
-            "{number}. {specialist}\n"
-            "Profissao: {profession}\n"
-            "Status: {status}\n"
-            "Data: {date}\n"
-            "{message}"
-        ),
-    },
-    "super_admin_ro_client_request_detail": {
-        "ru": (
-            "Заявка клиента\n\n"
-            "Специалист: {specialist}\n"
-            "Направление: {profession}\n"
-            "Статус: {status}\n"
-            "Дата: {date}\n\n"
-            "Текст заявки:\n{message}\n\n"
-            "Режим только просмотра."
-        ),
-        "en": (
-            "Client request\n\n"
-            "Specialist: {specialist}\n"
-            "Profession: {profession}\n"
-            "Status: {status}\n"
-            "Date: {date}\n\n"
-            "Request text:\n{message}\n\n"
-            "Read-only mode."
-        ),
-        "pt": (
-            "Pedido do cliente\n\n"
-            "Especialista: {specialist}\n"
-            "Profissao: {profession}\n"
-            "Status: {status}\n"
-            "Data: {date}\n\n"
-            "Texto do pedido:\n{message}\n\n"
-            "Modo somente leitura."
-        ),
-    },
+
     "super_admin_ro_client_dialogs_title": {
         "ru": (
-            "Диалоги клиента\n"
+            "Сообщения клиента\n"
             "Страница: {page}\n"
             "Показано: {count}\n\n"
             "Режим только просмотра."
         ),
         "en": (
-            "Client dialogs\n"
+            "Client messages\n"
             "Page: {page}\n"
             "Shown: {count}\n\n"
             "Read-only mode."
         ),
         "pt": (
-            "Dialogos do cliente\n"
-            "Pagina: {page}\n"
-            "Exibidos: {count}\n\n"
+            "Mensagens do cliente\n"
+            "Página: {page}\n"
+            "Exibidas: {count}\n\n"
             "Modo somente leitura."
         ),
     },
@@ -10447,147 +10460,60 @@ translations = {
         ),
     },
     "super_admin_ro_client_open_dialog_btn": {
-        "ru": "Открыть диалог №{number}",
-        "en": "Open dialog #{number}",
-        "pt": "Abrir dialogo #{number}",
+        "ru": "Открыть переписку №{number}",
+        "en": "Open conversation #{number}",
+        "pt": "Abrir conversa nº {number}",
     },
     "super_admin_ro_client_dialog_detail": {
         "ru": (
-            "Диалог с {specialist}\n"
+            "Переписка с {specialist}\n"
             "Направление: {profession}\n"
             "Статус: {status}\n\n"
-            "История:\n{messages}\n\n"
+            "История сообщений:\n{messages}\n\n"
             "Режим только просмотра."
         ),
         "en": (
-            "Dialog with {specialist}\n"
+            "Conversation with {specialist}\n"
             "Profession: {profession}\n"
             "Status: {status}\n\n"
-            "History:\n{messages}\n\n"
+            "Message history:\n{messages}\n\n"
             "Read-only mode."
         ),
         "pt": (
-            "Dialogo com {specialist}\n"
-            "Profissao: {profession}\n"
-            "Status: {status}\n\n"
-            "Historico:\n{messages}\n\n"
+            "Conversa com {specialist}\n"
+            "Profissão: {profession}\n"
+            "Estado: {status}\n\n"
+            "Histórico de mensagens:\n{messages}\n\n"
             "Modo somente leitura."
         ),
     },
     "super_admin_ro_client_back_to_dialogs_btn": {
-        "ru": "К диалогам клиента",
-        "en": "To client dialogs",
-        "pt": "Para os dialogos do cliente",
-    },
-    "super_admin_ro_specialist_requests_btn": {
-        "ru": "Новые заявки",
-        "en": "New requests",
-        "pt": "Novos pedidos",
-    },
-    "super_admin_ro_specialist_requests_title": {
-        "ru": (
-            "Новые заявки специалиста\n"
-            "Страница: {page}\n"
-            "Показано: {count}\n\n"
-            "Режим только просмотра."
-        ),
-        "en": (
-            "Specialist new requests\n"
-            "Page: {page}\n"
-            "Shown: {count}\n\n"
-            "Read-only mode."
-        ),
-        "pt": (
-            "Novos pedidos do especialista\n"
-            "Pagina: {page}\n"
-            "Exibidos: {count}\n\n"
-            "Modo somente leitura."
-        ),
-    },
-    "super_admin_ro_specialist_request_item": {
-        "ru": (
-            "{number}. Клиент: {client}\n"
-            "Направление: {profession}\n"
-            "Статус: {status}\n"
-            "Дата: {date}\n"
-            "{message}"
-        ),
-        "en": (
-            "{number}. Client: {client}\n"
-            "Profession: {profession}\n"
-            "Status: {status}\n"
-            "Date: {date}\n"
-            "{message}"
-        ),
-        "pt": (
-            "{number}. Cliente: {client}\n"
-            "Profissao: {profession}\n"
-            "Status: {status}\n"
-            "Data: {date}\n"
-            "{message}"
-        ),
-    },
-    "super_admin_ro_specialist_open_request_btn": {
-        "ru": "Открыть заявку №{number}",
-        "en": "Open request #{number}",
-        "pt": "Abrir pedido #{number}",
-    },
-    "super_admin_ro_specialist_request_detail": {
-        "ru": (
-            "Заявка клиента\n\n"
-            "Клиент: {client}\n"
-            "Направление: {profession}\n"
-            "Статус: {status}\n"
-            "Дата: {date}\n\n"
-            "Текст заявки:\n{message}\n\n"
-            "Режим только просмотра."
-        ),
-        "en": (
-            "Client request\n\n"
-            "Client: {client}\n"
-            "Profession: {profession}\n"
-            "Status: {status}\n"
-            "Date: {date}\n\n"
-            "Request text:\n{message}\n\n"
-            "Read-only mode."
-        ),
-        "pt": (
-            "Pedido do cliente\n\n"
-            "Cliente: {client}\n"
-            "Profissao: {profession}\n"
-            "Status: {status}\n"
-            "Data: {date}\n\n"
-            "Texto do pedido:\n{message}\n\n"
-            "Modo somente leitura."
-        ),
-    },
-    "super_admin_ro_specialist_back_to_requests_btn": {
-        "ru": "К новым заявкам",
-        "en": "To new requests",
-        "pt": "Para novos pedidos",
+        "ru": "⬅️ К сообщениям клиента",
+        "en": "⬅️ Back to client messages",
+        "pt": "⬅️ Voltar às mensagens do cliente",
     },
     "super_admin_ro_specialist_dialogs_btn": {
-        "ru": "Диалоги",
-        "en": "Dialogs",
-        "pt": "Dialogos",
+        "ru": "💬 Сообщения",
+        "en": "💬 Messages",
+        "pt": "💬 Mensagens",
     },
     "super_admin_ro_specialist_dialogs_title": {
         "ru": (
-            "Диалоги специалиста\n"
+            "Сообщения специалиста\n"
             "Страница: {page}\n"
             "Показано: {count}\n\n"
             "Режим только просмотра."
         ),
         "en": (
-            "Specialist dialogs\n"
+            "Specialist messages\n"
             "Page: {page}\n"
             "Shown: {count}\n\n"
             "Read-only mode."
         ),
         "pt": (
-            "Dialogos do especialista\n"
-            "Pagina: {page}\n"
-            "Exibidos: {count}\n\n"
+            "Mensagens do especialista\n"
+            "Página: {page}\n"
+            "Exibidas: {count}\n\n"
             "Modo somente leitura."
         ),
     },
@@ -10615,37 +10541,37 @@ translations = {
         ),
     },
     "super_admin_ro_specialist_open_dialog_btn": {
-        "ru": "Открыть диалог №{number}",
-        "en": "Open dialog #{number}",
-        "pt": "Abrir dialogo #{number}",
+        "ru": "Открыть переписку №{number}",
+        "en": "Open conversation #{number}",
+        "pt": "Abrir conversa nº {number}",
     },
     "super_admin_ro_specialist_dialog_detail": {
         "ru": (
-            "Диалог с клиентом: {client}\n"
+            "Переписка с клиентом: {client}\n"
             "Направление: {profession}\n"
             "Статус: {status}\n\n"
-            "История:\n{messages}\n\n"
+            "История сообщений:\n{messages}\n\n"
             "Режим только просмотра."
         ),
         "en": (
-            "Dialog with client: {client}\n"
+            "Conversation with client: {client}\n"
             "Profession: {profession}\n"
             "Status: {status}\n\n"
-            "History:\n{messages}\n\n"
+            "Message history:\n{messages}\n\n"
             "Read-only mode."
         ),
         "pt": (
-            "Dialogo com cliente: {client}\n"
-            "Profissao: {profession}\n"
-            "Status: {status}\n\n"
-            "Historico:\n{messages}\n\n"
+            "Conversa com o cliente: {client}\n"
+            "Profissão: {profession}\n"
+            "Estado: {status}\n\n"
+            "Histórico de mensagens:\n{messages}\n\n"
             "Modo somente leitura."
         ),
     },
     "super_admin_ro_specialist_back_to_dialogs_btn": {
-        "ru": "К диалогам специалиста",
-        "en": "To specialist dialogs",
-        "pt": "Para os dialogos do especialista",
+        "ru": "⬅️ К сообщениям специалиста",
+        "en": "⬅️ Back to specialist messages",
+        "pt": "⬅️ Voltar às mensagens do especialista",
     },
 "super_admin_ro_specialist_profile_btn": {
     "ru": "Профиль специалиста",
@@ -10684,6 +10610,377 @@ translations = {
         "Modo somente leitura. Alteracoes indisponiveis."
     ),
 },
+    "search_result_details_btn": {
+        "ru": "👤 Подробнее",
+        "en": "👤 Details",
+        "pt": "👤 Detalhes",
+    },
+    "search_result_message_btn": {
+        "ru": "💬 Написать сообщение",
+        "en": "💬 Send message",
+        "pt": "💬 Enviar mensagem",
+    },
+    "search_result_save_btn": {
+        "ru": "⭐ Сохранить",
+        "en": "⭐ Save",
+        "pt": "⭐ Salvar",
+    },
+    "search_result_saved_btn": {
+        "ru": "⭐ Сохранено",
+        "en": "⭐ Saved",
+        "pt": "⭐ Salvo",
+    },
+    "search_unavailable_now": {
+        "ru": "Сейчас занят",
+        "en": "Currently busy",
+        "pt": "Ocupado agora",
+    },
+    "contact_chat_error": {
+        "ru": "Не удалось отправить сообщение. Попробуйте ещё раз.",
+        "en": "Could not send the message. Please try again.",
+        "pt": "Não foi possível enviar a mensagem. Tente novamente.",
+    },
+    "contact_chat_message_received": {
+        "ru": "💬 Новое сообщение\n\n{message}",
+        "en": "💬 New message\n\n{message}",
+        "pt": "💬 Nova mensagem\n\n{message}",
+    },
+    "contact_chat_you_label": {
+        "ru": "Вы",
+        "en": "You",
+        "pt": "Você",
+    },
+    "contact_chat_title": {
+        "ru": "💬 Чат с {name}",
+        "en": "💬 Chat with {name}",
+        "pt": "💬 Conversa com {name}",
+    },
+    "contact_chat_waiting_specialist": {
+        "ru": "⏳ Ждём ответа специалиста.",
+        "en": "⏳ Waiting for the specialist's reply.",
+        "pt": "⏳ Aguardando a resposta do especialista.",
+    },
+    "contact_chat_finish_btn": {
+        "ru": "✅ Завершить переписку",
+        "en": "✅ Finish conversation",
+        "pt": "✅ Encerrar conversa",
+    },
+    "contact_chat_report_btn": {
+        "ru": "⚠️ Жалоба",
+        "en": "⚠️ Report",
+        "pt": "⚠️ Denunciar",
+    },
+    "contact_chat_attach_btn": {
+        "ru": "📎 Прикрепить файл",
+        "en": "📎 Attach file",
+        "pt": "📎 Anexar arquivo",
+    },
+    "contact_chat_attach_prompt": {
+        "ru": "Прикрепите фото или документ через стандартную кнопку Telegram.",
+        "en": "Attach a photo or document using the standard Telegram button.",
+        "pt": "Anexe uma foto ou documento usando o botão padrão do Telegram.",
+    },
+    "contact_attachment_photo_label": {
+        "ru": "Фото",
+        "en": "Photo",
+        "pt": "Foto",
+    },
+    "contact_attachment_file_label": {
+        "ru": "Файл",
+        "en": "File",
+        "pt": "Arquivo",
+    },
+    "contact_attachment_unsupported": {
+        "ru": "Можно отправить только фото или документ.",
+        "en": "You can send only a photo or document.",
+        "pt": "Você pode enviar apenas uma foto ou documento.",
+    },
+    "contact_attachment_too_large": {
+        "ru": "Файл слишком большой. Максимальный размер — 20 МБ.",
+        "en": "The file is too large. The maximum size is 20 MB.",
+        "pt": "O arquivo é muito grande. O tamanho máximo é 20 MB.",
+    },
+    "contact_attachment_send_error": {
+        "ru": "Не удалось отправить файл. Попробуйте ещё раз.",
+        "en": "Could not send the file. Please try again.",
+        "pt": "Não foi possível enviar o arquivo. Tente novamente.",
+    },
+    "contact_chat_back_btn": {
+        "ru": "⬅️ К сообщениям",
+        "en": "⬅️ Back to messages",
+        "pt": "⬅️ Voltar às mensagens",
+    },
+    "messages_completion_requested": {
+        "ru": "✅ Запрос на завершение отправлен. Ждём подтверждения собеседника.",
+        "en": "✅ Completion request sent. Waiting for the other person's confirmation.",
+        "pt": "✅ Pedido de encerramento enviado. Aguardando confirmação da outra pessoa.",
+    },
+    "messages_completion_already_requested": {
+        "ru": (
+            "Запрос на завершение уже отправлен. "
+            "Ждём подтверждения собеседника."
+        ),
+        "en": (
+            "The completion request has already been sent. "
+            "Waiting for the other person's confirmation."
+        ),
+        "pt": (
+            "O pedido de encerramento já foi enviado. "
+            "Aguardando a confirmação da outra pessoa."
+        ),
+    },
+    "messages_completion_request_received": {
+        "ru": (
+            "Собеседник предлагает завершить переписку. "
+            "Подтвердите завершение, чтобы перейти к оценке."
+        ),
+        "en": (
+            "The other person wants to complete the conversation. "
+            "Confirm completion to continue to the rating."
+        ),
+        "pt": (
+            "A outra pessoa deseja concluir a conversa. "
+            "Confirme para continuar para a avaliação."
+        ),
+    },
+    "messages_completion_confirm_btn": {
+        "ru": "✅ Подтвердить завершение",
+        "en": "✅ Confirm completion",
+        "pt": "✅ Confirmar conclusão",
+    },
+    "messages_completion_confirmed": {
+        "ru": "✅ Переписка завершена. Оцените сотрудничество.",
+        "en": "✅ Conversation completed. Rate the collaboration.",
+        "pt": "✅ Conversa concluída. Avalie a colaboração.",
+    },
+    "messages_tab_new": {
+        "ru": "🆕 Новые сообщения",
+        "en": "🆕 New messages",
+        "pt": "🆕 Novas mensagens",
+    },
+    "messages_tab_correspondence": {
+        "ru": "💬 Переписка",
+        "en": "💬 Conversations",
+        "pt": "💬 Conversas",
+    },
+    "messages_tab_completed": {
+        "ru": "✅ Завершённые",
+        "en": "✅ Completed",
+        "pt": "✅ Concluídas",
+    },
+    "messages_tab_archive": {
+        "ru": "📦 Архив",
+        "en": "📦 Archive",
+        "pt": "📦 Arquivo",
+    },
+    "messages_title": {
+        "ru": "💬 Сообщения",
+        "en": "💬 Messages",
+        "pt": "💬 Mensagens",
+    },
+    "messages_title_with_unread": {
+        "ru": "💬 Сообщения ({count})",
+        "en": "💬 Messages ({count})",
+        "pt": "💬 Mensagens ({count})",
+    },
+    "messages_hint": {
+        "ru": "Все ваши переписки с клиентами и специалистами.",
+        "en": "All your conversations with clients and specialists.",
+        "pt": "Todas as suas conversas com clientes e especialistas.",
+    },
+    "messages_empty": {
+        "ru": "В этой вкладке пока нет сообщений.",
+        "en": "There are no messages in this tab yet.",
+        "pt": "Ainda não há mensagens nesta aba.",
+    },
+    "messages_open_chat": {
+        "ru": "💬 Открыть чат",
+        "en": "💬 Open chat",
+        "pt": "💬 Abrir conversa",
+    },
+    "messages_card_status_new": {
+        "ru": "🆕 Новое сообщение",
+        "en": "🆕 New message",
+        "pt": "🆕 Nova mensagem",
+    },
+    "messages_card_status_in_progress": {
+        "ru": "💬 В работе",
+        "en": "💬 In progress",
+        "pt": "💬 Em andamento",
+    },
+    "messages_card_status_waiting_you": {
+        "ru": "⏳ Ждём вашего ответа",
+        "en": "⏳ Waiting for your reply",
+        "pt": "⏳ Aguardando sua resposta",
+    },
+    "messages_card_status_waiting_other": {
+        "ru": "⏳ Ждём ответа собеседника",
+        "en": "⏳ Waiting for the other person's reply",
+        "pt": "⏳ Aguardando resposta da outra pessoa",
+    },
+    "messages_card_status_completed": {
+        "ru": "✅ Завершено",
+        "en": "✅ Completed",
+        "pt": "✅ Concluída",
+    },
+    "messages_card_unread": {
+        "ru": "🔴 {count} новых сообщений",
+        "en": "🔴 {count} new messages",
+        "pt": "🔴 {count} novas mensagens",
+    },
+    "messages_search_btn": {
+        "ru": "🔎 Поиск сообщений",
+        "en": "🔎 Search messages",
+        "pt": "🔎 Buscar mensagens",
+    },
+    "messages_search_prompt": {
+        "ru": (
+            "🔎 Поиск сообщений\n"
+            "Введите имя, профессию или текст сообщения."
+        ),
+        "en": (
+            "🔎 Search messages\n"
+            "Enter a name, profession, or message text."
+        ),
+        "pt": (
+            "🔎 Buscar mensagens\n"
+            "Digite um nome, profissão ou texto da mensagem."
+        ),
+    },
+    "messages_search_empty_query": {
+        "ru": "Введите текст для поиска.",
+        "en": "Enter text to search.",
+        "pt": "Digite um texto para pesquisar.",
+    },
+    "specialist_cabinet_published": {
+        "ru": "🟢 Профиль опубликован.\nКлиенты видят его в поиске.",
+        "en": "🟢 Profile published.\nClients can find it in search.",
+        "pt": "🟢 Perfil publicado.\nOs clientes podem encontrá-lo na pesquisa.",
+    },
+    "specialist_cabinet_pending": {
+        "ru": "🛡 Профиль находится на проверке.",
+        "en": "🛡 Profile is being reviewed.",
+        "pt": "🛡 O perfil está em análise.",
+    },
+    "specialist_cabinet_draft": {
+        "ru": "⚪ Профиль ещё не опубликован.",
+        "en": "⚪ Profile is not published yet.",
+        "pt": "⚪ O perfil ainda não foi publicado.",
+    },
+    "specialist_cabinet_rejected": {
+        "ru": "⚠️ Профилю нужны изменения перед публикацией.",
+        "en": "⚠️ The profile needs changes before publication.",
+        "pt": "⚠️ O perfil precisa de ajustes antes da publicação.",
+    },
+    "specialist_cabinet_hidden": {
+        "ru": "⚪ Профиль временно скрыт из поиска.",
+        "en": "⚪ Profile is temporarily hidden from search.",
+        "pt": "⚪ O perfil está temporariamente oculto da pesquisa.",
+    },
+    "specialist_cabinet_blocked": {
+        "ru": "⛔ Профиль заблокирован и не виден клиентам.",
+        "en": "⛔ Profile is blocked and not visible to clients.",
+        "pt": "⛔ O perfil esta bloqueado e nao esta visivel para clientes.",
+    },
+    "specialist_cabinet_deleted": {
+        "ru": "🗑 Профиль удален и недоступен клиентам.",
+        "en": "🗑 Profile is deleted and unavailable to clients.",
+        "pt": "🗑 O perfil foi eliminado e nao esta disponivel para clientes.",
+    },
+    "specialist_cabinet_unread": {
+        "ru": "💬 Новые сообщения: {count}",
+        "en": "💬 New messages: {count}",
+        "pt": "💬 Novas mensagens: {count}",
+    },
+    "specialist_card_title": {
+        "ru": "👤 Моя карточка",
+        "en": "👤 My card",
+        "pt": "👤 Meu cartão",
+    },
+    "specialist_card_profession": {
+        "ru": "💼 Профессия: {profession}",
+        "en": "💼 Profession: {profession}",
+        "pt": "💼 Profissão: {profession}",
+    },
+    "specialist_card_rating_new": {
+        "ru": "⭐ Рейтинг: Новый · Пока без отзывов",
+        "en": "⭐ Rating: New · No reviews yet",
+        "pt": "⭐ Avaliacao: Nova · Ainda sem avaliacoes",
+    },
+    "specialist_card_rating_value": {
+        "ru": "⭐ Рейтинг: {rating} ({count})",
+        "en": "⭐ Rating: {rating} ({count})",
+        "pt": "⭐ Avaliação: {rating} ({count})",
+    },
+    "specialist_card_status_available": {
+        "ru": "🟢 Принимаю заказы",
+        "en": "🟢 Available for requests",
+        "pt": "🟢 Aceito pedidos",
+    },
+    "specialist_card_status_busy": {
+        "ru": "🟠 Сейчас занят",
+        "en": "🟠 Currently busy",
+        "pt": "🟠 Ocupado no momento",
+    },
+    "specialist_card_show_full": {
+        "ru": "📖 Показать полностью",
+        "en": "📖 Show full profile",
+        "pt": "📖 Ver perfil completo",
+    },
+    "specialist_card_edit": {
+        "ru": "✏️ Редактировать",
+        "en": "✏️ Edit",
+        "pt": "✏️ Editar",
+    },
+    "specialist_card_full_title": {
+        "ru": "📖 Полное описание",
+        "en": "📖 Full description",
+        "pt": "📖 Descrição completa",
+    },
+    "specialist_card_full_empty": {
+        "ru": "Полное описание пока не добавлено.",
+        "en": "A full description has not been added yet.",
+        "pt": "A descrição completa ainda não foi adicionada.",
+    },
+    "search_previous_categories": {
+        "ru": "⬅️ Предыдущие категории",
+        "en": "⬅️ Previous categories",
+        "pt": "⬅️ Categorias anteriores",
+    },
+    "search_more_categories": {
+        "ru": "➡️ Ещё категории",
+        "en": "➡️ More categories",
+        "pt": "➡️ Mais categorias",
+    },
+    "search_previous_professions": {
+        "ru": "⬅️ Предыдущие профессии",
+        "en": "⬅️ Previous professions",
+        "pt": "⬅️ Profissões anteriores",
+    },
+    "search_more_professions": {
+        "ru": "➡️ Ещё профессии",
+        "en": "➡️ More professions",
+        "pt": "➡️ Mais profissões",
+    },
+    "specialist_location_work_title": {
+        "ru": "📍 Локация и формат",
+        "en": "📍 Location and format",
+        "pt": "📍 Localização e formato",
+    },
+    "specialist_location_work_hint": {
+        "ru": (
+            "Формат работы можно изменить. "
+            "Редактирование локации временно недоступно."
+        ),
+        "en": (
+            "You can change the work format. "
+            "Location editing is temporarily unavailable."
+        ),
+        "pt": (
+            "Pode alterar o formato de trabalho. "
+            "A edição da localização está temporariamente indisponível."
+        ),
+    },
     }
 def t(key: str, lang: str = "ru") -> str:
     return translations.get(key, {}).get(lang, translations.get(key, {}).get("ru", key))

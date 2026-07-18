@@ -218,7 +218,7 @@ def build_category_keyboard(
             -2,
             [
                 InlineKeyboardButton(
-                    text=t("spec_profession_continue_btn", language),
+                    text=t("spec_profession_done_btn", language),
                     callback_data="spec_profession_done",
                 )
             ],
@@ -322,7 +322,7 @@ def contact_visibility_keyboard(
             ],
             [
                 InlineKeyboardButton(
-                    text=t("spec_continue_btn", language),
+                    text=t("spec_profession_done_btn", language),
                     callback_data="spec_contact_visibility_done",
                 )
             ],

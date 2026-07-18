@@ -180,12 +180,6 @@ def privacy_settings_keyboard(language: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("privacy_hide_profile_btn", language),
-                    callback_data="PRIVACY_HIDE_PROFILE",
-                )
-            ],
-            [
-                InlineKeyboardButton(
                     text=t("privacy_my_data_btn", language),
                     callback_data="PRIVACY_MY_DATA",
                 )
@@ -408,33 +402,6 @@ async def open_privacy_settings(callback: CallbackQuery):
         reply_markup=privacy_settings_keyboard(language),
     )
     await callback.answer()
-
-
-@settings_router.callback_query(F.data == "PRIVACY_HIDE_PROFILE")
-async def hide_profile(callback: CallbackQuery):
-    user, language = await get_user_settings_context(callback)
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            fresh_user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-            if not fresh_user:
-                await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-                return
-
-            await PrivacyService(PrivacyRepository(session)).hide_specialist_profile(
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-            )
-    except PrivacyError:
-        await callback.answer(t("privacy_profile_not_found", language), show_alert=True)
-        return
-
-    await callback.message.answer(t("privacy_profile_hidden", language))
-    await callback.answer()
-
 
 @settings_router.callback_query(F.data == "PRIVACY_MY_DATA")
 async def request_my_data(callback: CallbackQuery):

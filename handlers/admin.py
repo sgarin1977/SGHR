@@ -66,6 +66,7 @@ from services.support import (
     SupportServiceError,
 )
 from ui.texts import t
+from handlers.search import format_chat_message_body
 
 admin_router = Router()
 logger = logging.getLogger(__name__)
@@ -139,6 +140,8 @@ class AdminModerationFSM(StatesGroup):
     confirming_admin_user_global_unblock_final = State()
     entering_specialist_decision_reason = State()
     confirming_specialist_decision = State()
+    entering_specialist_visibility_reason = State()
+    confirming_specialist_visibility = State()
     entering_specialist_changes_reason = State()
     entering_complaint_resolution_reason = State()
     entering_complaint_scoped_block_reason = State()
@@ -742,7 +745,17 @@ def format_super_admin_user_search_results(
     ]
 
     for index, item in enumerate(items, start=1):
-        roles = ", ".join(item.roles) if item.roles else "-"
+        roles = (
+            ", ".join(
+                super_admin_user_role_label(
+                    role,
+                    language,
+                )
+                for role in item.roles
+            )
+            if item.roles
+            else "-"
+        )
         lines.append(
             t("super_admin_user_search_card", language).format(
                 number=index,
@@ -750,7 +763,10 @@ def format_super_admin_user_search_results(
                 user_number=item.user_number,
                 telegram_id=item.telegram_id,
                 username=item.username,
-                status=item.status,
+                status=super_admin_user_status_label(
+                    item.status,
+                    language,
+                ),
                 roles=roles,
             )
         )
@@ -768,7 +784,10 @@ def super_admin_user_search_keyboard(
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"{index}. {t('super_admin_user_open_btn', language)}",
+                    text=(
+                        f"{index}. "
+                        f"{t('super_admin_user_profile_btn', language)}"
+                    ),
                     callback_data=f"SA_USER_OPEN:{index - 1}",
                 )
             ]
@@ -2012,20 +2031,71 @@ def super_admin_audit_card_keyboard(
         ]
     )
 
+def super_admin_system_value_label(
+    value: str | None,
+    language: str,
+) -> str:
+    normalized = (value or "").strip().lower()
+
+    key_by_value = {
+        "unknown": "super_admin_system_value_unknown",
+        "ok": "super_admin_system_value_ok",
+        "error": "super_admin_system_value_error",
+        "configured": "super_admin_system_value_configured",
+        "not configured": (
+            "super_admin_system_value_not_configured"
+        ),
+        "enabled": "super_admin_system_value_enabled",
+        "disabled": "super_admin_system_value_disabled",
+        "available: yes; secrets hidden": (
+            "super_admin_system_value_env_available"
+        ),
+    }
+
+    key = key_by_value.get(normalized)
+    return (
+        t(key, language)
+        if key
+        else str(value or "—")
+    )
+
+
+
 def format_super_admin_system_status(
     card,
     language: str,
 ) -> str:
     return t("super_admin_system_status", language).format(
-        app_version=card.app_version,
-        db_status=card.db_status,
+        app_version=super_admin_system_value_label(
+            card.app_version,
+            language,
+        ),
+        db_status=super_admin_system_value_label(
+            card.db_status,
+            language,
+        ),
         db_version=card.db_version,
-        telegram_status=card.telegram_status,
+        telegram_status=super_admin_system_value_label(
+            card.telegram_status,
+            language,
+        ),
         migration_version=card.migration_version,
-        migrations_status=card.migrations_status,
-        maintenance_mode=card.maintenance_mode,
-        feature_flags_status=card.feature_flags_status,
-        env_status=card.env_status,
+        migrations_status=super_admin_system_value_label(
+            card.migrations_status,
+            language,
+        ),
+        maintenance_mode=super_admin_system_value_label(
+            card.maintenance_mode,
+            language,
+        ),
+        feature_flags_status=super_admin_system_value_label(
+            card.feature_flags_status,
+            language,
+        ),
+        env_status=super_admin_system_value_label(
+            card.env_status,
+            language,
+        ),
     )
 
 
@@ -2498,27 +2568,63 @@ async def super_admin_system_detail(
     detail_type = (callback.data or "").replace("SA_SYSTEM_", "")
 
     if detail_type == "HEALTH":
-        text = t("super_admin_system_health_detail", language).format(
-            db_status=card.db_status,
-            telegram_status=card.telegram_status,
-            maintenance_mode=card.maintenance_mode,
+        text = t(
+            "super_admin_system_health_detail",
+            language,
+        ).format(
+            db_status=super_admin_system_value_label(
+                card.db_status,
+                language,
+            ),
+            telegram_status=super_admin_system_value_label(
+                card.telegram_status,
+                language,
+            ),
+            maintenance_mode=super_admin_system_value_label(
+                card.maintenance_mode,
+                language,
+            ),
         )
     elif detail_type == "MIGRATIONS":
-        text = t("super_admin_system_migrations_detail", language).format(
-            migrations_status=card.migrations_status,
+        text = t(
+            "super_admin_system_migrations_detail",
+            language,
+        ).format(
+            migrations_status=super_admin_system_value_label(
+                card.migrations_status,
+                language,
+            ),
             migration_version=card.migration_version,
         )
     elif detail_type == "ENV":
-        text = t("super_admin_system_env_detail", language).format(
-            env_status=card.env_status,
+        text = t(
+            "super_admin_system_env_detail",
+            language,
+        ).format(
+            env_status=super_admin_system_value_label(
+                card.env_status,
+                language,
+            ),
         )
     elif detail_type == "FEATURE_FLAGS":
-        text = t("super_admin_system_feature_flags_detail", language).format(
-            feature_flags_status=card.feature_flags_status,
+        text = t(
+            "super_admin_system_feature_flags_detail",
+            language,
+        ).format(
+            feature_flags_status=super_admin_system_value_label(
+                card.feature_flags_status,
+                language,
+            ),
         )
     elif detail_type == "MAINTENANCE":
-        text = t("super_admin_system_maintenance_detail", language).format(
-            maintenance_mode=card.maintenance_mode,
+        text = t(
+            "super_admin_system_maintenance_detail",
+            language,
+        ).format(
+            maintenance_mode=super_admin_system_value_label(
+                card.maintenance_mode,
+                language,
+            ),
         )
     else:
         await callback.answer(
@@ -3500,7 +3606,7 @@ async def confirm_blacklist_add(
 
     await callback.message.answer(
         t(
-            "moderator_blacklist_added",
+            "moderator_scoped_block_created",
             language,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -4757,6 +4863,31 @@ def admin_specialist_card_keyboard(
             ]
         )
     else:
+        if status == "approved":
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_hide_specialist_btn",
+                            language,
+                        ),
+                        callback_data=f"ADM_SP_HIDE:{index}",
+                    )
+                ]
+            )
+        elif status == "hidden":
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_restore_specialist_btn",
+                            language,
+                        ),
+                        callback_data=f"ADM_SP_RESTORE:{index}",
+                    )
+                ]
+            )
+
         rows.append(
             [
                 InlineKeyboardButton(
@@ -4885,13 +5016,13 @@ def admin_specialist_filter_keyboard(
 ) -> InlineKeyboardMarkup:
     statuses = (
         ("all", "admin_specialist_filter_all"),
-        ("active", "admin_specialist_filter_active"),
+        ("approved", "admin_specialist_filter_approved"),
         (
             "pending_moderation",
             "admin_specialist_filter_pending",
         ),
         ("draft", "admin_specialist_filter_draft"),
-        ("paused", "admin_specialist_filter_paused"),
+        ("hidden", "admin_specialist_filter_hidden"),
         ("rejected", "admin_specialist_filter_rejected"),
         ("blocked", "admin_specialist_filter_blocked"),
         ("deleted", "admin_specialist_filter_deleted"),
@@ -7313,15 +7444,6 @@ def super_admin_read_only_client_menu_keyboard(
             [
                 InlineKeyboardButton(
                     text=t(
-                        "super_admin_ro_client_requests_btn",
-                        language,
-                    ),
-                    callback_data="SA_RO_CLIENT_REQUESTS:0",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t(
                         "super_admin_ro_client_dialogs_btn",
                         language,
                     ),
@@ -7366,15 +7488,6 @@ def super_admin_read_only_specialist_menu_keyboard(
             [
                 InlineKeyboardButton(
                     text=t(
-                        "super_admin_ro_specialist_requests_btn",
-                        language,
-                    ),
-                    callback_data="SA_RO_SPECIALIST_REQUESTS:0",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t(
                         "super_admin_ro_specialist_dialogs_btn",
                         language,
                     ),
@@ -7402,63 +7515,6 @@ def super_admin_read_only_specialist_menu_keyboard(
         ]
     )
 
-
-def super_admin_read_only_specialist_requests_keyboard(
-    *,
-    page: int,
-    has_next: bool,
-    language: str,
-) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    navigation: list[InlineKeyboardButton] = []
-
-    if page > 0:
-        navigation.append(
-            InlineKeyboardButton(
-                text=t("admin_prev", language),
-                callback_data=(
-                    f"SA_RO_SPECIALIST_REQUESTS:{page - 1}"
-                ),
-            )
-        )
-
-    if has_next:
-        navigation.append(
-            InlineKeyboardButton(
-                text=t("admin_next", language),
-                callback_data=(
-                    f"SA_RO_SPECIALIST_REQUESTS:{page + 1}"
-                ),
-            )
-        )
-
-    if navigation:
-        rows.append(navigation)
-
-    rows.extend(
-        [
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "super_admin_impersonation_change_cabinet_btn",
-                        language,
-                    ),
-                    callback_data="SA_RO_SPECIALIST_HOME",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "super_admin_impersonation_stop_btn",
-                        language,
-                    ),
-                    callback_data="SA_IMPERSONATE_STOP",
-                )
-            ],
-        ]
-    )
-
-    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def super_admin_read_only_specialist_dialogs_keyboard(
     *,
@@ -7517,6 +7573,39 @@ def super_admin_read_only_specialist_dialogs_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def format_super_admin_read_only_message_history(
+    messages,
+    *,
+    other_name: str,
+    language: str,
+) -> str:
+    history_lines = []
+
+    for message in messages:
+        sender_name = (
+            t("contact_chat_you_label", language)
+            if message.is_sent_by_viewer
+            else other_name
+        )
+        sent_at = message.created_at.strftime(
+            "%d.%m %H:%M"
+        )
+        message_body = (
+            format_chat_message_body(
+                message,
+                language,
+            )
+            or "—"
+        )
+
+        history_lines.append(
+            f"{sender_name} · {sent_at}\n"
+            f"{message_body}"
+        )
+
+    return "\n\n".join(history_lines) or "—"
+
+
 
 def format_super_admin_read_only_specialist_dialog(
     item,
@@ -7536,7 +7625,10 @@ def format_super_admin_read_only_specialist_dialog(
         number=number,
         client=item.specialist_name or "-",
         profession=item.profession_name or "-",
-        status=item.status or "-",
+        status=admin_dialog_status_label(
+            item.status,
+            language,
+        ),
         unread=item.unread_count,
         message=message or "-",
     )
@@ -7547,122 +7639,24 @@ def format_super_admin_read_only_specialist_dialog_detail(
     *,
     language: str,
 ) -> str:
-    messages = "\n".join(
-        str(message)
-        for message in detail.messages[-10:]
-    ) or "-"
+    messages = format_super_admin_read_only_message_history(
+        detail.messages,
+        other_name=detail.client_name or "—",
+        language=language,
+    )
 
     return t(
         "super_admin_ro_specialist_dialog_detail",
         language,
     ).format(
-        client=detail.client_name or "-",
-        profession=detail.profession_name or "-",
-        status=detail.thread_status or "-",
+        client=detail.client_name or "—",
+        profession=detail.profession_name or "—",
+        status=admin_dialog_status_label(
+            detail.thread_status,
+            language,
+        ),
         messages=messages,
     )
-
-def format_super_admin_read_only_specialist_request(
-    item,
-    *,
-    number: int,
-    language: str,
-) -> str:
-    created_at = (
-        item.created_at.strftime("%Y-%m-%d")
-        if item.created_at
-        else "-"
-    )
-    message = (item.message or "").strip()
-
-    if len(message) > 300:
-        message = f"{message[:297]}..."
-
-    return t(
-        "super_admin_ro_specialist_request_item",
-        language,
-    ).format(
-        number=number,
-        client=item.client_name or "-",
-        profession=item.profession_name or "-",
-        status=item.status or "-",
-        date=created_at,
-        message=message or "-",
-    )
-
-
-def format_super_admin_read_only_specialist_request_detail(
-    item: dict,
-    *,
-    language: str,
-) -> str:
-    return t(
-        "super_admin_ro_specialist_request_detail",
-        language,
-    ).format(
-        client=item.get("client") or "-",
-        profession=item.get("profession") or "-",
-        status=item.get("status") or "-",
-        date=item.get("date") or "-",
-        message=item.get("message") or "-",
-    )
-
-def super_admin_read_only_client_requests_keyboard(
-    *,
-    page: int,
-    has_next: bool,
-    language: str,
-) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    navigation: list[InlineKeyboardButton] = []
-
-    if page > 0:
-        navigation.append(
-            InlineKeyboardButton(
-                text=t("admin_prev", language),
-                callback_data=(
-                    f"SA_RO_CLIENT_REQUESTS:{page - 1}"
-                ),
-            )
-        )
-
-    if has_next:
-        navigation.append(
-            InlineKeyboardButton(
-                text=t("admin_next", language),
-                callback_data=(
-                    f"SA_RO_CLIENT_REQUESTS:{page + 1}"
-                ),
-            )
-        )
-
-    if navigation:
-        rows.append(navigation)
-
-    rows.extend(
-        [
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "super_admin_impersonation_change_cabinet_btn",
-                        language,
-                    ),
-                    callback_data="SA_RO_CLIENT_HOME",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "super_admin_impersonation_stop_btn",
-                        language,
-                    ),
-                    callback_data="SA_IMPERSONATE_STOP",
-                )
-            ],
-        ]
-    )
-
-    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def super_admin_read_only_client_dialogs_keyboard(
     *,
@@ -7740,7 +7734,10 @@ def format_super_admin_read_only_client_dialog(
         number=number,
         specialist=item.specialist_name or "-",
         profession=item.profession_name or "-",
-        status=item.status or "-",
+        status=admin_dialog_status_label(
+            item.status,
+            language,
+        ),
         unread=item.unread_count,
         message=message or "-",
     )
@@ -7751,70 +7748,23 @@ def format_super_admin_read_only_client_dialog_detail(
     *,
     language: str,
 ) -> str:
-    messages = "\n".join(
-        str(message)
-        for message in detail.messages[-10:]
-    ) or "-"
+    messages = format_super_admin_read_only_message_history(
+        detail.messages,
+        other_name=detail.specialist_name or "—",
+        language=language,
+    )
 
     return t(
         "super_admin_ro_client_dialog_detail",
         language,
     ).format(
-        specialist=detail.specialist_name or "-",
-        profession=detail.profession_name or "-",
-        status=detail.thread_status or "-",
+        specialist=detail.specialist_name or "—",
+        profession=detail.profession_name or "—",
+        status=admin_dialog_status_label(
+            detail.thread_status,
+            language,
+        ),
         messages=messages,
-    )
-
-def format_super_admin_read_only_client_request(
-    item,
-    *,
-    number: int,
-    language: str,
-) -> str:
-    created_at = (
-        item.created_at.strftime("%Y-%m-%d")
-        if item.created_at
-        else "-"
-    )
-    message = (item.message or "").strip()
-
-    if len(message) > 300:
-        message = f"{message[:297]}..."
-
-    return t(
-        "super_admin_ro_client_request_item",
-        language,
-    ).format(
-        number=number,
-        specialist=item.specialist_name or "-",
-        profession=item.profession_name or "-",
-        status=item.status or "-",
-        date=created_at,
-        message=message or "-",
-    )
-
-
-def format_super_admin_read_only_client_request_detail(
-    detail,
-    *,
-    language: str,
-) -> str:
-    created_at = (
-        detail.created_at.strftime("%Y-%m-%d")
-        if detail.created_at
-        else "-"
-    )
-
-    return t(
-        "super_admin_ro_client_request_detail",
-        language,
-    ).format(
-        specialist=detail.specialist_name or "-",
-        profession=detail.profession_name or "-",
-        status=detail.status or "-",
-        date=created_at,
-        message=(detail.message or "-").strip() or "-",
     )
 
 def super_admin_read_only_support_menu_keyboard(
@@ -9106,7 +9056,6 @@ async def show_super_admin_specialist_read_only_cabinet(
                 language,
             ),
             dialogs_unread=cabinet.dialogs_unread,
-            new_requests=cabinet.new_requests,
         ),
         reply_markup=super_admin_read_only_specialist_menu_keyboard(
             language
@@ -12361,284 +12310,24 @@ async def super_admin_read_only_client_home(
         state,
     )
 
-
 @admin_router.callback_query(
-    F.data.startswith("SA_RO_CLIENT_REQUESTS:")
+    F.data.startswith("SA_RO_CLIENT_REQUEST")
+    | F.data.startswith("SA_RO_SPECIALIST_REQUEST")
 )
-async def super_admin_read_only_client_requests(
+async def block_legacy_read_only_request_callbacks(
     callback: CallbackQuery,
-    state: FSMContext,
 ):
     language = normalize_language(
         callback.from_user.language_code
     )
 
-    try:
-        page = max(
-            int((callback.data or "").split(":", 1)[1]),
-            0,
-        )
-    except (IndexError, TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    data = await state.get_data()
-
-    if (
-        not data.get("super_admin_impersonation_read_only")
-        or data.get(
-            "super_admin_impersonation_target_role"
-        ) != "client"
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        target_user_id = UUID(
-            str(
-                data.get(
-                    "super_admin_impersonation_target_user_id"
-                )
-            )
-        )
-    except (TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    admin_user_id, _, roles = await get_admin_user_context(
-        callback.from_user.id
-    )
-
-    if not admin_user_id or "super_admin" not in roles:
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        async with get_session() as session:
-            items = await ContactChatService(
-                ContactChatRepository(session)
-            ).list_client_requests(
-                user_id=target_user_id,
-                limit=READ_ONLY_CLIENT_PAGE_SIZE + 1,
-                offset=page * READ_ONLY_CLIENT_PAGE_SIZE,
-                language=language,
-            )
-    except ContactChatError as exc:
-        await callback.answer(
-            str(exc),
-            show_alert=True,
-        )
-        return
-
-    visible_items = items[:READ_ONLY_CLIENT_PAGE_SIZE]
-    has_next = len(items) > READ_ONLY_CLIENT_PAGE_SIZE
-
-    await state.update_data(
-        super_admin_impersonation_client_request_ids=[
-            str(item.contact_request_id)
-            for item in visible_items
-        ],
-        super_admin_impersonation_client_requests_page=page,
-    )
-
-    await callback.message.answer(
+    await callback.answer(
         t(
-            "super_admin_ro_client_requests_title",
+            "legacy_requests_unavailable",
             language,
-        ).format(
-            page=page + 1,
-            count=len(visible_items),
-        )
-    )
-
-    if not visible_items:
-        await callback.message.answer(
-            t("client_requests_empty", language),
-            reply_markup=(
-                super_admin_read_only_client_requests_keyboard(
-                    page=page,
-                    has_next=False,
-                    language=language,
-                )
-            ),
-        )
-        await callback.answer()
-        return
-
-    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
-
-    for index, item in enumerate(visible_items):
-        number = start_number + index
-
-        await callback.message.answer(
-            format_super_admin_read_only_client_request(
-                item,
-                number=number,
-                language=language,
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "super_admin_ro_client_open_request_btn",
-                                language,
-                            ).format(number=number),
-                            callback_data=(
-                                f"SA_RO_CLIENT_REQUEST_OPEN:{index}"
-                            ),
-                        )
-                    ]
-                ]
-            ),
-        )
-
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
-        reply_markup=(
-            super_admin_read_only_client_requests_keyboard(
-                page=page,
-                has_next=has_next,
-                language=language,
-            )
         ),
+        show_alert=True,
     )
-    await callback.answer()
-
-
-@admin_router.callback_query(
-    F.data.startswith("SA_RO_CLIENT_REQUEST_OPEN:")
-)
-async def super_admin_read_only_client_request_open(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-    data = await state.get_data()
-
-    try:
-        index = int(
-            (callback.data or "").split(":", 1)[1]
-        )
-    except (IndexError, TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    request_ids = data.get(
-        "super_admin_impersonation_client_request_ids"
-    ) or []
-
-    if (
-        not data.get("super_admin_impersonation_read_only")
-        or data.get(
-            "super_admin_impersonation_target_role"
-        ) != "client"
-        or index < 0
-        or index >= len(request_ids)
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        target_user_id = UUID(
-            str(
-                data.get(
-                    "super_admin_impersonation_target_user_id"
-                )
-            )
-        )
-        request_id = UUID(request_ids[index])
-    except (TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    admin_user_id, _, roles = await get_admin_user_context(
-        callback.from_user.id
-    )
-
-    if not admin_user_id or "super_admin" not in roles:
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        async with get_session() as session:
-            detail = await ContactChatService(
-                ContactChatRepository(session)
-            ).get_client_request_detail(
-                contact_request_id=request_id,
-                user_id=target_user_id,
-                language=language,
-            )
-    except ContactChatError as exc:
-        await callback.answer(
-            str(exc),
-            show_alert=True,
-        )
-        return
-
-    page = int(
-        data.get(
-            "super_admin_impersonation_client_requests_page"
-        ) or 0
-    )
-
-    await callback.message.answer(
-        format_super_admin_read_only_client_request_detail(
-            detail,
-            language=language,
-        ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "super_admin_ro_client_back_to_requests_btn",
-                            language,
-                        ),
-                        callback_data=(
-                            f"SA_RO_CLIENT_REQUESTS:{page}"
-                        ),
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "super_admin_impersonation_stop_btn",
-                            language,
-                        ),
-                        callback_data="SA_IMPERSONATE_STOP",
-                    )
-                ],
-            ]
-        ),
-    )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("SA_RO_CLIENT_DIALOGS:")
@@ -13032,253 +12721,6 @@ async def super_admin_read_only_specialist_home(
         state,
     )
 
-
-@admin_router.callback_query(
-    F.data.startswith("SA_RO_SPECIALIST_REQUESTS:")
-)
-async def super_admin_read_only_specialist_requests(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-
-    try:
-        page = max(
-            int((callback.data or "").split(":", 1)[1]),
-            0,
-        )
-    except (IndexError, TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    data = await state.get_data()
-
-    if (
-        not data.get("super_admin_impersonation_read_only")
-        or data.get(
-            "super_admin_impersonation_target_role"
-        ) != "specialist"
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        specialist_id = UUID(
-            str(
-                data.get(
-                    "super_admin_impersonation_specialist_id"
-                )
-            )
-        )
-    except (TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    admin_user_id, _, roles = await get_admin_user_context(
-        callback.from_user.id
-    )
-
-    if not admin_user_id or "super_admin" not in roles:
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        async with get_session() as session:
-            items = await ContactChatService(
-                ContactChatRepository(session)
-            ).list_specialist_requests(
-                specialist_id=specialist_id,
-                status="new",
-                limit=READ_ONLY_CLIENT_PAGE_SIZE + 1,
-                offset=page * READ_ONLY_CLIENT_PAGE_SIZE,
-                language=language,
-            )
-    except ContactChatError as exc:
-        await callback.answer(
-            str(exc),
-            show_alert=True,
-        )
-        return
-
-    visible_items = items[:READ_ONLY_CLIENT_PAGE_SIZE]
-    has_next = len(items) > READ_ONLY_CLIENT_PAGE_SIZE
-
-    await state.update_data(
-        super_admin_impersonation_specialist_requests=[
-            {
-                "client": item.client_name,
-                "profession": item.profession_name,
-                "status": item.status,
-                "date": (
-                    item.created_at.strftime("%Y-%m-%d")
-                    if item.created_at
-                    else "-"
-                ),
-                "message": (item.message or "").strip() or "-",
-            }
-            for item in visible_items
-        ],
-        super_admin_impersonation_specialist_requests_page=page,
-    )
-
-    await callback.message.answer(
-        t(
-            "super_admin_ro_specialist_requests_title",
-            language,
-        ).format(
-            page=page + 1,
-            count=len(visible_items),
-        )
-    )
-
-    if not visible_items:
-        await callback.message.answer(
-            t("admin_no_pending_requests", language),
-            reply_markup=(
-                super_admin_read_only_specialist_requests_keyboard(
-                    page=page,
-                    has_next=False,
-                    language=language,
-                )
-            ),
-        )
-        await callback.answer()
-        return
-
-    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
-
-    for index, item in enumerate(visible_items):
-        number = start_number + index
-
-        await callback.message.answer(
-            format_super_admin_read_only_specialist_request(
-                item,
-                number=number,
-                language=language,
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "super_admin_ro_specialist_open_request_btn",
-                                language,
-                            ).format(number=number),
-                            callback_data=(
-                                "SA_RO_SPECIALIST_REQUEST_OPEN:"
-                                f"{index}"
-                            ),
-                        )
-                    ]
-                ]
-            ),
-        )
-
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
-        reply_markup=(
-            super_admin_read_only_specialist_requests_keyboard(
-                page=page,
-                has_next=has_next,
-                language=language,
-            )
-        ),
-    )
-    await callback.answer()
-
-
-@admin_router.callback_query(
-    F.data.startswith("SA_RO_SPECIALIST_REQUEST_OPEN:")
-)
-async def super_admin_read_only_specialist_request_open(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-    data = await state.get_data()
-
-    try:
-        index = int(
-            (callback.data or "").split(":", 1)[1]
-        )
-    except (IndexError, TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    requests = data.get(
-        "super_admin_impersonation_specialist_requests"
-    ) or []
-
-    if (
-        not data.get("super_admin_impersonation_read_only")
-        or data.get(
-            "super_admin_impersonation_target_role"
-        ) != "specialist"
-        or index < 0
-        or index >= len(requests)
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    page = int(
-        data.get(
-            "super_admin_impersonation_specialist_requests_page"
-        ) or 0
-    )
-
-    await callback.message.answer(
-        format_super_admin_read_only_specialist_request_detail(
-            requests[index],
-            language=language,
-        ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "super_admin_ro_specialist_back_to_requests_btn",
-                            language,
-                        ),
-                        callback_data=(
-                            f"SA_RO_SPECIALIST_REQUESTS:{page}"
-                        ),
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "super_admin_impersonation_stop_btn",
-                            language,
-                        ),
-                        callback_data="SA_IMPERSONATE_STOP",
-                    )
-                ],
-            ]
-        ),
-    )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("SA_RO_SPECIALIST_DIALOGS:")
@@ -13960,12 +13402,6 @@ async def show_super_admin_client_read_only_cabinet(
                 )
             ),
             dialogs_unread=cabinet.dialogs_unread,
-            requests_count=(
-                cabinet.requests_new
-                + cabinet.requests_accepted
-            ),
-            requests_new=cabinet.requests_new,
-            requests_accepted=cabinet.requests_accepted,
         ),
         reply_markup=super_admin_read_only_client_menu_keyboard(
             language
@@ -14300,6 +13736,7 @@ def moderator_menu_keyboard(
     language: str,
     *,
     show_role_switch: bool,
+    show_specialist_management: bool = False,
     back_callback: str = "ADM_MENU",
 ) -> InlineKeyboardMarkup:
     rows = [
@@ -14344,6 +13781,20 @@ def moderator_menu_keyboard(
             )
         ],
     ]
+    if show_specialist_management:
+        rows.insert(
+            1,
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_specialist_management_btn",
+                        language,
+                    ),
+                    callback_data="ADM_ADMIN_SPECIALISTS",
+                )
+            ],
+        )
+
 
     if show_role_switch:
         rows.append(
@@ -19424,49 +18875,6 @@ async def admin_skill_merge_confirm(
     )
     await callback.answer()
 
-async def admin_dictionary_section_stub(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
-    )
-
-    if not admin_user_id or "super_admin" not in roles:
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    section_key = {
-        "ADM_DICT_CATEGORIES": "admin_dict_categories_btn",
-        "ADM_DICT_PROFESSIONS": "admin_dict_professions_btn",
-        "ADM_DICT_GEO": "admin_dict_geo_btn",
-    }.get(callback.data, "admin_dictionaries_section_btn")
-
-    await callback.message.answer(
-        t("admin_dict_section_stub", language).format(
-            section=t(section_key, language),
-        ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t("admin_panel_back", language),
-                        callback_data="ADM_DICT",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("search_menu", language),
-                        callback_data="MAIN_MENU",
-                    )
-                ],
-            ]
-        ),
-    )
-    await callback.answer()
-
 def admin_dialog_detection_label(
     detected_type: str,
     language: str,
@@ -19511,6 +18919,27 @@ def admin_dialog_risk_label(
 
     return t(key, language) if key else "—"
 
+def admin_dialog_status_label(
+    status: str | None,
+    language: str,
+) -> str:
+    key_by_status = {
+        "waiting_specialist": "admin_dialog_status_waiting_specialist",
+        "waiting_client": "admin_dialog_status_waiting_client",
+        "open": "admin_dialog_status_open",
+        "in_discussion": "admin_dialog_status_in_discussion",
+        "completed": "admin_dialog_status_completed",
+        "closed": "admin_dialog_status_closed",
+    }
+
+    key = key_by_status.get(
+        (status or "").strip().lower(),
+        "admin_dialog_status_other",
+    )
+    return t(key, language)
+
+
+
 def admin_dialog_context_label(
     item,
     language: str,
@@ -19554,9 +18983,9 @@ def admin_dialog_queue_keyboard(
                         item,
                         language,
                     ),
-                    status=item.thread_status.replace(
-                        "_",
-                        " ",
+                    status=admin_dialog_status_label(
+                        item.thread_status,
+                        language,
                     ),
                     messages_count=item.messages_count,
                 ),
@@ -19792,7 +19221,10 @@ async def open_admin_dialog_thread(
         )
         thread_status = "—"
     else:
-        thread_status = messages[0].thread_status
+        thread_status = admin_dialog_status_label(
+            messages[0].thread_status,
+            language,
+        )
         history_lines = []
 
         for message in messages:
@@ -19827,16 +19259,22 @@ async def open_admin_dialog_thread(
             else:
                 message_text = (
                     message.original_text
-                    or "[пусто]"
+                    or t(
+                        "admin_dialog_empty_message",
+                        language,
+                    )
                 )
 
-            sender_label = (
-                "Клиент"
-                if (
-                    message.sender_user_id
-                    == message.client_user_id
-                )
-                else "Специалист"
+            sender_label = t(
+                (
+                    "admin_dialog_sender_client"
+                    if (
+                        message.sender_user_id
+                        == message.client_user_id
+                    )
+                    else "admin_dialog_sender_specialist"
+                ),
+                language,
             )
 
             history_lines.append(
@@ -19871,13 +19309,14 @@ async def open_admin_dialog_thread(
 
     context_label = " + ".join(context_parts) or "—"
 
-    screen_text = (
-        f"💬 Служебный диалог №{index + 1}\n\n"
-        f"Контекст: {context_label}\n"
-        "Участники: Клиент / Специалист\n"
-        f"Статус: {thread_status}\n\n"
-        f"{history}\n\n"
-        "Режим: только просмотр."
+    screen_text = t(
+        "admin_dialog_detail",
+        language,
+    ).format(
+        number=index + 1,
+        context=context_label,
+        status=thread_status,
+        history=history,
     )
 
     await callback.message.answer(
@@ -21519,6 +20958,9 @@ async def open_admin_moderation_menu(
             summary,
             language,
             show_role_switch=False,
+            show_specialist_management=bool(
+                roles.intersection({"admin", "super_admin"})
+            ),
             back_callback="ADM_PANEL",
         ),
     )
@@ -24533,7 +23975,7 @@ async def open_admin_specialists_list(
         callback.from_user.language_code
     )
 
-    status = "active"
+    status = "approved"
     page = 0
 
     if callback.data != "ADM_ADMIN_SPECIALISTS":
@@ -24666,7 +24108,7 @@ async def open_admin_specialist_card(
     specialist_ids = data.get("admin_specialist_ids") or []
     status = (
         data.get("admin_specialist_status")
-        or "active"
+        or "approved"
     )
     page = int(
         data.get("admin_specialist_page") or 0
@@ -25082,6 +24524,414 @@ async def ask_specialist_decision_reason(
     )
     await callback.answer()
 
+@admin_router.callback_query(
+    F.data.startswith("ADM_SP_HIDE:")
+    | F.data.startswith("ADM_SP_RESTORE:")
+)
+async def ask_specialist_visibility_reason(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+
+    try:
+        callback_prefix, raw_index = (
+            callback.data or ""
+        ).split(":", 1)
+        index = int(raw_index)
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    action_by_callback = {
+        "ADM_SP_HIDE": "hide",
+        "ADM_SP_RESTORE": "restore",
+    }
+    action = action_by_callback.get(callback_prefix)
+
+    specialist_ids = data.get("admin_specialist_ids") or []
+    status = (
+        data.get("admin_specialist_status")
+        or "approved"
+    )
+    page = int(data.get("admin_specialist_page") or 0)
+
+    expected_status = (
+        "approved"
+        if action == "hide"
+        else "hidden"
+    )
+
+    if (
+        action is None
+        or status != expected_status
+        or index < 0
+        or index >= len(specialist_ids)
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        admin_specialist_visibility_action=action,
+        admin_specialist_visibility_specialist_id=(
+            specialist_ids[index]
+        ),
+        admin_specialist_visibility_status=status,
+        admin_specialist_visibility_page=page,
+    )
+    await state.set_state(
+        AdminModerationFSM.entering_specialist_visibility_reason
+    )
+
+    await callback.message.answer(
+        t("moderator_decision_reason_prompt", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_VISIBILITY_CANCEL:"
+                            f"{status}:{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.message(
+    AdminModerationFSM.entering_specialist_visibility_reason
+)
+async def receive_specialist_visibility_reason(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(message.from_user.language_code)
+    reason = (message.text or "").strip()
+
+    if len(reason) < 3:
+        await message.answer(
+            t("admin_reason_too_short", language)
+        )
+        return
+
+    data = await state.get_data()
+    action = data.get(
+        "admin_specialist_visibility_action"
+    )
+    specialist_id = data.get(
+        "admin_specialist_visibility_specialist_id"
+    )
+    status = data.get(
+        "admin_specialist_visibility_status"
+    )
+    page = int(
+        data.get("admin_specialist_visibility_page") or 0
+    )
+
+    expected_status = (
+        "approved"
+        if action == "hide"
+        else "hidden"
+    )
+
+    if (
+        not specialist_id
+        or action not in {"hide", "restore"}
+        or status != expected_status
+    ):
+        await state.clear()
+        await message.answer(
+            t("admin_item_not_found", language)
+        )
+        return
+
+    confirmation_key = (
+        "moderator_hide_specialist_confirmation"
+        if action == "hide"
+        else "moderator_restore_specialist_confirmation"
+    )
+
+    await state.update_data(
+        admin_specialist_visibility_reason=reason,
+    )
+    await state.set_state(
+        AdminModerationFSM.confirming_specialist_visibility
+    )
+
+    await message.answer(
+        t(confirmation_key, language).format(
+            reason=reason
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_decision_confirm_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_VISIBILITY_CONFIRM"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_decision_edit_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_VISIBILITY_EDIT"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_VISIBILITY_CANCEL:"
+                            f"{status}:{page}"
+                        ),
+                    )
+                ],
+            ]
+        ),
+    )
+
+@admin_router.callback_query(
+    F.data == "ADM_SP_VISIBILITY_EDIT"
+)
+async def edit_specialist_visibility_reason(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+
+    action = data.get(
+        "admin_specialist_visibility_action"
+    )
+    specialist_id = data.get(
+        "admin_specialist_visibility_specialist_id"
+    )
+
+    if (
+        not specialist_id
+        or action not in {"hide", "restore"}
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        AdminModerationFSM.entering_specialist_visibility_reason
+    )
+    await callback.message.answer(
+        t("moderator_decision_reason_prompt", language)
+    )
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    F.data.startswith("ADM_SP_VISIBILITY_CANCEL:")
+)
+async def cancel_specialist_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+
+    try:
+        _, status, raw_page = (
+            callback.data or ""
+        ).split(":", 2)
+        page = max(int(raw_page), 0)
+    except (TypeError, ValueError):
+        status = "approved"
+        page = 0
+
+    if status not in {"approved", "hidden"}:
+        status = "approved"
+
+    await state.clear()
+
+    await callback.message.answer(
+        t("moderator_decision_cancelled", language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            f"ADM_ADMIN_SPECIALISTS:{status}:{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
+
+@admin_router.callback_query(
+    F.data == "ADM_SP_VISIBILITY_CONFIRM"
+)
+async def confirm_specialist_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(callback.from_user.language_code)
+    data = await state.get_data()
+
+    action = data.get(
+        "admin_specialist_visibility_action"
+    )
+    specialist_id = data.get(
+        "admin_specialist_visibility_specialist_id"
+    )
+    reason = (
+        data.get("admin_specialist_visibility_reason") or ""
+    ).strip()
+
+    if (
+        not specialist_id
+        or action not in {"hide", "restore"}
+        or len(reason) < 3
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+    ):
+        await state.clear()
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            service = ModerationService(
+                ModerationRepository(session)
+            )
+
+            if action == "hide":
+                result = await service.hide_specialist(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    specialist_id=UUID(specialist_id),
+                    reason=reason,
+                )
+            else:
+                result = await service.restore_specialist(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    specialist_id=UUID(specialist_id),
+                    reason=reason,
+                )
+    except (ModerationError, ValueError) as exc:
+        logger.warning(
+            "specialist_visibility_change_failed "
+            "telegram_id=%s specialist_id=%s action=%s error=%s",
+            callback.from_user.id,
+            specialist_id,
+            action,
+            exc,
+        )
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    result_text_key = (
+        "moderator_specialist_hidden"
+        if action == "hide"
+        else "moderator_specialist_restored"
+    )
+
+    logger.info(
+        "specialist_visibility_change_completed "
+        "telegram_id=%s admin_user_id=%s "
+        "specialist_id=%s action=%s status=%s",
+        callback.from_user.id,
+        admin_user_id,
+        specialist_id,
+        action,
+        result.status,
+    )
+
+    await state.clear()
+
+    await callback.message.answer(
+        t(result_text_key, language),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_ADMIN_SPECIALISTS:"
+                            f"{result.status}:0"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
+    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM.entering_specialist_decision_reason
@@ -28734,9 +28584,14 @@ async def restore_rejected_portfolio_item(
         admin_rejected_portfolio_ids=remaining_ids
     )
 
+    portfolio_status = t(
+        f"portfolio_status_{item.status}",
+        language,
+    )
+
     await callback.message.answer(
         t("admin_portfolio_updated", language).format(
-            status=item.status,
+            status=portfolio_status,
         ),
         reply_markup=admin_panel_keyboard(language, roles),
     )

@@ -37,7 +37,7 @@ class SpecialistSearchFilters:
     available_only: bool = False
     rating_min: float | None = None
     work_format: str | None = None
-    status: str = "active"
+    status: str = "approved"
     page: int = 1
     page_size: int = 5
     limit: int | None = None
@@ -105,7 +105,7 @@ class SpecialistSearchRepository:
 
         return earth_radius_km * 2 * func.asin(func.sqrt(haversine))
 
-    async def get_active_specialist_for_card(
+    async def get_approved_specialist_for_card(
         self,
         specialist_id: UUID,
     ) -> Specialist | None:
@@ -114,7 +114,7 @@ class SpecialistSearchRepository:
             .join(User, User.id == Specialist.user_id)
             .where(
                 Specialist.id == specialist_id,
-                Specialist.status == "active",
+                Specialist.status == "approved",
                 User.status.notin_(["blocked", "deleted"]),
             )
         )
@@ -460,7 +460,7 @@ class SpecialistSearchRepository:
             select(Specialist)
             .join(User, User.id == Specialist.user_id)
             .where(
-                Specialist.status == "active",
+                Specialist.status == "approved",
                 User.status.notin_(["blocked", "deleted"]),
                 or_(
                     Specialist.latitude.isnot(None),
@@ -597,7 +597,7 @@ class SpecialistSearchRepository:
                 & (SpecialistLocation.is_current.is_(True)),
             )
             .where(
-                Specialist.status == "active",
+                Specialist.status == "approved",
                 User.status.notin_(["blocked", "deleted"]),
 )
         )
