@@ -82,7 +82,7 @@ class PrivacyRepository:
             )
         )
 
-        await self.session.commit()
+        await self.session.flush()
         return job
 
     async def request_data_export(

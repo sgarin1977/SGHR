@@ -202,6 +202,7 @@ class BillingRepository:
             )
 
         return specialist
+    
     async def create_manual_invoice(
         self,
         *,
@@ -377,6 +378,37 @@ class BillingRepository:
             .limit(max(1, min(int(limit), 20)))
         )
         return list(result.scalars().all())
+
+    async def get_pending_manual_payment(
+        self,
+        *,
+        admin_user_id: UUID,
+        payment_id: UUID,
+    ) -> tuple[Payment, Invoice | None]:
+        await self.require_billing_admin(
+            admin_user_id
+        )
+
+        payment = await self.session.get(
+            Payment,
+            payment_id,
+        )
+
+        if (
+            not payment
+            or payment.payment_method != "manual"
+            or payment.status != "pending"
+        ):
+            raise BillingNotFoundError(
+                "Pending manual payment not found."
+            )
+
+        invoice = await self.session.get(
+            Invoice,
+            payment.invoice_id,
+        )
+
+        return payment, invoice
 
     async def mark_payment_paid(
         self,

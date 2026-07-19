@@ -9,7 +9,8 @@ from database.repositories.translation import (
     TranslationRepository,
     normalize_translation_language,
 )
-
+from database.repositories.event import EventRepository
+from database.repositories.user import UserRepository
 
 class TranslationError(Exception):
     pass
@@ -29,6 +30,18 @@ class TranslationDisplayResult:
     translation_status: str
     used_translation: bool
 
+@dataclass(frozen=True)
+class NotificationTranslationResult:
+    display_text: str
+    used_translation: bool
+    translation_status: str
+
+@dataclass(frozen=True)
+class TranslationSettingsView:
+    interface_language: str
+    message_language: str
+    auto_translate_enabled: bool
+    show_original_button: bool
 
 class LibreTranslateProvider:
     def __init__(
@@ -95,6 +108,8 @@ class TranslationService:
         cache_enabled: bool | None = None,
     ):
         self.repository = repository
+        self.events = EventRepository(repository.session)
+        self.users = UserRepository(repository.session)
         self.provider = provider or LibreTranslateProvider()
         self.cache_enabled = (
             cache_enabled
@@ -105,6 +120,294 @@ class TranslationService:
     @property
     def provider_name(self) -> str:
         return getattr(self.provider, "provider_name", "libretranslate")
+
+    async def get_language_settings_view(
+        self,
+        *,
+        user_id: UUID,
+    ) -> TranslationSettingsView:
+        try:
+            settings = (
+                await self.repository.get_language_settings(
+                    user_id
+                )
+            )
+            await self.repository.session.commit()
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise TranslationError(
+                "Unable to load language settings."
+            ) from exc
+
+        return TranslationSettingsView(
+            interface_language=(
+                settings.interface_language
+            ),
+            message_language=settings.message_language,
+            auto_translate_enabled=bool(
+                settings.auto_translate_enabled
+            ),
+            show_original_button=bool(
+                settings.show_original_button
+            ),
+        )
+
+    async def update_interface_language(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        language_code: str,
+        source: str,
+    ) -> TranslationSettingsView:
+        normalized_language = (
+            normalize_translation_language(
+                language_code
+            )
+        )
+        normalized_source = (
+            source or "settings"
+        ).strip()[:100]
+
+        try:
+            settings = (
+                await self.repository
+                .update_language_settings(
+                    user_id=user_id,
+                    interface_language=(
+                        normalized_language
+                    ),
+                )
+            )
+
+            await self.users.update_language_code(
+                user_id=user_id,
+                language_code=normalized_language,
+            )
+
+            await self.events.create_event(
+                event_type="settings_changed",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="user",
+                entity_id=user_id,
+                payload={
+                    "setting": "interface_language",
+                    "value": normalized_language,
+                    "source": normalized_source,
+                },
+                platform="telegram",
+            )
+
+            await self.repository.session.commit()
+
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise TranslationError(
+                "Unable to update interface language."
+            ) from exc
+
+        return TranslationSettingsView(
+            interface_language=(
+                settings.interface_language
+            ),
+            message_language=settings.message_language,
+            auto_translate_enabled=bool(
+                settings.auto_translate_enabled
+            ),
+            show_original_button=bool(
+                settings.show_original_button
+            ),
+        )
+
+    async def update_message_language(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        language_code: str,
+        source: str,
+    ) -> TranslationSettingsView:
+        normalized_language = (
+            normalize_translation_language(
+                language_code
+            )
+        )
+        normalized_source = (
+            source or "settings"
+        ).strip()[:100]
+
+        try:
+            settings = (
+                await self.repository
+                .update_language_settings(
+                    user_id=user_id,
+                    message_language=normalized_language,
+                )
+            )
+
+            await self.events.create_event(
+                event_type="settings_changed",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="user",
+                entity_id=user_id,
+                payload={
+                    "setting": "message_language",
+                    "value": normalized_language,
+                    "source": normalized_source,
+                },
+                platform="telegram",
+            )
+
+            await self.repository.session.commit()
+
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise TranslationError(
+                "Unable to update message language."
+            ) from exc
+
+        return TranslationSettingsView(
+            interface_language=(
+                settings.interface_language
+            ),
+            message_language=settings.message_language,
+            auto_translate_enabled=bool(
+                settings.auto_translate_enabled
+            ),
+            show_original_button=bool(
+                settings.show_original_button
+            ),
+        )
+
+    async def toggle_show_original(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        source: str,
+    ) -> TranslationSettingsView:
+        normalized_source = (
+            source or "settings"
+        ).strip()[:100]
+
+        try:
+            current_settings = (
+                await self.repository.get_language_settings(
+                    user_id
+                )
+            )
+            new_value = not bool(
+                current_settings.show_original_button
+            )
+
+            settings = (
+                await self.repository
+                .update_language_settings(
+                    user_id=user_id,
+                    show_original_button=new_value,
+                )
+            )
+
+            await self.events.create_event(
+                event_type="settings_changed",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="user",
+                entity_id=user_id,
+                payload={
+                    "setting": "show_original_button",
+                    "value": new_value,
+                    "source": normalized_source,
+                },
+                platform="telegram",
+            )
+
+            await self.repository.session.commit()
+
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise TranslationError(
+                "Unable to update original text visibility."
+            ) from exc
+
+        return TranslationSettingsView(
+            interface_language=(
+                settings.interface_language
+            ),
+            message_language=settings.message_language,
+            auto_translate_enabled=bool(
+                settings.auto_translate_enabled
+            ),
+            show_original_button=bool(
+                settings.show_original_button
+            ),
+        )
+
+    async def resolve_interface_language(
+        self,
+        *,
+        user_id: UUID,
+        fallback_language: str | None,
+    ) -> str:
+        settings = await self.get_language_settings_view(
+            user_id=user_id,
+        )
+
+        return normalize_translation_language(
+            settings.interface_language
+            or fallback_language
+        )
+
+    async def translate_notification_message(
+        self,
+        *,
+        message_id: UUID,
+        receiver_user_id: UUID,
+    ) -> NotificationTranslationResult:
+        try:
+            translated = (
+                await self.translate_message(
+                    message_id
+                )
+            )
+
+            display = (
+                await self.get_message_for_receiver(
+                    message_id=message_id,
+                    receiver_user_id=(
+                        receiver_user_id
+                    ),
+                )
+            )
+
+            return NotificationTranslationResult(
+                display_text=display.display_text,
+                used_translation=(
+                    translated.used_translation
+                ),
+                translation_status=(
+                    translated.translation_status
+                ),
+            )
+
+        except TranslationError:
+            message = (
+                await self.repository.get_message(
+                    message_id
+                )
+            )
+
+            return NotificationTranslationResult(
+                display_text=(
+                    message.original_text
+                    if message
+                    else ""
+                ),
+                used_translation=False,
+                translation_status="failed",
+            )
 
     async def translate_message(self, message_id: UUID) -> TranslationDisplayResult:
         message = await self.repository.get_message(message_id)

@@ -11,11 +11,8 @@ from database.models import (
     AdminAction,
     Complaint,
     EventLog,
-    Invoice,
-    Payment,
     Review,
     Specialist,
-    SupportTicket,
 )
 from services.specialist import (
     MAX_PROFESSIONS_PER_CATEGORY,
@@ -28,7 +25,6 @@ from database.repositories.event import EventRepository
 from database.repositories.reviews import ReviewRepository
 from database.repositories.portfolio import PortfolioRepository
 from database.repositories.support import SupportRepository
-from database.repositories.user import UserRepository
 from database.repositories.specialist import SpecialistRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard_for_user, normalize_language, open_current_role_cabinet, send_global_main_menu
@@ -48,7 +44,11 @@ from services.moderation import (
     AdminGlobalBlacklistCard,
     AdminAuditCard,
 )
-from services.billing import BillingError, BillingService
+from services.billing import (
+    BillingError,
+    BillingService,
+    PendingManualPaymentCard,
+)
 from services.contact_chat import (
     ContactChatError,
     ContactChatService,
@@ -4084,23 +4084,28 @@ def pending_payment_keyboard(index: int, total: int, language: str) -> InlineKey
 
 
 def format_pending_payment_card(
-    payment: Payment,
-    invoice: Invoice | None,
+    card: PendingManualPaymentCard,
     *,
     index: int,
     total: int,
     language: str,
 ) -> str:
-    invoice_status = invoice.status if invoice else t("admin_item_not_found", language)
-    invoice_id = invoice.id if invoice else payment.invoice_id
+    invoice_status = (
+        card.invoice_status
+        or t("admin_item_not_found", language)
+    )
 
     return (
         f"{t('admin_pending_payment_title', language).format(index=index + 1, total=total)}\n\n"
-        f"{t('billing_invoice_id', language)}: {invoice_id}\n"
-        f"{t('billing_amount', language)}: {payment.amount} {payment.currency}\n"
-        f"{t('admin_status', language)}: {payment.status}\n"
-        f"{t('admin_invoice_status', language)}: {invoice_status}\n"
-        f"{t('billing_payment_method', language)}: {payment.payment_method}"
+        f"{t('billing_invoice_id', language)}: {card.invoice_id}\n"
+        f"{t('billing_amount', language)}: "
+        f"{card.amount} {card.currency}\n"
+        f"{t('admin_status', language)}: "
+        f"{card.payment_status}\n"
+        f"{t('admin_invoice_status', language)}: "
+        f"{invoice_status}\n"
+        f"{t('billing_payment_method', language)}: "
+        f"{card.payment_method}"
     )
 
 def format_complaint_card(
@@ -13817,56 +13822,69 @@ def moderator_menu_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
-async def show_admin_panel(message_or_callback, state: FSMContext | None = None):
+async def show_admin_panel(
+    message_or_callback,
+    state: FSMContext | None = None,
+    *,
+    callback_answered: bool = False,
+):
     user = message_or_callback.from_user
     language = normalize_language(user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(user.id)
-    if not admin_user_id or not roles:
-        if isinstance(message_or_callback, CallbackQuery):
-            await message_or_callback.answer(t("admin_access_denied", language), show_alert=True)
-        else:
-            await message_or_callback.answer(t("admin_access_denied", language))
-        return
-
-    if state:
-        await state.clear()
 
     target_message = (
         message_or_callback.message
         if isinstance(message_or_callback, CallbackQuery)
         else message_or_callback
     )
+
+    if (
+        isinstance(message_or_callback, CallbackQuery)
+        and not callback_answered
+    ):
+        await message_or_callback.answer()
+        callback_answered = True
+
+    admin_user_id, tenant_id, roles = await get_admin_user_context(
+        user.id
+    )
+    if not admin_user_id or not roles:
+        await target_message.answer(
+            t("admin_access_denied", language)
+        )
+        return
+
+    if state:
+        await state.clear()
+    
     async with get_session() as session:
         role_context = await UserService(session).get_role_switch_context(user.id)
 
     show_role_switch = bool(
         role_context and len(role_context.available_roles) > 1
     )
-    active_role = role_context.active_role if role_context else None
+    active_role = UserService.resolve_staff_panel_role(
+        (
+            role_context.active_role
+            if role_context
+            else None
+        ),
+        roles,
+    )
 
-    admin_entry_role = active_role
-
-    if admin_entry_role not in {"admin", "super_admin"}:
-        if "super_admin" in roles:
-            admin_entry_role = "super_admin"
-        elif "admin" in roles:
-            admin_entry_role = "admin"
+    admin_entry_role = (
+        active_role
+        if active_role in {"admin", "super_admin"}
+        else None
+    )
 
     if admin_entry_role in {"admin", "super_admin"}:
         if (
             not tenant_id
             or not roles.intersection({"admin", "super_admin"})
         ):
-            if isinstance(message_or_callback, CallbackQuery):
-                await message_or_callback.answer(
-                    t("admin_access_denied", language),
-                    show_alert=True,
-                )
-            else:
-                await message_or_callback.answer(
-                    t("admin_access_denied", language)
-                )
+            await target_message.answer(
+                t("admin_access_denied", language)
+            )
             return
 
         try:
@@ -13886,13 +13904,7 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
                         tenant_id=tenant_id,
                     )
         except ModerationError as exc:
-            if isinstance(message_or_callback, CallbackQuery):
-                await message_or_callback.answer(
-                    str(exc),
-                    show_alert=True,
-                )
-            else:
-                await message_or_callback.answer(str(exc))
+            await target_message.answer(str(exc))
             return
 
         if admin_entry_role == "super_admin":
@@ -13914,22 +13926,14 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
                 ),
             )
 
-        if isinstance(message_or_callback, CallbackQuery):
-            await message_or_callback.answer()
-
         return
 
     if active_role == "support":
         if not tenant_id or "support" not in roles:
-            if isinstance(message_or_callback, CallbackQuery):
-                await message_or_callback.answer(
-                    t("admin_access_denied", language),
-                    show_alert=True,
-                )
-            else:
-                await message_or_callback.answer(t("admin_access_denied", language))
+            await target_message.answer(
+                t("admin_access_denied", language)
+            )
             return
-
         try:
             async with get_session() as session:
                 counts = await SupportService(
@@ -13954,10 +13958,7 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
                 )
                 await session.commit()
         except SupportServiceError as exc:
-            if isinstance(message_or_callback, CallbackQuery):
-                await message_or_callback.answer(str(exc), show_alert=True)
-            else:
-                await message_or_callback.answer(str(exc))
+            await target_message.answer(str(exc))
             return
 
         await target_message.answer(
@@ -13968,20 +13969,12 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
             ),
         )
 
-        if isinstance(message_or_callback, CallbackQuery):
-            await message_or_callback.answer()
         return
     if active_role == "moderator":
         if not tenant_id or "moderator" not in roles:
-            if isinstance(message_or_callback, CallbackQuery):
-                await message_or_callback.answer(
-                    t("admin_access_denied", language),
-                    show_alert=True,
-                )
-            else:
-                await message_or_callback.answer(
-                    t("admin_access_denied", language)
-                )
+            await target_message.answer(
+                t("admin_access_denied", language)
+            )
             return
 
         try:
@@ -13993,13 +13986,7 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
                     tenant_id=tenant_id,
                 )
         except ModerationError as exc:
-            if isinstance(message_or_callback, CallbackQuery):
-                await message_or_callback.answer(
-                    str(exc),
-                    show_alert=True,
-                )
-            else:
-                await message_or_callback.answer(str(exc))
+            await target_message.answer(str(exc))
             return
 
         await target_message.answer(
@@ -14010,9 +13997,6 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
                 show_role_switch=show_role_switch,
             ),
         )
-
-        if isinstance(message_or_callback, CallbackQuery):
-            await message_or_callback.answer()
 
         return
 
@@ -14044,10 +14028,6 @@ async def show_admin_panel(message_or_callback, state: FSMContext | None = None)
             show_role_switch=show_role_switch,
         ),
     )
-
-    if isinstance(message_or_callback, CallbackQuery):
-        await message_or_callback.answer()
-
 
 @admin_router.message(Command("admin"))
 async def admin_command(message: Message, state: FSMContext):
@@ -23517,40 +23497,22 @@ async def receive_support_reply(message: Message, state: FSMContext):
 
     try:
         async with get_session() as session:
-            service = SupportService(SupportRepository(session))
-            await service.add_staff_message(
+            reply_result = await SupportService(
+                SupportRepository(session)
+            ).add_staff_message(
                 tenant_id=tenant_id,
                 staff_user_id=admin_user_id,
                 ticket_id=UUID(ticket_id),
                 message_text=message.text or "",
             )
-
-            ticket = await session.get(SupportTicket, UUID(ticket_id))
-            account = None
-            if ticket:
-                account = await UserRepository(session).get_telegram_account_by_user_id(
-                    ticket.user_id
-                )
-            await ModerationRepository(session).log_event(
-                tenant_id=tenant_id,
-                user_id=admin_user_id,
-                event_type="reply",
-                entity_type="support_ticket",
-                entity_id=UUID(ticket_id),
-                payload={
-                    "source": "support_staff",
-                    "message_length": len(message.text or ""),
-                },
-            )
-            await session.commit()
     except SupportServiceError as exc:
         await message.answer(t("support_error", language).format(error=str(exc)))
         return
 
-    if account and account.platform_user_id:
+    if reply_result.recipient_chat_id is not None:
         try:
             await message.bot.send_message(
-                chat_id=int(account.platform_user_id),
+                chat_id=reply_result.recipient_chat_id,
                 text=t("support_staff_reply_received", language).format(
                     ticket_id=str(ticket_id)[:8],
                     message=message.text or "",
@@ -27984,9 +27946,15 @@ async def list_pending_payments(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
     await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)
 
-async def show_pending_payment(callback: CallbackQuery, state: FSMContext, index: int):
+async def show_pending_payment(
+    callback: CallbackQuery,
+    state: FSMContext,
+    index: int,
+):
     data = await state.get_data()
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     ids = data.get("admin_payment_ids") or []
 
     if not ids:
@@ -27999,23 +27967,44 @@ async def show_pending_payment(callback: CallbackQuery, state: FSMContext, index
 
     index = max(0, min(int(index), len(ids) - 1))
 
-    async with get_session() as session:
-        payment = await session.get(Payment, UUID(ids[index]))
-        invoice = await session.get(Invoice, payment.invoice_id) if payment else None
+    admin_user_id, _, _ = await get_admin_user_context(
+        callback.from_user.id
+    )
 
-    if not payment:
-        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+    if not admin_user_id:
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            card = await BillingService(
+                BillingRepository(session)
+            ).get_pending_manual_payment_card(
+                admin_user_id=admin_user_id,
+                payment_id=UUID(ids[index]),
+            )
+    except (BillingError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
         return
 
     await callback.message.answer(
         format_pending_payment_card(
-            payment,
-            invoice,
+            card,
             index=index,
             total=len(ids),
             language=language,
         ),
-        reply_markup=pending_payment_keyboard(index, len(ids), language),
+        reply_markup=pending_payment_keyboard(
+            index,
+            len(ids),
+            language,
+        ),
     )
     await callback.answer()
 

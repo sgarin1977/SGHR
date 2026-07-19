@@ -735,13 +735,11 @@ async def view_my_support_ticket(callback: CallbackQuery, state: FSMContext):
         await callback.answer(str(exc), show_alert=True)
         return
 
-    can_reply = view.ticket.status not in {"resolved", "closed", "rejected"}
-
     await callback.message.answer(
         format_support_ticket_view(view, language),
         reply_markup=support_ticket_view_keyboard(
             index=index,
-            can_reply=can_reply,
+            can_reply=view.can_reply,
             language=language,
         ),
     )

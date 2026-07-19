@@ -14,24 +14,31 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 from services.user import UserService
-from database.models import User
 from database.repositories.contact import ContactChatRepository
 from database.repositories.event import EventRepository
 from database.repositories.geo_repository import GeoRepository
 from database.repositories.rate_limit import RateLimitRepository
 from database.repositories.search import SpecialistSearchRepository
 from database.repositories.specialist import SpecialistRepository
-from database.repositories.user import UserRepository
 from database.repositories.moderation import ModerationRepository
 from database.repositories.translation import TranslationRepository
 from database.session import get_session
 from handlers.start import get_main_menu_keyboard_for_user
 from services.contact_chat import ContactChatError, ContactChatService
-from services.geo_search import GeoSearchService, SpecialistPublicCard
+from services.geo_search import (
+    EmptySearchEvent,
+    GeoSearchService,
+    SearchResultsViewedEvent,
+    SpecialistPublicCard,
+    PublicCardViewEvent,
+)
 from services.geo_service import GeoService, GeoServiceError
 from services.moderation import ModerationError, ModerationService
 from services.rate_limit import RateLimitError, RateLimitService
-from services.specialist import SpecialistSearchTextService
+from services.specialist import (
+    SpecialistSearchSelectionService,
+    SpecialistSearchTextService,
+)
 from services.translation import TranslationError, TranslationService
 from ui.texts import t
 from utils.telegram_cleanup import (
@@ -78,13 +85,23 @@ async def get_interface_language(
     language = normalize_language(fallback_language)
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(telegram_id)
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            telegram_id
+        )
+
         if not user:
             return language
 
-        settings = await TranslationRepository(session).get_language_settings(user.id)
-        await session.commit()
-        return normalize_language(settings.interface_language or user.language_code)
+        resolved_language = await TranslationService(
+            TranslationRepository(session)
+        ).resolve_interface_language(
+            user_id=user.id,
+            fallback_language=user.language_code,
+        )
+
+    return normalize_language(resolved_language)
 
 async def get_search_language(state: FSMContext, event: CallbackQuery | Message) -> str:
     data = await state.get_data()
@@ -194,20 +211,24 @@ async def show_callback_message(
             reply_markup=reply_markup,
         )
 
-async def get_requester_context(platform_user_id: int | str) -> tuple[UUID | None, UUID | None]:
+async def get_requester_context(
+    platform_user_id: int | str,
+) -> tuple[UUID | None, UUID | None]:
     async with get_session() as session:
-        account = await UserRepository(session).get_by_platform_account(
-            "telegram",
-            str(platform_user_id),
+        context = await UserService(
+            session
+        ).get_requester_context(
+            platform_user_id
         )
-        if not account:
-            return None, None
 
-        user = await session.get(User, account.user_id)
-        if not user:
-            return account.user_id, None
+    if not context:
+        return None, None
 
-        return user.id, user.tenant_id
+    return (
+        context.user_id,
+        context.tenant_id,
+    )
+
 async def store_post_auth_action(
     *,
     callback: CallbackQuery,
@@ -297,13 +318,20 @@ async def resume_post_auth_action(
     if action == "favorite":
         try:
             async with get_session() as session:
-                is_saved = await FavoriteRepository(session).toggle_specialist(
+                is_saved = await FavoriteService(
+                    FavoriteRepository(session)
+                ).toggle_specialist(
                     tenant_id=tenant_id,
                     user_id=user_id,
-                    specialist_id=UUID(specialist_id),
+                    specialist_id=UUID(
+                        specialist_id
+                    ),
                 )
+
         except ValueError as exc:
-            await message.answer(str(exc))
+            await message.answer(
+                str(exc)
+            )
             return True
 
         text_key = "favorite_saved" if is_saved else "favorite_removed"
@@ -327,6 +355,22 @@ def callback_index(callback: CallbackQuery) -> int | None:
         return int((callback.data or "").split(":", 1)[1])
     except (IndexError, TypeError, ValueError):
         return None
+
+async def load_search_profession_options(
+    *,
+    category_id: UUID | None,
+    language: str,
+):
+    async with get_session() as session:
+        return await (
+            SpecialistSearchSelectionService(
+                SpecialistRepository(session)
+            ).list_profession_options(
+                category_id=category_id,
+                language=language,
+                limit=100,
+            )
+        )
 
 def telegram_chat_id(platform_user_id: str | int | None) -> int | None:
     if platform_user_id is None:
@@ -955,24 +999,13 @@ async def render_public_portfolio(
         async with get_session() as session:
             items = await PortfolioService(
                 PortfolioRepository(session)
-            ).list_active_items(
+            ).list_active_items_for_viewer(
                 tenant_id=tenant_id,
                 specialist_id=UUID(specialist_id),
+                viewer_user_id=requester_user_id,
+                page=page,
             )
 
-            await EventRepository(session).create_event(
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                event_type="portfolio_viewed",
-                entity_type="specialist",
-                entity_id=UUID(specialist_id),
-                payload={
-                    "page": max(int(page), 0),
-                    "total_count": len(items),
-                },
-                platform="telegram",
-            )
-            await session.commit()
     except PortfolioServiceError as exc:
         logger.warning(
             "public_portfolio_load_failed specialist_id=%s error=%s",
@@ -1754,18 +1787,18 @@ async def translate_message_for_notification(
     message_id: UUID,
     receiver_user_id: UUID,
 ) -> tuple[str, bool, str]:
-    try:
-        translation_service = TranslationService(TranslationRepository(session))
-        translated = await translation_service.translate_message(message_id)
-        display = await translation_service.get_message_for_receiver(
-            message_id=message_id,
-            receiver_user_id=receiver_user_id,
-        )
-        return display.display_text, translated.used_translation, translated.translation_status
-    except TranslationError:
-        message = await TranslationRepository(session).get_message(message_id)
-        return (message.original_text if message else ""), False, "failed"
+    result = await TranslationService(
+        TranslationRepository(session)
+    ).translate_notification_message(
+        message_id=message_id,
+        receiver_user_id=receiver_user_id,
+    )
 
+    return (
+        result.display_text,
+        result.used_translation,
+        result.translation_status,
+    )
 
 def format_search_filters_summary(data: dict, language: str) -> str:
     category = (
@@ -2819,8 +2852,8 @@ async def render_results(
         and visible_results
     ):
         async with get_session() as session:
-            saved_specialist_ids = await FavoriteRepository(
-                session
+            saved_specialist_ids = await FavoriteService(
+                FavoriteRepository(session)
             ).list_saved_specialist_ids(
                 tenant_id=tenant_id,
                 user_id=requester_user_id,
@@ -2830,15 +2863,47 @@ async def render_results(
                 ],
             )
 
-    await log_results_viewed(
-        platform_user_id=platform_user_id,
-        tenant_id=tenant_id,
-        user_id=requester_user_id,
-        page=page,
-        visible_count=len(visible_results),
-        has_next=has_next,
-        data=data,
-    )
+    if requester_user_id and tenant_id:
+        async with get_session() as session:
+            await GeoSearchService(
+                SpecialistSearchRepository(session)
+            ).record_results_viewed(
+                tenant_id=tenant_id,
+                user_id=requester_user_id,
+                event=SearchResultsViewedEvent(
+                    platform_user_id=(
+                        str(platform_user_id)
+                        if platform_user_id is not None
+                        else None
+                    ),
+                    page=page,
+                    visible_count=len(visible_results),
+                    has_next=has_next,
+                    category_id=data.get("category_id"),
+                    profession_id=data.get(
+                        "profession_id"
+                    ),
+                    city_id=data.get("city_id"),
+                    location_state=data.get(
+                        "location_state"
+                    ),
+                    radius_km=data.get("radius_km"),
+                    country_wide=bool(
+                        data.get("country_wide")
+                    ),
+                    sort_by=data.get("sort_by"),
+                    category_name=data.get(
+                        "category_name"
+                    ),
+                    profession_name=data.get(
+                        "profession_name"
+                    ),
+                    city_name=data.get("city_name"),
+                    search_text_query=data.get(
+                        "search_text_query"
+                    ),
+                ),
+            )
 
     await state.update_data(
         results_page=page,
@@ -2849,26 +2914,35 @@ async def render_results(
     if not visible_results:
         if requester_user_id and tenant_id:
             async with get_session() as session:
-                await EventRepository(session).create_event(
-                    event_type="empty_search",
+                await GeoSearchService(
+                    SpecialistSearchRepository(session)
+                ).record_empty_search(
                     tenant_id=tenant_id,
                     user_id=requester_user_id,
-                    entity_type="search",
-                    entity_id=None,
-                    payload={
-                        "page": page,
-                        "category_id": data.get("category_id"),
-                        "profession_id": data.get("profession_id"),
-                        "city_id": data.get("city_id"),
-                        "location_state": data.get("location_state"),
-                        "radius_km": data.get("radius_km"),
-                        "country_wide": bool(data.get("country_wide")),
-                        "language_code": data.get("language_code"),
-                        "work_format": data.get("work_format"),
-                    },
-                    platform="telegram",
+                    event=EmptySearchEvent(
+                        page=page,
+                        category_id=data.get(
+                            "category_id"
+                        ),
+                        profession_id=data.get(
+                            "profession_id"
+                        ),
+                        city_id=data.get("city_id"),
+                        location_state=data.get(
+                            "location_state"
+                        ),
+                        radius_km=data.get("radius_km"),
+                        country_wide=bool(
+                            data.get("country_wide")
+                        ),
+                        language_code=data.get(
+                            "language_code"
+                        ),
+                        work_format=data.get(
+                            "work_format"
+                        ),
+                    ),
                 )
-                await session.commit()
 
         text = format_empty_results_text(data, language)
         keyboard = empty_results_keyboard(data, language)
@@ -2989,47 +3063,6 @@ async def render_results(
         pass
 
 
-async def log_results_viewed(
-    *,
-    platform_user_id: int | str | None,
-    tenant_id,
-    user_id,
-    page: int,
-    visible_count: int,
-    has_next: bool,
-    data: dict,
-):
-    if not user_id or not tenant_id:
-        return
-
-    async with get_session() as session:
-        await EventRepository(session).create_event(
-            event_type="results_viewed",
-            tenant_id=tenant_id,
-            user_id=user_id,
-            entity_type="search",
-            entity_id=None,
-            payload={
-                "telegram_id": str(platform_user_id) if platform_user_id is not None else None,
-                "page": page,
-                "visible_count": visible_count,
-                "has_next": has_next,
-                "category_id": data.get("category_id"),
-                "profession_id": data.get("profession_id"),
-                "city_id": data.get("city_id"),
-                "location_state": data.get("location_state"),
-                "radius_km": data.get("radius_km"),
-                "country_wide": bool(data.get("country_wide")),
-                "sort_by": data.get("sort_by"),
-                "category_name": data.get("category_name"),
-                "profession_name": data.get("profession_name"),
-                "city_name": data.get("city_name"),
-                "search_text_query": data.get("search_text_query"),
-            },
-            platform="telegram",
-        )
-        await session.commit()
-
 @search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))
 async def start_search(callback: CallbackQuery, state: FSMContext):
     await state.clear()
@@ -3037,18 +3070,13 @@ async def start_search(callback: CallbackQuery, state: FSMContext):
     requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
     if requester_user_id and tenant_id:
         async with get_session() as session:
-            await EventRepository(session).create_event(
-                event_type="search_opened",
+            await GeoSearchService(
+                SpecialistSearchRepository(session)
+            ).record_search_opened(
                 tenant_id=tenant_id,
                 user_id=requester_user_id,
-                entity_type="search",
-                entity_id=None,
-                payload={
-                    "source": callback.data,
-                },
-                platform="telegram",
+                source=callback.data,
             )
-            await session.commit()
     await state.update_data(
         user_language=language,
         category_id=None,
@@ -3119,13 +3147,15 @@ async def show_search_history(callback: CallbackQuery, state: FSMContext):
         return
 
     async with get_session() as session:
-        events = await SpecialistSearchRepository(session).list_recent_search_events(
+        history_items = await GeoSearchService(
+            SpecialistSearchRepository(session)
+        ).list_recent_search_history(
             tenant_id=tenant_id,
             user_id=requester_user_id,
             limit=5,
         )
 
-    if not events:
+    if not history_items:
         await callback.message.answer(
             t("search_history_empty", language),
             reply_markup=search_history_keyboard(language),
@@ -3135,11 +3165,20 @@ async def show_search_history(callback: CallbackQuery, state: FSMContext):
 
     lines = [t("search_history_title", language), ""]
 
-    for index, event in enumerate(events, start=1):
+    for index, payload in enumerate(
+        history_items,
+        start=1,
+    ):
         lines.append(
-            t("search_history_item", language).format(
+            t(
+                "search_history_item",
+                language,
+            ).format(
                 number=index,
-                query=format_search_history_item(event.payload or {}, language),
+                query=format_search_history_item(
+                    payload,
+                    language,
+                ),
             )
         )
 
@@ -3159,17 +3198,16 @@ async def receive_text_search_query(message: Message, state: FSMContext):
         return
 
     async with get_session() as session:
-        specialist_repository = SpecialistRepository(session)
-        parsed_query = await SpecialistSearchTextService(
-            specialist_repository
-        ).parse_text_query(
+        search_result = await SpecialistSearchTextService(
+            SpecialistRepository(session)
+        ).search(
             query,
             language=language,
-        )
-        professions = await specialist_repository.search_professions_by_text(
-            parsed_query.profession_query,
             limit=10,
         )
+
+    parsed_query = search_result.parsed_query
+    professions = list(search_result.professions)
 
     if not professions:
         await message.answer(
@@ -3259,7 +3297,14 @@ async def open_category_filter(callback: CallbackQuery, state: FSMContext):
         data.get("selected_profession_names") or []
     )
     async with get_session() as session:
-        categories = await SpecialistRepository(session).list_active_categories(limit=100)
+        categories = await (
+            SpecialistSearchSelectionService(
+                SpecialistRepository(session)
+            ).list_active_categories(
+                language=language,
+                limit=100,
+            )
+        )
 
     if not categories:
         await callback.message.answer(t("search_categories_missing", language))
@@ -3332,10 +3377,13 @@ async def paginate_categories(
     )
 
     async with get_session() as session:
-        categories = await SpecialistRepository(
-            session
-        ).list_active_categories(
-            limit=100,
+        categories = await (
+            SpecialistSearchSelectionService(
+                SpecialistRepository(session)
+            ).list_active_categories(
+                language=language,
+                limit=100,
+            )
         )
 
     await state.update_data(
@@ -3391,39 +3439,38 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
+    requester_user_id, tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
+
     async with get_session() as session:
-        category = await SpecialistRepository(session).get_active_category(
-            UUID(category_ids[index])
+        selection = await SpecialistSearchSelectionService(
+            SpecialistRepository(session)
+        ).select_category(
+            category_id=UUID(category_ids[index]),
+            language=language,
+            tenant_id=tenant_id,
+            user_id=requester_user_id,
         )
 
-        requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-        if category and requester_user_id and tenant_id:
-            await EventRepository(session).create_event(
-                event_type="category_selected",
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                entity_type="specialist_category",
-                entity_id=category.id,
-                payload={
-                    "category_name": item_name(category, language),
-                },
-                platform="telegram",
-            )
-            await session.commit()
-
-    if not category:
-        await callback.message.answer(t("search_category_not_found", language))
+    if not selection:
+        await callback.message.answer(
+            t("search_category_not_found", language)
+        )
         await callback.answer()
         return
 
     await state.update_data(
-        category_id=str(category.id),
-        category_name=item_name(category, language),
+        category_id=str(selection.category_id),
+        category_name=selection.category_name,
         profession_id=None,
         profession_name=None,
         location_state="without",
         page=0,
     )
+
     await open_profession_filter(callback, state)
 
 
@@ -3445,24 +3492,12 @@ async def open_profession_filter(
         else None
     )
 
-    async with get_session() as session:
-        repository = SpecialistRepository(session)
-
-        if category_id:
-            professions = (
-                await repository
-                .list_active_professions_by_category(
-                    category_id,
-                    limit=100,
-                )
-            )
-        else:
-            professions = (
-                await repository
-                .list_active_professions(
-                    limit=100,
-                )
-            )
+    professions = (
+        await load_search_profession_options(
+            category_id=category_id,
+            language=language,
+        )
+    )
 
     if not professions:
         await callback.message.answer(
@@ -3525,14 +3560,12 @@ async def paginate_professions(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
 
-    async with get_session() as session:
-        if category_id:
-            professions = await SpecialistRepository(session).list_active_professions_by_category(
-                category_id,
-                limit=100,
-            )
-        else:
-            professions = await SpecialistRepository(session).list_active_professions(limit=100)
+    professions = (
+        await load_search_profession_options(
+            category_id=category_id,
+            language=language,
+        )
+    )
     await state.update_data(
         profession_ids=[str(item.id) for item in professions],
         profession_page=page,
@@ -3581,24 +3614,12 @@ async def select_all_professions(
         data.get("profession_page") or 0
     )
 
-    async with get_session() as session:
-        repository = SpecialistRepository(session)
-
-        if category_id:
-            professions = (
-                await repository
-                .list_active_professions_by_category(
-                    category_id,
-                    limit=100,
-                )
-            )
-        else:
-            professions = (
-                await repository
-                .list_active_professions(
-                    limit=100,
-                )
-            )
+    professions = (
+        await load_search_profession_options(
+            category_id=category_id,
+            language=language,
+        )
+    )
 
     selected_ids = list(
         data.get("selected_profession_ids") or []
@@ -3665,16 +3686,38 @@ async def toggle_profession(callback: CallbackQuery, state: FSMContext):
     selected_ids = list(data.get("selected_profession_ids") or [])
     selected_names = list(data.get("selected_profession_names") or [])
 
+    category_id = (
+        UUID(data["category_id"])
+        if data.get("category_id")
+        else None
+    )
+
     async with get_session() as session:
-        profession = await SpecialistRepository(session).get_active_profession(
-            UUID(profession_id)
+        selection = await (
+            SpecialistSearchSelectionService(
+                SpecialistRepository(session)
+            ).select_profession(
+                profession_id=UUID(
+                    profession_id
+                ),
+                category_id=category_id,
+                language=language,
+            )
         )
 
-    if not profession:
-        await callback.answer(t("search_profession_not_found", language), show_alert=True)
+    if not selection:
+        await callback.answer(
+            t(
+                "search_profession_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    profession_name = item_name(profession, language)
+    profession_name = (
+        selection.profession_name
+    )
 
     if profession_id in selected_ids:
         remove_index = selected_ids.index(profession_id)
@@ -3691,17 +3734,16 @@ async def toggle_profession(callback: CallbackQuery, state: FSMContext):
         profession_page=int(data.get("profession_page") or 0),
     )
 
-    page = int(data.get("profession_page") or 0)
-    category_id = UUID(data["category_id"]) if data.get("category_id") else None
+    page = int(
+        data.get("profession_page") or 0
+    )
 
-    async with get_session() as session:
-        if category_id:
-            professions = await SpecialistRepository(session).list_active_professions_by_category(
-                category_id,
-                limit=100,
-            )
-        else:
-            professions = await SpecialistRepository(session).list_active_professions(limit=100)
+    professions = (
+        await load_search_profession_options(
+            category_id=category_id,
+            language=language,
+        )
+    )
 
     await show_callback_message(
         callback,
@@ -3734,14 +3776,12 @@ async def reset_selected_professions(callback: CallbackQuery, state: FSMContext)
         profession_name=None,
     )
 
-    async with get_session() as session:
-        if category_id:
-            professions = await SpecialistRepository(session).list_active_professions_by_category(
-                category_id,
-                limit=100,
-            )
-        else:
-            professions = await SpecialistRepository(session).list_active_professions(limit=100)
+    professions = (
+        await load_search_profession_options(
+            category_id=category_id,
+            language=language,
+        )
+    )
 
     await show_callback_message(
         callback,
@@ -3797,38 +3837,33 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
 
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
 
+    requester_user_id, tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
+
     async with get_session() as session:
-        profession = await SpecialistRepository(session).get_active_profession(
-            UUID(profession_ids[index])
+        selection = await SpecialistSearchSelectionService(
+            SpecialistRepository(session)
+        ).select_profession(
+            profession_id=UUID(profession_ids[index]),
+            category_id=category_id,
+            language=language,
+            tenant_id=tenant_id,
+            user_id=requester_user_id,
         )
 
-        if profession and category_id and profession.category_id != category_id:
-            profession = None
-
-        requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-        if profession and requester_user_id and tenant_id:
-            await EventRepository(session).create_event(
-                event_type="profession_selected",
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                entity_type="profession",
-                entity_id=profession.id,
-                payload={
-                    "profession_name": item_name(profession, language),
-                    "category_id": str(category_id) if category_id else None,
-                },
-                platform="telegram",
-            )
-            await session.commit()
-
-    if not profession:
-        await callback.message.answer(t("search_profession_not_found", language))
+    if not selection:
+        await callback.message.answer(
+            t("search_profession_not_found", language)
+        )
         await callback.answer()
         return
 
     await state.update_data(
-        profession_id=str(profession.id),
-        profession_name=item_name(profession, language),
+        profession_id=str(selection.profession_id),
+        profession_name=selection.profession_name,
         location_state="without",
         page=0,
     )
@@ -3839,21 +3874,21 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
 async def open_location_filter(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
 
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    requester_user_id, tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
+
     if requester_user_id and tenant_id:
         async with get_session() as session:
-            await EventRepository(session).create_event(
-                event_type="location_opened",
+            await GeoSearchService(
+                SpecialistSearchRepository(session)
+            ).record_location_opened(
                 tenant_id=tenant_id,
                 user_id=requester_user_id,
-                entity_type="search",
-                entity_id=None,
-                payload={
-                    "source": "search_filter",
-                },
-                platform="telegram",
+                source="search_filter",
             )
-            await session.commit()
 
     await show_callback_message(
         callback,
@@ -4102,46 +4137,21 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
     candidate = candidates[index]
 
     try:
-        actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+        actor_user_id, tenant_id = (
+            await get_requester_context(
+                callback.from_user.id
+            )
+        )
+
         async with get_session() as session:
-            if actor_user_id and tenant_id:
-                await RateLimitService(
-                    RateLimitRepository(session)
-                ).ensure_geo_change_allowed(
-                    tenant_id=tenant_id,
-                    user_id=actor_user_id,
-                )
-
-            place = await GeoService(GeoRepository(session)).confirm_place(candidate)
-
-            if actor_user_id and tenant_id:
-                await EventRepository(session).create_event(
-                    event_type="geo_change",
-                    tenant_id=tenant_id,
-                    user_id=actor_user_id,
-                    entity_type="city",
-                    entity_id=place.city_id,
-                    payload={
-                        "source": "search_filter",
-                        "country_id": str(place.country_id),
-                    },
-                    platform="telegram",
-                )
-                await EventRepository(session).create_event(
-                    event_type="location_selected",
-                    tenant_id=tenant_id,
-                    user_id=actor_user_id,
-                    entity_type="city",
-                    entity_id=place.city_id,
-                    payload={
-                        "source": "search_filter",
-                        "country_id": str(place.country_id),
-                        "city_name": place.city_name,
-                        "location_state": "selected",
-                    },
-                    platform="telegram",
-                )
-                await session.commit()
+            place = await GeoService(
+                GeoRepository(session)
+            ).confirm_search_place(
+                candidate,
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                source="search_filter",
+            )
 
         logger.info(
             "search_geo_place_confirmed telegram_id=%s city_id=%s country_id=%s",
@@ -4188,26 +4198,26 @@ async def log_search_filters_changed(
     callback: CallbackQuery,
     *,
     filter_name: str,
-    value,
-):
-    actor_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    value: str | int | float | bool | None,
+) -> None:
+    actor_user_id, tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
+
     if not actor_user_id or not tenant_id:
         return
 
     async with get_session() as session:
-        await EventRepository(session).create_event(
-            event_type="filters_changed",
+        await GeoSearchService(
+            SpecialistSearchRepository(session)
+        ).record_filter_changed(
             tenant_id=tenant_id,
             user_id=actor_user_id,
-            entity_type="search",
-            entity_id=None,
-            payload={
-                "filter": filter_name,
-                "value": value,
-            },
-            platform="telegram",
+            filter_name=filter_name,
+            value=value,
         )
-        await session.commit()
 
 @search_router.callback_query(F.data == "search_filter_radius")
 async def open_radius_filter(callback: CallbackQuery, state: FSMContext):
@@ -4601,16 +4611,35 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    distance_km = distances[index] if index < len(distances) else None
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
+    distance_km = (
+        distances[index]
+        if index < len(distances)
+        else None
+    )
+    results_page = int(
+        data.get("results_page") or 0
+    )
+    requester_user_id, tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
 
     async with get_session() as session:
-        card = await GeoSearchService(SpecialistSearchRepository(session)).get_public_card(
-            specialist_id=UUID(specialist_ids[index]),
-            requester_user_id=requester_user_id,
+        card = await GeoSearchService(
+            SpecialistSearchRepository(session)
+        ).get_public_card_for_viewer(
+            specialist_id=UUID(
+                specialist_ids[index]
+            ),
+            viewer_user_id=requester_user_id,
             tenant_id=tenant_id,
-            distance_km=distance_km,
-            log_event=True,
+            event=PublicCardViewEvent(
+                source="search_results",
+                results_page=results_page,
+                result_index=index,
+                distance_km=distance_km,
+            ),
             language=language,
         )
 
@@ -4618,44 +4647,11 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if requester_user_id and tenant_id:
-        async with get_session() as session:
-            await EventRepository(session).create_event(
-                event_type="card_viewed",
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                entity_type="specialist",
-                entity_id=UUID(specialist_ids[index]),
-                payload={
-                    "source": "search_results",
-                    "results_page": data.get("results_page"),
-                    "result_index": index,
-                    "distance_km": distance_km,
-                },
-                platform="telegram",
-            )
-            await EventRepository(session).create_event(
-                event_type="profile_viewed",
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                entity_type="specialist",
-                entity_id=UUID(specialist_ids[index]),
-                payload={
-                    "source": "search_results",
-                    "results_page": data.get("results_page"),
-                    "result_index": index,
-                },
-                platform="telegram",
-            )
-            await session.commit()
-
     await state.update_data(
         selected_specialist_id=specialist_ids[index],
         selected_specialist_distance=distance_km,
     )
 
-    results_page = int(data.get("results_page") or 0)
     await show_callback_message(
         callback,
         format_public_card(card, language),
@@ -4735,26 +4731,14 @@ async def render_selected_specialist_reviews(
         async with get_session() as session:
             review_page = await ReviewService(
                 ReviewRepository(session)
-            ).list_public_reviews_for_specialist(
+            ).list_public_reviews_for_viewer(
                 tenant_id=tenant_id,
                 specialist_id=UUID(specialist_id),
+                viewer_user_id=requester_user_id,
                 page=page,
                 page_size=PUBLIC_REVIEW_PAGE_SIZE,
             )
 
-            await EventRepository(session).create_event(
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                event_type="reviews_viewed",
-                entity_type="specialist",
-                entity_id=UUID(specialist_id),
-                payload={
-                    "page": review_page.page,
-                    "total_count": review_page.total_count,
-                },
-                platform="telegram",
-            )
-            await session.commit()
     except ReviewServiceError as exc:
         await callback.answer(str(exc), show_alert=True)
         return
@@ -5060,21 +5044,22 @@ async def receive_thread_message(message: Message, state: FSMContext):
                 attachment=attachment,
             )
 
-            receiver_language_code = await UserRepository(
+            delivery_context = await UserService(
                 session
-            ).get_language_code(
-                result.receiver_user_id
+            ).get_telegram_delivery_context(
+                user_id=result.receiver_user_id,
             )
-            if receiver_language_code:
-                receiver_language = normalize_language(
-                    receiver_language_code
+
+            if delivery_context.language_code:
+                receiver_language = (
+                    normalize_language(
+                        delivery_context.language_code
+                    )
                 )
 
-            receiver_account = await UserRepository(session).get_telegram_account_by_user_id(
-                result.receiver_user_id
+            receiver_platform_user_id = (
+                delivery_context.platform_user_id
             )
-            if receiver_account:
-                receiver_platform_user_id = receiver_account.platform_user_id
 
             receiver_notification_message, receiver_used_translation, receiver_translation_status = await translate_message_for_notification(
                 session=session,

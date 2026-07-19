@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from uuid import UUID, uuid4
 
 from database.models import FileStorageObject, SpecialistPortfolioItem
+from database.repositories.event import EventRepository
 from database.repositories.moderation import (
     ModerationAccessError,
     ModerationNotFoundError,
@@ -33,6 +34,13 @@ class PortfolioItemView:
     storage_object: FileStorageObject
     signed_url: str | None
 
+@dataclass(frozen=True)
+class OwnerPortfolioPage:
+    items: tuple[PortfolioItemView, ...]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
 
 class PortfolioService:
     def __init__(
@@ -41,6 +49,7 @@ class PortfolioService:
         storage: SupabasePortfolioStorage | None = None,
     ):
         self.repository = repository
+        self.events = EventRepository(repository.session)
         self.storage = storage or SupabasePortfolioStorage()
         self.signed_url_ttl = int(
             os.getenv(
@@ -120,7 +129,32 @@ class PortfolioService:
                 )
             )
 
+            await self.events.create_event(
+                tenant_id=tenant_id,
+                user_id=owner_user_id,
+                event_type="portfolio_uploaded",
+                entity_type="user",
+                entity_id=owner_user_id,
+                payload={
+                    "filename": filename,
+                    "mime_type": (
+                        validated.mime_type
+                    ),
+                    "size_bytes": (
+                        validated.size_bytes
+                    ),
+                    "has_caption": bool(
+                        normalized_description
+                    ),
+                    "status": (
+                        "pending_moderation"
+                    ),
+                },
+                platform="telegram",
+            )
+
             await self.repository.session.commit()
+
             return item
 
         except (PortfolioRepositoryError, PortfolioStorageError) as exc:
@@ -172,6 +206,69 @@ class PortfolioService:
         except (PortfolioRepositoryError, PortfolioStorageError) as exc:
             raise PortfolioServiceError(str(exc)) from exc
 
+    async def list_owner_items_page(
+        self,
+        *,
+        tenant_id: UUID,
+        owner_user_id: UUID,
+        page: int = 0,
+        page_size: int = 5,
+    ) -> OwnerPortfolioPage:
+        normalized_page = max(int(page), 0)
+        normalized_page_size = max(
+            1,
+            min(int(page_size), 20),
+        )
+
+        items = await self.list_owner_items(
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+        )
+
+        total = len(items)
+        start = normalized_page * normalized_page_size
+        page_items = tuple(
+            items[start:start + normalized_page_size]
+        )
+        total_pages = max(
+            1,
+            (
+                total
+                + normalized_page_size
+                - 1
+            )
+            // normalized_page_size,
+        )
+
+        try:
+            await self.events.create_event(
+                tenant_id=tenant_id,
+                user_id=owner_user_id,
+                event_type="portfolio_list",
+                entity_type="user",
+                entity_id=owner_user_id,
+                payload={
+                    "page": normalized_page,
+                    "count": len(page_items),
+                    "total": total,
+                },
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise PortfolioServiceError(
+                "Unable to record portfolio list view."
+            ) from exc
+
+        return OwnerPortfolioPage(
+            items=page_items,
+            page=normalized_page,
+            page_size=normalized_page_size,
+            total=total,
+            total_pages=total_pages,
+        )
+
     async def list_active_items(
         self,
         *,
@@ -186,6 +283,41 @@ class PortfolioService:
             return await self._create_views(rows)
         except (PortfolioRepositoryError, PortfolioStorageError) as exc:
             raise PortfolioServiceError(str(exc)) from exc
+
+    async def list_active_items_for_viewer(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        viewer_user_id: UUID,
+        page: int = 0,
+    ) -> list[PortfolioItemView]:
+        items = await self.list_active_items(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+        )
+
+        try:
+            await self.events.create_event(
+                tenant_id=tenant_id,
+                user_id=viewer_user_id,
+                event_type="portfolio_viewed",
+                entity_type="specialist",
+                entity_id=specialist_id,
+                payload={
+                    "page": max(int(page), 0),
+                    "total_count": len(items),
+                },
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise PortfolioServiceError(
+                "Unable to record portfolio view."
+            ) from exc
+
+        return items
 
     async def list_pending_items(
         self,

@@ -5,8 +5,11 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import User
+from database.models import Specialist, User
 from database.repositories.user import UserRepository
+from database.repositories.specialist import (
+    SpecialistRepository,
+)
 from database.repositories.event import EventRepository
 from database.repositories.rate_limit import RateLimitRepository
 from services.rate_limit import RateLimitService
@@ -52,12 +55,64 @@ class PublicPlatformStats:
     users: int
     specialists: int
 
+@dataclass(frozen=True)
+class RequesterContextResult:
+    user_id: uuid.UUID
+    tenant_id: uuid.UUID | None
+
+@dataclass(frozen=True)
+class TelegramDeliveryContext:
+    platform_user_id: str | None
+    language_code: str | None
+
+@dataclass(frozen=True)
+class SpecialistUserContext:
+    user: User
+    specialist: Specialist | None
+    tenant_id: uuid.UUID
+
+@dataclass(frozen=True)
+class ClientCabinetContext:
+    show_role_switch: bool
+    show_specialist_registration: bool
+
+STAFF_PANEL_ROLES = frozenset(
+    {
+        "support",
+        "moderator",
+        "finance_admin",
+        "advertiser",
+        "admin",
+        "super_admin",
+    }
+)
 
 class UserService:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.repository = UserRepository(session)
         self.events = EventRepository(session)
+
+    @staticmethod
+    def resolve_staff_panel_role(
+        active_role: str | None,
+        available_roles: set[str] | list[str],
+    ) -> str | None:
+        roles = set(available_roles)
+
+        if (
+            active_role in STAFF_PANEL_ROLES
+            and active_role in roles
+        ):
+            return active_role
+
+        if "super_admin" in roles:
+            return "super_admin"
+
+        if "admin" in roles:
+            return "admin"
+
+        return None
 
     def resolve_telegram_role(self, platform_user_id: str) -> str:
         admin_ids = {
@@ -80,7 +135,84 @@ class UserService:
         if not account:
             return None
 
-        return await self.session.get(User, account.user_id)
+        return await self.repository.get_by_id(
+            account.user_id
+        )
+
+    async def get_specialist_context_by_telegram_id(
+        self,
+        telegram_id: int | str,
+    ) -> SpecialistUserContext | None:
+        user = await self.get_user_by_telegram_id(
+            telegram_id
+        )
+
+        if not user:
+            return None
+
+        specialist = await SpecialistRepository(
+            self.session
+        ).get_by_user_id(
+            user.id
+        )
+
+        return SpecialistUserContext(
+            user=user,
+            specialist=specialist,
+            tenant_id=user.tenant_id,
+        )
+
+    async def get_requester_context(
+        self,
+        telegram_id: int | str,
+    ) -> RequesterContextResult | None:
+        account = await self.repository.get_by_platform_account(
+            platform="telegram",
+            platform_user_id=str(telegram_id),
+        )
+
+        if not account:
+            return None
+
+        user = await self.repository.get_by_id(
+            account.user_id
+        )
+
+        return RequesterContextResult(
+            user_id=account.user_id,
+            tenant_id=(
+                user.tenant_id
+                if user
+                else None
+            ),
+        )
+
+    async def get_telegram_delivery_context(
+        self,
+        *,
+        user_id: uuid.UUID,
+    ) -> TelegramDeliveryContext:
+        language_code = (
+            await self.repository.get_language_code(
+                user_id
+            )
+        )
+
+        account = await (
+            self.repository
+            .get_telegram_account_by_user_id(
+                user_id
+            )
+        )
+
+        return TelegramDeliveryContext(
+            platform_user_id=(
+                account.platform_user_id
+                if account
+                else None
+            ),
+            language_code=language_code,
+        )
 
     async def get_public_platform_stats(self) -> PublicPlatformStats:
         stats = await self.repository.get_public_platform_stats()
@@ -108,6 +240,14 @@ class UserService:
         return await self.get_client_profile_by_user_id(
             user_id=user.id,
             language=language,
+        )
+
+    async def get_user_by_id(
+        self,
+        user_id: uuid.UUID,
+    ) -> Optional[User]:
+        return await self.repository.get_by_id(
+            user_id
         )
 
     async def get_client_profile_by_user_id(
@@ -156,6 +296,7 @@ class UserService:
             active_role=user_row.active_role,
             available_roles=roles,
         )
+    
     async def update_interface_language(
         self,
         *,
@@ -198,6 +339,64 @@ class UserService:
             role_details=role_details,
             unread_counts=unread_counts,
         )
+    
+    async def open_client_cabinet(
+        self,
+        *,
+        telegram_id: int | str,
+        language: str = "ru",
+    ) -> ClientCabinetContext | None:
+        user = await self.get_user_by_telegram_id(
+            telegram_id
+        )
+
+        if not user:
+            return None
+
+        role_context = await self.get_role_switch_context(
+            telegram_id,
+            language,
+        )
+
+        available_roles = set(
+            role_context.available_roles
+            if role_context
+            else []
+        )
+
+        show_role_switch = (
+            len(available_roles) > 1
+        )
+        show_specialist_registration = (
+            "specialist" not in available_roles
+        )
+
+        try:
+            await self.events.create_event(
+                event_type="client_menu_opened",
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                entity_type="user",
+                entity_id=user.id,
+                payload={
+                    "active_role": user.active_role,
+                },
+                platform="telegram",
+            )
+
+            await self.session.commit()
+
+        except Exception:
+            await self.session.rollback()
+            raise
+
+        return ClientCabinetContext(
+            show_role_switch=show_role_switch,
+            show_specialist_registration=(
+                show_specialist_registration
+            ),
+        )
+
     async def switch_active_role(
         self,
         telegram_id: int | str,
@@ -256,7 +455,9 @@ class UserService:
         role = self.resolve_telegram_role(platform_user_id)
 
         if existing_account:
-            user = await self.session.get(User, existing_account.user_id)
+            user = await self.repository.get_by_id(
+                existing_account.user_id
+            )
 
             if user:
                 await RateLimitService(
@@ -314,7 +515,9 @@ class UserService:
             role=role,
         )
 
-        user = await self.session.get(User, user_id)
+        user = await self.repository.get_by_id(
+            user_id
+        )
 
         if user:
             await RateLimitService(
@@ -380,8 +583,12 @@ async def create_or_update_user(
         )
     )
 
-    user = await session.get(User, result.user_id)
+    user = await service.get_user_by_id(
+        result.user_id
+    )
     if not user:
-        raise RuntimeError("Telegram user was created but could not be loaded.")
+        raise RuntimeError(
+            "Telegram user was created but could not be loaded."
+        )
 
     return user

@@ -10,7 +10,9 @@ from database.repositories.billing import (
     BillingRepository,
     BillingValidationError,
 )
-
+from database.repositories.event import (
+    EventRepository,
+)
 
 class BillingError(Exception):
     pass
@@ -29,6 +31,15 @@ class BillingPaymentResult:
     status: str
     message: str
 
+@dataclass(frozen=True)
+class PendingManualPaymentCard:
+    payment_id: UUID
+    invoice_id: UUID
+    amount: Decimal
+    currency: str
+    payment_status: str
+    invoice_status: str | None
+    payment_method: str
 
 @dataclass(frozen=True)
 class BillingMarkPaidResult:
@@ -41,6 +52,43 @@ class BillingMarkPaidResult:
 class BillingService:
     def __init__(self, repository: BillingRepository):
         self.repository = repository
+
+    async def record_unavailable_feature_opened(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        feature: str,
+        source: str,
+    ) -> None:
+        normalized_feature = (
+            feature or "unknown"
+        ).strip()[:100]
+
+        normalized_source = (
+            source or "unknown"
+        ).strip()[:100]
+
+        try:
+            await EventRepository(
+                self.repository.session
+            ).create_event(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                event_type="placeholder_opened",
+                entity_type="feature",
+                payload={
+                    "feature": normalized_feature,
+                    "source": normalized_source,
+                },
+                platform="telegram",
+            )
+
+            await self.repository.session.commit()
+
+        except Exception:
+            await self.repository.session.rollback()
+            raise
 
     async def list_paid_features(self, *, tenant_id: UUID) -> list[PaidFeature]:
         try:
@@ -128,6 +176,43 @@ class BillingService:
             )
         except BillingAccessError as exc:
             raise BillingError(str(exc)) from exc
+
+    async def get_pending_manual_payment_card(
+        self,
+        *,
+        admin_user_id: UUID,
+        payment_id: UUID,
+    ) -> PendingManualPaymentCard:
+        try:
+            payment, invoice = (
+                await self.repository.get_pending_manual_payment(
+                    admin_user_id=admin_user_id,
+                    payment_id=payment_id,
+                )
+            )
+        except (
+            BillingAccessError,
+            BillingNotFoundError,
+        ) as exc:
+            raise BillingError(str(exc)) from exc
+
+        return PendingManualPaymentCard(
+            payment_id=payment.id,
+            invoice_id=(
+                invoice.id
+                if invoice
+                else payment.invoice_id
+            ),
+            amount=Decimal(str(payment.amount)),
+            currency=payment.currency,
+            payment_status=payment.status,
+            invoice_status=(
+                invoice.status
+                if invoice
+                else None
+            ),
+            payment_method=payment.payment_method,
+        )
 
     async def mark_payment_paid(
         self,

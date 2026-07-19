@@ -36,6 +36,15 @@ class UserRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_by_id(
+        self,
+        user_id: uuid.UUID,
+    ) -> Optional[User]:
+        return await self.session.get(
+            User,
+            user_id,
+        )
+
     async def get_telegram_account_by_user_id(
         self,
         user_id: uuid.UUID,

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from database.models import Specialist
+from database.repositories.event import EventRepository
 from database.repositories.search import (
     SpecialistSearchFilters,
     SpecialistSearchRepository,
@@ -46,10 +47,340 @@ class SpecialistPublicCard:
     is_premium: bool = False
     distance_km: float | None = None
 
+@dataclass(frozen=True)
+class SearchResultsViewedEvent:
+    platform_user_id: str | None
+    page: int
+    visible_count: int
+    has_next: bool
+    category_id: str | None
+    profession_id: str | None
+    city_id: str | None
+    location_state: str | None
+    radius_km: int | float | None
+    country_wide: bool
+    sort_by: str | None
+    category_name: str | None
+    profession_name: str | None
+    city_name: str | None
+    search_text_query: str | None
+
+@dataclass(frozen=True)
+class EmptySearchEvent:
+    page: int
+    category_id: str | None
+    profession_id: str | None
+    city_id: str | None
+    location_state: str | None
+    radius_km: int | float | None
+    country_wide: bool
+    language_code: str | None
+    work_format: str | None
+
+@dataclass(frozen=True)
+class PublicCardViewEvent:
+    source: str
+    results_page: int
+    result_index: int
+    distance_km: float | None
+
+SEARCH_FILTER_EVENT_NAMES = frozenset(
+    {
+        "radius",
+        "work_format",
+        "language",
+        "availability",
+        "verified_profile",
+        "rating",
+        "sort",
+        "reset",
+    }
+)
 
 class GeoSearchService:
     def __init__(self, repository: SpecialistSearchRepository):
         self.repository = repository
+        self.events = EventRepository(repository.session)
+
+    async def list_recent_search_history(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        limit: int = 5,
+    ) -> list[dict]:
+        events = await (
+            self.repository
+            .list_recent_search_events(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                limit=limit,
+            )
+        )
+
+        return [
+            dict(event.payload or {})
+            for event in events
+        ]
+
+    async def record_search_opened(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        source: str | None,
+    ) -> None:
+        normalized_source = (
+            (source or "unknown").strip()[:100]
+        )
+
+        try:
+            await self.events.create_event(
+                event_type="search_opened",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="search",
+                entity_id=None,
+                payload={
+                    "source": normalized_source,
+                },
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
+    async def record_location_opened(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        source: str | None,
+    ) -> None:
+        normalized_source = (
+            (source or "search_filter").strip()[:100]
+        )
+
+        try:
+            await self.events.create_event(
+                event_type="location_opened",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="search",
+                entity_id=None,
+                payload={
+                    "source": normalized_source,
+                },
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
+    async def record_filter_changed(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        filter_name: str,
+        value: str | int | float | bool | None,
+    ) -> None:
+        normalized_filter_name = (
+            filter_name or ""
+        ).strip().lower()
+
+        if (
+            normalized_filter_name
+            not in SEARCH_FILTER_EVENT_NAMES
+        ):
+            raise ValueError(
+                "Unsupported search filter event."
+            )
+
+        try:
+            await self.events.create_event(
+                event_type="filters_changed",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="search",
+                entity_id=None,
+                payload={
+                    "filter": normalized_filter_name,
+                    "value": value,
+                },
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
+    async def record_results_viewed(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        event: SearchResultsViewedEvent,
+    ) -> None:
+        try:
+            await self.events.create_event(
+                event_type="results_viewed",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="search",
+                entity_id=None,
+                payload={
+                    "telegram_id": event.platform_user_id,
+                    "page": max(int(event.page), 0),
+                    "visible_count": max(
+                        int(event.visible_count),
+                        0,
+                    ),
+                    "has_next": bool(event.has_next),
+                    "category_id": event.category_id,
+                    "profession_id": event.profession_id,
+                    "city_id": event.city_id,
+                    "location_state": event.location_state,
+                    "radius_km": event.radius_km,
+                    "country_wide": bool(
+                        event.country_wide
+                    ),
+                    "sort_by": event.sort_by,
+                    "category_name": event.category_name,
+                    "profession_name": event.profession_name,
+                    "city_name": event.city_name,
+                    "search_text_query": (
+                        event.search_text_query
+                    ),
+                },
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
+    async def record_empty_search(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        event: EmptySearchEvent,
+    ) -> None:
+        try:
+            await self.events.create_event(
+                event_type="empty_search",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="search",
+                entity_id=None,
+                payload={
+                    "page": max(int(event.page), 0),
+                    "category_id": event.category_id,
+                    "profession_id": event.profession_id,
+                    "city_id": event.city_id,
+                    "location_state": event.location_state,
+                    "radius_km": event.radius_km,
+                    "country_wide": bool(
+                        event.country_wide
+                    ),
+                    "language_code": event.language_code,
+                    "work_format": event.work_format,
+                },
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
+    async def get_public_card_for_viewer(
+        self,
+        *,
+        specialist_id: UUID,
+        viewer_user_id: UUID | None,
+        tenant_id: UUID | None,
+        event: PublicCardViewEvent,
+        language: str = "ru",
+    ) -> SpecialistPublicCard | None:
+        try:
+            card = await self.get_public_card(
+                specialist_id=specialist_id,
+                requester_user_id=viewer_user_id,
+                tenant_id=tenant_id,
+                distance_km=event.distance_km,
+                log_event=False,
+                language=language,
+            )
+
+            if not card:
+                return None
+
+            if viewer_user_id and tenant_id:
+                normalized_source = (
+                    event.source or "search_results"
+                ).strip()[:100]
+
+                await self.events.create_event(
+                    event_type="specialist_viewed",
+                    tenant_id=tenant_id,
+                    user_id=viewer_user_id,
+                    entity_type="specialist",
+                    entity_id=specialist_id,
+                    payload={},
+                    platform="telegram",
+                )
+
+                await self.events.create_event(
+                    event_type="card_viewed",
+                    tenant_id=tenant_id,
+                    user_id=viewer_user_id,
+                    entity_type="specialist",
+                    entity_id=specialist_id,
+                    payload={
+                        "source": normalized_source,
+                        "results_page": max(
+                            int(event.results_page),
+                            0,
+                        ),
+                        "result_index": max(
+                            int(event.result_index),
+                            0,
+                        ),
+                        "distance_km": event.distance_km,
+                    },
+                    platform="telegram",
+                )
+
+                await self.events.create_event(
+                    event_type="profile_viewed",
+                    tenant_id=tenant_id,
+                    user_id=viewer_user_id,
+                    entity_type="specialist",
+                    entity_id=specialist_id,
+                    payload={
+                        "source": normalized_source,
+                        "results_page": max(
+                            int(event.results_page),
+                            0,
+                        ),
+                        "result_index": max(
+                            int(event.result_index),
+                            0,
+                        ),
+                    },
+                    platform="telegram",
+                )
+
+                await self.repository.session.commit()
+
+            return card
+
+        except Exception:
+            await self.repository.session.rollback()
+            raise
 
     def _activity_timestamp(self, specialist: Specialist) -> float:
         activity_at = specialist.updated_at or specialist.created_at

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from database.models import ReputationScore, Review
 from database.repositories.reviews import ReviewError, ReviewRepository
+from database.repositories.event import EventRepository
 from database.repositories.moderation import ModerationRepository
 
 class ReviewServiceError(Exception):
@@ -33,6 +34,7 @@ class PublicReviewPage:
 class ReviewService:
     def __init__(self, repository: ReviewRepository):
         self.repository = repository
+        self.events = EventRepository(repository.session)
 
     async def create_contact_review(
         self,
@@ -302,3 +304,51 @@ class ReviewService:
             has_previous=normalized_page > 0,
             has_next=offset + len(reviews) < total_count,
         )
+    
+    async def list_public_reviews_for_viewer(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        viewer_user_id: UUID,
+        page: int = 0,
+        page_size: int = 5,
+        source: str | None = None,
+    ) -> PublicReviewPage:
+        review_page = (
+            await self.list_public_reviews_for_specialist(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                page=page,
+                page_size=page_size,
+            )
+        )
+
+        payload = {
+            "page": review_page.page,
+            "count": len(review_page.reviews),
+            "total_count": review_page.total_count,
+        }
+
+        if source:
+            payload["source"] = source
+
+        try:
+            await self.events.create_event(
+                tenant_id=tenant_id,
+                user_id=viewer_user_id,
+                event_type="reviews_viewed",
+                entity_type="specialist",
+                entity_id=specialist_id,
+                payload=payload,
+                platform="telegram",
+            )
+            await self.repository.session.commit()
+
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise ReviewServiceError(
+                "Unable to record reviews view."
+            ) from exc
+
+        return review_page

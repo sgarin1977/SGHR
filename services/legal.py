@@ -1,5 +1,5 @@
+from dataclasses import dataclass
 from uuid import UUID
-
 from database.repositories.legal import LegalRepository
 
 
@@ -15,10 +15,40 @@ REQUIRED_SPECIALIST_CONSENTS = (
 class MissingLegalDocumentError(Exception):
     pass
 
+@dataclass(frozen=True)
+class UserConsentView:
+    consent_type: str
+    version: str
+    is_revoked: bool
 
 class LegalService:
     def __init__(self, repository: LegalRepository):
         self.repository = repository
+
+    async def list_user_consent_views(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+    ) -> list[UserConsentView]:
+        consents = (
+            await self.repository
+            .list_user_consents(
+                tenant_id=tenant_id,
+                user_id=user_id,
+            )
+        )
+
+        return [
+            UserConsentView(
+                consent_type=consent.consent_type,
+                version=consent.version,
+                is_revoked=(
+                    consent.revoked_at is not None
+                ),
+            )
+            for consent in consents
+        ]
 
     async def get_missing_specialist_consents(
         self,

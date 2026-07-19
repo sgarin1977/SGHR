@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
-
+from database.repositories.event import EventRepository
+from database.repositories.user import UserRepository
 from database.models import SupportMessage, SupportTicket
 from database.repositories.contact import ContactChatRepository
 from database.repositories.support import (
@@ -15,7 +16,13 @@ from database.repositories.support import (
 
 SUPPORT_PRIORITY_ORDER = ("P1", "P2", "P3", "P4")
 SUPPORT_TICKET_PRIORITIES = set(SUPPORT_PRIORITY_ORDER)
-
+SUPPORT_TICKET_NON_REPLYABLE_STATUSES = frozenset(
+    {
+        "resolved",
+        "closed",
+        "rejected",
+    }
+)
 
 class SupportServiceError(Exception):
     pass
@@ -26,6 +33,18 @@ class SupportTicketView:
     ticket: SupportTicket
     messages: list[SupportMessage]
 
+    @property
+    def can_reply(self) -> bool:
+        return (
+            self.ticket.status
+            not in SUPPORT_TICKET_NON_REPLYABLE_STATUSES
+        )
+
+@dataclass(frozen=True)
+class StaffMessageResult:
+    message: SupportMessage
+    recipient_chat_id: int | None
+
 @dataclass(frozen=True)
 class AdminEscalatedTicketPage:
     tickets: tuple[SupportTicket, ...]
@@ -35,6 +54,12 @@ class AdminEscalatedTicketPage:
 class SupportService:
     def __init__(self, repository: SupportRepository):
         self.repository = repository
+        self.users = UserRepository(
+            repository.session
+        )
+        self.events = EventRepository(
+            repository.session
+        )
 
     async def create_ticket(
         self,
@@ -358,7 +383,7 @@ class SupportService:
         ticket_id: UUID,
         message_text: str,
         is_internal: bool = False,
-    ) -> SupportMessage:
+    ) -> StaffMessageResult:
         await self._ensure_staff_access(
             tenant_id=tenant_id,
             staff_user_id=staff_user_id,
@@ -369,23 +394,64 @@ class SupportService:
             ticket_id=ticket_id,
         )
         if not ticket or ticket.tenant_id != tenant_id:
-            raise SupportServiceError("Support ticket not found.")
+            raise SupportServiceError(
+                "Support ticket not found."
+            )
 
-        if ticket.status in {"resolved", "closed", "rejected"}:
-            raise SupportServiceError("Support ticket is already closed.")
+        if ticket.status in {
+            "resolved",
+            "closed",
+            "rejected",
+        }:
+            raise SupportServiceError(
+                "Support ticket is already closed."
+            )
 
-        role = "support"
+        validated_message = self._validate_message_text(
+            message_text
+        )
+
         message = await self.repository.add_message(
             tenant_id=tenant_id,
             ticket_id=ticket_id,
             sender_user_id=staff_user_id,
-            sender_role=role,
-            message_text=self._validate_message_text(message_text),
+            sender_role="support",
+            message_text=validated_message,
             is_internal=is_internal,
         )
-        await self.repository.session.commit()
-        return message
 
+        account = (
+            await self.users.get_telegram_account_by_user_id(
+                ticket.user_id
+            )
+        )
+
+        await self.events.create_event(
+            event_type="reply",
+            tenant_id=tenant_id,
+            user_id=staff_user_id,
+            entity_type="support_ticket",
+            entity_id=ticket_id,
+            payload={
+                "source": "support_staff",
+                "message_length": len(validated_message),
+            },
+            platform="telegram",
+        )
+
+        await self.repository.session.commit()
+
+        return StaffMessageResult(
+            message=message,
+            recipient_chat_id=self._parse_telegram_chat_id(
+                (
+                    account.platform_user_id
+                    if account
+                    else None
+                )
+            ),
+        )
+    
     async def update_ticket_status(
         self,
         *,
@@ -828,6 +894,18 @@ class SupportService:
         if len(text) > max_length:
             raise SupportServiceError("Text is too long.")
         return text
+
+    @staticmethod
+    def _parse_telegram_chat_id(
+        platform_user_id: str | None,
+    ) -> int | None:
+        if not platform_user_id:
+            return None
+
+        try:
+            return int(platform_user_id)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _validate_message_text(message_text: str | None) -> str:

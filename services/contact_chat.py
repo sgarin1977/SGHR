@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from database.repositories.contact import ContactChatRepository
+from database.repositories.event import EventRepository
 from database.repositories.support import SupportRepository
 from database.repositories.contact_detection import ContactDetectionRepository
 from services.contact_detection import ContactDetectionService
@@ -1222,6 +1223,46 @@ class ContactChatService:
             ],
         )
 
+    async def get_thread_detail_for_viewer(
+        self,
+        *,
+        tenant_id: UUID,
+        thread_id: UUID,
+        user_id: UUID,
+        participant_role: str,
+        language: str = "ru",
+    ) -> ContactThreadDetail:
+        detail = await self.get_thread_detail(
+            thread_id=thread_id,
+            user_id=user_id,
+            language=language,
+        )
+
+        try:
+            await EventRepository(
+                self.repository.session
+            ).create_event(
+                event_type="dialog_opened",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="conversation_thread",
+                entity_id=thread_id,
+                payload={
+                    "role": participant_role,
+                    "thread_status": detail.thread_status,
+                    "request_status": detail.request_status,
+                },
+                platform="telegram",
+            )
+
+            await self.repository.session.commit()
+
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
+        return detail
+
     async def send_thread_message(
         self,
         *,
@@ -1548,3 +1589,40 @@ class ContactChatService:
             user_id=user_id,
             participant_role=participant_role,
         )
+    
+    async def record_messages_opened(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        participant_role: str,
+        view: str,
+        page: int,
+        items_count: int | None = None,
+    ) -> None:
+        payload = {
+            "view": view,
+            "page": page,
+            "participant_role": participant_role,
+        }
+
+        if items_count is not None:
+            payload["items_count"] = items_count
+
+        try:
+            await EventRepository(
+                self.repository.session
+            ).create_event(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                event_type="messages_opened",
+                entity_type="messages",
+                payload=payload,
+                platform="telegram",
+            )
+
+            await self.repository.session.commit()
+
+        except Exception:
+            await self.repository.session.rollback()
+            raise

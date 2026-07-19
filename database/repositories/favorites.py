@@ -94,7 +94,8 @@ class FavoriteRepository:
                 specialist_id=specialist_id,
             )
         )
-        await self.session.commit()
+        await self.session.flush()
+
         return True
 
     async def toggle_specialist(
@@ -116,9 +117,12 @@ class FavoriteRepository:
 
         if saved:
             await self.session.execute(
-                delete(SavedSpecialist).where(SavedSpecialist.id == saved.id)
+                delete(SavedSpecialist).where(
+                    SavedSpecialist.id == saved.id
+                )
             )
-            await self.session.commit()
+            await self.session.flush()
+
             return False
 
         self.session.add(
@@ -128,7 +132,8 @@ class FavoriteRepository:
                 specialist_id=specialist_id,
             )
         )
-        await self.session.commit()
+        await self.session.flush()
+
         return True
     
     async def list_saved_specialists(
@@ -174,7 +179,10 @@ class FavoriteRepository:
             return False
 
         await self.session.execute(
-            delete(SavedSpecialist).where(SavedSpecialist.id == saved.id)
+            delete(SavedSpecialist).where(
+                SavedSpecialist.id == saved.id
+            )
         )
-        await self.session.commit()
+        await self.session.flush()
+
         return True

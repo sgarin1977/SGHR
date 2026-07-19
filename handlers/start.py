@@ -88,37 +88,65 @@ async def open_active_role_cabinet(
     callback: CallbackQuery,
     state: FSMContext,
     role: str | None,
+    *,
+    callback_answered: bool = False,
 ):
-    if role in {"support", "moderator", "admin", "super_admin"}:
+    if role in {
+        "support",
+        "moderator",
+        "admin",
+        "super_admin",
+    }:
         from handlers.admin import show_admin_panel
 
-        await show_admin_panel(callback, state)
+        await show_admin_panel(
+            callback,
+            state,
+            callback_answered=callback_answered,
+        )
         return
 
     if role == "client":
         from handlers.billing import show_client_cabinet
 
-        await show_client_cabinet(callback, state)
+        await show_client_cabinet(
+            callback,
+            state,
+            callback_answered=callback_answered,
+        )
         return
 
     if role == "specialist":
         from handlers.billing import show_specialist_cabinet
 
-        await show_specialist_cabinet(callback, state)
+        await show_specialist_cabinet(
+            callback,
+            state,
+            callback_answered=callback_answered,
+        )
         return
 
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     await callback.message.answer(
         t("search_main_menu", language),
-        reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
+        reply_markup=await get_main_menu_keyboard_for_user(
+            callback.from_user.id,
+            language,
+        ),
     )
-    await callback.answer()
+
+    if not callback_answered:
+        await callback.answer()
 
 @start_router.callback_query(F.data == "M_CABINET")
 async def open_current_role_cabinet(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    await callback.answer()
+
     async with get_session() as session:
         service = UserService(session)
         context = await service.get_role_switch_context(callback.from_user.id)
@@ -134,6 +162,7 @@ async def open_current_role_cabinet(
         callback,
         state,
         role,
+        callback_answered=True,
     )
 
 def get_main_menu_keyboard(
@@ -638,7 +667,11 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @start_router.callback_query(F.data == "ROLE_SWITCH_MENU")
 async def show_role_switch(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
+    await callback.answer()
+
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     async with get_session() as session:
         service = UserService(session)
@@ -651,7 +684,9 @@ async def show_role_switch(callback: CallbackQuery):
         context = await service.get_role_switch_context(callback.from_user.id)
 
     if not context or len(context.available_roles) <= 1:
-        await callback.answer(t("role_switch_not_available", language), show_alert=True)
+        await callback.message.answer(
+            t("role_switch_not_available", language)
+        )
         return
 
     await callback.message.answer(
@@ -664,12 +699,18 @@ async def show_role_switch(callback: CallbackQuery):
                 unread_counts=context.unread_counts,
             ),
     )
-    await callback.answer()
 
 
 @start_router.callback_query(F.data.startswith("ROLE_SWITCH:"))
-async def switch_active_role(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
+async def switch_active_role(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await callback.answer()
+
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     role = (callback.data or "").split(":", 1)[1]
 
     try:
@@ -683,7 +724,9 @@ async def switch_active_role(callback: CallbackQuery, state: FSMContext):
                 language = normalize_language(settings.interface_language or user.language_code)
 
     except ValueError:
-        await callback.answer(t("role_switch_failed", language), show_alert=True)
+        await callback.message.answer(
+            t("role_switch_failed", language)
+        )
         return
 
     await callback.message.answer(
@@ -701,4 +744,5 @@ async def switch_active_role(callback: CallbackQuery, state: FSMContext):
         callback,
         state,
         context.active_role or role,
+        callback_answered=True,
     )

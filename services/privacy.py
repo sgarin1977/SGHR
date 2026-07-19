@@ -8,7 +8,7 @@ from uuid import UUID
 
 from database.models import DataSubjectRequest, DeletionJob, Specialist
 from database.repositories.privacy import PrivacyRepository
-
+from database.repositories.event import EventRepository
 
 class PrivacyError(Exception):
     pass
@@ -36,12 +36,43 @@ class PrivacyService:
         *,
         tenant_id: UUID,
         user_id: UUID,
+        specialist_id: UUID | None = None,
+        source: str = "privacy_settings",
     ) -> DeletionJob:
-        return await self.repository.schedule_profile_deletion(
-            tenant_id=tenant_id,
-            user_id=user_id,
-        )
+        try:
+            job = (
+                await self.repository
+                .schedule_profile_deletion(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                )
+            )
 
+            if specialist_id is not None:
+                await EventRepository(
+                    self.repository.session
+                ).create_event(
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    event_type="profile_action",
+                    entity_type="specialist",
+                    entity_id=specialist_id,
+                    payload={
+                        "action": (
+                            "delete_requested"
+                        ),
+                        "source": source,
+                    },
+                    platform="telegram",
+                )
+
+            await self.repository.session.commit()
+
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
+        return job
     async def request_data_export(
         self,
         *,

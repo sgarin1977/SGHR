@@ -1,5 +1,5 @@
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,7 +15,12 @@ if not DATABASE_URL:
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    connect_args={"statement_cache_size": 0},
+    pool_pre_ping=True,
+    pool_recycle=300,
+    pool_timeout=30,
+    connect_args={
+        "statement_cache_size": 0,
+    },
 )
 
 async_session = async_sessionmaker(
@@ -27,5 +32,14 @@ async_session = async_sessionmaker(
 
 @asynccontextmanager
 async def get_session():
-    async with async_session() as session:
+    session = async_session()
+
+    try:
         yield session
+    except Exception:
+        with suppress(Exception):
+            await session.rollback()
+        raise
+    finally:
+        with suppress(Exception):
+            await session.close()
