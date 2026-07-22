@@ -1,12 +1,17 @@
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from database.repositories.translation import TranslationRepository
 from database.repositories.legal import LegalRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard_for_user
+from handlers.start import (
+    get_main_menu_keyboard_for_user,
+    send_global_main_menu,
+)
 from services.legal import LegalService, MissingLegalDocumentError
 from services.user import UserService
 from ui.texts import t
+from utils.telegram_cleanup import edit_or_replace_menu_message
 from database.repositories.event import EventRepository
 
 legal_router = Router()
@@ -108,7 +113,10 @@ def build_legal_gate_text(missing_documents, language: str = "ru") -> str:
     )
 
 @legal_router.callback_query(F.data == CB_SPECIALIST_START)
-async def specialist_registration_start_screen(callback: CallbackQuery):
+async def specialist_registration_start_screen(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = normalize_language(callback.from_user.language_code)
 
     async with get_session() as session:
@@ -116,27 +124,75 @@ async def specialist_registration_start_screen(callback: CallbackQuery):
         user = await user_service.get_user_by_telegram_id(callback.from_user.id)
 
         if not user:
-            await callback.message.answer(t("legal_start_required", language))
-            await callback.answer()
+            await callback.answer(
+                t(
+                    "legal_start_required",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
 
         language = normalize_language(user.language_code)
 
-        await callback.message.answer(
-            t("specialist_registration_start_text", language),
-            reply_markup=specialist_registration_start_keyboard(language),
-        )
         await callback.answer()
 
-@legal_router.callback_query(F.data == CB_SPECIALIST_START_CANCEL)
-async def specialist_registration_start_cancel(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "specialist_registration_start_text",
+                language,
+            ),
+            reply_markup=specialist_registration_start_keyboard(
+                language
+            ),
+        )
 
-    await callback.message.answer(t("spec_cancelled", language))
-    await back_to_main_menu(callback)
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id
+        )
+
+@legal_router.callback_query(F.data == CB_SPECIALIST_START_CANCEL)
+async def specialist_registration_start_cancel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    await callback.answer(
+        t(
+            "spec_cancelled",
+            language,
+        )
+    )
+
+    await state.clear()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "legal_main_menu",
+            language,
+        ),
+        reply_markup=(
+            await get_main_menu_keyboard_for_user(
+                callback.from_user.id,
+                language,
+            )
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @legal_router.callback_query(F.data == CB_SPECIALIST_START_CONFIRM)
-async def specialist_start_legal_gate(callback: CallbackQuery):
+async def specialist_start_legal_gate(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = normalize_language(callback.from_user.language_code)
 
     async with get_session() as session:
@@ -144,8 +200,13 @@ async def specialist_start_legal_gate(callback: CallbackQuery):
         user = await user_service.get_user_by_telegram_id(callback.from_user.id)
 
         if not user:
-            await callback.message.answer(t("legal_start_required", language))
-            await callback.answer()
+            await callback.answer(
+                t(
+                    "legal_start_required",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
 
         language = normalize_language(user.language_code)
@@ -168,28 +229,58 @@ async def specialist_start_legal_gate(callback: CallbackQuery):
                 language=language,
             )
         except MissingLegalDocumentError as exc:
-            await callback.message.answer(
-                t("legal_documents_not_configured", language).format(error=exc)
+            await callback.answer(
+                t(
+                    "legal_documents_not_configured",
+                    language,
+                ).format(
+                    error=exc
+                ),
+                show_alert=True,
             )
-            await callback.answer()
             return
 
         if not missing:
-            await callback.message.answer(
-                t("legal_already_accepted", language),
-                reply_markup=specialist_allowed_keyboard(language),
-            )
             await callback.answer()
+
+            menu_message = await edit_or_replace_menu_message(
+                callback=callback,
+                text=t(
+                    "legal_already_accepted",
+                    language,
+                ),
+                reply_markup=specialist_allowed_keyboard(
+                    language
+                ),
+            )
+
+            await state.update_data(
+                last_menu_message_id=menu_message.message_id
+            )
             return
 
-        await callback.message.answer(
-            build_legal_gate_text(missing, language),
-            reply_markup=legal_gate_keyboard(language),
-        )
         await callback.answer()
 
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=build_legal_gate_text(
+                missing,
+                language,
+            ),
+            reply_markup=legal_gate_keyboard(
+                language
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id
+        )
+
 @legal_router.callback_query(F.data == CB_LEGAL_SHOW_DOCS)
-async def show_specialist_legal_documents(callback: CallbackQuery):
+async def show_specialist_legal_documents(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = normalize_language(callback.from_user.language_code)
 
     async with get_session() as session:
@@ -197,8 +288,13 @@ async def show_specialist_legal_documents(callback: CallbackQuery):
         user = await user_service.get_user_by_telegram_id(callback.from_user.id)
 
         if not user:
-            await callback.message.answer(t("legal_start_required", language))
-            await callback.answer()
+            await callback.answer(
+                t(
+                    "legal_start_required",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
 
         language = normalize_language(user.language_code)
@@ -211,10 +307,15 @@ async def show_specialist_legal_documents(callback: CallbackQuery):
                 language=language,
             )
         except MissingLegalDocumentError as exc:
-            await callback.message.answer(
-                t("legal_documents_not_configured", language).format(error=exc)
+            await callback.answer(
+                t(
+                    "legal_documents_not_configured",
+                    language,
+                ).format(
+                    error=exc
+                ),
+                show_alert=True,
             )
-            await callback.answer()
             return
 
         documents_text = []
@@ -225,22 +326,46 @@ async def show_specialist_legal_documents(callback: CallbackQuery):
             documents_text.append(f"{title}\n\n{content}")
 
         if not documents_text:
-            await callback.message.answer(
-                t("legal_already_accepted", language),
-                reply_markup=specialist_allowed_keyboard(language),
-            )
             await callback.answer()
+
+            menu_message = await edit_or_replace_menu_message(
+                callback=callback,
+                text=t(
+                    "legal_already_accepted",
+                    language,
+                ),
+                reply_markup=specialist_allowed_keyboard(
+                    language
+                ),
+            )
+
+            await state.update_data(
+                last_menu_message_id=menu_message.message_id
+            )
             return
 
-        await callback.message.answer(
-            "\n\n---\n\n".join(documents_text),
-            reply_markup=legal_gate_keyboard(language),
-        )
         await callback.answer()
+
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text="\n\n---\n\n".join(
+                documents_text
+            ),
+            reply_markup=legal_gate_keyboard(
+                language
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id
+        )
 
 
 @legal_router.callback_query(F.data == CB_LEGAL_ACCEPT_SPECIALIST)
-async def accept_specialist_legal_gate(callback: CallbackQuery):
+async def accept_specialist_legal_gate(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = normalize_language(callback.from_user.language_code)
 
     async with get_session() as session:
@@ -248,8 +373,13 @@ async def accept_specialist_legal_gate(callback: CallbackQuery):
         user = await user_service.get_user_by_telegram_id(callback.from_user.id)
 
         if not user:
-            await callback.message.answer(t("legal_start_required", language))
-            await callback.answer()
+            await callback.answer(
+                t(
+                    "legal_start_required",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
 
         language = normalize_language(user.language_code)
@@ -263,32 +393,41 @@ async def accept_specialist_legal_gate(callback: CallbackQuery):
                 platform="telegram",
             )
         except MissingLegalDocumentError as exc:
-            await callback.message.answer(
-                t("legal_accept_failed", language).format(error=exc)
+            await callback.answer(
+                t(
+                    "legal_accept_failed",
+                    language,
+                ).format(
+                    error=exc
+                ),
+                show_alert=True,
             )
-            await callback.answer()
             return
 
-        await callback.message.answer(
-            t("legal_accepted", language),
-            reply_markup=specialist_allowed_keyboard(language),
-        )
         await callback.answer()
+
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "legal_accepted",
+                language,
+            ),
+            reply_markup=specialist_allowed_keyboard(
+                language
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id
+        )
 
 
 @legal_router.callback_query(F.data == CB_MAIN_MENU)
-async def back_to_main_menu(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
-
-    async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if user:
-            settings = await TranslationRepository(session).get_language_settings(user.id)
-            language = normalize_language(settings.interface_language or user.language_code)
-            await session.commit()
-
-    await callback.message.answer(
-        t("legal_main_menu", language),
-        reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
+async def back_to_main_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await send_global_main_menu(
+        callback,
+        state,
     )
-    await callback.answer()

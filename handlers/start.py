@@ -8,7 +8,11 @@ from database.session import get_session
 from services.rate_limit import RateLimitError
 from services.user import TelegramUserData, UserService
 from ui.texts import t
-from utils.telegram_cleanup import delete_telegram_messages
+from utils.telegram_cleanup import (
+    delete_telegram_messages,
+    edit_or_replace_menu_message,
+    edit_or_replace_tracked_menu_message,
+)
 start_router = Router()
 
 
@@ -129,22 +133,112 @@ async def open_active_role_cabinet(
     language = normalize_language(
         callback.from_user.language_code
     )
-    await callback.message.answer(
-        t("search_main_menu", language),
-        reply_markup=await get_main_menu_keyboard_for_user(
-            callback.from_user.id,
-            language,
-        ),
-    )
 
     if not callback_answered:
         await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "search_main_menu",
+            language,
+        ),
+        reply_markup=(
+            await get_main_menu_keyboard_for_user(
+                callback.from_user.id,
+                language,
+            )
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @start_router.callback_query(F.data == "M_CABINET")
 async def open_current_role_cabinet(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    previous_data = await state.get_data()
+    current_message_id = (
+        callback.message.message_id
+    )
+
+    tracked_message_ids = [
+        *(
+            previous_data.get(
+                "support_list_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "last_search_result_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "last_contact_chat_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "dialog_list_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "cabinet_favorite_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "owner_portfolio_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "admin_scope_list_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "admin_global_blacklist_message_ids"
+            )
+            or []
+        ),
+        *(
+            previous_data.get(
+                "admin_scoped_blacklist_message_ids"
+            )
+            or []
+        ),
+        previous_data.get(
+            "last_menu_message_id"
+        ),
+    ]
+
+    await delete_telegram_messages(
+        bot=callback.message.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            int(message_id)
+            for message_id in tracked_message_ids
+            if (
+                message_id
+                and int(message_id)
+                != current_message_id
+            )
+        ],
+    )
+
     await callback.answer()
 
     async with get_session() as session:
@@ -310,48 +404,131 @@ async def send_global_main_menu(
     state: FSMContext | None = None,
     language: str | None = None,
 ):
-    previous_message_id = None
+    await callback.answer()
 
     if state:
-        state_data = await state.get_data()
-        previous_message_id = state_data.get(
-            "last_menu_message_id"
+        previous_data = await state.get_data()
+        tracked_message_ids = [
+            *(
+                previous_data.get(
+                    "support_list_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "last_search_result_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "last_contact_chat_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "dialog_list_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "cabinet_favorite_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "owner_portfolio_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "admin_scope_list_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "admin_global_blacklist_message_ids"
+                )
+                or []
+            ),
+            *(
+                previous_data.get(
+                    "admin_scoped_blacklist_message_ids"
+                )
+                or []
+            ),
+            previous_data.get(
+                "last_menu_message_id"
+            ),
+            callback.message.message_id,
+        ]
+
+        await delete_telegram_messages(
+            bot=callback.bot,
+            chat_id=callback.message.chat.id,
+            message_ids=[
+                int(message_id)
+                for message_id in tracked_message_ids
+                if message_id
+            ],
         )
         await state.clear()
 
-    language = normalize_language(language or callback.from_user.language_code)
+    language = normalize_language(
+        language
+        or callback.from_user.language_code
+    )
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            callback.from_user.id
+        )
+
         if user:
-            settings = await TranslationRepository(session).get_language_settings(user.id)
-            language = normalize_language(settings.interface_language or user.language_code)
-            await session.commit()
+            settings = await TranslationRepository(
+                session
+            ).get_language_settings(
+                user.id
+            )
+            language = normalize_language(
+                settings.interface_language
+                or user.language_code
+            )
+
+    menu_message = await callback.message.answer(
+        await get_main_menu_text(language),
+        reply_markup=(
+            await get_main_menu_keyboard_for_user(
+                callback.from_user.id,
+                language,
+            )
+        ),
+    )
 
     if state:
-        await replace_main_menu_message(
-            message=callback.message,
-            state=state,
-            user_id=callback.from_user.id,
-            language=language,
-            
-        )
-    else:
-        await callback.message.answer(
-            await get_main_menu_text(language),
-            reply_markup=(
-                await get_main_menu_keyboard_for_user(
-                    callback.from_user.id,
-                    language,
-                )
-            ),
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id
         )
 
-    await callback.answer()
 
 @start_router.callback_query(F.data == "JOBS_MENU")
-async def open_jobs_menu(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
+async def open_jobs_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await callback.answer()
+
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     async with get_session() as session:
         user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
@@ -373,11 +550,22 @@ async def open_jobs_menu(callback: CallbackQuery):
             )
             await session.commit()
 
-    await callback.message.answer(
-        t("jobs_menu_title", language),
-        reply_markup=jobs_menu_keyboard(language),
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "jobs_menu_title",
+            language,
+        ),
+        reply_markup=jobs_menu_keyboard(
+            language
+        ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 
 @start_router.callback_query(F.data.startswith("JOBS_PLACEHOLDER:"))
@@ -406,66 +594,6 @@ async def open_jobs_placeholder(callback: CallbackQuery):
             await session.commit()
 
     await callback.answer(t("jobs_under_construction", language), show_alert=True)
-
-async def send_active_role_cabinet_from_message(
-    message: Message,
-    state: FSMContext,
-    role: str | None,
-    language: str,
-):
-    if state:
-        await state.clear()
-
-    if role in {"support", "moderator", "admin", "super_admin"}:
-        from handlers.admin import show_admin_panel
-
-        await show_admin_panel(message, state)
-        return
-
-    if role == "client":
-        from handlers.billing import client_cabinet_keyboard
-
-        async with get_session() as session:
-            service = UserService(session)
-            user = await service.get_user_by_telegram_id(message.from_user.id)
-            role_context = await service.get_role_switch_context(message.from_user.id)
-
-            if user:
-                await EventRepository(session).create_event(
-                    event_type="client_menu_opened",
-                    tenant_id=user.tenant_id,
-                    user_id=user.id,
-                    entity_type="user",
-                    entity_id=user.id,
-                    payload={
-                        "active_role": user.active_role,
-                    },
-                    platform="telegram",
-                )
-                await session.commit()
-
-        show_role_switch = bool(
-            role_context and len(role_context.available_roles) > 1
-        )
-        await message.answer(
-            t("client_cabinet_title", language)
-            + "\n\n"
-            + t("client_cabinet_summary", language),
-            reply_markup=client_cabinet_keyboard(
-                language,
-                show_role_switch=show_role_switch,
-            ),
-        )
-        return
-    if role == "specialist":
-        from handlers.billing import send_specialist_cabinet_message
-
-        await send_specialist_cabinet_message(message, state)
-        return
-    await message.answer(
-        t("search_main_menu", language),
-        reply_markup=await get_main_menu_keyboard_for_user(message.from_user.id, language),
-    )
 
 @start_router.callback_query(F.data == "GLOBAL_MAIN_MENU")
 async def global_main_menu(callback: CallbackQuery, state: FSMContext):
@@ -528,19 +656,28 @@ def all_services_keyboard(language: str) -> InlineKeyboardMarkup:
 @start_router.callback_query(F.data == "M_ALL_SERVICES")
 async def open_all_services(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
     language = normalize_language(
         callback.from_user.language_code
     )
 
-    await callback.message.answer(
-        (
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=(
             f"{t('all_services_title', language)}\n\n"
             f"{t('all_services_hint', language)}"
         ),
-        reply_markup=all_services_keyboard(language),
+        reply_markup=all_services_keyboard(
+            language
+        ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @start_router.callback_query(F.data == "M_SPECIALIST")
 async def main_menu_specialist(
@@ -566,6 +703,7 @@ async def main_menu_specialist(
 )
 async def main_menu_beta_stub(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
 
@@ -576,26 +714,41 @@ async def main_menu_beta_stub(
         "M_PROMOTION_STUB": "all_services_promotion_stub",
     }.get(callback.data, "feature_disabled_beta_message")
 
-    await callback.message.answer(
-        t(text_key, language),
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            text_key,
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("menu_find_specialist", language),
-                        callback_data="M_FIND",
+                        text=t(
+                            "menu_all_services",
+                            language,
+                        ),
+                        callback_data="M_ALL_SERVICES",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("search_menu", language),
+                        text=t(
+                            "search_menu",
+                            language,
+                        ),
                         callback_data="GLOBAL_MAIN_MENU",
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
@@ -626,7 +779,32 @@ async def cmd_start(message: Message, state: FSMContext):
                 language = normalize_language(settings.interface_language or user.language_code)
                 role_context = await service.get_role_switch_context(message.from_user.id)
     except RateLimitError:
-        await message.answer(t("error_rate_limited", language))
+        state_data = await state.get_data()
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=state_data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "error_rate_limited",
+                    language,
+                ),
+                reply_markup=(
+                    await get_main_menu_keyboard_for_user(
+                        message.from_user.id,
+                        language,
+                    )
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
         return
 
 
@@ -665,8 +843,12 @@ async def cmd_start(message: Message, state: FSMContext):
         language=language,
     )
 
-@start_router.callback_query(F.data == "ROLE_SWITCH_MENU")
-async def show_role_switch(callback: CallbackQuery):
+@start_router.callback_query(
+    F.data == "ROLE_SWITCH_MENU"
+)
+async def show_role_switch(
+    callback: CallbackQuery,
+):
     await callback.answer()
 
     language = normalize_language(
@@ -675,29 +857,51 @@ async def show_role_switch(callback: CallbackQuery):
 
     async with get_session() as session:
         service = UserService(session)
-        user = await service.get_user_by_telegram_id(callback.from_user.id)
+        user = await service.get_user_by_telegram_id(
+            callback.from_user.id
+        )
 
         if user:
-            settings = await TranslationRepository(session).get_language_settings(user.id)
-            language = normalize_language(settings.interface_language or user.language_code)
+            settings = await TranslationRepository(
+                session
+            ).get_language_settings(
+                user.id
+            )
+            language = normalize_language(
+                settings.interface_language
+                or user.language_code
+            )
 
-        context = await service.get_role_switch_context(callback.from_user.id)
+        context = await service.get_role_switch_context(
+            callback.from_user.id
+        )
 
-    if not context or len(context.available_roles) <= 1:
-        await callback.message.answer(
-            t("role_switch_not_available", language)
+    if (
+        not context
+        or len(context.available_roles) <= 1
+    ):
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "role_switch_not_available",
+                language,
+            ),
         )
         return
 
-    await callback.message.answer(
-        t("role_switch_prompt", language),
-            reply_markup=role_switch_keyboard(
-                context.available_roles,
-                context.active_role,
-                language,
-                role_details=context.role_details,
-                unread_counts=context.unread_counts,
-            ),
+    await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "role_switch_prompt",
+            language,
+        ),
+        reply_markup=role_switch_keyboard(
+            context.available_roles,
+            context.active_role,
+            language,
+            role_details=context.role_details,
+            unread_counts=context.unread_counts,
+        ),
     )
 
 
@@ -724,21 +928,24 @@ async def switch_active_role(
                 language = normalize_language(settings.interface_language or user.language_code)
 
     except ValueError:
-        await callback.message.answer(
-            t("role_switch_failed", language)
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "role_switch_failed",
+                language,
+            ),
+            reply_markup=(
+                await get_main_menu_keyboard_for_user(
+                    callback.from_user.id,
+                    language,
+                )
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id
         )
         return
-
-    await callback.message.answer(
-        t("role_switch_done", language).format(
-            role=role_label(
-                context.active_role or role,
-                language,
-                context.role_details,
-                context.unread_counts,
-            ),
-        ),
-    )
 
     await open_active_role_cabinet(
         callback,

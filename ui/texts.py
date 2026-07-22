@@ -1185,9 +1185,9 @@ translations = {
 },
     
     "contact_original_not_found": {
-        "ru": "Не удалось показать оригинал: {error}",
-        "en": "Could not show original: {error}",
-        "pt": "Nao foi possivel mostrar o original: {error}",
+        "ru": "Не удалось показать оригинал сообщения. Попробуйте позже.",
+        "en": "Could not show the original message. Please try again later.",
+        "pt": "Nao foi possivel mostrar a mensagem original. Tente novamente mais tarde.",
     },
     "contact_thread_completed": {
         "ru": "Переписка завершена.",
@@ -1355,9 +1355,9 @@ translations = {
         "pt": "Opcao nao encontrada. Tente novamente.",
     },
     "search_geo_provider_error": {
-        "ru": "Не удалось получить геоданные: {error}",
-        "en": "Could not get geo data: {error}",
-        "pt": "Nao foi possivel obter dados geo: {error}",
+        "ru": "Не удалось получить геоданные. Попробуйте позже.",
+        "en": "Could not get location data. Please try again later.",
+        "pt": "Nao foi possivel obter os dados de localizacao. Tente novamente mais tarde.",
     },
     "search_radius_prompt": {
         "ru": "Выберите радиус поиска.",
@@ -2093,6 +2093,11 @@ translations = {
         "ru": "Специалист добавлен в избранное.",
         "en": "Specialist added to favorites.",
         "pt": "Especialista adicionado aos favoritos.",
+    },
+    "favorite_action_error": {
+        "ru": "Не удалось обновить избранное. Попробуйте позже.",
+        "en": "Could not update favorites. Please try again later.",
+        "pt": "Nao foi possivel atualizar os favoritos. Tente novamente mais tarde.",
     },
     "favorite_removed": {
         "ru": "Специалист удален из избранного.",
@@ -3190,6 +3195,11 @@ translations = {
         "en": "No reviews yet",
         "pt": "Ainda nao ha avaliacoes",
     },
+    "public_reviews_load_error": {
+        "ru": "Не удалось открыть отзывы. Попробуйте позже.",
+        "en": "Could not open reviews. Please try again later.",
+        "pt": "Nao foi possivel abrir as avaliacoes. Tente novamente mais tarde.",
+    },
     "public_review_item": {
         "ru": "{number}. Оценка: {rating}/5\n{text}",
         "en": "{number}. Rating: {rating}/5\n{text}",
@@ -3229,6 +3239,11 @@ translations = {
         "ru": "Портфолио не заполнено",
         "en": "Portfolio is empty",
         "pt": "Portfolio nao preenchido",
+    },
+    "public_portfolio_load_error": {
+        "ru": "Не удалось открыть портфолио. Попробуйте позже.",
+        "en": "Could not open the portfolio. Please try again later.",
+        "pt": "Nao foi possivel abrir o portfolio. Tente novamente mais tarde.",
     },
     "public_portfolio_report_btn": {
         "ru": "Жалоба",
@@ -4488,6 +4503,11 @@ translations = {
             "Já existe uma denúncia ativa para este objeto "
             "com o mesmo motivo."
         ),
+    },
+    "complaint_create_error": {
+        "ru": "Не удалось отправить жалобу. Попробуйте позже.",
+        "en": "Could not submit the complaint. Please try again later.",
+        "pt": "Nao foi possivel enviar a reclamacao. Tente novamente mais tarde.",
     },
     "moderator_menu_text": {
         "ru": (

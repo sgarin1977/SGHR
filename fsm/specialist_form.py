@@ -1,7 +1,6 @@
 from uuid import UUID
 import logging
 from aiogram import F, Router
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -32,6 +31,11 @@ from services.specialist import (
     SpecialistService,
 )
 from ui.texts import t
+from utils.telegram_cleanup import (
+    edit_or_replace_menu_message,
+    edit_or_replace_tracked_menu_message,
+    replace_callback_menu_message,
+)
 
 specialist_form_router = Router()
 logger = logging.getLogger(__name__)
@@ -134,10 +138,11 @@ async def show_callback_message(
     text: str,
     reply_markup: InlineKeyboardMarkup | None = None,
 ):
-    try:
-        await callback.message.edit_text(text, reply_markup=reply_markup)
-    except TelegramBadRequest:
-        await callback.message.answer(text, reply_markup=reply_markup)
+    await edit_or_replace_menu_message(
+        callback=callback,
+        text=text,
+        reply_markup=reply_markup,
+    )
 
 
 def build_paged_keyboard(
@@ -613,8 +618,13 @@ async def register_specialist(callback: CallbackQuery, state: FSMContext):
     async with get_session() as session:
         user = await get_current_user(session, callback.from_user.id)
         if not user:
-            await callback.message.answer(t("spec_start_required", language))
-            await callback.answer()
+            await callback.answer(
+                t(
+                    "spec_start_required",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
 
         language = user.language_code or language
@@ -627,20 +637,32 @@ async def register_specialist(callback: CallbackQuery, state: FSMContext):
                 callback.from_user.id,
                 exc,
             )
-            await callback.message.answer(
-                t("spec_legal_docs_missing", language).format(error=exc)
+            await callback.answer(
+                t(
+                    "spec_legal_docs_missing",
+                    language,
+                ).format(
+                    error=exc
+                ),
+                show_alert=True,
             )
-            await callback.answer()
             return
 
         if not has_consents:
-            await callback.message.answer(
-                t("spec_legal_consents_required", language),
-                reply_markup=InlineKeyboardMarkup(
+            await show_callback_message(
+                callback,
+                t(
+                    "spec_legal_consents_required",
+                    language,
+                ),
+                InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
                             InlineKeyboardButton(
-                                text=t("spec_go_to_consents_btn", language),
+                                text=t(
+                                    "spec_go_to_consents_btn",
+                                    language,
+                                ),
                                 callback_data="SS_START",
                             )
                         ]
@@ -654,12 +676,20 @@ async def register_specialist(callback: CallbackQuery, state: FSMContext):
 
         existing = await repository.get_by_user_id(user.id)
         if existing:
-            await callback.message.answer(
-                t("spec_profile_pending_exists", language)
-                if existing.status == "pending_moderation"
-                else t("spec_profile_exists", language)
+            await callback.answer(
+                (
+                    t(
+                        "spec_profile_pending_exists",
+                        language,
+                    )
+                    if existing.status == "pending_moderation"
+                    else t(
+                        "spec_profile_exists",
+                        language,
+                    )
+                ),
+                show_alert=True,
             )
-            await callback.answer()
             return
 
         await EventRepository(session).create_event(
@@ -679,8 +709,13 @@ async def register_specialist(callback: CallbackQuery, state: FSMContext):
         await session.commit()
 
     if not categories:
-        await callback.message.answer(t("spec_categories_missing", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "spec_categories_missing",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     await state.update_data(
@@ -734,8 +769,13 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
         item_index = int(callback.data.split(":", 1)[1])
         category_id = UUID(category_ids[item_index])
     except (ValueError, IndexError, KeyError):
-        await callback.message.answer(t("spec_category_not_found_restart", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "spec_category_not_found_restart",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     async with get_session() as session:
@@ -744,13 +784,23 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
         professions = await repository.list_active_professions_by_category(category_id, limit=100)
 
     if not category:
-        await callback.message.answer(t("spec_category_not_found", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "spec_category_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     if not professions:
-        await callback.message.answer(t("spec_professions_missing", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "spec_professions_missing",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     await state.update_data(
@@ -845,8 +895,13 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
         item_index = int(callback.data.split(":", 1)[1])
         profession_id = UUID(profession_ids[item_index])
     except (ValueError, IndexError, KeyError):
-        await callback.message.answer(t("spec_profession_not_found_back", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "spec_profession_not_found_back",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     async with get_session() as session:
@@ -858,8 +913,13 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
         )
 
     if not profession:
-        await callback.message.answer(t("spec_profession_not_found", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "spec_profession_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     profession_id_text = str(profession.id)
@@ -939,6 +999,32 @@ async def finish_profession_selection(callback: CallbackQuery, state: FSMContext
     )
     await state.set_state(SpecialistForm.choosing_location_mode)
     await callback.answer()
+
+def location_query_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "spec_back_btn",
+                        language,
+                    ),
+                    callback_data="spec_back_to_location_mode",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "spec_cancel_btn",
+                        language,
+                    ),
+                    callback_data="spec_cancel",
+                )
+            ],
+        ]
+    )
 
 @specialist_form_router.callback_query(F.data == "spec_location_city")
 async def choose_city_mode(callback: CallbackQuery, state: FSMContext):
@@ -1039,7 +1125,25 @@ async def search_city_query(message: Message, state: FSMContext):
     query = (message.text or "").strip()
 
     if len(query) < 2:
-        await message.answer(t("spec_city_query_too_short", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_city_query_too_short', language)}\n\n"
+                    f"{t('spec_city_search_prompt', language)}"
+                ),
+                reply_markup=location_query_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
     try:
@@ -1063,13 +1167,47 @@ async def search_city_query(message: Message, state: FSMContext):
             message.from_user.id,
             exc,
         )
-        await message.answer(
-            t("spec_geo_provider_error", language).format(error=exc)
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_geo_provider_error', language).format(error=exc)}\n\n"
+                    f"{t('spec_city_search_prompt', language)}"
+                ),
+                reply_markup=location_query_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
         )
         return
 
     if not candidates:
-        await message.answer(t("spec_geo_candidates_not_found", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_geo_candidates_not_found', language)}\n\n"
+                    f"{t('spec_city_search_prompt', language)}"
+                ),
+                reply_markup=location_query_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
     candidate_state = [candidate.to_state() for candidate in candidates]
@@ -1078,11 +1216,29 @@ async def search_city_query(message: Message, state: FSMContext):
         country_candidates=[],
     )
 
-    await message.answer(
-        t("spec_geo_candidates_prompt", language),
-        reply_markup=geo_candidates_keyboard(candidate_state, language),
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "spec_geo_candidates_prompt",
+                language,
+            ),
+            reply_markup=geo_candidates_keyboard(
+                candidate_state,
+                language,
+            ),
+        )
     )
-    await state.set_state(SpecialistForm.choosing_geo_place)
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
+    )
+    await state.set_state(
+        SpecialistForm.choosing_geo_place
+    )
 
 @specialist_form_router.message(SpecialistForm.entering_country_query)
 async def search_country_query(message: Message, state: FSMContext):
@@ -1091,7 +1247,25 @@ async def search_country_query(message: Message, state: FSMContext):
     query = (message.text or "").strip()
 
     if len(query) < 2:
-        await message.answer(t("spec_city_query_too_short", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_city_query_too_short', language)}\n\n"
+                    f"{t('spec_country_search_prompt', language)}"
+                ),
+                reply_markup=location_query_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
     try:
@@ -1109,23 +1283,75 @@ async def search_country_query(message: Message, state: FSMContext):
             message.from_user.id,
             exc,
         )
-        await message.answer(
-            t("spec_geo_provider_error", language).format(error=exc)
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_geo_provider_error', language).format(error=exc)}\n\n"
+                    f"{t('spec_country_search_prompt', language)}"
+                ),
+                reply_markup=location_query_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
         )
         return
 
     if not candidates:
-        await message.answer(t("spec_country_not_found", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_country_not_found', language)}\n\n"
+                    f"{t('spec_country_search_prompt', language)}"
+                ),
+                reply_markup=location_query_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
     candidate_state = [candidate.to_state() for candidate in candidates]
     await state.update_data(country_candidates=candidate_state)
 
-    await message.answer(
-        t("spec_country_candidates_prompt", language),
-        reply_markup=country_candidates_keyboard(candidate_state, language),
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "spec_country_candidates_prompt",
+                language,
+            ),
+            reply_markup=country_candidates_keyboard(
+                candidate_state,
+                language,
+            ),
+        )
     )
-    await state.set_state(SpecialistForm.choosing_country_place)
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
+    )
+    await state.set_state(
+        SpecialistForm.choosing_country_place
+    )
 
 @specialist_form_router.callback_query(F.data.startswith("spec_country_place:"))
 async def choose_country_place(callback: CallbackQuery, state: FSMContext):
@@ -1150,10 +1376,15 @@ async def choose_country_place(callback: CallbackQuery, state: FSMContext):
             )
             await session.commit()
     except GeoServiceError as exc:
-        await callback.message.answer(
-            t("spec_geo_provider_error", language).format(error=exc)
+        await callback.answer(
+            t(
+                "spec_geo_provider_error",
+                language,
+            ).format(
+                error=exc
+            ),
+            show_alert=True,
         )
-        await callback.answer()
         return
 
     country_name = country.name or candidate.get("country_name")
@@ -1174,10 +1405,14 @@ async def choose_country_place(callback: CallbackQuery, state: FSMContext):
 
     await show_callback_message(
         callback,
-        country_location_text,
+        (
+            f"{country_location_text}\n\n"
+            f"{t('spec_display_name_prompt', language)}"
+        ),
     )
-    await callback.message.answer(t("spec_display_name_prompt", language))
-    await state.set_state(SpecialistForm.entering_display_name)
+    await state.set_state(
+        SpecialistForm.entering_display_name
+    )
     await callback.answer()
 
 @specialist_form_router.callback_query(F.data.startswith("spec_geo_place:"))
@@ -1190,16 +1425,26 @@ async def choose_geo_place(callback: CallbackQuery, state: FSMContext):
         item_index = int((callback.data or "").split(":", 1)[1])
         candidate = candidates[item_index]
     except (ValueError, IndexError, KeyError, TypeError):
-        await callback.message.answer(t("spec_geo_candidate_not_found", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "spec_geo_candidate_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     try:
         async with get_session() as session:
             user = await get_current_user(session, callback.from_user.id)
             if not user:
-                await callback.message.answer(t("spec_start_required", language))
-                await callback.answer()
+                await callback.answer(
+                    t(
+                        "spec_start_required",
+                        language,
+                    ),
+                    show_alert=True,
+                )
                 return
 
             await RateLimitService(
@@ -1237,8 +1482,13 @@ async def choose_geo_place(callback: CallbackQuery, state: FSMContext):
             callback.from_user.id,
             exc,
         )
-        await callback.message.answer(t("error_rate_limited", language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                "error_rate_limited",
+                language,
+            ),
+            show_alert=True,
+        )
         return
     except GeoServiceError as exc:
         logger.warning(
@@ -1246,10 +1496,15 @@ async def choose_geo_place(callback: CallbackQuery, state: FSMContext):
             callback.from_user.id,
             exc,
         )
-        await callback.message.answer(
-            t("spec_geo_provider_error", language).format(error=exc)
+        await callback.answer(
+            t(
+                "spec_geo_provider_error",
+                language,
+            ).format(
+                error=exc
+            ),
+            show_alert=True,
         )
-        await callback.answer()
         return
 
     await state.update_data(
@@ -1271,13 +1526,22 @@ async def geo_location_prompt(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = data.get("user_language") or callback.from_user.language_code or "ru"
 
-    await callback.message.answer(
-        t("spec_geo_prompt", language),
+    await callback.answer()
+
+    menu_message = await replace_callback_menu_message(
+        callback=callback,
+        text=t(
+            "spec_geo_prompt",
+            language,
+        ),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
                 [
                     KeyboardButton(
-                        text=t("spec_send_geo_btn", language),
+                        text=t(
+                            "spec_send_geo_btn",
+                            language,
+                        ),
                         request_location=True,
                     )
                 ]
@@ -1286,9 +1550,13 @@ async def geo_location_prompt(callback: CallbackQuery, state: FSMContext):
             one_time_keyboard=True,
         ),
     )
-    await state.set_state(SpecialistForm.waiting_geo)
-    await callback.answer()
 
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
+    await state.set_state(
+        SpecialistForm.waiting_geo
+    )
 async def reverse_location_candidate(
     session,
     *,
@@ -1308,7 +1576,37 @@ async def receive_geo_location(message: Message, state: FSMContext):
     language = data.get("user_language") or message.from_user.language_code or "ru"
 
     if not message.location:
-        await message.answer(t("spec_geo_required", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_geo_required', language)}\n\n"
+                    f"{t('spec_geo_prompt', language)}"
+                ),
+                reply_markup=ReplyKeyboardMarkup(
+                    keyboard=[
+                        [
+                            KeyboardButton(
+                                text=t(
+                                    "spec_send_geo_btn",
+                                    language,
+                                ),
+                                request_location=True,
+                            )
+                        ]
+                    ],
+                    resize_keyboard=True,
+                    one_time_keyboard=True,
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
     try:
@@ -1342,16 +1640,44 @@ async def receive_geo_location(message: Message, state: FSMContext):
             message.from_user.id,
             exc,
         )
-        await message.answer(
-            t("spec_geo_provider_error", language).format(error=exc),
-            reply_markup=ReplyKeyboardRemove(),
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "spec_geo_provider_error",
+                    language,
+                ).format(
+                    error=exc
+                ),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
         )
         return
 
     if not candidates:
-        await message.answer(
-            t("spec_geo_candidates_not_found", language),
-            reply_markup=ReplyKeyboardRemove(),
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "spec_geo_candidates_not_found",
+                    language,
+                ),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
         )
         return
 
@@ -1362,15 +1688,29 @@ async def receive_geo_location(message: Message, state: FSMContext):
         raw_longitude=message.location.longitude,
     )
 
-    await message.answer(
-        t("spec_geo_candidates_prompt", language),
-        reply_markup=ReplyKeyboardRemove(),
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=(
+                f"{t('spec_geo_candidates_prompt', language)}\n\n"
+                f"{format_spec_geo_candidates_text(candidate_state)}"
+            ),
+            reply_markup=geo_candidates_keyboard(
+                candidate_state,
+                language,
+            ),
+        )
     )
-    await message.answer(
-        format_spec_geo_candidates_text(candidate_state),
-        reply_markup=geo_candidates_keyboard(candidate_state, language),
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
     )
-    await state.set_state(SpecialistForm.choosing_geo_place)
+    await state.set_state(
+        SpecialistForm.choosing_geo_place
+    )
 
 
 @specialist_form_router.message(SpecialistForm.entering_display_name)
@@ -1379,15 +1719,50 @@ async def enter_display_name(message: Message, state: FSMContext):
     language = data.get("user_language") or message.from_user.language_code or "ru"
     display_name = (message.text or "").strip()
     if len(display_name) < 2:
-        await message.answer(t("spec_display_name_too_short", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_display_name_too_short', language)}\n\n"
+                    f"{t('spec_display_name_prompt', language)}"
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
-    await state.update_data(display_name=display_name)
-    await message.answer(
-        t("spec_description_prompt", language),
-        reply_markup=description_keyboard(language),
+    await state.update_data(
+        display_name=display_name
     )
-    await state.set_state(SpecialistForm.entering_description)
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "spec_description_prompt",
+                language,
+            ),
+            reply_markup=description_keyboard(
+                language
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
+    )
+    await state.set_state(
+        SpecialistForm.entering_description
+    )
 
 @specialist_form_router.message(SpecialistForm.entering_description)
 async def enter_description(message: Message, state: FSMContext):
@@ -1395,12 +1770,51 @@ async def enter_description(message: Message, state: FSMContext):
     language = data.get("user_language") or message.from_user.language_code or "ru"
     description = (message.text or "").strip()
     if len(description) < 20:
-        await message.answer(t("spec_description_too_short", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_description_too_short', language)}\n\n"
+                    f"{t('spec_description_prompt', language)}"
+                ),
+                reply_markup=description_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
-    await state.update_data(short_description=description)
-    await message.answer(t("spec_price_prompt", language))
-    await state.set_state(SpecialistForm.entering_price)
+    await state.update_data(
+        short_description=description
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "spec_price_prompt",
+                language,
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
+    )
+    await state.set_state(
+        SpecialistForm.entering_price
+    )
+
 @specialist_form_router.message(SpecialistForm.entering_price)
 async def enter_price(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -1408,7 +1822,22 @@ async def enter_price(message: Message, state: FSMContext):
     try:
         price_from, price_to = parse_price(message.text or "")
     except ValueError:
-        await message.answer(t("spec_price_invalid", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('spec_price_invalid', language)}\n\n"
+                    f"{t('spec_price_prompt', language)}"
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
     await state.update_data(
@@ -1420,21 +1849,55 @@ async def enter_price(message: Message, state: FSMContext):
 
     data = await state.get_data()
     if data.get("work_format") == "remote":
-        await message.answer(
-            t("spec_languages_prompt", language),
-            reply_markup=language_keyboard(
-                selected=data.get("languages") or [],
-                language=language,
-            ),
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "spec_languages_prompt",
+                    language,
+                ),
+                reply_markup=language_keyboard(
+                    selected=(
+                        data.get("languages") or []
+                    ),
+                    language=language,
+                ),
+            )
         )
-        await state.set_state(SpecialistForm.choosing_languages)
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
+        await state.set_state(
+            SpecialistForm.choosing_languages
+        )
         return
 
-    await message.answer(
-        t("spec_work_format_prompt", language),
-        reply_markup=work_format_keyboard(language),
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "spec_work_format_prompt",
+                language,
+            ),
+            reply_markup=work_format_keyboard(
+                language
+            ),
+        )
     )
-    await state.set_state(SpecialistForm.choosing_work_format)
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
+    )
+    await state.set_state(
+        SpecialistForm.choosing_work_format
+    )
 @specialist_form_router.callback_query(F.data.startswith("spec_work:"))
 async def choose_work_format(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -1575,9 +2038,35 @@ async def show_registration_summary(
         work_format=work_format_text,
     )
 
-    target = event.message if isinstance(event, CallbackQuery) else event
-    await target.answer(summary, reply_markup=confirm_keyboard(language))
-    await state.set_state(SpecialistForm.confirming)
+    if isinstance(event, CallbackQuery):
+        menu_message = await edit_or_replace_menu_message(
+            callback=event,
+            text=summary,
+            reply_markup=confirm_keyboard(
+                language
+            ),
+        )
+        menu_message_id = menu_message.message_id
+    else:
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=event,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=summary,
+                reply_markup=confirm_keyboard(
+                    language
+                ),
+            )
+        )
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
+    )
+    await state.set_state(
+        SpecialistForm.confirming
+    )
 
 @specialist_form_router.callback_query(F.data.startswith("spec_contact_visibility:"))
 async def choose_contact_visibility(callback: CallbackQuery, state: FSMContext):
@@ -1634,19 +2123,31 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
 
     missing_fields = [field for field in required_fields if not data.get(field)]
     if missing_fields:
-        await callback.message.answer(
-            t("spec_draft_missing", language),
-            reply_markup=get_main_menu_keyboard(language),
-        )
-        await state.clear()
         await callback.answer()
+        await state.clear()
+
+        await show_callback_message(
+            callback,
+            t(
+                "spec_draft_missing",
+                language,
+            ),
+            get_main_menu_keyboard(
+                language
+            ),
+        )
         return
 
     async with get_session() as session:
         user = await get_current_user(session, callback.from_user.id)
         if not user:
-            await callback.message.answer(t("spec_start_required", language))
-            await callback.answer()
+            await callback.answer(
+                t(
+                    "spec_start_required",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
 
         service = SpecialistService(SpecialistRepository(session))
@@ -1694,43 +2195,72 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
             )
 
             if str(exc) == "Legal consents are required.":
-                await callback.message.answer(
-                    t("spec_legal_consents_required", language),
-                    reply_markup=InlineKeyboardMarkup(
+                await callback.answer()
+
+                await show_callback_message(
+                    callback,
+                    t(
+                        "spec_legal_consents_required",
+                        language,
+                    ),
+                    InlineKeyboardMarkup(
                         inline_keyboard=[
                             [
                                 InlineKeyboardButton(
-                                    text=t("spec_go_to_consents_btn", language),
+                                    text=t(
+                                        "spec_go_to_consents_btn",
+                                        language,
+                                    ),
                                     callback_data="SS_START",
                                 )
                             ]
                         ]
                     ),
                 )
-                await callback.answer()
                 return
 
-            await callback.message.answer(
-                t("spec_create_failed", language).format(error=exc)
+            await callback.answer(
+                t(
+                    "spec_create_failed",
+                    language,
+                ).format(
+                    error=exc
+                ),
+                show_alert=True,
             )
-            await callback.answer()
             return
 
     await state.clear()
-    await callback.message.answer(
-        t("spec_created", language)
+
+    await callback.answer(
+        t(
+            "spec_created",
+            language,
+        )
     )
 
     from handlers.billing import show_specialist_cabinet
 
-    await show_specialist_cabinet(callback, state)
+    await show_specialist_cabinet(
+        callback,
+        state,
+        callback_answered=True,
+    )
 
 @specialist_form_router.callback_query(F.data == "spec_cancel")
 async def cancel_specialist_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     language = data.get("user_language") or callback.from_user.language_code or "ru"
     await state.clear()
-    await callback.message.answer(
-    t("spec_cancelled", language),
-    reply_markup=get_main_menu_keyboard(language),)
     await callback.answer()
+
+    await show_callback_message(
+        callback,
+        t(
+            "spec_cancelled",
+            language,
+        ),
+        get_main_menu_keyboard(
+            language
+        ),
+    )

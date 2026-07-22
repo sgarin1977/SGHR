@@ -15,15 +15,13 @@ from aiogram.types import (
 )
 from services.user import UserService
 from database.repositories.contact import ContactChatRepository
-from database.repositories.event import EventRepository
 from database.repositories.geo_repository import GeoRepository
-from database.repositories.rate_limit import RateLimitRepository
 from database.repositories.search import SpecialistSearchRepository
 from database.repositories.specialist import SpecialistRepository
 from database.repositories.moderation import ModerationRepository
 from database.repositories.translation import TranslationRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard_for_user
+from handlers.start import send_global_main_menu
 from services.contact_chat import ContactChatError, ContactChatService
 from services.geo_search import (
     EmptySearchEvent,
@@ -34,7 +32,7 @@ from services.geo_search import (
 )
 from services.geo_service import GeoService, GeoServiceError
 from services.moderation import ModerationError, ModerationService
-from services.rate_limit import RateLimitError, RateLimitService
+from services.rate_limit import RateLimitError
 from services.specialist import (
     SpecialistSearchSelectionService,
     SpecialistSearchTextService,
@@ -43,6 +41,9 @@ from services.translation import TranslationError, TranslationService
 from ui.texts import t
 from utils.telegram_cleanup import (
     delete_telegram_messages,
+    edit_or_replace_menu_message,
+    edit_or_replace_tracked_menu_message,
+    replace_callback_menu_message,
     send_telegram_attachment,
     split_telegram_text,
 )
@@ -198,18 +199,53 @@ def dedupe_geo_candidate_states(candidates: list[dict], limit: int = 8) -> list[
 async def show_callback_message(
     callback: CallbackQuery,
     text: str,
-    reply_markup: InlineKeyboardMarkup | None = None,
+    reply_markup: (
+        InlineKeyboardMarkup | None
+    ) = None,
 ) -> Message:
-    try:
-        return await callback.message.edit_text(
-            text,
-            reply_markup=reply_markup,
+    return await edit_or_replace_menu_message(
+        callback=callback,
+        text=text,
+        reply_markup=reply_markup,
+    )
+
+async def collapse_search_results_to_callback_message(
+    *,
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    data = await state.get_data()
+    current_message_id = (
+        callback.message.message_id
+    )
+
+    stale_message_ids = [
+        int(message_id)
+        for message_id in (
+            data.get(
+                "last_search_result_message_ids"
+            )
+            or []
         )
-    except TelegramBadRequest:
-        return await callback.message.answer(
-            text,
-            reply_markup=reply_markup,
+        if (
+            message_id
+            and int(message_id)
+            != current_message_id
         )
+    ]
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=stale_message_ids,
+    )
+
+    await state.update_data(
+        last_search_result_message_ids=[],
+        last_menu_message_id=current_message_id,
+    )
+
+
 
 async def get_requester_context(
     platform_user_id: int | str,
@@ -236,9 +272,403 @@ async def store_post_auth_action(
     action: str,
     language: str,
 ):
-    await state.update_data(post_auth_action=action)
-    await callback.message.answer(t("auth_required_start", language))
-    await callback.answer(t("auth_required_start", language), show_alert=True)
+    await state.update_data(
+        post_auth_action=action
+    )
+
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "auth_required_start",
+            language,
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
+
+    await callback.answer()
+
+async def resume_public_portfolio_after_auth(
+    *,
+    message: Message,
+    state: FSMContext,
+    language: str,
+    tenant_id: UUID,
+    user_id: UUID,
+    specialist_id: str,
+) -> None:
+    data = await state.get_data()
+    results_page = int(
+        data.get("results_page") or 0
+    )
+
+    try:
+        async with get_session() as session:
+            items = await PortfolioService(
+                PortfolioRepository(session)
+            ).list_active_items_for_viewer(
+                tenant_id=tenant_id,
+                specialist_id=UUID(specialist_id),
+                viewer_user_id=user_id,
+                page=0,
+            )
+    except (
+        PortfolioServiceError,
+        ValueError,
+    ) as exc:
+        logger.warning(
+            "post_auth_public_portfolio_failed "
+            "specialist_id=%s error=%s",
+            specialist_id,
+            exc,
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "public_portfolio_load_error",
+                    language,
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_back",
+                                    language,
+                                ),
+                                callback_data=(
+                                    f"search_results_page:"
+                                    f"{results_page}"
+                                ),
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_menu",
+                                    language,
+                                ),
+                                callback_data="search_menu",
+                            )
+                        ],
+                    ]
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id,
+        )
+        return
+
+    if not items:
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "public_portfolio_empty",
+                    language,
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_back",
+                                    language,
+                                ),
+                                callback_data=(
+                                    f"search_result_back_to_card:"
+                                    f"{results_page}"
+                                ),
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_menu",
+                                    language,
+                                ),
+                                callback_data="search_menu",
+                            )
+                        ],
+                    ]
+                ),
+            )
+        )
+
+        await state.set_state(
+            SpecialistSearchFSM.viewing_results
+        )
+        await state.update_data(
+            public_portfolio_page=0,
+            public_portfolio_item_ids=[],
+            last_menu_message_id=menu_message_id,
+        )
+        return
+
+    view = items[0]
+
+    keyboard = public_portfolio_keyboard(
+        signed_url=view.signed_url,
+        language=language,
+        page=0,
+        has_previous=False,
+        has_next=len(items) > 1,
+        results_page=results_page,
+    )
+    caption = public_portfolio_caption(
+        view,
+        language,
+    )
+
+    stale_message_ids = [
+        int(message_id)
+        for message_id in (
+            data.get(
+                "last_search_result_message_ids"
+            )
+            or []
+        )
+        if (
+            message_id
+            and str(message_id)
+            != str(
+                data.get("last_menu_message_id")
+            )
+        )
+    ]
+
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=stale_message_ids,
+    )
+
+    menu_message_id: int
+
+    if view.storage_object.file_type == "photo":
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                data.get("last_menu_message_id")
+            ],
+        )
+
+        try:
+            portfolio_message = (
+                await message.bot.send_photo(
+                    chat_id=message.chat.id,
+                    photo=view.signed_url,
+                    caption=caption,
+                    reply_markup=keyboard,
+                )
+            )
+            menu_message_id = (
+                portfolio_message.message_id
+            )
+        except Exception as exc:
+            logger.warning(
+                "post_auth_portfolio_photo_send_failed "
+                "item_id=%s error=%s",
+                view.item.id,
+                exc,
+            )
+            menu_message_id = (
+                await edit_or_replace_tracked_menu_message(
+                    message=message,
+                    menu_message_id=None,
+                    text=caption,
+                    reply_markup=keyboard,
+                )
+            )
+    else:
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=caption,
+                reply_markup=keyboard,
+            )
+        )
+
+    await state.set_state(
+        SpecialistSearchFSM.viewing_results
+    )
+    await state.update_data(
+        public_portfolio_page=0,
+        public_portfolio_item_ids=[
+            str(item.item.id)
+            for item in items
+        ],
+        pending_report_target_type=(
+            "portfolio_item"
+        ),
+        pending_report_target_id=str(
+            view.item.id
+        ),
+        last_search_result_message_ids=[],
+        last_menu_message_id=menu_message_id,
+    )
+
+
+
+async def resume_public_reviews_after_auth(
+    *,
+    message: Message,
+    state: FSMContext,
+    language: str,
+    tenant_id: UUID,
+    user_id: UUID,
+    specialist_id: str,
+) -> None:
+    data = await state.get_data()
+    results_page = int(
+        data.get("results_page") or 0
+    )
+
+    try:
+        async with get_session() as session:
+            review_page = await ReviewService(
+                ReviewRepository(session)
+            ).list_public_reviews_for_viewer(
+                tenant_id=tenant_id,
+                specialist_id=UUID(specialist_id),
+                viewer_user_id=user_id,
+                page=0,
+                page_size=PUBLIC_REVIEW_PAGE_SIZE,
+            )
+    except (
+        ReviewServiceError,
+        ValueError,
+    ) as exc:
+        logger.warning(
+            "post_auth_public_reviews_failed "
+            "specialist_id=%s error=%s",
+            specialist_id,
+            exc,
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "public_reviews_load_error",
+                    language,
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_back",
+                                    language,
+                                ),
+                                callback_data=(
+                                    f"search_results_page:"
+                                    f"{results_page}"
+                                ),
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_menu",
+                                    language,
+                                ),
+                                callback_data="search_menu",
+                            )
+                        ],
+                    ]
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id,
+        )
+        return
+
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            int(message_id)
+            for message_id in (
+                data.get(
+                    "last_search_result_message_ids"
+                )
+                or []
+            )
+            if (
+                message_id
+                and str(message_id)
+                != str(
+                    data.get("last_menu_message_id")
+                )
+            )
+        ],
+    )
+
+    await state.update_data(
+        public_reviews_page=review_page.page,
+        public_review_ids=[
+            str(review.id)
+            for review in review_page.reviews
+        ],
+        last_search_result_message_ids=[],
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=format_public_reviews(
+                review_page,
+                language,
+            ),
+            reply_markup=public_reviews_keyboard(
+                language=language,
+                page=review_page.page,
+                has_previous=(
+                    review_page.has_previous
+                ),
+                has_next=review_page.has_next,
+                reviews_count=len(
+                    review_page.reviews
+                ),
+                results_page=results_page,
+            ),
+        )
+    )
+
+    await state.set_state(
+        SpecialistSearchFSM.viewing_results
+    )
+    await state.update_data(
+        last_menu_message_id=menu_message_id,
+    )
+
 
 
 async def resume_post_auth_action(
@@ -283,16 +713,37 @@ async def resume_post_auth_action(
                     ),
                     original_language=language,
                 )
-        except (ContactChatError, ValueError) as exc:
+        except (
+            ContactChatError,
+            ValueError,
+        ) as exc:
             logger.warning(
                 "post_auth_contact_chat_open_failed "
-                "telegram_id=%s specialist_id=%s error=%s",
+                "telegram_id=%s specialist_id=%s "
+                "error=%s",
                 message.from_user.id,
                 specialist_id,
                 exc,
             )
-            await message.answer(
-                t("contact_chat_error", language)
+
+            menu_message_id = (
+                await edit_or_replace_tracked_menu_message(
+                    message=message,
+                    menu_message_id=data.get(
+                        "last_menu_message_id"
+                    ),
+                    text=t(
+                        "contact_chat_error",
+                        language,
+                    ),
+                    reply_markup=search_start_keyboard(
+                        language
+                    ),
+                )
+            )
+
+            await state.update_data(
+                last_menu_message_id=menu_message_id
             )
             return True
 
@@ -308,8 +759,34 @@ async def resume_post_auth_action(
             SpecialistSearchFSM.entering_thread_message,
         )
 
+        messages_to_delete = [
+            data.get("last_menu_message_id"),
+            *(
+                data.get(
+                    "last_search_result_message_ids"
+                )
+                or []
+            ),
+        ]
+
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                int(message_id)
+                for message_id in messages_to_delete
+                if message_id
+            ],
+        )
+
+        await state.update_data(
+            last_menu_message_id=None,
+            last_search_result_message_ids=[],
+        )
+
         await show_client_contact_chat(
             message=message,
+            state=state,
             thread_id=str(chat.thread_id),
             user_id=user_id,
             language=language,
@@ -328,25 +805,108 @@ async def resume_post_auth_action(
                     ),
                 )
 
-        except ValueError as exc:
-            await message.answer(
-                str(exc)
+            text_key = (
+                "favorite_saved"
+                if is_saved
+                else "favorite_removed"
             )
-            return True
+            result_text = t(
+                text_key,
+                language,
+            )
+        except Exception as exc:
+            logger.exception(
+                "post_auth_favorite_toggle_failed "
+                "telegram_id=%s specialist_id=%s",
+                message.from_user.id,
+                specialist_id,
+            )
+            result_text = t(
+                "favorite_action_error",
+                language,
+            )
 
-        text_key = "favorite_saved" if is_saved else "favorite_removed"
-        await message.answer(t(text_key, language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=result_text,
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_back_to_filters_btn",
+                                    language,
+                                ),
+                                callback_data="search_filters",
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_menu",
+                                    language,
+                                ),
+                                callback_data="search_menu",
+                            )
+                        ],
+                    ]
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return True
 
     if action == "report":
-        await state.set_state(SpecialistSearchFSM.viewing_results)
-        await message.answer(
-            t("complaint_reason_prompt", language),
-            reply_markup=complaint_reason_keyboard(language),
+        await state.set_state(
+            SpecialistSearchFSM.viewing_results
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "complaint_reason_prompt",
+                    language,
+                ),
+                reply_markup=complaint_reason_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
+        return True
+    if action == "portfolio":
+        await resume_public_portfolio_after_auth(
+            message=message,
+            state=state,
+            language=language,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            specialist_id=specialist_id,
         )
         return True
     if action == "reviews":
-        await state.set_state(SpecialistSearchFSM.viewing_results)
+        await resume_public_reviews_after_auth(
+            message=message,
+            state=state,
+            language=language,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            specialist_id=specialist_id,
+        )
         return True
     return False
 
@@ -995,6 +1555,8 @@ async def render_public_portfolio(
         )
         return
 
+    await callback.answer()
+
     try:
         async with get_session() as session:
             items = await PortfolioService(
@@ -1008,11 +1570,49 @@ async def render_public_portfolio(
 
     except PortfolioServiceError as exc:
         logger.warning(
-            "public_portfolio_load_failed specialist_id=%s error=%s",
+            "public_portfolio_load_failed "
+            "specialist_id=%s error=%s",
             specialist_id,
             exc,
         )
-        await callback.answer(str(exc), show_alert=True)
+        menu_message = await show_callback_message(
+            callback,
+            t(
+                "public_portfolio_load_error",
+                language,
+            ),
+            InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_back",
+                                language,
+                            ),
+                            callback_data=(
+                                "search_result_back_to_card:"
+                                f"{int(data.get('results_page') or 0)}"
+                            ),
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_menu",
+                                language,
+                            ),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
+        )
         return
 
     if not items:
@@ -1040,7 +1640,6 @@ async def render_public_portfolio(
                 ]
             ),
         )
-        await callback.answer()
         return
 
     normalized_page = max(0, min(int(page), len(items) - 1))
@@ -1065,31 +1664,45 @@ async def render_public_portfolio(
     caption = public_portfolio_caption(view, language)
 
     if view.storage_object.file_type == "photo":
+        await delete_telegram_messages(
+            bot=callback.bot,
+            chat_id=callback.message.chat.id,
+            message_ids=[
+                callback.message.message_id
+            ],
+        )
+
         try:
-            await callback.message.answer_photo(
+            menu_message = await callback.bot.send_photo(
+                chat_id=callback.message.chat.id,
                 photo=view.signed_url,
                 caption=caption,
                 reply_markup=keyboard,
             )
         except Exception as exc:
             logger.warning(
-                "public_portfolio_photo_send_failed item_id=%s error=%s",
+                "public_portfolio_photo_send_failed "
+                "item_id=%s error=%s",
                 view.item.id,
                 exc,
             )
-            await show_callback_message(
+            menu_message = await show_callback_message(
                 callback,
                 caption,
                 keyboard,
             )
     else:
-        await show_callback_message(
+        menu_message = await show_callback_message(
             callback,
             caption,
             keyboard,
         )
 
-    await callback.answer()
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 async def store_complaint_target_summary(
     state: FSMContext,
@@ -1189,6 +1802,23 @@ def complaint_draft_keyboard(language: str) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text=t("complaint_cancel_btn", language),
+                    callback_data="search_report_cancel",
+                )
+            ],
+        ]
+    )
+
+def complaint_comment_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "complaint_cancel_btn",
+                        language,
+                    ),
                     callback_data="search_report_cancel",
                 )
             ],
@@ -1646,19 +2276,94 @@ async def prompt_contact_attachment(
         SpecialistSearchFSM.entering_thread_message
     )
 
-    await callback.message.answer(
-        t("contact_chat_attach_prompt", language)
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "contact_chat_attach_prompt",
+            language,
+        ),
     )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
+
     await callback.answer()
+
+async def show_contact_chat_screen(
+    *,
+    message: Message,
+    state: FSMContext,
+    text: str,
+    reply_markup: InlineKeyboardMarkup,
+) -> None:
+    data = await state.get_data()
+
+    current_menu_message_id = data.get(
+        "last_menu_message_id"
+    )
+
+    messages_to_delete = [
+        *(
+            data.get(
+                "last_contact_chat_message_ids"
+            )
+            or []
+        ),
+        (
+            message.message_id
+            if (
+                message.from_user
+                and not message.from_user.is_bot
+            )
+            else None
+        ),
+    ]
+
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            int(message_id)
+            for message_id in messages_to_delete
+            if (
+                message_id
+                and str(message_id)
+                != str(current_menu_message_id)
+            )
+        ],
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=current_menu_message_id,
+            text=text,
+            reply_markup=reply_markup,
+        )
+    )
+
+    await state.update_data(
+        last_contact_chat_message_ids=[
+            menu_message_id
+        ],
+        last_menu_message_id=menu_message_id,
+    )
+
+
 
 async def show_contact_chat(
     *,
     message: Message,
+    state: FSMContext,
     thread_id: str,
     user_id: UUID,
     viewer_role: str,
     language: str,
     include_attachments: bool = True,
+    notice: str | None = None,
 ) -> None:
     normalized_role = (
         "specialist"
@@ -1680,16 +2385,76 @@ async def show_contact_chat(
             "contact_chat_open_failed thread_id=%s",
             thread_id,
         )
-        await message.answer(
-            t("contact_chat_error", language)
+
+        await show_contact_chat_screen(
+            message=message,
+            state=state,
+            text=t(
+                "contact_chat_error",
+                language,
+            ),
+            reply_markup=(
+                contact_thread_keyboard_for_role(
+                    language,
+                    normalized_role,
+                )
+            ),
         )
         return
 
     if not detail:
-        await message.answer(
-            t("contact_chat_error", language)
+        await show_contact_chat_screen(
+            message=message,
+            state=state,
+            text=t(
+                "contact_chat_error",
+                language,
+            ),
+            reply_markup=(
+                contact_thread_keyboard_for_role(
+                    language,
+                    normalized_role,
+                )
+            ),
         )
         return
+
+    state_data = await state.get_data()
+
+    messages_to_delete = [
+        *(
+            state_data.get(
+                "last_contact_chat_message_ids"
+            )
+            or []
+        ),
+        *(
+            state_data.get(
+                "last_search_result_message_ids"
+            )
+            or []
+        ),
+        state_data.get("last_menu_message_id"),
+        message.message_id,
+    ]
+
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            int(message_id)
+            for message_id in messages_to_delete
+            if message_id
+        ],
+    )
+
+    await state.update_data(
+        last_contact_chat_message_ids=[],
+        last_search_result_message_ids=[],
+        last_menu_message_id=None,
+    )
+
+    rendered_message_ids: list[int] = []
 
     counterpart_name = (
         detail.client_name
@@ -1709,12 +2474,20 @@ async def show_contact_chat(
         if include_attachments
         else []
     )
-    chat_chunks = split_telegram_text(
-        format_contact_chat_text(
-            detail,
-            viewer_role=normalized_role,
-            language=language,
+    chat_text = format_contact_chat_text(
+        detail,
+        viewer_role=normalized_role,
+        language=language,
+    )
+
+    if notice:
+        chat_text = (
+            f"{chat_text}\n\n"
+            f"{notice}"
         )
+
+    chat_chunks = split_telegram_text(
+        chat_text
     )
 
     for index, chunk in enumerate(chat_chunks):
@@ -1722,7 +2495,7 @@ async def show_contact_chat(
             index == len(chat_chunks) - 1
         )
 
-        await message.answer(
+        chat_message = await message.answer(
             chunk,
             reply_markup=(
                 keyboard
@@ -1732,6 +2505,10 @@ async def show_contact_chat(
                 )
                 else None
             ),
+        )
+
+        rendered_message_ids.append(
+            chat_message.message_id
         )
 
     for index, item in enumerate(
@@ -1753,28 +2530,48 @@ async def show_contact_chat(
             f"{format_chat_message_body(item, language)}"
         )
 
-        await send_telegram_attachment(
-            bot=message.bot,
-            chat_id=message.chat.id,
-            attachment=item.attachment,
-            caption=attachment_caption,
-            reply_markup=(
-                keyboard
-                if is_last_attachment
-                else None
-            ),
+        attachment_message = (
+            await send_telegram_attachment(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                attachment=item.attachment,
+                caption=attachment_caption,
+                reply_markup=(
+                    keyboard
+                    if is_last_attachment
+                    else None
+                ),
+            )
         )
+
+        if attachment_message:
+            rendered_message_ids.append(
+                attachment_message.message_id
+            )
+
+    await state.update_data(
+        last_contact_chat_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=(
+            rendered_message_ids[-1]
+            if rendered_message_ids
+            else None
+        ),
+    )
 
 
 async def show_client_contact_chat(
     *,
     message: Message,
+    state: FSMContext,
     thread_id: str,
     user_id: UUID,
     language: str,
 ) -> None:
     await show_contact_chat(
         message=message,
+        state=state,
         thread_id=thread_id,
         user_id=user_id,
         viewer_role="client",
@@ -2594,8 +3391,13 @@ async def render_results(
     language = await get_search_language(state, event)
 
     if isinstance(event, CallbackQuery):
+        await event.answer()
+
         processing_message = await event.message.answer(
-            t("search_searching_specialists", language)
+            t(
+                "search_searching_specialists",
+                language,
+            )
         )
     else:
         processing_message = await event.answer(
@@ -2607,16 +3409,30 @@ async def render_results(
         else event
     )
 
+    messages_to_delete = [
+        *(
+            data.get(
+                "last_search_result_message_ids"
+            )
+            or []
+        ),
+        data.get("last_menu_message_id"),
+        source_message.message_id,
+    ]
+
     await delete_telegram_messages(
         bot=source_message.bot,
         chat_id=source_message.chat.id,
-        message_ids=(
-            data.get("last_search_result_message_ids")
-            or []
-        ),
+        message_ids=[
+            int(message_id)
+            for message_id in messages_to_delete
+            if message_id
+        ],
     )
+
     await state.update_data(
         last_search_result_message_ids=[],
+        last_menu_message_id=None,
     )
 
     category_id = UUID(data["category_id"]) if data.get("category_id") else None
@@ -3010,7 +3826,6 @@ async def render_results(
                 empty_message.message_id,
             )
 
-        await event.answer()
     else:
         if visible_results:
             header_message = await event.answer(text)
@@ -3098,21 +3913,37 @@ async def start_search(callback: CallbackQuery, state: FSMContext):
         search_category_source="start",
     )
 
-    await show_callback_message(
+    menu_message = await show_callback_message(
         callback,
-        t("search_start_screen", language),
-        search_start_keyboard(language),
+        t(
+            "search_start_screen",
+            language,
+        ),
+        search_start_keyboard(
+            language
+        ),
     )
-    await state.set_state(SpecialistSearchFSM.entering_text_query)
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
+    await state.set_state(
+        SpecialistSearchFSM.entering_text_query
+    )
     await callback.answer()
 
 @search_router.callback_query(F.data == "SEARCH_AI")
 async def ask_text_search_query(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
 
-    await show_callback_message(
+    menu_message = await show_callback_message(
         callback,
-        t("search_text_query_prompt", language),
+        t(
+            "search_text_query_prompt",
+            language,
+        ),
         InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -3130,6 +3961,11 @@ async def ask_text_search_query(callback: CallbackQuery, state: FSMContext):
             ]
         ),
     )
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
     await state.set_state(SpecialistSearchFSM.entering_text_query)
     await callback.answer()
 
@@ -3139,11 +3975,24 @@ async def show_search_history(callback: CallbackQuery, state: FSMContext):
     requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
 
     if not requester_user_id or not tenant_id:
-        await callback.message.answer(
-            t("search_history_empty", language),
-            reply_markup=search_history_keyboard(language),
-        )
         await callback.answer()
+
+        menu_message = await show_callback_message(
+            callback,
+            t(
+                "search_history_empty",
+                language,
+            ),
+            search_history_keyboard(
+                language
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
+        )
         return
 
     async with get_session() as session:
@@ -3156,11 +4005,24 @@ async def show_search_history(callback: CallbackQuery, state: FSMContext):
         )
 
     if not history_items:
-        await callback.message.answer(
-            t("search_history_empty", language),
-            reply_markup=search_history_keyboard(language),
-        )
         await callback.answer()
+
+        menu_message = await show_callback_message(
+            callback,
+            t(
+                "search_history_empty",
+                language,
+            ),
+            search_history_keyboard(
+                language
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
+        )
         return
 
     lines = [t("search_history_title", language), ""]
@@ -3182,19 +4044,67 @@ async def show_search_history(callback: CallbackQuery, state: FSMContext):
             )
         )
 
-    await callback.message.answer(
-        "\n".join(lines),
-        reply_markup=search_history_keyboard(language),
-    )
     await callback.answer()
 
+    menu_message = await show_callback_message(
+        callback,
+        "\n".join(lines),
+        search_history_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
+
 @search_router.message(SpecialistSearchFSM.entering_text_query)
-async def receive_text_search_query(message: Message, state: FSMContext):
-    language = await get_search_language(state, message)
-    query = (message.text or "").strip()
+async def receive_text_search_query(
+    message: Message,
+    state: FSMContext,
+):
+    data = await state.get_data()
+    language = await get_search_language(
+        state,
+        message,
+    )
+    query = (
+        message.text
+        or ""
+    ).strip()
 
     if len(query) < 2:
-        await message.answer(t("search_text_query_too_short", language))
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_text_query_too_short",
+                    language,
+                ),
+                reply_markup=search_start_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
         return
 
     async with get_session() as session:
@@ -3210,26 +4120,61 @@ async def receive_text_search_query(message: Message, state: FSMContext):
     professions = list(search_result.professions)
 
     if not professions:
-        await message.answer(
-            t("search_text_query_no_matches", language).format(query=query),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t("search_choose_category_btn", language),
-                            callback_data="search_filter_category",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text=t("search_menu", language),
-                            callback_data="search_menu",
-                        )
-                    ],
-                ]
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_text_query_no_matches",
+                    language,
+                ).format(
+                    query=query
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_choose_category_btn",
+                                    language,
+                                ),
+                                callback_data=(
+                                    "search_filter_category"
+                                ),
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_menu",
+                                    language,
+                                ),
+                                callback_data="search_menu",
+                            )
+                        ],
+                    ]
+                ),
+            )
+        )
+
+        await state.set_state(
+            SpecialistSearchFSM.choosing_filters
+        )
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
             ),
         )
-        await state.set_state(SpecialistSearchFSM.choosing_filters)
         return
 
     await state.update_data(
@@ -3260,16 +4205,43 @@ async def receive_text_search_query(message: Message, state: FSMContext):
         await render_results(event=message, state=state, page=0)
         return
 
-    await message.answer(
-        t("search_text_query_matches", language).format(query=query),
-        reply_markup=profession_keyboard(
-            professions=professions,
-            page=0,
-            language=language,
-            selected_ids=set(),
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            message.message_id
+        ],
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "search_text_query_matches",
+                language,
+            ).format(
+                query=query
+            ),
+            reply_markup=profession_keyboard(
+                professions=professions,
+                page=0,
+                language=language,
+                selected_ids=set(),
+            ),
+        )
+    )
+
+    await state.set_state(
+        SpecialistSearchFSM.choosing_profession
+    )
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message_id
         ),
     )
-    await state.set_state(SpecialistSearchFSM.choosing_profession)
 
 @search_router.callback_query(F.data == "search_filters")
 async def back_to_search_filters(callback: CallbackQuery, state: FSMContext):
@@ -3307,8 +4279,33 @@ async def open_category_filter(callback: CallbackQuery, state: FSMContext):
         )
 
     if not categories:
-        await callback.message.answer(t("search_categories_missing", language))
         await callback.answer()
+
+        menu_message = await show_callback_message(
+            callback,
+            t(
+                "search_categories_missing",
+                language,
+            ),
+            (
+                search_filters_keyboard(
+                    data,
+                    language,
+                )
+                if data.get(
+                    "search_category_source"
+                ) == "filters"
+                else search_start_keyboard(
+                    language
+                )
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
+        )
         return
 
     await state.update_data(
@@ -3456,10 +4453,13 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
         )
 
     if not selection:
-        await callback.message.answer(
-            t("search_category_not_found", language)
+        await callback.answer(
+            t(
+                "search_category_not_found",
+                language,
+            ),
+            show_alert=True,
         )
-        await callback.answer()
         return
 
     await state.update_data(
@@ -3500,13 +4500,13 @@ async def open_profession_filter(
     )
 
     if not professions:
-        await callback.message.answer(
+        await callback.answer(
             t(
                 "search_professions_missing",
                 language,
-            )
+            ),
+            show_alert=True,
         )
-        await callback.answer()
         return
 
     selected_ids = list(
@@ -3855,10 +4855,13 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
         )
 
     if not selection:
-        await callback.message.answer(
-            t("search_profession_not_found", language)
+        await callback.answer(
+            t(
+                "search_profession_not_found",
+                language,
+            ),
+            show_alert=True,
         )
-        await callback.answer()
         return
 
     await state.update_data(
@@ -3939,7 +4942,54 @@ async def receive_location_query(message: Message, state: FSMContext):
     query = (message.text or "").strip()
 
     if len(query) < 2:
-        await message.answer(t("search_location_query_too_short", language))
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_location_query_too_short",
+                    language,
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_back_to_filters_btn",
+                                    language,
+                                ),
+                                callback_data="search_filters",
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_menu",
+                                    language,
+                                ),
+                                callback_data="search_menu",
+                            )
+                        ],
+                    ]
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
         return
 
     try:
@@ -3963,44 +5013,136 @@ async def receive_location_query(message: Message, state: FSMContext):
             message.from_user.id,
             exc,
         )
-        await message.answer(
-            t("search_geo_provider_error", language).format(error=str(exc)),
-            reply_markup=search_geo_empty_keyboard(language),
+
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_geo_provider_error",
+                    language,
+                ),
+                reply_markup=search_geo_empty_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
         )
         return
 
     if not candidates:
-        await message.answer(
-            t("search_geo_candidates_not_found", language),
-            reply_markup=search_geo_empty_keyboard(language),
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_geo_candidates_not_found",
+                    language,
+                ),
+                reply_markup=search_geo_empty_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
         )
         return
 
     candidate_state = dedupe_geo_candidate_states(
-    [candidate.to_state() for candidate in candidates],
-    limit=8,
-)
-    await state.update_data(search_geo_candidates=candidate_state)
-
-    await message.answer(
-        t("search_geo_candidates_prompt", language),
-        reply_markup=search_geo_candidates_keyboard(candidate_state, language),
+        [
+            candidate.to_state()
+            for candidate in candidates
+        ],
+        limit=8,
     )
-    await state.set_state(SpecialistSearchFSM.choosing_geo_place)
+
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            message.message_id
+        ],
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "search_geo_candidates_prompt",
+                language,
+            ),
+            reply_markup=search_geo_candidates_keyboard(
+                candidate_state,
+                language,
+            ),
+        )
+    )
+
+    await state.update_data(
+        search_geo_candidates=candidate_state,
+        last_menu_message_id=(
+            menu_message_id
+        ),
+    )
+    await state.set_state(
+        SpecialistSearchFSM.choosing_geo_place
+    )
 
 
 @search_router.callback_query(F.data == "search_location_geo")
 async def start_location_geo_search(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    await callback.answer()
 
-    await callback.message.answer(
-        t("search_geo_prompt", language),
+    menu_message = await replace_callback_menu_message(
+        callback=callback,
+        text=t(
+            "search_geo_prompt",
+            language,
+        ),
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
                 [
                     KeyboardButton(
-                        text=t("search_send_geo_btn", language),
+                        text=t(
+                            "search_send_geo_btn",
+                            language,
+                        ),
                         request_location=True,
                     )
                 ]
@@ -4009,8 +5151,15 @@ async def start_location_geo_search(callback: CallbackQuery, state: FSMContext):
             one_time_keyboard=True,
         ),
     )
-    await state.set_state(SpecialistSearchFSM.waiting_geo)
-    await callback.answer()
+
+    await state.set_state(
+        SpecialistSearchFSM.waiting_geo
+    )
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 
 @search_router.message(SpecialistSearchFSM.waiting_geo)
@@ -4019,7 +5168,47 @@ async def receive_geo(message: Message, state: FSMContext):
     language = await get_search_language(state, message)
 
     if not message.location:
-        await message.answer(t("search_geo_required", language))
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_geo_required",
+                    language,
+                ),
+                reply_markup=ReplyKeyboardMarkup(
+                    keyboard=[
+                        [
+                            KeyboardButton(
+                                text=t(
+                                    "search_send_geo_btn",
+                                    language,
+                                ),
+                                request_location=True,
+                            )
+                        ]
+                    ],
+                    resize_keyboard=True,
+                    one_time_keyboard=True,
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
         return
 
     try:
@@ -4044,54 +5233,148 @@ async def receive_geo(message: Message, state: FSMContext):
             message.from_user.id,
             exc,
         )
-        await message.answer(
-            t("search_geo_provider_error", language).format(error=str(exc)),
-            reply_markup=ReplyKeyboardRemove(),
-        )
-        await message.answer(
-            t("search_location_prompt", language),
-            reply_markup=search_geo_empty_keyboard(language),
-        )
-        return
 
-    if not candidates:
-        await message.answer(
-            t("search_geo_candidates_not_found", language),
-            reply_markup=ReplyKeyboardRemove(),
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
         )
-        await message.answer(
-            t("search_location_prompt", language),
-            reply_markup=search_geo_empty_keyboard(language),
+
+        error_text = (
+            f"{t('search_geo_provider_error', language)}"
+            "\n\n"
+            f"{t('search_location_prompt', language)}"
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=error_text,
+                reply_markup=ReplyKeyboardRemove(),
+            )
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=menu_message_id,
+                text=error_text,
+                reply_markup=search_geo_empty_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
         )
         return
 
     candidate_state = dedupe_geo_candidate_states(
-        [candidate.to_state() for candidate in candidates],
+        [
+            candidate.to_state()
+            for candidate in candidates
+        ],
         limit=4,
     )
 
     if not candidate_state:
-        await message.answer(
-            t("search_geo_candidates_not_found", language),
-            reply_markup=ReplyKeyboardRemove(),
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
         )
-        await message.answer(
-            t("search_location_prompt", language),
-            reply_markup=search_geo_empty_keyboard(language),
+
+        empty_text = (
+            f"{t('search_geo_candidates_not_found', language)}"
+            "\n\n"
+            f"{t('search_location_prompt', language)}"
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=empty_text,
+                reply_markup=ReplyKeyboardRemove(),
+            )
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=menu_message_id,
+                text=empty_text,
+                reply_markup=search_geo_empty_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
         )
         return
 
-    await state.update_data(search_geo_candidates=candidate_state)
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            message.message_id
+        ],
+    )
 
-    await message.answer(
-        t("search_geo_candidates_prompt", language),
-        reply_markup=ReplyKeyboardRemove(),
+    candidates_text = (
+        f"{t('search_geo_candidates_prompt', language)}"
+        "\n\n"
+        f"{t('search_geo_nearby_prompt', language)}"
     )
-    await message.answer(
-        t("search_geo_nearby_prompt", language),
-        reply_markup=search_geo_candidates_keyboard(candidate_state, language),
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=candidates_text,
+            reply_markup=ReplyKeyboardRemove(),
+        )
     )
-    await state.set_state(SpecialistSearchFSM.choosing_geo_place)
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=menu_message_id,
+            text=candidates_text,
+            reply_markup=search_geo_candidates_keyboard(
+                candidate_state,
+                language,
+            ),
+        )
+    )
+
+    await state.update_data(
+        search_geo_candidates=candidate_state,
+        last_menu_message_id=(
+            menu_message_id
+        ),
+    )
+    await state.set_state(
+        SpecialistSearchFSM.choosing_geo_place
+    )
 
 @search_router.callback_query(F.data == "search_geo_other")
 async def search_geo_other_options(callback: CallbackQuery, state: FSMContext):
@@ -4176,7 +5459,10 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
             exc,
         )
         await callback.answer(
-            t("search_geo_provider_error", language).format(error=str(exc)),
+            t(
+                "search_geo_provider_error",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -4599,17 +5885,35 @@ async def report_from_result(callback: CallbackQuery, state: FSMContext):
 
     await report_pending(callback, state)
 
-@search_router.callback_query(F.data.startswith("search_result:"))
-async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
+@search_router.callback_query(
+    F.data.startswith("search_result:")
+)
+async def show_specialist_card(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     index = callback_index(callback)
     data = await state.get_data()
-    language = await get_search_language(state, callback)
-    specialist_ids = data.get("result_specialist_ids") or []
-    distances = data.get("result_distances") or []
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    specialist_ids = (
+        data.get("result_specialist_ids") or []
+    )
+    distances = (
+        data.get("result_distances") or []
+    )
 
-    if index is None or index >= len(specialist_ids):
+    if (
+        index is None
+        or index < 0
+        or index >= len(specialist_ids)
+    ):
         await callback.answer()
         return
+
+    await callback.answer()
 
     distance_km = (
         distances[index]
@@ -4619,6 +5923,7 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
     results_page = int(
         data.get("results_page") or 0
     )
+
     requester_user_id, tenant_id = (
         await get_requester_context(
             callback.from_user.id
@@ -4644,22 +5949,38 @@ async def show_specialist_card(callback: CallbackQuery, state: FSMContext):
         )
 
     if not card:
-        await callback.answer()
         return
 
     await state.update_data(
-        selected_specialist_id=specialist_ids[index],
+        selected_specialist_id=(
+            specialist_ids[index]
+        ),
         selected_specialist_distance=distance_km,
+        selected_result_index=index,
     )
 
-    await show_callback_message(
+    await collapse_search_results_to_callback_message(
+        callback=callback,
+        state=state,
+    )
+
+    menu_message = await show_callback_message(
         callback,
-        format_public_card(card, language),
-        card_keyboard(language, results_page),
+        format_public_card(
+            card,
+            language,
+        ),
+        card_keyboard(
+            language,
+            results_page,
+        ),
     )
-    await callback.answer()
 
-    
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 @search_router.callback_query(F.data == "search_portfolio_pending")
 async def show_selected_specialist_portfolio(callback: CallbackQuery, state: FSMContext):
@@ -4727,6 +6048,8 @@ async def render_selected_specialist_reviews(
         )
         return
 
+    await callback.answer()
+
     try:
         async with get_session() as session:
             review_page = await ReviewService(
@@ -4740,7 +6063,50 @@ async def render_selected_specialist_reviews(
             )
 
     except ReviewServiceError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        logger.warning(
+            "public_reviews_load_failed "
+            "specialist_id=%s error=%s",
+            specialist_id,
+            exc,
+        )
+        menu_message = await show_callback_message(
+            callback,
+            t(
+                "public_reviews_load_error",
+                language,
+            ),
+            InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_back",
+                                language,
+                            ),
+                            callback_data=(
+                                "search_result_back_to_card:"
+                                f"{int(data.get('results_page') or 0)}"
+                            ),
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_menu",
+                                language,
+                            ),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
+        )
         return
 
     await state.update_data(
@@ -4748,9 +6114,12 @@ async def render_selected_specialist_reviews(
         public_review_ids=[str(review.id) for review in review_page.reviews],
     )
 
-    await show_callback_message(
+    menu_message = await show_callback_message(
         callback,
-        format_public_reviews(review_page, language),
+        format_public_reviews(
+            review_page,
+            language,
+        ),
         public_reviews_keyboard(
             language=language,
             page=review_page.page,
@@ -4760,7 +6129,11 @@ async def render_selected_specialist_reviews(
             results_page=int(data.get("results_page") or 0),
         ),
     )
-    await callback.answer()
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 
 @search_router.callback_query(F.data == "search_reviews_pending")
@@ -4872,6 +6245,8 @@ async def contact_start(
             language=language,
         )
         return
+    
+    await callback.answer()
 
     try:
         async with get_session() as session:
@@ -4900,9 +6275,40 @@ async def contact_start(
             specialist_id,
             exc,
         )
-        await callback.answer(
-            t("contact_chat_error", language),
-            show_alert=True,
+        menu_message = await show_callback_message(
+            callback,
+            t(
+                "contact_chat_error",
+                language,
+            ),
+            InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_back_to_filters_btn",
+                                language,
+                            ),
+                            callback_data="search_filters",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_menu",
+                                language,
+                            ),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
         )
         return
 
@@ -4920,11 +6326,11 @@ async def contact_start(
 
     await show_client_contact_chat(
         message=callback.message,
+        state=state,
         thread_id=str(chat.thread_id),
         user_id=requester_user_id,
         language=language,
     )
-    await callback.answer()
 
 
 @search_router.callback_query(F.data == "search_contact_cancel")
@@ -4980,13 +6386,38 @@ async def receive_thread_message(message: Message, state: FSMContext):
     thread_id = data.get("active_thread_id")
 
     if not thread_id:
-        await message.answer(t("contact_thread_not_found", language))
-        await state.set_state(SpecialistSearchFSM.viewing_results)
+        await show_contact_chat_screen(
+            message=message,
+            state=state,
+            text=t(
+                "contact_thread_not_found",
+                language,
+            ),
+            reply_markup=search_start_keyboard(
+                language
+            ),
+        )
+        await state.set_state(
+            SpecialistSearchFSM.viewing_results
+        )
         return
 
     sender_user_id, tenant_id = await get_requester_context(message.from_user.id)
     if not sender_user_id or not tenant_id:
-        await message.answer(t("search_contact_user_not_found", language))
+        await show_contact_chat_screen(
+            message=message,
+            state=state,
+            text=t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            reply_markup=(
+                contact_thread_keyboard_for_role(
+                    language,
+                    data.get("active_thread_role"),
+                )
+            ),
+        )
         return
 
     message_text = (
@@ -5017,11 +6448,18 @@ async def receive_thread_message(message: Message, state: FSMContext):
             "file_size": document.file_size,
         }
     elif not message_text:
-        await message.answer(
-            t("contact_attachment_unsupported", language),
-            reply_markup=contact_thread_keyboard_for_role(
+        await show_contact_chat_screen(
+            message=message,
+            state=state,
+            text=t(
+                "contact_attachment_unsupported",
                 language,
-                data.get("active_thread_role"),
+            ),
+            reply_markup=(
+                contact_thread_keyboard_for_role(
+                    language,
+                    data.get("active_thread_role"),
+                )
             ),
         )
         return
@@ -5086,27 +6524,37 @@ async def receive_thread_message(message: Message, state: FSMContext):
         )
 
         if "read-only for blacklisted users" in error_text:
-            await message.answer(
-                t("contact_thread_read_only_blacklisted", language),
-                reply_markup=contact_thread_keyboard_for_role(
+            await show_contact_chat_screen(
+                message=message,
+                state=state,
+                text=t(
+                    "contact_thread_read_only_blacklisted",
                     language,
-                    data.get("active_thread_role"),
+                ),
+                reply_markup=(
+                    contact_thread_keyboard_for_role(
+                        language,
+                        data.get("active_thread_role"),
+                    )
                 ),
             )
             await state.set_state(
-                SpecialistSearchFSM.entering_thread_message,
+                SpecialistSearchFSM.entering_thread_message
             )
             return
-
         if "Attachment is too large." in error_text:
-            await message.answer(
-                t(
+            await show_contact_chat_screen(
+                message=message,
+                state=state,
+                text=t(
                     "contact_attachment_too_large",
                     language,
                 ),
-                reply_markup=contact_thread_keyboard_for_role(
-                    language,
-                    data.get("active_thread_role"),
+                reply_markup=(
+                    contact_thread_keyboard_for_role(
+                        language,
+                        data.get("active_thread_role"),
+                    )
                 ),
             )
             await state.set_state(
@@ -5119,14 +6567,18 @@ async def receive_thread_message(message: Message, state: FSMContext):
             or "Attachment file is missing." in error_text
             or "Invalid attachment size." in error_text
         ):
-            await message.answer(
-                t(
+            await show_contact_chat_screen(
+                message=message,
+                state=state,
+                text=t(
                     "contact_attachment_unsupported",
                     language,
                 ),
-                reply_markup=contact_thread_keyboard_for_role(
-                    language,
-                    data.get("active_thread_role"),
+                reply_markup=(
+                    contact_thread_keyboard_for_role(
+                        language,
+                        data.get("active_thread_role"),
+                    )
                 ),
             )
             await state.set_state(
@@ -5134,15 +6586,22 @@ async def receive_thread_message(message: Message, state: FSMContext):
             )
             return
 
-        await message.answer(
-            t("contact_thread_message_error", language).format(error=error_text),
-            reply_markup=contact_thread_keyboard_for_role(
+        await show_contact_chat_screen(
+            message=message,
+            state=state,
+            text=t(
+                "contact_chat_error",
                 language,
-                data.get("active_thread_role"),
+            ),
+            reply_markup=(
+                contact_thread_keyboard_for_role(
+                    language,
+                    data.get("active_thread_role"),
+                )
             ),
         )
         await state.set_state(
-            SpecialistSearchFSM.entering_thread_message,
+            SpecialistSearchFSM.entering_thread_message
         )
         return
 
@@ -5203,23 +6662,28 @@ async def receive_thread_message(message: Message, state: FSMContext):
         SpecialistSearchFSM.entering_thread_message,
     )
 
-    if attachment is None:
-        await show_contact_chat(
-            message=message,
-            thread_id=str(result.thread_id),
-            user_id=sender_user_id,
-            viewer_role=(
-                data.get("active_thread_role")
-                or "client"
-            ),
-            language=language,
-            include_attachments=False,
-        )
-
-    if result.message_masked:
-        await message.answer(
-            t("contact_detection_warning", language),
-        )
+    await show_contact_chat(
+        message=message,
+        state=state,
+        thread_id=str(result.thread_id),
+        user_id=sender_user_id,
+        viewer_role=(
+            data.get("active_thread_role")
+            or "client"
+        ),
+        language=language,
+        include_attachments=(
+            attachment is not None
+        ),
+        notice=(
+            t(
+                "contact_detection_warning",
+                language,
+            )
+            if result.message_masked
+            else None
+        ),
+    )
 
 @search_router.callback_query(
     F.data == "search_favorite_pending"
@@ -5258,6 +6722,8 @@ async def favorite_pending(
             language=language,
         )
         return
+    
+    await callback.answer()
 
     try:
         async with get_session() as session:
@@ -5278,9 +6744,40 @@ async def favorite_pending(
             specialist_id,
             exc,
         )
-        await callback.answer(
-            str(exc),
-            show_alert=True,
+        menu_message = await show_callback_message(
+            callback,
+            t(
+                "favorite_action_error",
+                language,
+            ),
+            InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_back_to_filters_btn",
+                                language,
+                            ),
+                            callback_data="search_filters",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "search_menu",
+                                language,
+                            ),
+                            callback_data="search_menu",
+                        )
+                    ],
+                ]
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
         )
         return
 
@@ -5327,29 +6824,67 @@ async def favorite_pending(
     except TelegramBadRequest:
         pass
 
+@search_router.callback_query(
+    F.data == "search_report_pending"
+)
+async def report_pending(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    data = await state.get_data()
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    specialist_id = data.get(
+        "selected_specialist_id"
+    )
+
+    if not specialist_id:
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
     await callback.answer()
 
-@search_router.callback_query(F.data == "search_report_pending")
-async def report_pending(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-
-    if not data.get("selected_specialist_id"):
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
-        return
+    await state.update_data(
+        pending_report_target_type="specialist",
+        pending_report_target_id=specialist_id,
+        pending_report_reason=None,
+        pending_report_comment=None,
+    )
 
     await store_complaint_target_summary(
         state,
         language,
     )
 
-    await show_callback_message(
-        callback,
-        t("complaint_reason_prompt", language),
-        complaint_reason_keyboard(language),
+    await collapse_search_results_to_callback_message(
+        callback=callback,
+        state=state,
     )
-    await callback.answer()
 
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "complaint_reason_prompt",
+            language,
+        ),
+        complaint_reason_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 @search_router.callback_query(F.data.startswith("search_report_reason:"))
 async def choose_report_reason(callback: CallbackQuery, state: FSMContext):
@@ -5379,13 +6914,36 @@ async def choose_report_reason(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
-@search_router.callback_query(F.data == "search_report_comment")
-async def ask_report_comment(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
+@search_router.callback_query(
+    F.data == "search_report_comment"
+)
+async def ask_report_comment(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
+        callback,
+    )
 
-    await state.set_state(SpecialistSearchFSM.entering_report_comment)
-    await callback.message.answer(t("complaint_comment_prompt", language))
     await callback.answer()
+
+    await state.set_state(
+        SpecialistSearchFSM.entering_report_comment
+    )
+
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "complaint_comment_prompt",
+            language,
+        ),
+        complaint_comment_keyboard(language),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @search_router.callback_query(F.data == "search_report_send")
 async def send_report(callback: CallbackQuery, state: FSMContext):
@@ -5455,9 +7013,15 @@ async def cancel_report(
             language,
         )
 
-    await callback.message.answer(
-        t("complaint_cancelled", language),
-        reply_markup=InlineKeyboardMarkup(
+    await callback.answer()
+
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "complaint_cancelled",
+            language,
+        ),
+        InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
@@ -5467,32 +7031,90 @@ async def cancel_report(
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("search_menu", language),
+                        text=t(
+                            "search_menu",
+                            language,
+                        ),
                         callback_data="search_menu",
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
-@search_router.message(SpecialistSearchFSM.entering_report_comment)
-async def receive_report_comment(message: Message, state: FSMContext):
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
+
+@search_router.message(
+    SpecialistSearchFSM.entering_report_comment
+)
+async def receive_report_comment(
+    message: Message,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = await get_search_language(state, message)
+    language = await get_search_language(
+        state,
+        message,
+    )
     comment = (message.text or "").strip()
 
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[message.message_id],
+    )
+
     if len(comment) < 3:
-        await message.answer(t("complaint_comment_too_short", language))
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=(
+                    f"{t('complaint_comment_too_short', language)}\n\n"
+                    f"{t('complaint_comment_prompt', language)}"
+                ),
+                reply_markup=complaint_comment_keyboard(
+                    language
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message_id
+        )
         return
 
-    await state.update_data(pending_report_comment=comment)
-    await state.set_state(SpecialistSearchFSM.confirming_report)
+    await state.update_data(
+        pending_report_comment=comment
+    )
+    await state.set_state(
+        SpecialistSearchFSM.confirming_report
+    )
 
     data = await state.get_data()
-    await message.answer(
-        complaint_draft_text(data, language),
-        reply_markup=complaint_draft_keyboard(language),
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=complaint_draft_text(
+                data,
+                language,
+            ),
+            reply_markup=complaint_draft_keyboard(
+                language
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
     )
 
 async def create_search_complaint(
@@ -5518,15 +7140,44 @@ async def create_search_complaint(
             await event.answer(t("search_contact_no_specialist", language))
         return
 
-    reporter_user_id, tenant_id = await get_requester_context(event.from_user.id)
-    if not reporter_user_id or not tenant_id:
-        await state.update_data(post_auth_action="report")
+    reporter_user_id, tenant_id = (
+        await get_requester_context(
+            event.from_user.id
+        )
+    )
 
+    if not reporter_user_id or not tenant_id:
         if isinstance(event, CallbackQuery):
-            await event.message.answer(t("auth_required_start", language))
-            await event.answer(t("auth_required_start", language), show_alert=True)
+            await store_post_auth_action(
+                callback=event,
+                state=state,
+                action="report",
+                language=language,
+            )
         else:
-            await event.answer(t("auth_required_start", language))
+            await state.update_data(
+                post_auth_action="report"
+            )
+
+            menu_message_id = (
+                await edit_or_replace_tracked_menu_message(
+                    message=event,
+                    menu_message_id=data.get(
+                        "last_menu_message_id"
+                    ),
+                    text=t(
+                        "auth_required_start",
+                        language,
+                    ),
+                    reply_markup=search_start_keyboard(
+                        language
+                    ),
+                )
+            )
+
+            await state.update_data(
+                last_menu_message_id=menu_message_id
+            )
         return
 
     try:
@@ -5558,9 +7209,16 @@ async def create_search_complaint(
             reason,
         )
     except ModerationError as exc:
-        error_text = str(exc)
+        technical_error = str(exc)
+        error_text = t(
+            "complaint_create_error",
+            language,
+        )
 
-        if "active complaint with this reason already exists" in error_text.lower():
+        if (
+            "active complaint with this reason already exists"
+            in technical_error.lower()
+        ):
             error_text = t(
                 "complaint_duplicate_active",
                 language,
@@ -5591,43 +7249,78 @@ async def create_search_complaint(
         page=data.get("page") or 0,
     )
     await state.set_state(SpecialistSearchFSM.viewing_results)
-    target_message = event.message if isinstance(event, CallbackQuery) else event
-    await target_message.answer(
-        t("complaint_confirmed", language).format(
-            complaint_number=complaint_number,
-        ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t("support_my_tickets_btn", language),
-                        callback_data="SUPPORT_MY_TICKETS",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t("search_menu", language),
-                        callback_data="search_menu",
-                    )
-                ],
-            ]
-        ),
+    confirmation_text = t(
+        "complaint_confirmed",
+        language,
+    ).format(
+        complaint_number=complaint_number,
+    )
+
+    confirmation_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "support_my_tickets_btn",
+                        language,
+                    ),
+                    callback_data="SUPPORT_MY_TICKETS",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
+                    callback_data="search_menu",
+                )
+            ],
+        ]
     )
 
     if isinstance(event, CallbackQuery):
+        menu_message = await show_callback_message(
+            event,
+            confirmation_text,
+            confirmation_keyboard,
+        )
+        menu_message_id = menu_message.message_id
         await event.answer()
+    else:
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=event,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=confirmation_text,
+                reply_markup=confirmation_keyboard,
+            )
+        )
 
-
-@search_router.callback_query(F.data == "search_menu")
-async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-
-    await state.clear()
-    await callback.message.answer(
-        t("search_main_menu", language),
-        reply_markup=await get_main_menu_keyboard_for_user(callback.from_user.id, language),
+    await state.update_data(
+        last_menu_message_id=menu_message_id
     )
-    await callback.answer()
+
+
+@search_router.callback_query(
+    F.data == "search_menu"
+)
+async def back_to_main_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
+        callback,
+    )
+
+    await send_global_main_menu(
+        callback=callback,
+        state=state,
+        language=language,
+    )
 
 
 @search_router.callback_query(F.data == "contact_show_original")
@@ -5661,7 +7354,10 @@ async def show_original_message(callback: CallbackQuery, state: FSMContext):
             exc,
         )
         await callback.answer(
-            t("contact_original_not_found", language).format(error=str(exc)),
+            t(
+                "contact_original_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -5672,13 +7368,22 @@ async def show_original_message(callback: CallbackQuery, state: FSMContext):
         else "contact_original_message"
     )
 
-    await callback.message.answer(
-        t(original_text_key, language).format(
+    await callback.answer()
+
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            original_text_key,
+            language,
+        ).format(
             message=original.original_text,
         ),
-        reply_markup=contact_thread_keyboard(language),
+        contact_thread_keyboard(language),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @search_router.callback_query(
     (F.data == "ORDER_CREATE_FROM_THREAD")
@@ -5767,52 +7472,148 @@ async def start_contact_review(
         SpecialistSearchFSM.choosing_review_rating,
     )
 
-    await callback.message.answer(
-        t("review_rating_prompt", language),
-        reply_markup=review_rating_keyboard(language),
-    )
     await callback.answer()
 
-@search_router.callback_query(F.data.startswith("review_rating:"))
-async def choose_review_rating(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "review_rating_prompt",
+            language,
+        ),
+        review_rating_keyboard(language),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
+
+@search_router.callback_query(
+    F.data.startswith("review_rating:")
+)
+async def choose_review_rating(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
+        callback,
+    )
 
     try:
-        rating = int(callback.data.split(":", 1)[1])
-    except (TypeError, ValueError):
+        rating = int(
+            (callback.data or "").split(":", 1)[1]
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
         await callback.answer(
-            localized_review_error("invalid rating", language),
+            localized_review_error(
+                "invalid rating",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     if rating < 1 or rating > 5:
         await callback.answer(
-            localized_review_error("invalid rating", language),
+            localized_review_error(
+                "invalid rating",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    await state.update_data(review_rating=rating)
-    await state.set_state(SpecialistSearchFSM.entering_review_text)
-
-    await callback.message.answer(
-        t("review_text_prompt", language),
-        reply_markup=review_skip_text_keyboard(language),
+    await state.update_data(
+        review_rating=rating
     )
+    await state.set_state(
+        SpecialistSearchFSM.entering_review_text
+    )
+
     await callback.answer()
 
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "review_text_prompt",
+            language,
+        ),
+        review_skip_text_keyboard(language),
+    )
 
-@search_router.callback_query(F.data == "review_text_skip")
-async def skip_review_text(callback: CallbackQuery, state: FSMContext):
-    await create_review_from_state(callback, state, text=None)
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
-@search_router.message(SpecialistSearchFSM.entering_review_text)
-async def receive_review_text(message: Message, state: FSMContext):
+@search_router.callback_query(
+    F.data == "review_text_skip"
+)
+async def skip_review_text(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await create_review_from_state(
+        callback,
+        state,
+        text=None,
+    )
+
+
+@search_router.message(
+    SpecialistSearchFSM.entering_review_text
+)
+async def receive_review_text(
+    message: Message,
+    state: FSMContext,
+):
     text = (message.text or "").strip()
-    await create_review_from_state(message, state, text=text)
 
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[message.message_id],
+    )
+
+    await create_review_from_state(
+        message,
+        state,
+        text=text,
+    )
+
+
+async def show_review_flow_screen(
+    *,
+    event: CallbackQuery | Message,
+    state: FSMContext,
+    menu_message_id: int | str | None,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> None:
+    if isinstance(event, CallbackQuery):
+        menu_message = await show_callback_message(
+            event,
+            text,
+            reply_markup,
+        )
+        current_message_id = menu_message.message_id
+    else:
+        current_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=event,
+                menu_message_id=menu_message_id,
+                text=text,
+                reply_markup=reply_markup,
+            )
+        )
+
+    await state.update_data(
+        last_menu_message_id=current_message_id
+    )
 
 async def create_review_from_state(
     event: CallbackQuery | Message,
@@ -5832,33 +7633,48 @@ async def create_review_from_state(
     ) or "client"
     rating = data.get("review_rating")
 
-    target = (
-        event.message
-        if isinstance(event, CallbackQuery)
-        else event
-    )
-
     if not contact_request_id or not rating:
-        await target.answer(
-            localized_review_error(
+        if isinstance(event, CallbackQuery):
+            await event.answer()
+
+        await show_review_flow_screen(
+            event=event,
+            state=state,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=localized_review_error(
                 "missing review data",
                 language,
-            )
+            ),
         )
-        if isinstance(event, CallbackQuery):
-            await event.answer()
         return
 
-    reviewer_user_id, tenant_id = await get_requester_context(
-        event.from_user.id,
-    )
-    if not reviewer_user_id or not tenant_id:
-        await target.answer(
-            t("search_contact_user_not_found", language)
+    reviewer_user_id, tenant_id = (
+        await get_requester_context(
+            event.from_user.id,
         )
+    )
+
+    if not reviewer_user_id or not tenant_id:
         if isinstance(event, CallbackQuery):
             await event.answer()
+
+        await show_review_flow_screen(
+            event=event,
+            state=state,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "search_contact_user_not_found",
+                language,
+            ),
+        )
         return
+
+    if isinstance(event, CallbackQuery):
+        await event.answer()
 
     try:
         async with get_session() as session:
@@ -5885,47 +7701,69 @@ async def create_review_from_state(
                     ),
                     user_id=reviewer_user_id,
                 )
-    except (ContactChatError, ReviewServiceError) as exc:
-        await target.answer(
-            localized_review_error(exc, language)
+    except (
+        ContactChatError,
+        ReviewServiceError,
+    ) as exc:
+
+        await show_review_flow_screen(
+            event=event,
+            state=state,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=localized_review_error(
+                exc,
+                language,
+            ),
         )
-        if isinstance(event, CallbackQuery):
-            await event.answer()
         return
+
+    if contact_request_id and review_thread_id:
+        result_text = t(
+            "review_created_archived",
+            language,
+        )
+        result_keyboard = review_completed_keyboard(
+            language=language,
+            role=review_thread_role,
+        )
+    else:
+        result_text = t(
+            "review_created",
+            language,
+        )
+        result_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "search_back_to_filters_btn",
+                            language,
+                        ),
+                        callback_data="search_filters",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "search_menu",
+                            language,
+                        ),
+                        callback_data="search_menu",
+                    )
+                ],
+            ]
+        )
 
     await state.clear()
 
-    if contact_request_id and review_thread_id:
-        await target.answer(
-            t("review_created_archived", language),
-            reply_markup=review_completed_keyboard(
-                language=language,
-                role=review_thread_role,
-            ),
-        )
-    else:
-        await target.answer(
-            t("review_created", language),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "search_back_to_filters_btn",
-                                language,
-                            ),
-                            callback_data="search_filters",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text=t("search_menu", language),
-                            callback_data="search_menu",
-                        )
-                    ],
-                ]
-            ),
-        )
-
-    if isinstance(event, CallbackQuery):
-        await event.answer()
+    await show_review_flow_screen(
+        event=event,
+        state=state,
+        menu_message_id=data.get(
+            "last_menu_message_id"
+        ),
+        text=result_text,
+        reply_markup=result_keyboard,
+    )

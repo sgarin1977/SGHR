@@ -66,10 +66,70 @@ from services.support import (
     SupportServiceError,
 )
 from ui.texts import t
+from utils.telegram_cleanup import (
+    delete_telegram_messages,
+    edit_or_replace_menu_message,
+    edit_or_replace_tracked_menu_message,
+)
 from handlers.search import format_chat_message_body
 
 admin_router = Router()
 logger = logging.getLogger(__name__)
+
+async def replace_admin_input_screen(
+    *,
+    message: Message,
+    state: FSMContext,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> None:
+    data = await state.get_data()
+
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            message.message_id
+        ],
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=text,
+            reply_markup=reply_markup,
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id,
+    )
+
+
+async def replace_admin_callback_screen(
+    *,
+    callback: CallbackQuery,
+    state: FSMContext,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+    callback_answered: bool = False,
+) -> None:
+    if not callback_answered:
+        await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=text,
+        reply_markup=reply_markup,
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id,
+    )
+
 
 def review_moderation_error_text(
     error: Exception,
@@ -435,17 +495,26 @@ def super_admin_role_confirm_keyboard(
         ]
     )
 
-@admin_router.callback_query(F.data == "SA_ROLE_GRANT")
+@admin_router.callback_query(
+    F.data == "SA_ROLE_GRANT"
+)
 async def super_admin_role_grant_start(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    if not data.get("super_admin_selected_user_id"):
+    if not data.get(
+        "super_admin_selected_user_id"
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -453,23 +522,40 @@ async def super_admin_role_grant_start(
     await state.set_state(
         AdminModerationFSM.entering_super_admin_role_grant
     )
-    await callback.message.answer(
-        t("super_admin_role_action_format", language)
-    )
     await callback.answer()
 
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "super_admin_role_action_format",
+            language,
+        ),
+    )
 
-@admin_router.callback_query(F.data == "SA_ROLE_REVOKE")
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id,
+    )
+
+@admin_router.callback_query(
+    F.data == "SA_ROLE_REVOKE"
+)
 async def super_admin_role_revoke_start(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    if not data.get("super_admin_selected_user_id"):
+    if not data.get(
+        "super_admin_selected_user_id"
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -477,26 +563,53 @@ async def super_admin_role_revoke_start(
     await state.set_state(
         AdminModerationFSM.entering_super_admin_role_revoke
     )
-    await callback.message.answer(
-        t("super_admin_role_action_format", language)
-    )
     await callback.answer()
 
-@admin_router.message(AdminModerationFSM.entering_super_admin_role_grant)
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "super_admin_role_action_format",
+            language,
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id,
+    )
+
+@admin_router.message(
+    AdminModerationFSM.entering_super_admin_role_grant
+)
 async def super_admin_role_grant_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-    parsed = parse_super_admin_role_action(message.text)
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    parsed = parse_super_admin_role_action(
+        message.text
+    )
 
     if not parsed:
-        await message.answer(t("super_admin_role_bad_format", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t('super_admin_role_bad_format', language)}\n\n"
+                f"{t('super_admin_role_action_format', language)}"
+            ),
+        )
         return
 
     role, reason = parsed
     data = await state.get_data()
-    target_user = data.get("super_admin_selected_user_id") or "-"
+    target_user = (
+        data.get(
+            "super_admin_selected_user_id"
+        )
+        or "-"
+    )
 
     await state.update_data(
         super_admin_role_action="grant",
@@ -512,35 +625,60 @@ async def super_admin_role_grant_receive(
         else AdminModerationFSM.confirming_super_admin_role_grant
     )
 
-    await message.answer(
-        t("super_admin_role_grant_confirm", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "super_admin_role_grant_confirm",
+            language,
+        ).format(
             user=f"user-{target_user[:8]}",
             role=role,
             reason=reason,
         ),
-        reply_markup=super_admin_role_confirm_keyboard(
-            "grant",
-            danger=danger,
-            language=language,
+        reply_markup=(
+            super_admin_role_confirm_keyboard(
+                "grant",
+                danger=danger,
+                language=language,
+            )
         ),
     )
 
 
-@admin_router.message(AdminModerationFSM.entering_super_admin_role_revoke)
+@admin_router.message(
+    AdminModerationFSM.entering_super_admin_role_revoke
+)
 async def super_admin_role_revoke_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-    parsed = parse_super_admin_role_action(message.text)
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    parsed = parse_super_admin_role_action(
+        message.text
+    )
 
     if not parsed:
-        await message.answer(t("super_admin_role_bad_format", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t('super_admin_role_bad_format', language)}\n\n"
+                f"{t('super_admin_role_action_format', language)}"
+            ),
+        )
         return
 
     role, reason = parsed
     data = await state.get_data()
-    target_user = data.get("super_admin_selected_user_id") or "-"
+    target_user = (
+        data.get(
+            "super_admin_selected_user_id"
+        )
+        or "-"
+    )
 
     await state.update_data(
         super_admin_role_action="revoke",
@@ -556,18 +694,26 @@ async def super_admin_role_revoke_receive(
         else AdminModerationFSM.confirming_super_admin_role_revoke
     )
 
-    await message.answer(
-        t("super_admin_role_revoke_confirm", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "super_admin_role_revoke_confirm",
+            language,
+        ).format(
             user=f"user-{target_user[:8]}",
             role=role,
             reason=reason,
         ),
-        reply_markup=super_admin_role_confirm_keyboard(
-            "revoke",
-            danger=danger,
-            language=language,
+        reply_markup=(
+            super_admin_role_confirm_keyboard(
+                "revoke",
+                danger=danger,
+                language=language,
+            )
         ),
     )
+
 
 @admin_router.callback_query(F.data == "SA_ROLE_CANCEL")
 async def super_admin_role_cancel(
@@ -576,10 +722,22 @@ async def super_admin_role_cancel(
 ):
     language = normalize_language(callback.from_user.language_code)
     await state.set_state(None)
-    await callback.message.answer(
-        t("super_admin_role_cancelled", language)
-    )
     await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "super_admin_role_cancelled",
+            language,
+        ),
+        reply_markup=super_admin_user_card_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id,
+    )
 
 
 @admin_router.callback_query(
@@ -617,15 +775,30 @@ async def super_admin_role_final_confirm(
     role = data.get("super_admin_role")
 
     if role == "super_admin":
-        await callback.message.answer(
-            t("super_admin_role_danger_confirm", language),
-            reply_markup=super_admin_role_confirm_keyboard(
-                data.get("super_admin_role_action"),
-                danger=False,
-                language=language,
+        await callback.answer()
+
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "super_admin_role_danger_confirm",
+                language,
+            ),
+            reply_markup=(
+                super_admin_role_confirm_keyboard(
+                    data.get(
+                        "super_admin_role_action"
+                    ),
+                    danger=False,
+                    language=language,
+                )
             ),
         )
-        await callback.answer()
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
+        )
         return
 
     await super_admin_role_execute(
@@ -703,11 +876,24 @@ async def super_admin_role_execute(
         super_admin_role_reason=None,
     )
     await state.set_state(None)
-
-    await callback.message.answer(
-        t("super_admin_role_changed", language)
-    )
     await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "super_admin_role_changed",
+            language,
+        ),
+        reply_markup=super_admin_user_card_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 def short_uuid(value) -> str:
     return str(value)[:8] if value else "-"
@@ -817,45 +1003,96 @@ async def super_admin_users_start(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or not tenant_id or "super_admin" not in roles:
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
+    await callback.answer()
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id,
         )
         return
 
-    await state.set_state(AdminModerationFSM.waiting_super_admin_user_search)
-    await callback.message.answer(
-        t("super_admin_user_search_prompt", language)
+    await state.set_state(
+        AdminModerationFSM.waiting_super_admin_user_search
     )
-    await callback.answer()
 
-@admin_router.message(AdminModerationFSM.waiting_super_admin_user_search)
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "super_admin_user_search_prompt",
+            language,
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id,
+    )
+
+
+@admin_router.message(
+    AdminModerationFSM.waiting_super_admin_user_search
+)
 async def super_admin_user_search_message(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
     query = (message.text or "").strip()
 
     if len(query) < 2:
-        await message.answer(
-            t("super_admin_user_search_too_short", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "super_admin_user_search_too_short",
+                language,
+            ),
         )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
-    if not admin_user_id or not tenant_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
+        await state.set_state(None)
         return
 
     try:
@@ -869,7 +1106,11 @@ async def super_admin_user_search_message(
             )
 
     except ModerationError as exc:
-        await message.answer(str(exc))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=str(exc),
+        )
         return
 
     await state.update_data(
@@ -880,8 +1121,10 @@ async def super_admin_user_search_message(
         super_admin_user_search_query=query,
     )
 
-    await message.answer(
-        format_super_admin_user_search_results(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_super_admin_user_search_results(
             items,
             language,
         ),
@@ -890,6 +1133,7 @@ async def super_admin_user_search_message(
             language,
         ),
     )
+
     await state.set_state(None)
 
 def format_logs_message(
@@ -1494,8 +1738,10 @@ async def ask_super_admin_global_blacklist_add(
         super_admin_global_blacklist_add_reason=None,
     )
 
-    await callback.message.answer(
-        (
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
             "Введите пользователя и причину одним сообщением.\n\n"
             "Формат:\n"
             "user-49ba690f причина блокировки\n\n"
@@ -1513,7 +1759,6 @@ async def ask_super_admin_global_blacklist_add(
             ]
         ),
     )
-    await callback.answer()
 
 
 @admin_router.message(
@@ -1531,25 +1776,37 @@ async def receive_super_admin_global_blacklist_add(
     parts = raw_text.split(maxsplit=1)
 
     if len(parts) != 2:
-        await message.answer(
-            (
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
                 "Неверный формат.\n\n"
                 "Пример:\n"
                 "user-49ba690f test global block"
-            )
+            ),
         )
         return
 
-    query, reason = parts[0].strip(), parts[1].strip()
+    query, reason = (
+        parts[0].strip(),
+        parts[1].strip(),
+    )
 
     if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
         )
         return
 
     admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(message.from_user.id)
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if (
@@ -1558,8 +1815,14 @@ async def receive_super_admin_global_blacklist_add(
         or "super_admin" not in roles
     ):
         await state.set_state(None)
-        await message.answer(
-            t("admin_access_denied", language)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
         )
         return
 
@@ -1573,21 +1836,32 @@ async def receive_super_admin_global_blacklist_add(
                 query=query,
             )
     except ModerationError as exc:
-        await message.answer(str(exc))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=str(exc),
+        )
         return
 
     if not matches:
-        await message.answer(
-            t("admin_user_not_found", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
         )
         return
 
     if len(matches) > 1:
-        await message.answer(
-            (
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
                 "Найдено несколько пользователей. "
                 "Уточните user-facing ID, Telegram ID или username."
-            )
+            ),
         )
         return
 
@@ -1604,8 +1878,10 @@ async def receive_super_admin_global_blacklist_add(
         .confirming_super_admin_global_blacklist_add
     )
 
-    await message.answer(
-        t(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
             "admin_user_global_block_confirmation",
             language,
         ).format(
@@ -1634,7 +1910,10 @@ async def receive_super_admin_global_blacklist_add(
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data="SA_GBL_ADD_CANCEL",
                     )
                 ],
@@ -1686,8 +1965,10 @@ async def confirm_super_admin_global_blacklist_add_first(
         .confirming_super_admin_global_blacklist_add_final
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_block_final_confirmation",
             language,
         ).format(
@@ -1702,7 +1983,9 @@ async def confirm_super_admin_global_blacklist_add_first(
                             "admin_user_global_block_final_confirm_btn",
                             language,
                         ),
-                        callback_data="SA_GBL_ADD_FINAL_CONFIRM",
+                        callback_data=(
+                            "SA_GBL_ADD_FINAL_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -1716,14 +1999,16 @@ async def confirm_super_admin_global_blacklist_add_first(
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data="SA_GBL_ADD_CANCEL",
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -1795,8 +2080,10 @@ async def execute_super_admin_global_blacklist_add(
         super_admin_global_blacklist_add_reason=None,
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_block_completed",
             language,
         ).format(
@@ -1809,14 +2096,15 @@ async def execute_super_admin_global_blacklist_add(
                         text=t(
                             "admin_global_blacklist_btn",
                             language,
-                        ).format(count=0),
+                        ).format(
+                            count=0
+                        ),
                         callback_data="SA_GLOBAL_BLACKLIST",
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "SA_GBL_ADD_CANCEL")
@@ -1834,8 +2122,13 @@ async def cancel_super_admin_global_blacklist_add(
         super_admin_global_blacklist_add_reason=None,
     )
 
-    await callback.message.answer(
-        t("admin_user_global_block_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_global_block_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -1843,14 +2136,15 @@ async def cancel_super_admin_global_blacklist_add(
                         text=t(
                             "admin_global_blacklist_btn",
                             language,
-                        ).format(count=0),
+                        ).format(
+                            count=0
+                        ),
                         callback_data="SA_GLOBAL_BLACKLIST",
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 async def open_super_admin_global_blacklist_queue(
     callback: CallbackQuery,
@@ -1898,6 +2192,8 @@ async def open_super_admin_global_blacklist_queue(
         )
         return
 
+    state_data = await state.get_data()
+
     await state.update_data(
         super_admin_global_blacklist_ids=[
             str(card.blacklist_id)
@@ -1924,7 +2220,27 @@ async def open_super_admin_global_blacklist_queue(
         language,
     )
 
-    await callback.message.answer(
+    await callback.answer()
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            state_data.get(
+                "last_menu_message_id"
+            ),
+            *(
+                state_data.get(
+                    "admin_global_blacklist_message_ids"
+                )
+                or []
+            ),
+        ],
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "admin_global_blacklist_queue_title",
             language,
@@ -1933,52 +2249,86 @@ async def open_super_admin_global_blacklist_queue(
             count=len(result.items),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not result.items:
-        await callback.message.answer(
-            t("admin_global_blacklist_empty", language),
-            reply_markup=super_admin_global_blacklist_queue_keyboard(
-                view=result.view,
-                page=result.page,
-                has_next=False,
-                language=language,
+        empty_message = await callback.message.answer(
+            t(
+                "admin_global_blacklist_empty",
+                language,
+            ),
+            reply_markup=(
+                super_admin_global_blacklist_queue_keyboard(
+                    view=result.view,
+                    page=result.page,
+                    has_next=False,
+                    language=language,
+                )
             ),
         )
-        await callback.answer()
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            admin_global_blacklist_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         return
 
     start_number = (
-        result.page * ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE
+        result.page
+        * ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE
         + 1
     )
 
     for offset, card in enumerate(result.items):
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_global_blacklist_card(
                 card,
                 number=start_number + offset,
                 language=language,
             ),
-            reply_markup=super_admin_global_blacklist_card_keyboard(
-                index=offset,
-                can_revoke=card.can_revoke,
-                language=language,
+            reply_markup=(
+                super_admin_global_blacklist_card_keyboard(
+                    index=offset,
+                    can_revoke=card.can_revoke,
+                    language=language,
+                )
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
+    navigation_message = await callback.message.answer(
         t(
             "admin_global_blacklist_actions_title",
             language,
         ),
-        reply_markup=super_admin_global_blacklist_queue_keyboard(
-            view=result.view,
-            page=result.page,
-            has_next=result.has_next,
-            language=language,
+        reply_markup=(
+            super_admin_global_blacklist_queue_keyboard(
+                view=result.view,
+                page=result.page,
+                has_next=result.has_next,
+                language=language,
+            )
         ),
     )
-    await callback.answer()
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        admin_global_blacklist_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
 
 def format_admin_audit_card(
     card: AdminAuditCard,
@@ -2319,16 +2669,27 @@ def super_admin_smoke_keyboard(
 @admin_router.callback_query(F.data == "SA_SMOKE")
 async def super_admin_smoke_panel(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -2338,37 +2699,58 @@ async def super_admin_smoke_panel(
             ModerationRepository(session)
         ).list_super_admin_smoke_definitions()
 
-    await callback.message.answer(
-        format_super_admin_smoke_tests(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_smoke_tests(
             items,
             language,
         ),
-        reply_markup=super_admin_smoke_keyboard(language),
+        reply_markup=super_admin_smoke_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
-
-@admin_router.callback_query(F.data == "SA_SMOKE_RUN_ALL")
+@admin_router.callback_query(
+    F.data == "SA_SMOKE_RUN_ALL"
+)
 async def super_admin_smoke_run_all(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_smoke_progress",
+            language,
+        ),
+    )
+
     try:
-        await callback.message.answer(
-            t("super_admin_smoke_progress", language)
-        )
         async with get_session() as session:
             result = await ModerationService(
                 ModerationRepository(session)
@@ -2377,67 +2759,119 @@ async def super_admin_smoke_run_all(
             )
 
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=str(exc),
+            reply_markup=super_admin_smoke_keyboard(
+                language
+            ),
+            callback_answered=True,
+        )
         return
 
-    await callback.message.answer(
-        format_super_admin_smoke_run(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_smoke_run(
             result,
             language,
         ),
-        reply_markup=super_admin_smoke_keyboard(language),
+        reply_markup=super_admin_smoke_keyboard(
+            language
+        ),
+        callback_answered=True,
     )
-    await callback.answer()
 
-
-@admin_router.callback_query(F.data == "SA_SMOKE_RUN_SELECTED")
+@admin_router.callback_query(
+    F.data == "SA_SMOKE_RUN_SELECTED"
+)
 async def super_admin_smoke_select(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    await callback.message.answer(
-        t("super_admin_smoke_select_title", language),
-        reply_markup=super_admin_smoke_selected_keyboard(language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_smoke_select_title",
+            language,
+        ),
+        reply_markup=(
+            super_admin_smoke_selected_keyboard(
+                language
+            )
+        ),
     )
-    await callback.answer()
 
 
-@admin_router.callback_query(F.data.startswith("SA_SMOKE_RUN:"))
+@admin_router.callback_query(
+    F.data.startswith("SA_SMOKE_RUN:")
+)
 async def super_admin_smoke_run_selected(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-
-    selected_code = (callback.data or "").split(":", 1)[1]
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    selected_code = (
+        callback.data or ""
+    ).split(":", 1)[1]
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    try:
-        await callback.message.answer(
-            t("super_admin_smoke_progress", language)
-        )
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_smoke_progress",
+            language,
+        ),
+    )
 
+    try:
         async with get_session() as session:
             result = await ModerationService(
                 ModerationRepository(session)
@@ -2447,32 +2881,57 @@ async def super_admin_smoke_run_selected(
             )
 
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=str(exc),
+            reply_markup=super_admin_smoke_keyboard(
+                language
+            ),
+            callback_answered=True,
+        )
         return
 
-    await callback.message.answer(
-        format_super_admin_smoke_run(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_smoke_run(
             result,
             language,
         ),
-        reply_markup=super_admin_smoke_keyboard(language),
+        reply_markup=super_admin_smoke_keyboard(
+            language
+        ),
+        callback_answered=True,
     )
-    await callback.answer()
 
 
-@admin_router.callback_query(F.data == "SA_SMOKE_HISTORY")
+@admin_router.callback_query(
+    F.data == "SA_SMOKE_HISTORY"
+)
 async def super_admin_smoke_history(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -2486,30 +2945,50 @@ async def super_admin_smoke_history(
             )
 
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
-    await callback.message.answer(
-        format_super_admin_smoke_history(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_smoke_history(
             items,
             language,
         ),
-        reply_markup=super_admin_smoke_keyboard(language),
+        reply_markup=super_admin_smoke_keyboard(
+            language
+        ),
     )
-    await callback.answer()
-@admin_router.callback_query(F.data == "SA_SYSTEM")
+
+@admin_router.callback_query(
+    F.data == "SA_SYSTEM"
+)
 async def super_admin_system_panel(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -2523,22 +3002,28 @@ async def super_admin_system_panel(
             )
 
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
-    await callback.message.answer(
-        format_super_admin_system_status(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_system_status(
             card,
             language,
         ),
-        reply_markup=super_admin_system_keyboard(language),
+        reply_markup=super_admin_system_keyboard(
+            language
+        ),
     )
-    await callback.answer()
-
 
 @admin_router.callback_query(F.data.startswith("SA_SYSTEM_"))
 async def super_admin_system_detail(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
 
@@ -2633,26 +3118,33 @@ async def super_admin_system_detail(
         )
         return
 
-    await callback.message.answer(
-        text,
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=text,
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("super_admin_back_to_menu_btn", language),
+                        text=t(
+                            "super_admin_back_to_menu_btn",
+                            language,
+                        ),
                         callback_data="SA_SYSTEM",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("search_menu", language),
+                        text=t(
+                            "search_menu",
+                            language,
+                        ),
                         callback_data="MAIN_MENU",
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data.startswith("SA_GBL_REVOKE:"))
 async def ask_super_admin_global_blacklist_revoke(
@@ -2697,21 +3189,45 @@ async def ask_super_admin_global_blacklist_revoke(
         super_admin_global_blacklist_revoke_reason=None,
     )
 
-    await callback.message.answer(
-        t("admin_user_global_unblock_reason_prompt", language),
+    await callback.answer()
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=(
+            data.get(
+                "admin_global_blacklist_message_ids"
+            )
+            or []
+        ),
+    )
+
+    await state.update_data(
+        admin_global_blacklist_message_ids=[],
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_global_unblock_reason_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data="SA_GBL_REVOKE_CANCEL",
                     )
                 ]
             ]
         ),
+        callback_answered=True,
     )
-    await callback.answer()
-
 
 @admin_router.message(
     AdminModerationFSM.entering_super_admin_global_blacklist_revoke
@@ -2726,14 +3242,26 @@ async def receive_super_admin_global_blacklist_revoke_reason(
     reason = (message.text or "").strip()
 
     if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
         )
         return
 
     data = await state.get_data()
-    index = data.get("super_admin_global_blacklist_revoke_index")
-    user_ids = data.get("super_admin_global_blacklist_user_ids") or []
+    index = data.get(
+        "super_admin_global_blacklist_revoke_index"
+    )
+    user_ids = (
+        data.get(
+            "super_admin_global_blacklist_user_ids"
+        )
+        or []
+    )
 
     if (
         not isinstance(index, int)
@@ -2741,17 +3269,31 @@ async def receive_super_admin_global_blacklist_revoke_reason(
         or index >= len(user_ids)
     ):
         await state.set_state(None)
-        await message.answer(
-            t("admin_user_not_found", language)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
         )
         return
 
     try:
-        target_user_id = UUID(user_ids[index])
+        target_user_id = UUID(
+            str(user_ids[index])
+        )
     except (TypeError, ValueError):
         await state.set_state(None)
-        await message.answer(
-            t("admin_user_not_found", language)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
         )
         return
 
@@ -2763,12 +3305,16 @@ async def receive_super_admin_global_blacklist_revoke_reason(
         .confirming_super_admin_global_blacklist_revoke
     )
 
-    await message.answer(
-        t(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
             "admin_user_global_unblock_confirmation",
             language,
         ).format(
-            user_number=f"user-{target_user_id.hex[:8]}",
+            user_number=(
+                f"user-{target_user_id.hex[:8]}"
+            ),
             reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -2779,7 +3325,9 @@ async def receive_super_admin_global_blacklist_revoke_reason(
                             "admin_user_global_unblock_confirm_btn",
                             language,
                         ),
-                        callback_data="SA_GBL_REVOKE_CONFIRM",
+                        callback_data=(
+                            "SA_GBL_REVOKE_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -2788,19 +3336,25 @@ async def receive_super_admin_global_blacklist_revoke_reason(
                             "admin_user_change_reason_btn",
                             language,
                         ),
-                        callback_data=f"SA_GBL_REVOKE:{index}",
+                        callback_data=(
+                            f"SA_GBL_REVOKE:{index}"
+                        ),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
-                        callback_data="SA_GBL_REVOKE_CANCEL",
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
+                        callback_data=(
+                            "SA_GBL_REVOKE_CANCEL"
+                        ),
                     )
                 ],
             ]
         ),
     )
-
 
 @admin_router.callback_query(
     AdminModerationFSM
@@ -2848,12 +3402,16 @@ async def confirm_super_admin_global_blacklist_revoke_first(
         .confirming_super_admin_global_blacklist_revoke_final
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_unblock_final_confirmation",
             language,
         ).format(
-            user_number=f"user-{target_user_id.hex[:8]}",
+            user_number=(
+                f"user-{target_user_id.hex[:8]}"
+            ),
             reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -2864,7 +3422,9 @@ async def confirm_super_admin_global_blacklist_revoke_first(
                             "admin_user_global_unblock_final_confirm_btn",
                             language,
                         ),
-                        callback_data="SA_GBL_REVOKE_FINAL_CONFIRM",
+                        callback_data=(
+                            "SA_GBL_REVOKE_FINAL_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -2873,19 +3433,25 @@ async def confirm_super_admin_global_blacklist_revoke_first(
                             "admin_user_change_reason_btn",
                             language,
                         ),
-                        callback_data=f"SA_GBL_REVOKE:{index}",
+                        callback_data=(
+                            f"SA_GBL_REVOKE:{index}"
+                        ),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
-                        callback_data="SA_GBL_REVOKE_CANCEL",
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
+                        callback_data=(
+                            "SA_GBL_REVOKE_CANCEL"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -2966,8 +3532,10 @@ async def execute_super_admin_global_blacklist_revoke(
         super_admin_global_blacklist_revoke_reason=None,
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_unblock_completed",
             language,
         ).format(
@@ -2977,14 +3545,18 @@ async def execute_super_admin_global_blacklist_revoke(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="Global Blacklist",
+                        text=t(
+                            "admin_global_blacklist_btn",
+                            language,
+                        ).format(
+                            count=0
+                        ),
                         callback_data="SA_GLOBAL_BLACKLIST",
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "SA_GBL_REVOKE_CANCEL")
@@ -3002,21 +3574,29 @@ async def cancel_super_admin_global_blacklist_revoke(
         super_admin_global_blacklist_revoke_reason=None,
     )
 
-    await callback.message.answer(
-        t("admin_user_global_unblock_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_global_unblock_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="Global Blacklist",
+                        text=t(
+                            "admin_global_blacklist_btn",
+                            language,
+                        ).format(
+                            count=0
+                        ),
                         callback_data="SA_GLOBAL_BLACKLIST",
                     )
                 ]
             ]
         ),
     )
-
-    await callback.answer()
 
 def admin_audit_details_keyboard(
     *,
@@ -3407,13 +3987,14 @@ async def ask_blacklist_add_user(
         .entering_blacklist_add_user
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_blacklist_add_user_prompt",
             language,
-        )
+        ),
     )
-    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM.entering_blacklist_add_user
@@ -3428,28 +4009,35 @@ async def receive_blacklist_add_user(
     telegram_id = (message.text or "").strip()
 
     if not telegram_id.isdigit():
-        await message.answer(
-            t(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
                 "moderator_blacklist_invalid_user",
                 language,
-            )
+            ),
         )
         return
 
     await state.update_data(
-        moderator_blacklist_add_telegram_id=telegram_id,
+        moderator_blacklist_add_telegram_id=(
+            telegram_id
+        ),
     )
     await state.set_state(
         AdminModerationFSM
         .entering_blacklist_add_reason
     )
 
-    await message.answer(
-        t(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
             "moderator_scoped_block_reason_prompt",
             language,
-        )
+        ),
     )
+
 
 @admin_router.callback_query(
     F.data == "ADM_BL_ADD_EDIT_REASON"
@@ -3477,13 +4065,14 @@ async def edit_blacklist_add_reason(
         AdminModerationFSM
         .entering_blacklist_add_reason
     )
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_scoped_block_reason_prompt",
             language,
-        )
+        ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -3499,8 +4088,10 @@ async def cancel_blacklist_add(
 
     await state.clear()
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_blacklist_add_cancelled",
             language,
         ),
@@ -3512,13 +4103,14 @@ async def cancel_blacklist_add(
                             "moderator_blacklist_active_btn",
                             language,
                         ),
-                        callback_data="ADM_BL_QUEUE:active:0",
+                        callback_data=(
+                            "ADM_BL_QUEUE:active:0"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "ADM_BL_ADD_CONFIRM"
@@ -3604,8 +4196,10 @@ async def confirm_blacklist_add(
 
     await state.clear()
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_scoped_block_created",
             language,
         ),
@@ -3617,13 +4211,14 @@ async def confirm_blacklist_add(
                             "moderator_blacklist_active_btn",
                             language,
                         ),
-                        callback_data="ADM_BL_QUEUE:active:0",
+                        callback_data=(
+                            "ADM_BL_QUEUE:active:0"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM.entering_blacklist_add_reason
@@ -3639,8 +4234,13 @@ async def receive_blacklist_add_reason(
     data = await state.get_data()
 
     if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
         )
         return
 
@@ -3650,8 +4250,14 @@ async def receive_blacklist_add_reason(
 
     if not telegram_id:
         await state.clear()
-        await message.answer(
-            t("admin_item_not_found", language)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
         )
         return
 
@@ -3662,8 +4268,10 @@ async def receive_blacklist_add_reason(
         AdminModerationFSM.confirming_blacklist_add
     )
 
-    await message.answer(
-        t(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
             "moderator_blacklist_add_confirmation",
             language,
         ).format(
@@ -3687,7 +4295,9 @@ async def receive_blacklist_add_reason(
                             "moderator_scoped_block_edit_btn",
                             language,
                         ),
-                        callback_data="ADM_BL_ADD_EDIT_REASON",
+                        callback_data=(
+                            "ADM_BL_ADD_EDIT_REASON"
+                        ),
                     )
                 ],
                 [
@@ -5774,17 +6384,22 @@ async def super_admin_open_user_card(
         return
 
     await state.update_data(
-        super_admin_selected_user_id=str(target_user_id),
+        super_admin_selected_user_id=str(
+            target_user_id
+        ),
     )
 
-    await callback.message.answer(
-        format_super_admin_user_card(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_user_card(
             card,
             language,
         ),
-        reply_markup=super_admin_user_card_keyboard(language),
+        reply_markup=super_admin_user_card_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
 def format_super_admin_user_roles(
     items,
@@ -6123,14 +6738,17 @@ async def super_admin_user_roles(
         await callback.answer(str(exc), show_alert=True)
         return
 
-    await callback.message.answer(
-        format_super_admin_user_roles(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_user_roles(
             items,
             language,
         ),
-        reply_markup=super_admin_user_roles_keyboard(language),
+        reply_markup=super_admin_user_roles_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "SA_SCOPES")
 async def open_super_admin_role_scopes(
@@ -6912,40 +7530,85 @@ async def open_super_admin_role_scopes_queue(
             )
         )
 
-    await callback.message.answer("\n".join(title_lines))
+    await callback.answer()
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            data.get("last_menu_message_id"),
+            *(
+                data.get(
+                    "admin_scope_list_message_ids"
+                )
+                or []
+            ),
+        ],
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
+        "\n".join(title_lines)
+    )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not result.items:
-        await callback.message.answer(
-            t("super_admin_scopes_empty", language),
-            reply_markup=super_admin_role_scopes_keyboard(
-                view=result.view,
-                page=result.page,
-                has_next=False,
-                user_filtered=user_filtered,
-                language=language,
+        empty_message = await callback.message.answer(
+            t(
+                "super_admin_scopes_empty",
+                language,
+            ),
+            reply_markup=(
+                super_admin_role_scopes_keyboard(
+                    view=result.view,
+                    page=result.page,
+                    has_next=False,
+                    user_filtered=user_filtered,
+                    language=language,
+                )
             ),
         )
-        await callback.answer()
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            admin_scope_list_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         return
 
     start_number = result.page * 5 + 1
 
     for offset, card in enumerate(result.items):
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_super_admin_role_scope_card(
                 card,
                 number=start_number + offset,
                 language=language,
             ),
-            reply_markup=super_admin_role_scope_card_keyboard(
-                index=offset,
-                status=card.status,
-                language=language,
+            reply_markup=(
+                super_admin_role_scope_card_keyboard(
+                    index=offset,
+                    status=card.status,
+                    language=language,
+                )
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("super_admin_scopes_actions", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_scopes_actions",
+            language,
+        ),
         reply_markup=super_admin_role_scopes_keyboard(
             view=result.view,
             page=result.page,
@@ -6954,7 +7617,17 @@ async def open_super_admin_role_scopes_queue(
             language=language,
         ),
     )
-    await callback.answer()
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        admin_scope_list_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
 
 def format_super_admin_permissions(
     items,
@@ -7050,21 +7723,51 @@ def super_admin_permission_confirm_keyboard(
     )
 
 async def show_super_admin_permissions(
-    callback_or_message,
+    event: CallbackQuery | Message,
     state: FSMContext,
     *,
     query: str = "",
     actor_telegram_id: int | str | None = None,
-):
-    language = normalize_language(callback_or_message.from_user.language_code)
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        actor_telegram_id or callback_or_message.from_user.id
+) -> None:
+    language = normalize_language(
+        event.from_user.language_code
+    )
+    callback_answered = False
+
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+        callback_answered = True
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            actor_telegram_id
+            or event.from_user.id
+        )
     )
 
-    if not admin_user_id or not tenant_id or "super_admin" not in roles:
-        await callback_or_message.answer(
-            t("admin_access_denied", language),
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        error_text = t(
+            "admin_access_denied",
+            language,
         )
+
+        if isinstance(event, CallbackQuery):
+            await replace_admin_callback_screen(
+                callback=event,
+                state=state,
+                text=error_text,
+                callback_answered=callback_answered,
+            )
+        else:
+            await replace_admin_input_screen(
+                message=event,
+                state=state,
+                text=error_text,
+            )
         return
 
     try:
@@ -7079,7 +7782,21 @@ async def show_super_admin_permissions(
             )
 
     except ModerationError as exc:
-        await callback_or_message.answer(str(exc))
+        error_text = str(exc)
+
+        if isinstance(event, CallbackQuery):
+            await replace_admin_callback_screen(
+                callback=event,
+                state=state,
+                text=error_text,
+                callback_answered=callback_answered,
+            )
+        else:
+            await replace_admin_input_screen(
+                message=event,
+                state=state,
+                text=error_text,
+            )
         return
 
     await state.update_data(
@@ -7087,14 +7804,29 @@ async def show_super_admin_permissions(
     )
     await state.set_state(None)
 
-    await callback_or_message.answer(
-        format_super_admin_permissions(
-            items,
-            language,
-        ),
-        reply_markup=super_admin_permissions_keyboard(language),
+    text = format_super_admin_permissions(
+        items,
+        language,
+    )
+    keyboard = super_admin_permissions_keyboard(
+        language
     )
 
+    if isinstance(event, CallbackQuery):
+        await replace_admin_callback_screen(
+            callback=event,
+            state=state,
+            text=text,
+            reply_markup=keyboard,
+            callback_answered=callback_answered,
+        )
+    else:
+        await replace_admin_input_screen(
+            message=event,
+            state=state,
+            text=text,
+            reply_markup=keyboard,
+        )
 
 @admin_router.callback_query(F.data == "SA_PERMISSIONS")
 async def super_admin_permissions(
@@ -7102,12 +7834,10 @@ async def super_admin_permissions(
     state: FSMContext,
 ):
     await show_super_admin_permissions(
-        callback.message,
+        callback,
         state,
         query="",
-        actor_telegram_id=callback.from_user.id,
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "SA_PERMISSION_SEARCH")
@@ -7120,10 +7850,15 @@ async def super_admin_permission_search_start(
     await state.set_state(
         AdminModerationFSM.entering_super_admin_permission_search
     )
-    await callback.message.answer(
-        t("super_admin_permission_search_prompt", language)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_permission_search_prompt",
+            language,
+        ),
     )
-    await callback.answer()
 
 
 @admin_router.message(AdminModerationFSM.entering_super_admin_permission_search)
@@ -7149,11 +7884,15 @@ async def super_admin_permission_grant_start(
     await state.set_state(
         AdminModerationFSM.entering_super_admin_permission_grant
     )
-    await callback.message.answer(
-        t("super_admin_permission_action_format", language)
-    )
-    await callback.answer()
 
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_permission_action_format",
+            language,
+        ),
+    )
 
 @admin_router.callback_query(F.data == "SA_PERMISSION_REVOKE")
 async def super_admin_permission_revoke_start(
@@ -7165,10 +7904,15 @@ async def super_admin_permission_revoke_start(
     await state.set_state(
         AdminModerationFSM.entering_super_admin_permission_revoke
     )
-    await callback.message.answer(
-        t("super_admin_permission_action_format", language)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_permission_action_format",
+            language,
+        ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "SA_PERMISSION_HISTORY")
 async def super_admin_permission_history(
@@ -7195,16 +7939,29 @@ async def super_admin_permission_history(
         page=0,
     )
 
-@admin_router.message(AdminModerationFSM.entering_super_admin_permission_grant)
+@admin_router.message(
+    AdminModerationFSM.entering_super_admin_permission_grant
+)
 async def super_admin_permission_grant_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-    parsed = parse_super_admin_permission_action(message.text)
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    parsed = parse_super_admin_permission_action(
+        message.text
+    )
 
     if not parsed:
-        await message.answer(t("super_admin_permission_bad_format", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "super_admin_permission_bad_format",
+                language,
+            ),
+        )
         return
 
     role, permission_code, reason = parsed
@@ -7219,29 +7976,48 @@ async def super_admin_permission_grant_receive(
         AdminModerationFSM.confirming_super_admin_permission_grant
     )
 
-    await message.answer(
-        t("super_admin_permission_grant_confirm", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "super_admin_permission_grant_confirm",
+            language,
+        ).format(
             role=role,
             permission_code=permission_code,
             reason=reason,
         ),
-        reply_markup=super_admin_permission_confirm_keyboard(
-            "grant",
-            language,
+        reply_markup=(
+            super_admin_permission_confirm_keyboard(
+                "grant",
+                language,
+            )
         ),
     )
 
-
-@admin_router.message(AdminModerationFSM.entering_super_admin_permission_revoke)
+@admin_router.message(
+    AdminModerationFSM.entering_super_admin_permission_revoke
+)
 async def super_admin_permission_revoke_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-    parsed = parse_super_admin_permission_action(message.text)
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    parsed = parse_super_admin_permission_action(
+        message.text
+    )
 
     if not parsed:
-        await message.answer(t("super_admin_permission_bad_format", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "super_admin_permission_bad_format",
+                language,
+            ),
+        )
         return
 
     role, permission_code, reason = parsed
@@ -7256,18 +8032,24 @@ async def super_admin_permission_revoke_receive(
         AdminModerationFSM.confirming_super_admin_permission_revoke
     )
 
-    await message.answer(
-        t("super_admin_permission_revoke_confirm", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "super_admin_permission_revoke_confirm",
+            language,
+        ).format(
             role=role,
             permission_code=permission_code,
             reason=reason,
         ),
-        reply_markup=super_admin_permission_confirm_keyboard(
-            "revoke",
-            language,
+        reply_markup=(
+            super_admin_permission_confirm_keyboard(
+                "revoke",
+                language,
+            )
         ),
     )
-
 
 @admin_router.callback_query(F.data == "SA_PERMISSION_CANCEL")
 async def super_admin_permission_cancel(
@@ -7284,10 +8066,17 @@ async def super_admin_permission_cancel(
     )
     await state.set_state(None)
 
-    await callback.message.answer(
-        t("super_admin_permission_cancelled", language)
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_permission_cancelled",
+            language,
+        ),
+        reply_markup=super_admin_permissions_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "SA_PERMISSION_GRANT_CONFIRM")
@@ -7370,10 +8159,17 @@ async def super_admin_permission_execute(
     )
     await state.set_state(None)
 
-    await callback.message.answer(
-        t("super_admin_permission_changed", language)
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_permission_changed",
+            language,
+        ),
+        reply_markup=super_admin_permissions_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
 def super_admin_impersonation_keyboard(
     language: str,
@@ -9038,8 +9834,10 @@ async def show_super_admin_specialist_read_only_cabinet(
             cabinet.specialist_id
         ),
     )
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "super_admin_impersonation_specialist_cabinet",
             language,
         ).format(
@@ -9056,17 +9854,20 @@ async def show_super_admin_specialist_read_only_cabinet(
                 cabinet.status,
                 language,
             ),
-            availability=super_admin_preview_availability_label(
-                cabinet.is_available,
-                language,
+            availability=(
+                super_admin_preview_availability_label(
+                    cabinet.is_available,
+                    language,
+                )
             ),
             dialogs_unread=cabinet.dialogs_unread,
         ),
-        reply_markup=super_admin_read_only_specialist_menu_keyboard(
-            language
+        reply_markup=(
+            super_admin_read_only_specialist_menu_keyboard(
+                language
+            )
         ),
     )
-    await callback.answer()
 
 async def show_super_admin_support_read_only_cabinet(
     callback: CallbackQuery,
@@ -9149,89 +9950,28 @@ async def show_super_admin_support_read_only_cabinet(
         )
         return
 
-    await callback.message.answer(
-        t(
-            "super_admin_impersonation_support_cabinet",
-            language,
-        ).format(
-            user_number=cabinet.user_number,
-            open_tickets=cabinet.open_tickets,
-            in_progress_tickets=cabinet.in_progress_tickets,
-            resolved_tickets=cabinet.resolved_tickets,
-        ),
-        reply_markup=super_admin_read_only_support_menu_keyboard(
-            language
-        ),
-    )
-    await callback.answer()
-
-async def show_super_admin_moderator_read_only_cabinet(
-    callback: CallbackQuery,
-    state: FSMContext,
-) -> None:
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-    data = await state.get_data()
-    target_role = str(
-        data.get(
-            "super_admin_impersonation_target_role"
-        )
-        or ""
-    )
-    if (
-        not data.get("super_admin_impersonation_read_only")
-        or data.get(
-            "super_admin_impersonation_target_role"
-        ) not in READ_ONLY_MODERATION_TARGET_ROLES
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    target_user_id_raw = data.get(
-        "super_admin_impersonation_target_user_id"
-    )
-
-    try:
-        target_user_id = UUID(str(target_user_id_raw))
-    except (TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
-    )
-
-    if (
-        not admin_user_id
-        or not tenant_id
-        or "super_admin" not in roles
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             (
                 "super_admin_ro_admin_moderation_cabinet"
                 if target_role == "admin"
-                else "super_admin_impersonation_moderator_cabinet"
+                else (
+                    "super_admin_impersonation_moderator_cabinet"
+                )
             ),
             language,
         ).format(
-            user_number=data.get(
-                "super_admin_impersonation_target_user_number"
+            user_number=(
+                data.get(
+                    "super_admin_impersonation_target_user_number"
+                )
+                or t(
+                    "super_admin_value_not_specified",
+                    language,
+                )
             )
-            or t("super_admin_value_not_specified", language)
         ),
         reply_markup=(
             super_admin_read_only_moderator_menu_keyboard(
@@ -9251,8 +9991,117 @@ async def show_super_admin_moderator_read_only_cabinet(
             )
         ),
     )
-    await callback.answer()
 
+async def show_super_admin_moderator_read_only_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+    target_role = str(
+        data.get(
+            "super_admin_impersonation_target_role"
+        )
+        or ""
+    )
+
+    if (
+        not data.get(
+            "super_admin_impersonation_read_only"
+        )
+        or data.get(
+            "super_admin_impersonation_target_role"
+        )
+        not in READ_ONLY_MODERATION_TARGET_ROLES
+    ):
+        await callback.answer(
+            t(
+                "admin_access_denied",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+
+    try:
+        UUID(str(target_user_id_raw))
+    except (TypeError, ValueError):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t(
+                "admin_access_denied",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            (
+                "super_admin_ro_admin_moderation_cabinet"
+                if target_role == "admin"
+                else (
+                    "super_admin_impersonation_moderator_cabinet"
+                )
+            ),
+            language,
+        ).format(
+            user_number=(
+                data.get(
+                    "super_admin_impersonation_target_user_number"
+                )
+                or t(
+                    "super_admin_value_not_specified",
+                    language,
+                )
+            )
+        ),
+        reply_markup=(
+            super_admin_read_only_moderator_menu_keyboard(
+                language,
+                back_callback=(
+                    "SA_RO_ADMIN_HOME"
+                    if target_role == "admin"
+                    else "SA_IMPERSONATE_MENU"
+                ),
+                back_text_key=(
+                    "super_admin_ro_admin_back_to_dashboard_btn"
+                    if target_role == "admin"
+                    else (
+                        "super_admin_impersonation_change_cabinet_btn"
+                    )
+                ),
+            )
+        ),
+    )
 
 @admin_router.callback_query(F.data == "SA_RO_MOD_HOME")
 async def super_admin_read_only_moderator_home(
@@ -10661,24 +11510,39 @@ async def show_super_admin_admin_read_only_cabinet(
         )
         return
 
-    await callback.message.answer(
-        t(
-            "super_admin_impersonation_admin_cabinet",
+    user_number = (
+        data.get(
+            "super_admin_impersonation_target_user_number"
+        )
+        or t(
+            "super_admin_value_not_specified",
             language,
-        ).format(
-            user_number=data.get(
-                "super_admin_impersonation_target_user_number"
-            )
-            or t("super_admin_value_not_specified", language)
         )
     )
-    await callback.message.answer(
-        format_admin_menu(summary, language),
-        reply_markup=super_admin_read_only_admin_menu_keyboard(
-            language
+
+    text = (
+        f"{t(
+            'super_admin_impersonation_admin_cabinet',
+            language,
+        ).format(
+            user_number=user_number,
+        )}\n\n"
+        f"{format_admin_menu(
+            summary,
+            language,
+        )}"
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=text,
+        reply_markup=(
+            super_admin_read_only_admin_menu_keyboard(
+                language
+            )
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "SA_RO_ADMIN_HOME")
@@ -13386,8 +14250,10 @@ async def show_super_admin_client_read_only_cabinet(
         )
         return
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "super_admin_impersonation_client_cabinet",
             language,
         ).format(
@@ -13408,11 +14274,12 @@ async def show_super_admin_client_read_only_cabinet(
             ),
             dialogs_unread=cabinet.dialogs_unread,
         ),
-        reply_markup=super_admin_read_only_client_menu_keyboard(
-            language
+        reply_markup=(
+            super_admin_read_only_client_menu_keyboard(
+                language
+            )
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "SA_IMPERSONATE_MENU"
@@ -13436,13 +14303,17 @@ async def super_admin_impersonation_menu(
         )
         return
 
-    await callback.message.answer(
-        t("super_admin_impersonation_menu", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_impersonation_menu",
+            language,
+        ),
         reply_markup=super_admin_impersonation_keyboard(
             language
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "SA_USER_IMPERSONATE")
 async def super_admin_impersonation_start(
@@ -13462,23 +14333,37 @@ async def super_admin_impersonation_start(
     await state.set_state(
         AdminModerationFSM.entering_super_admin_impersonation_reason
     )
-    await callback.message.answer(
-        t("super_admin_impersonation_reason_prompt", language)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_impersonation_reason_prompt",
+            language,
+        ),
     )
-    await callback.answer()
 
 
-@admin_router.message(AdminModerationFSM.entering_super_admin_impersonation_reason)
+@admin_router.message(
+    AdminModerationFSM.entering_super_admin_impersonation_reason
+)
 async def super_admin_impersonation_reason_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
     reason = (message.text or "").strip()
 
     if len(reason) < 3:
-        await message.answer(
-            t("super_admin_role_bad_format", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "super_admin_role_bad_format",
+                language,
+            ),
         )
         return
 
@@ -13487,11 +14372,17 @@ async def super_admin_impersonation_reason_receive(
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("super_admin_impersonation_menu", language),
-        reply_markup=super_admin_impersonation_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "super_admin_impersonation_menu",
+            language,
+        ),
+        reply_markup=super_admin_impersonation_keyboard(
+            language
+        ),
     )
-
 
 @admin_router.callback_query(F.data.startswith("SA_IMPERSONATE_ROLE:"))
 async def super_admin_impersonation_role(
@@ -13614,17 +14505,23 @@ async def super_admin_impersonation_role(
         )
         return
 
-    await callback.message.answer(
-        t("super_admin_impersonation_preview", language).format(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_impersonation_preview",
+            language,
+        ).format(
             user=preview.target_user_number,
             role=super_admin_user_role_label(
                 preview.target_role,
                 language,
             ),
         ),
-        reply_markup=super_admin_impersonation_keyboard(language),
+        reply_markup=super_admin_impersonation_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "SA_IMPERSONATE_STOP")
@@ -13693,8 +14590,13 @@ async def super_admin_impersonation_stop(
         super_admin_impersonation_target_role=None,
         super_admin_impersonation_read_only=None,
     )
-    await callback.message.answer(
-        t("super_admin_impersonation_stopped", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_impersonation_stopped",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -13717,14 +14619,16 @@ async def super_admin_impersonation_stop(
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("main_menu", language),
+                        text=t(
+                            "main_menu",
+                            language,
+                        ),
                         callback_data="MAIN_MENU",
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 def format_moderator_menu(summary, language: str) -> str:
     return t("moderator_menu_text", language).format(
@@ -13836,6 +14740,37 @@ async def show_admin_panel(
         if isinstance(message_or_callback, CallbackQuery)
         else message_or_callback
     )
+    
+    async def send_panel(
+        text: str,
+        reply_markup: InlineKeyboardMarkup | None = None,
+    ) -> Message:
+        if isinstance(
+            message_or_callback,
+            CallbackQuery,
+        ):
+            menu_message = (
+                await edit_or_replace_menu_message(
+                    callback=message_or_callback,
+                    text=text,
+                    reply_markup=reply_markup,
+                )
+            )
+
+            if state:
+                await state.update_data(
+                    last_menu_message_id=(
+                        menu_message.message_id
+                    )
+                )
+
+            return menu_message
+
+        return await target_message.answer(
+            text,
+            reply_markup=reply_markup,
+        )
+
 
     if (
         isinstance(message_or_callback, CallbackQuery)
@@ -13848,14 +14783,47 @@ async def show_admin_panel(
         user.id
     )
     if not admin_user_id or not roles:
-        await target_message.answer(
+        await send_panel(
             t("admin_access_denied", language)
         )
         return
 
     if state:
+        state_data = await state.get_data()
+
+        if isinstance(
+            message_or_callback,
+            CallbackQuery,
+        ):
+            await delete_telegram_messages(
+                bot=message_or_callback.bot,
+                chat_id=(
+                    message_or_callback.message.chat.id
+                ),
+                message_ids=[
+                    *(
+                        state_data.get(
+                            "admin_scope_list_message_ids"
+                        )
+                        or []
+                    ),
+                    *(
+                        state_data.get(
+                            "admin_global_blacklist_message_ids"
+                        )
+                        or []
+                    ),
+                    *(
+                        state_data.get(
+                            "admin_scoped_blacklist_message_ids"
+                        )
+                        or []
+                    ),
+                ],
+            )
+
         await state.clear()
-    
+
     async with get_session() as session:
         role_context = await UserService(session).get_role_switch_context(user.id)
 
@@ -13882,7 +14850,7 @@ async def show_admin_panel(
             not tenant_id
             or not roles.intersection({"admin", "super_admin"})
         ):
-            await target_message.answer(
+            await send_panel(
                 t("admin_access_denied", language)
             )
             return
@@ -13904,11 +14872,11 @@ async def show_admin_panel(
                         tenant_id=tenant_id,
                     )
         except ModerationError as exc:
-            await target_message.answer(str(exc))
+            await send_panel(str(exc))
             return
 
         if admin_entry_role == "super_admin":
-            await target_message.answer(
+            await send_panel(
                 format_super_admin_menu(summary, language),
                 reply_markup=super_admin_menu_keyboard(
                     summary,
@@ -13917,7 +14885,7 @@ async def show_admin_panel(
 ),
             )
         else:
-            await target_message.answer(
+            await send_panel(
                 format_admin_menu(summary, language),
                 reply_markup=minimal_admin_menu_keyboard(
                     summary,
@@ -13930,7 +14898,7 @@ async def show_admin_panel(
 
     if active_role == "support":
         if not tenant_id or "support" not in roles:
-            await target_message.answer(
+            await send_panel(
                 t("admin_access_denied", language)
             )
             return
@@ -13958,10 +14926,10 @@ async def show_admin_panel(
                 )
                 await session.commit()
         except SupportServiceError as exc:
-            await target_message.answer(str(exc))
+            await send_panel(str(exc))
             return
 
-        await target_message.answer(
+        await send_panel(
             format_support_staff_menu(counts, language),
             reply_markup=support_staff_menu_keyboard(
                 language,
@@ -13972,7 +14940,7 @@ async def show_admin_panel(
         return
     if active_role == "moderator":
         if not tenant_id or "moderator" not in roles:
-            await target_message.answer(
+            await send_panel(
                 t("admin_access_denied", language)
             )
             return
@@ -13986,10 +14954,10 @@ async def show_admin_panel(
                     tenant_id=tenant_id,
                 )
         except ModerationError as exc:
-            await target_message.answer(str(exc))
+            await send_panel(str(exc))
             return
 
-        await target_message.answer(
+        await send_panel(
             format_moderator_menu(summary, language),
             reply_markup=moderator_menu_keyboard(
                 summary,
@@ -14020,7 +14988,7 @@ async def show_admin_panel(
     ):
         panel_text = t("admin_no_available_actions", language)
 
-    await target_message.answer(
+    await send_panel(
         panel_text,
         reply_markup=admin_panel_keyboard(
             language,
@@ -26018,6 +26986,7 @@ async def open_scoped_blacklist_queue(
 
     has_next = len(cards) > 5
     visible_cards = cards[:5]
+    state_data = await state.get_data()
 
     await state.update_data(
         moderator_blacklist_ids=[
@@ -26042,7 +27011,27 @@ async def open_scoped_blacklist_queue(
         language,
     )
 
-    await callback.message.answer(
+    await callback.answer()
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            state_data.get(
+                "last_menu_message_id"
+            ),
+            *(
+                state_data.get(
+                    "admin_scoped_blacklist_message_ids"
+                )
+                or []
+            ),
+        ],
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "moderator_blacklist_queue_title",
             language,
@@ -26051,9 +27040,12 @@ async def open_scoped_blacklist_queue(
             count=len(visible_cards),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not visible_cards:
-        await callback.message.answer(
+        empty_message = await callback.message.answer(
             t(
                 "moderator_blacklist_empty",
                 language,
@@ -26065,13 +27057,22 @@ async def open_scoped_blacklist_queue(
                 language=language,
             ),
         )
-        await callback.answer()
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            admin_scoped_blacklist_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         return
 
     start_number = page * 5 + 1
 
     for offset, card in enumerate(visible_cards):
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_scoped_blacklist_card(
                 card,
                 number=start_number + offset,
@@ -26083,8 +27084,11 @@ async def open_scoped_blacklist_queue(
                 language=language,
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
+    navigation_message = await callback.message.answer(
         t(
             "moderator_blacklist_actions_title",
             language,
@@ -26096,7 +27100,16 @@ async def open_scoped_blacklist_queue(
             language=language,
         ),
     )
-    await callback.answer()
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        admin_scoped_blacklist_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
 
 @admin_router.callback_query(
     F.data.startswith("ADM_BL_REVOKE:")
@@ -26151,13 +27164,32 @@ async def ask_scoped_blacklist_revoke_reason(
         .entering_blacklist_revoke_reason
     )
 
-    await callback.message.answer(
-        t(
+    await callback.answer()
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=(
+            data.get(
+                "admin_scoped_blacklist_message_ids"
+            )
+            or []
+        ),
+    )
+
+    await state.update_data(
+        admin_scoped_blacklist_message_ids=[],
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_blacklist_revoke_reason_prompt",
             language,
-        )
+        ),
+        callback_answered=True,
     )
-    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM.entering_blacklist_revoke_reason
@@ -26173,15 +27205,28 @@ async def receive_scoped_blacklist_revoke_reason(
     data = await state.get_data()
 
     if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
         )
         return
 
-    if not data.get("moderator_blacklist_revoke_id"):
+    if not data.get(
+        "moderator_blacklist_revoke_id"
+    ):
         await state.clear()
-        await message.answer(
-            t("admin_item_not_found", language)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
         )
         return
 
@@ -26192,11 +27237,15 @@ async def receive_scoped_blacklist_revoke_reason(
         AdminModerationFSM.confirming_blacklist_revoke
     )
 
-    await message.answer(
-        t(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
             "moderator_blacklist_revoke_confirmation",
             language,
-        ).format(reason=reason),
+        ).format(
+            reason=reason
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -26205,7 +27254,9 @@ async def receive_scoped_blacklist_revoke_reason(
                             "moderator_blacklist_revoke_confirm_btn",
                             language,
                         ),
-                        callback_data="ADM_BL_REVOKE_CONFIRM",
+                        callback_data=(
+                            "ADM_BL_REVOKE_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -26223,7 +27274,9 @@ async def receive_scoped_blacklist_revoke_reason(
                             "moderator_changes_cancel_btn",
                             language,
                         ),
-                        callback_data="ADM_BL_REVOKE_CANCEL",
+                        callback_data=(
+                            "ADM_BL_REVOKE_CANCEL"
+                        ),
                     )
                 ],
             ]
@@ -26254,13 +27307,14 @@ async def edit_scoped_blacklist_revoke_reason(
         AdminModerationFSM
         .entering_blacklist_revoke_reason
     )
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_blacklist_revoke_reason_prompt",
             language,
-        )
+        ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -26286,8 +27340,10 @@ async def cancel_scoped_blacklist_revoke(
 
     await state.clear()
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_blacklist_revoke_cancelled",
             language,
         ),
@@ -26307,7 +27363,6 @@ async def cancel_scoped_blacklist_revoke(
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "ADM_BL_REVOKE_CONFIRM"
@@ -26395,8 +27450,10 @@ async def confirm_scoped_blacklist_revoke(
 
     await state.clear()
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_blacklist_revoked",
             language,
         ),
@@ -26408,7 +27465,9 @@ async def confirm_scoped_blacklist_revoke(
                             "moderator_blacklist_active_btn",
                             language,
                         ),
-                        callback_data="ADM_BL_QUEUE:active:0",
+                        callback_data=(
+                            "ADM_BL_QUEUE:active:0"
+                        ),
                     )
                 ],
                 [
@@ -26417,13 +27476,15 @@ async def confirm_scoped_blacklist_revoke(
                             "moderator_blacklist_history_btn",
                             language,
                         ),
-                        callback_data="ADM_BL_QUEUE:revoked:0",
+                        callback_data=(
+                            "ADM_BL_QUEUE:revoked:0"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
+
 
 @admin_router.callback_query(F.data == "ADM_COMPLAINTS")
 async def list_open_complaints(

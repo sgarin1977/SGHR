@@ -73,6 +73,7 @@ class PrivacyService:
             raise
 
         return job
+    
     async def request_data_export(
         self,
         *,

@@ -12,6 +12,11 @@ from handlers.start import normalize_language
 from services.support import SupportService, SupportServiceError
 from services.user import UserService
 from ui.texts import t
+from utils.telegram_cleanup import (
+    delete_telegram_messages,
+    edit_or_replace_menu_message,
+    edit_or_replace_tracked_menu_message,
+)
 from database.repositories.event import EventRepository
 
 support_router = Router()
@@ -346,9 +351,35 @@ async def get_support_user_context(telegram_id: int, fallback_language: str):
 
 
 @support_router.callback_query(F.data == "SUPPORT_MENU")
-async def open_support_menu(callback: CallbackQuery, state: FSMContext):
+async def open_support_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    previous_data = await state.get_data()
+    current_message_id = (
+        callback.message.message_id
+    )
+
+    await delete_telegram_messages(
+        bot=callback.message.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            message_id
+            for message_id in (
+                previous_data.get(
+                    "support_list_message_ids"
+                )
+                or []
+            )
+            if message_id != current_message_id
+        ],
+    )
+
     await state.clear()
-    fallback_language = normalize_language(callback.from_user.language_code)
+
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
     user, language = await get_support_user_context(
         callback.from_user.id,
         fallback_language,
@@ -357,6 +388,8 @@ async def open_support_menu(callback: CallbackQuery, state: FSMContext):
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
+    
+    await callback.answer()
 
     async with get_session() as session:
         fresh_user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
@@ -374,17 +407,52 @@ async def open_support_menu(callback: CallbackQuery, state: FSMContext):
             )
             await session.commit()
 
-    await callback.message.answer(
-        t("support_title", language),
-        reply_markup=support_menu_keyboard(language),
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_title",
+            language,
+        ),
+        reply_markup=support_menu_keyboard(
+            language
+        ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @support_router.callback_query(F.data == "SUPPORT_CREATE")
-async def choose_support_category(callback: CallbackQuery, state: FSMContext):
+async def open_support_category_selection(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    previous_data = await state.get_data()
+    current_message_id = (
+        callback.message.message_id
+    )
+
+    await delete_telegram_messages(
+        bot=callback.message.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            message_id
+            for message_id in (
+                previous_data.get(
+                    "support_list_message_ids"
+                )
+                or []
+            )
+            if message_id != current_message_id
+        ],
+    )
+
     await state.clear()
-    fallback_language = normalize_language(callback.from_user.language_code)
+
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
     user, language = await get_support_user_context(
         callback.from_user.id,
         fallback_language,
@@ -394,15 +462,29 @@ async def choose_support_category(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("support_category_prompt", language),
-        reply_markup=support_category_keyboard(language),
-    )
     await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_category_prompt",
+            language,
+        ),
+        reply_markup=support_category_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @support_router.callback_query(F.data.startswith("SUPPORT_CAT:"))
-async def choose_support_category(callback: CallbackQuery, state: FSMContext):
+async def select_support_category(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     fallback_language = normalize_language(callback.from_user.language_code)
     category = (callback.data or "").split(":", 1)[1]
 
@@ -434,35 +516,136 @@ async def choose_support_category(callback: CallbackQuery, state: FSMContext):
         )
         await session.commit()
 
-    await state.set_state(SupportFSM.entering_message)
-    await callback.message.answer(t("support_message_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        SupportFSM.entering_message
+    )
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_message_prompt",
+            language,
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @support_router.message(SupportFSM.entering_message)
-async def receive_support_message(message: Message, state: FSMContext):
-    fallback_language = normalize_language(message.from_user.language_code)
+async def receive_support_message(
+    message: Message,
+    state: FSMContext,
+):
+    fallback_language = normalize_language(
+        message.from_user.language_code
+    )
+    data = await state.get_data()
+
     user, language = await get_support_user_context(
         message.from_user.id,
         fallback_language,
     )
 
     if not user:
-        await message.answer(t("search_contact_user_not_found", language))
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                reply_markup=support_menu_keyboard(
+                    language
+                ),
+            )
+        )
+
         await state.clear()
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
         return
 
-    message_text = (message.text or "").strip()
+    message_text = (
+        message.text
+        or ""
+    ).strip()
+
     if len(message_text) < 10:
-        await message.answer(t("support_message_too_short", language))
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "support_message_too_short",
+                    language,
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
         return
 
     await state.update_data(support_message_text=message_text)
     data = await state.get_data()
-    await state.set_state(SupportFSM.confirming_ticket)
+    await state.set_state(
+        SupportFSM.confirming_ticket
+    )
 
-    await message.answer(
-        format_support_ticket_draft(data, language),
-        reply_markup=support_ticket_confirm_keyboard(language),
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            message.message_id
+        ],
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=format_support_ticket_draft(
+                data,
+                language,
+            ),
+            reply_markup=support_ticket_confirm_keyboard(
+                language
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message_id
     )
 
 @support_router.callback_query(F.data == "SUPPORT_EDIT_MESSAGE")
@@ -477,9 +660,23 @@ async def edit_support_message(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await state.set_state(SupportFSM.entering_message)
-    await callback.message.answer(t("support_message_prompt", language))
     await callback.answer()
+
+    await state.set_state(
+        SupportFSM.entering_message
+    )
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_message_prompt",
+            language,
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @support_router.callback_query(F.data == "SUPPORT_CANCEL")
@@ -496,11 +693,22 @@ async def cancel_support_ticket_draft(callback: CallbackQuery, state: FSMContext
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("support_ticket_cancelled", language),
-        reply_markup=support_menu_keyboard(language),
-    )
     await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_ticket_cancelled",
+            language,
+        ),
+        reply_markup=support_menu_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @support_router.callback_query(F.data == "SUPPORT_SEND")
@@ -526,9 +734,16 @@ async def send_support_ticket(callback: CallbackQuery, state: FSMContext):
         return
 
     if len(message_text) < 10:
-        await state.set_state(SupportFSM.entering_message)
-        await callback.message.answer(t("support_message_too_short", language))
-        await callback.answer()
+        await state.set_state(
+            SupportFSM.entering_message
+        )
+        await callback.answer(
+            t(
+                "support_message_too_short",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     try:
@@ -566,26 +781,78 @@ async def send_support_ticket(callback: CallbackQuery, state: FSMContext):
             )
             await session.commit()
     except SupportServiceError as exc:
-        await callback.message.answer(
-            t("support_error", language).format(error=str(exc))
-        )
         await callback.answer()
+
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "support_error",
+                language,
+            ).format(
+                error=str(exc)
+            ),
+            reply_markup=support_ticket_confirm_keyboard(
+                language
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id
+        )
         return
 
     await state.clear()
-    await callback.message.answer(
-        t("support_ticket_created", language).format(
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_ticket_created",
+            language,
+        ).format(
             ticket_id=str(ticket.id)[:8],
         ),
-        reply_markup=support_menu_keyboard(language),
+        reply_markup=support_menu_keyboard(
+            language
+        ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @support_router.callback_query(F.data == "SUPPORT_MY_TICKETS")
 @support_router.callback_query(F.data.startswith("SUPPORT_MY_TICKETS:"))
-async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
+async def list_my_support_tickets(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    previous_data = await state.get_data()
+    current_message_id = callback.message.message_id
+
+    await delete_telegram_messages(
+        bot=callback.message.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            message_id
+            for message_id in (
+                previous_data.get(
+                    "support_list_message_ids"
+                )
+                or []
+            )
+            if message_id != current_message_id
+        ],
+    )
+
     await state.clear()
-    fallback_language = normalize_language(callback.from_user.language_code)
+    await state.update_data(
+        last_menu_message_id=current_message_id,
+    )
+
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
 
     view = "active"
     page = 0
@@ -648,30 +915,51 @@ async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
         await session.commit()
 
     if not visible_tickets:
-        await callback.message.answer(
-            t("support_no_tickets", language),
-            reply_markup=support_empty_tickets_keyboard(language),
-        )
         await callback.answer()
+
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "support_no_tickets",
+                language,
+            ),
+            reply_markup=support_empty_tickets_keyboard(
+                language
+            ),
+        )
+
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id,
+            support_list_message_ids=[
+                menu_message.message_id
+            ],
+        )
         return
 
-    await state.update_data(
-        support_ticket_ids=[str(ticket.id) for ticket in visible_tickets],
-        support_tickets_view=view,
-        support_tickets_page=page,
-    )
+    await callback.answer()
 
-    await callback.message.answer(
-        format_support_tickets_header(
+    header_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=format_support_tickets_header(
             visible_tickets,
             language,
             view=view,
-        )
+        ),
     )
 
-    start_number = page * SUPPORT_TICKETS_PAGE_SIZE + 1
-    for index, ticket in enumerate(visible_tickets):
-        await callback.message.answer(
+    support_list_message_ids = [
+        header_message.message_id
+    ]
+
+    start_number = (
+        page * SUPPORT_TICKETS_PAGE_SIZE
+        + 1
+    )
+
+    for index, ticket in enumerate(
+        visible_tickets
+    ):
+        card_message = await callback.message.answer(
             format_support_ticket_card(
                 ticket,
                 language,
@@ -682,9 +970,15 @@ async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
                 language=language,
             ),
         )
+        support_list_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("dialog_list_actions_title", language),
+    actions_message = await callback.message.answer(
+        t(
+            "dialog_list_actions_title",
+            language,
+        ),
         reply_markup=support_tickets_keyboard(
             visible_tickets,
             language,
@@ -693,7 +987,24 @@ async def list_my_support_tickets(callback: CallbackQuery, state: FSMContext):
             has_next=has_next,
         ),
     )
-    await callback.answer()
+    support_list_message_ids.append(
+        actions_message.message_id
+    )
+
+    await state.update_data(
+        support_ticket_ids=[
+            str(ticket.id)
+            for ticket in visible_tickets
+        ],
+        support_tickets_view=view,
+        support_tickets_page=page,
+        support_list_message_ids=(
+            support_list_message_ids
+        ),
+        last_menu_message_id=(
+            actions_message.message_id
+        ),
+    )
 
 @support_router.callback_query(F.data.startswith("SUPPORT_VIEW:"))
 async def view_my_support_ticket(callback: CallbackQuery, state: FSMContext):
@@ -735,15 +1046,48 @@ async def view_my_support_ticket(callback: CallbackQuery, state: FSMContext):
         await callback.answer(str(exc), show_alert=True)
         return
 
-    await callback.message.answer(
-        format_support_ticket_view(view, language),
+    current_message_id = (
+        callback.message.message_id
+    )
+
+    await delete_telegram_messages(
+        bot=callback.message.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            message_id
+            for message_id in (
+                data.get(
+                    "support_list_message_ids"
+                )
+                or []
+            )
+            if message_id != current_message_id
+        ],
+    )
+
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=format_support_ticket_view(
+            view,
+            language,
+        ),
         reply_markup=support_ticket_view_keyboard(
             index=index,
             can_reply=view.can_reply,
             language=language,
         ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        support_list_message_ids=[
+            menu_message.message_id
+        ],
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 @support_router.callback_query(F.data.startswith("SUPPORT_CLOSE:"))
 async def close_my_support_ticket(callback: CallbackQuery, state: FSMContext):
@@ -802,11 +1146,25 @@ async def close_my_support_ticket(callback: CallbackQuery, state: FSMContext):
         await callback.answer(message, show_alert=True)
         return
 
-    await callback.message.answer(
-        t("support_ticket_closed", language),
-        reply_markup=support_menu_keyboard(language),
-    )
     await callback.answer()
+    await state.clear()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_ticket_closed",
+            language,
+        ),
+        reply_markup=support_menu_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 @support_router.callback_query(F.data.startswith("SUPPORT_REPLY:"))
 async def ask_user_support_reply(callback: CallbackQuery, state: FSMContext):
@@ -834,8 +1192,24 @@ async def ask_user_support_reply(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(SupportFSM.entering_reply)
 
-    await callback.message.answer(t("support_reply_prompt", language))
     await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "support_reply_prompt",
+            language,
+        ),
+    )
+
+    await state.update_data(
+        support_list_message_ids=[
+            menu_message.message_id
+        ],
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 
 @support_router.message(SupportFSM.entering_reply)
@@ -849,14 +1223,47 @@ async def receive_user_support_reply(message: Message, state: FSMContext):
         fallback_language,
     )
 
-    if not user:
-        await message.answer(t("search_contact_user_not_found", language))
-        await state.clear()
-        return
+    terminal_error_text = None
 
-    if not ticket_id:
-        await message.answer(t("admin_item_not_found", language))
+    if not user:
+        terminal_error_text = t(
+            "search_contact_user_not_found",
+            language,
+        )
+    elif not ticket_id:
+        terminal_error_text = t(
+            "admin_item_not_found",
+            language,
+        )
+
+    if terminal_error_text:
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=terminal_error_text,
+                reply_markup=support_menu_keyboard(
+                    language
+                ),
+            )
+        )
+
         await state.clear()
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
         return
 
     try:
@@ -865,8 +1272,36 @@ async def receive_user_support_reply(message: Message, state: FSMContext):
                 message.from_user.id
             )
             if not fresh_user:
-                await message.answer(t("search_contact_user_not_found", language))
+                await delete_telegram_messages(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    message_ids=[
+                        message.message_id
+                    ],
+                )
+
+                menu_message_id = (
+                    await edit_or_replace_tracked_menu_message(
+                        message=message,
+                        menu_message_id=data.get(
+                            "last_menu_message_id"
+                        ),
+                        text=t(
+                            "search_contact_user_not_found",
+                            language,
+                        ),
+                        reply_markup=support_menu_keyboard(
+                            language
+                        ),
+                    )
+                )
+
                 await state.clear()
+                await state.update_data(
+                    last_menu_message_id=(
+                        menu_message_id
+                    ),
+                )
                 return
 
             await SupportService(
@@ -891,13 +1326,63 @@ async def receive_user_support_reply(message: Message, state: FSMContext):
             )
             await session.commit()
     except SupportServiceError as exc:
-        await message.answer(
-            t("support_error", language).format(error=str(exc))
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "support_error",
+                    language,
+                ).format(
+                    error=str(exc)
+                ),
+            )
+        )
+
+        await state.update_data(
+            support_list_message_ids=[
+                menu_message_id
+            ],
+            last_menu_message_id=(
+                menu_message_id
+            ),
         )
         return
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            message.message_id
+        ],
+    )
+
+    menu_message_id = (
+        await edit_or_replace_tracked_menu_message(
+            message=message,
+            menu_message_id=data.get(
+                "last_menu_message_id"
+            ),
+            text=t(
+                "support_reply_sent",
+                language,
+            ),
+            reply_markup=support_menu_keyboard(
+                language
+            ),
+        )
+    )
 
     await state.clear()
-    await message.answer(
-        t("support_reply_sent", language),
-        reply_markup=support_menu_keyboard(language),
+    await state.update_data(
+        last_menu_message_id=menu_message_id,
     )

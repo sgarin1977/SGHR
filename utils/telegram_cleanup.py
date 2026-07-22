@@ -2,7 +2,117 @@ from collections.abc import Iterable
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
+
+async def edit_or_replace_menu_message(
+    *,
+    callback: CallbackQuery,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> Message:
+    try:
+        return await callback.message.edit_text(
+            text,
+            reply_markup=reply_markup,
+        )
+    except TelegramBadRequest as exc:
+        if "message is not modified" in str(exc).lower():
+            return callback.message
+
+    try:
+        await callback.message.delete()
+    except (
+        TelegramBadRequest,
+        TelegramForbiddenError,
+    ):
+        pass
+
+    return await callback.message.answer(
+        text,
+        reply_markup=reply_markup,
+    )
+
+async def replace_callback_menu_message(
+    *,
+    callback: CallbackQuery,
+    text: str,
+    reply_markup: (
+        InlineKeyboardMarkup
+        | ReplyKeyboardMarkup
+        | ReplyKeyboardRemove
+        | None
+    ) = None,
+) -> Message:
+    try:
+        await callback.message.delete()
+    except (
+        TelegramBadRequest,
+        TelegramForbiddenError,
+    ):
+        pass
+
+    return await callback.message.answer(
+        text,
+        reply_markup=reply_markup,
+    )
+
+async def edit_or_replace_tracked_menu_message(
+    *,
+    message: Message,
+    menu_message_id: int | None,
+    text: str,
+    reply_markup: (
+        InlineKeyboardMarkup
+        | ReplyKeyboardMarkup
+        | ReplyKeyboardRemove
+        | None
+    ) = None,
+) -> int:
+    requires_replacement = isinstance(
+        reply_markup,
+        (
+            ReplyKeyboardMarkup,
+            ReplyKeyboardRemove,
+        ),
+    )
+
+    if menu_message_id and not requires_replacement:
+        try:
+            await message.bot.edit_message_text(
+                chat_id=message.chat.id,
+                message_id=menu_message_id,
+                text=text,
+                reply_markup=reply_markup,
+            )
+            return menu_message_id
+        except TelegramBadRequest as exc:
+            if "message is not modified" in str(exc).lower():
+                return menu_message_id
+
+    if menu_message_id:
+        try:
+            await message.bot.delete_message(
+                chat_id=message.chat.id,
+                message_id=menu_message_id,
+            )
+        except (
+            TelegramBadRequest,
+            TelegramForbiddenError,
+        ):
+            pass
+
+    menu_message = await message.answer(
+        text,
+        reply_markup=reply_markup,
+    )
+
+    return menu_message.message_id
 
 async def delete_telegram_messages(
     *,
@@ -91,7 +201,7 @@ async def send_telegram_attachment(
     attachment: dict,
     caption: str | None = None,
     reply_markup: InlineKeyboardMarkup | None = None,
-) -> None:
+) -> Message | None:
     attachment_type = attachment.get("type")
     file_id = attachment.get("file_id")
 
@@ -104,16 +214,15 @@ async def send_telegram_attachment(
     )
 
     if attachment_type == "photo":
-        await bot.send_photo(
+        return await bot.send_photo(
             chat_id=chat_id,
             photo=file_id,
             caption=normalized_caption,
             reply_markup=reply_markup,
         )
-        return
 
     if attachment_type == "document":
-        await bot.send_document(
+        return await bot.send_document(
             chat_id=chat_id,
             document=file_id,
             caption=normalized_caption,

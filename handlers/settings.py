@@ -9,6 +9,7 @@ from handlers.start import normalize_language, send_global_main_menu
 from services.privacy import PrivacyError, PrivacyService
 from services.user import UserService
 from ui.texts import t
+from utils.telegram_cleanup import edit_or_replace_menu_message
 from aiogram.fsm.context import FSMContext
 settings_router = Router()
 
@@ -107,7 +108,10 @@ def client_settings_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-async def show_translation_settings(callback: CallbackQuery):
+async def show_translation_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = normalize_language(callback.from_user.language_code)
 
     async with get_session() as session:
@@ -121,14 +125,30 @@ async def show_translation_settings(callback: CallbackQuery):
         language = normalize_language(settings.interface_language or user.language_code)
         await session.commit()
 
-    await callback.message.answer(
-        t("settings_translation_title", language).format(
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "settings_translation_title",
+            language,
+        ).format(
             interface_language=settings.interface_language,
             message_language=settings.message_language,
-            notifications=t("settings_enabled", language),
-            auto_translate=t("feature_disabled_beta", language),
+            notifications=t(
+                "settings_enabled",
+                language,
+            ),
+            auto_translate=t(
+                "feature_disabled_beta",
+                language,
+            ),
             show_original=t(
-                "settings_enabled" if settings.show_original_button else "settings_disabled",
+                (
+                    "settings_enabled"
+                    if settings.show_original_button
+                    else "settings_disabled"
+                ),
                 language,
             ),
         ),
@@ -139,7 +159,10 @@ async def show_translation_settings(callback: CallbackQuery):
             show_original_button=settings.show_original_button,
         ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 async def get_user_settings_context(callback: CallbackQuery):
     fallback_language = normalize_language(callback.from_user.language_code)
@@ -231,7 +254,10 @@ def privacy_confirm_keyboard(
 async def settings_noop(callback: CallbackQuery):
     await callback.answer()
 
-async def show_client_settings(callback: CallbackQuery):
+async def show_client_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = normalize_language(callback.from_user.language_code)
 
     async with get_session() as session:
@@ -244,56 +270,97 @@ async def show_client_settings(callback: CallbackQuery):
         language = normalize_language(settings.interface_language or user.language_code)
         await session.commit()
 
-    await callback.message.answer(
-        t("client_settings_title", language).format(
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "client_settings_title",
+            language,
+        ).format(
             interface_language=settings.interface_language,
             message_language=settings.message_language,
-            notifications=t("settings_enabled", language),
+            notifications=t(
+                "settings_enabled",
+                language,
+            ),
         ),
-        reply_markup=client_settings_keyboard(language),
+        reply_markup=client_settings_keyboard(
+            language
+        ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @settings_router.callback_query(F.data == "M_SETTINGS")
-async def open_settings(callback: CallbackQuery):
-    await show_client_settings(callback)
+async def open_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_client_settings(
+        callback,
+        state,
+    )
 
 
 @settings_router.callback_query(F.data == "CLIENT_SETTINGS_LANGUAGE")
-async def open_client_language_settings(callback: CallbackQuery):
-    await show_translation_settings(callback)
+async def open_client_language_settings(callback: CallbackQuery, state: FSMContext):
+    await show_translation_settings(
+        callback,
+        state,
+    )
 
 @settings_router.callback_query(F.data == "CLIENT_SETTINGS_NOTIFICATIONS")
-async def open_client_notifications_settings(callback: CallbackQuery):
+async def open_client_notifications_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     user, language = await get_user_settings_context(callback)
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("client_notifications_settings", language),
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "client_notifications_settings",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("billing_back", language),
+                        text=t(
+                            "billing_back",
+                            language,
+                        ),
                         callback_data="M_SETTINGS",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("search_menu", language),
+                        text=t(
+                            "search_menu",
+                            language,
+                        ),
                         callback_data="SET_MAIN_MENU",
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @settings_router.callback_query(F.data.startswith("SET_UI_LANG:"))
-async def set_interface_language(callback: CallbackQuery):
+async def set_interface_language(callback: CallbackQuery, state: FSMContext):
     fallback_language = normalize_language(callback.from_user.language_code)
     interface_language = normalize_language(callback.data.split(":", 1)[1])
 
@@ -321,10 +388,13 @@ async def set_interface_language(callback: CallbackQuery):
 
         await session.commit()
 
-    await show_translation_settings(callback)
+    await show_translation_settings(
+        callback,
+        state,
+    )
 
 @settings_router.callback_query(F.data.startswith("SET_MSG_LANG:"))
-async def set_message_language(callback: CallbackQuery):
+async def set_message_language(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
     message_language = callback.data.split(":", 1)[1]
 
@@ -348,7 +418,10 @@ async def set_message_language(callback: CallbackQuery):
 
         await session.commit()
 
-    await show_translation_settings(callback)
+    await show_translation_settings(
+        callback,
+        state,
+    )
 
 
 @settings_router.callback_query(F.data == "SET_AUTO_TRANSLATE")
@@ -357,7 +430,7 @@ async def toggle_auto_translate(callback: CallbackQuery):
     await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)
 
 @settings_router.callback_query(F.data == "SET_SHOW_ORIGINAL")
-async def toggle_show_original(callback: CallbackQuery):
+async def toggle_show_original(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
 
     async with get_session() as session:
@@ -383,7 +456,10 @@ async def toggle_show_original(callback: CallbackQuery):
 
         await session.commit()
 
-    await show_translation_settings(callback)
+    await show_translation_settings(
+        callback,
+        state,
+    )
 
 
 @settings_router.callback_query(F.data == "SET_MAIN_MENU")
@@ -391,20 +467,37 @@ async def settings_to_main_menu(callback: CallbackQuery, state: FSMContext):
     await send_global_main_menu(callback, state)
 
 @settings_router.callback_query(F.data == "PRIVACY_MENU")
-async def open_privacy_settings(callback: CallbackQuery):
+async def open_privacy_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     user, language = await get_user_settings_context(callback)
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("privacy_settings_title", language),
-        reply_markup=privacy_settings_keyboard(language),
-    )
     await callback.answer()
 
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "privacy_settings_title",
+            language,
+        ),
+        reply_markup=privacy_settings_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
+
 @settings_router.callback_query(F.data == "PRIVACY_MY_DATA")
-async def request_my_data(callback: CallbackQuery):
+async def request_my_data(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     user, language = await get_user_settings_context(callback)
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
@@ -421,29 +514,57 @@ async def request_my_data(callback: CallbackQuery):
             user_id=fresh_user.id,
         )
 
-    await callback.message.answer(t("privacy_data_export_requested", language))
     await callback.answer()
 
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "privacy_data_export_requested",
+            language,
+        ),
+        reply_markup=privacy_settings_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 @settings_router.callback_query(F.data == "PRIVACY_DELETE_GEO_CONFIRM")
-async def confirm_delete_geo(callback: CallbackQuery):
+async def confirm_delete_geo(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     user, language = await get_user_settings_context(callback)
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("privacy_confirm_delete_geo", language),
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "privacy_confirm_delete_geo",
+            language,
+        ),
         reply_markup=privacy_confirm_keyboard(
             language=language,
             confirm_callback="PRIVACY_DELETE_GEO",
         ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @settings_router.callback_query(F.data == "PRIVACY_DELETE_GEO")
-async def delete_geo(callback: CallbackQuery):
+async def delete_geo(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     user, language = await get_user_settings_context(callback)
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
@@ -460,29 +581,58 @@ async def delete_geo(callback: CallbackQuery):
             user_id=fresh_user.id,
         )
 
-    await callback.message.answer(t("privacy_geo_deleted", language))
     await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "privacy_geo_deleted",
+            language,
+        ),
+        reply_markup=privacy_settings_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @settings_router.callback_query(F.data == "PRIVACY_DELETE_PROFILE_CONFIRM")
-async def confirm_delete_profile(callback: CallbackQuery):
+async def confirm_delete_profile(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     user, language = await get_user_settings_context(callback)
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("privacy_confirm_delete_profile", language),
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "privacy_confirm_delete_profile",
+            language,
+        ),
         reply_markup=privacy_confirm_keyboard(
             language=language,
             confirm_callback="PRIVACY_DELETE_PROFILE",
         ),
     )
-    await callback.answer()
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
 
 
 @settings_router.callback_query(F.data == "PRIVACY_DELETE_PROFILE")
-async def schedule_delete_profile(callback: CallbackQuery):
+async def schedule_delete_profile(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     user, language = await get_user_settings_context(callback)
     if not user:
         await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
@@ -499,5 +649,19 @@ async def schedule_delete_profile(callback: CallbackQuery):
             user_id=fresh_user.id,
         )
 
-    await callback.message.answer(t("privacy_deletion_scheduled", language))
     await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "privacy_deletion_scheduled",
+            language,
+        ),
+        reply_markup=privacy_settings_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
