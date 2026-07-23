@@ -130,6 +130,46 @@ async def replace_admin_callback_screen(
         last_menu_message_id=menu_message.message_id,
     )
 
+async def replace_admin_photo_screen(
+    *,
+    callback: CallbackQuery,
+    state: FSMContext,
+    photo: str,
+    caption: str,
+    reply_markup: (
+        InlineKeyboardMarkup | None
+    ) = None,
+    callback_answered: bool = False,
+) -> None:
+    if not callback_answered:
+        await callback.answer()
+
+    data = await state.get_data()
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            callback.message.message_id,
+            data.get(
+                "last_menu_message_id"
+            ),
+        ],
+    )
+
+    menu_message = (
+        await callback.message.answer_photo(
+            photo=photo,
+            caption=caption,
+            reply_markup=reply_markup,
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
 
 def review_moderation_error_text(
     error: Exception,
@@ -1249,6 +1289,80 @@ def pending_profiles_queue_keyboard(
     )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def format_pending_profiles_screen(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    parts = [
+        format_pending_profiles_header(
+            page=page,
+            count=len(items),
+            language=language,
+        )
+    ]
+
+    if not items:
+        parts.append(
+            t(
+                "admin_no_pending_profiles",
+                language,
+            )
+        )
+    else:
+        for index, item in enumerate(items):
+            number = (
+                page
+                * MODERATOR_PROFILE_PAGE_SIZE
+                + index
+                + 1
+            )
+            parts.append(
+                format_pending_profile_queue_item(
+                    item,
+                    number=number,
+                    language=language,
+                )
+            )
+
+    return "\n\n".join(parts)
+
+
+def pending_profiles_screen_keyboard(
+    *,
+    items_count: int,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=(
+                    f"{index + 1}. "
+                    f"{t('moderator_open_btn', language)}"
+                ),
+                callback_data=(
+                    f"ADM_SP_OPEN:{index}"
+                ),
+            )
+        ]
+        for index in range(items_count)
+    ]
+
+    rows.extend(
+        pending_profiles_queue_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ).inline_keyboard
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
 def pending_specialist_keyboard(
     *,
@@ -5625,6 +5739,94 @@ def admin_specialists_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def format_admin_professional_cabinets_screen(
+    items,
+    *,
+    status: str,
+    page: int,
+    language: str,
+) -> str:
+    parts = [
+        t(
+            "admin_specialists_header",
+            language,
+        ).format(
+            status=status,
+            page=page + 1,
+            count=len(items),
+        )
+    ]
+
+    if not items:
+        parts.append(
+            t(
+                "admin_specialists_empty",
+                language,
+            )
+        )
+    else:
+        for index, item in enumerate(items):
+            number = (
+                page
+                * ADMIN_SPECIALIST_PAGE_SIZE
+                + index
+                + 1
+            )
+            parts.append(
+                format_admin_specialist_item(
+                    item,
+                    number=number,
+                    language=language,
+                )
+            )
+
+    return "\n\n".join(parts)
+
+
+def admin_professional_cabinets_screen_keyboard(
+    *,
+    items_count: int,
+    status: str,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index in range(items_count):
+        number = (
+            page
+            * ADMIN_SPECIALIST_PAGE_SIZE
+            + index
+            + 1
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=(
+                        f"{number}. "
+                        f"{t('admin_user_open_btn', language)}"
+                    ),
+                    callback_data=(
+                        "ADM_ADMIN_SPECIALIST_OPEN:"
+                        f"{index}"
+                    ),
+                )
+            ]
+        )
+
+    rows.extend(
+        admin_specialists_keyboard(
+            status=status,
+            page=page,
+            has_next=has_next,
+            language=language,
+        ).inline_keyboard
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
 def admin_specialist_filter_keyboard(
     language: str,
@@ -5639,8 +5841,6 @@ def admin_specialist_filter_keyboard(
         ("draft", "admin_specialist_filter_draft"),
         ("hidden", "admin_specialist_filter_hidden"),
         ("rejected", "admin_specialist_filter_rejected"),
-        ("blocked", "admin_specialist_filter_blocked"),
-        ("deleted", "admin_specialist_filter_deleted"),
     )
 
     rows = [
@@ -5910,7 +6110,7 @@ def format_admin_menu(
 ) -> str:
     return t("admin_menu_text", language).format(
         users=summary.users,
-        specialists=summary.specialists,
+        specialists=summary.professional_cabinets,
         tickets=summary.tickets,
         complaints=summary.complaints,
         blacklist=summary.blacklist,
@@ -5950,7 +6150,7 @@ def minimal_admin_menu_keyboard(
         [
             InlineKeyboardButton(
                 text=t("admin_specialists_btn", language).format(
-                    count=summary.specialists,
+                    count=summary.professional_cabinets,
                 ),
                 callback_data="ADM_ADMIN_SPECIALISTS",
             )
@@ -8836,6 +9036,97 @@ def super_admin_read_only_moderator_queue_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def format_super_admin_read_only_moderator_cabinets_screen(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    parts = [
+        t(
+            "super_admin_ro_moderator_queue_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(items),
+        ),
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
+    ]
+
+    if not items:
+        parts.append(
+            t(
+                "admin_no_pending_profiles",
+                language,
+            )
+        )
+    else:
+        for index, item in enumerate(items):
+            number = (
+                page
+                * MODERATOR_PROFILE_PAGE_SIZE
+                + index
+                + 1
+            )
+            parts.append(
+                format_pending_profile_queue_item(
+                    item,
+                    number=number,
+                    language=language,
+                )
+            )
+
+    return "\n\n".join(parts)
+
+
+def super_admin_read_only_moderator_cabinets_screen_keyboard(
+    *,
+    items_count: int,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index in range(items_count):
+        number = (
+            page
+            * MODERATOR_PROFILE_PAGE_SIZE
+            + index
+            + 1
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_moderator_open_profile_btn",
+                        language,
+                    ).format(
+                        number=number
+                    ),
+                    callback_data=(
+                        "SA_RO_MOD_PROFILE:"
+                        f"{index}"
+                    ),
+                )
+            ]
+        )
+
+    rows.extend(
+        super_admin_read_only_moderator_queue_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ).inline_keyboard
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
+
 def super_admin_read_only_moderator_complaints_keyboard(
     *,
     view: str,
@@ -9513,21 +9804,231 @@ def super_admin_read_only_admin_support_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+@admin_router.callback_query(
+    F.data.startswith(
+        "SA_RO_ADMIN_SPECIALISTS:"
+    )
+)
+async def super_admin_read_only_admin_specialists(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            int(
+                (callback.data or "").split(
+                    ":",
+                    1,
+                )[1]
+            ),
+            0,
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    data = await state.get_data()
+
+    if (
+        not data.get(
+            "super_admin_impersonation_read_only"
+        )
+        or data.get(
+            "super_admin_impersonation_target_role"
+        )
+        != "admin"
+    ):
+        await callback.answer(
+            t(
+                "admin_access_denied",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(
+                data.get(
+                    "super_admin_impersonation_target_user_id"
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t(
+                "admin_access_denied",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            cabinet_page = await ModerationService(
+                ModerationRepository(session)
+            ).open_admin_specialists(
+                admin_user_id=target_user_id,
+                tenant_id=tenant_id,
+                status="all",
+                page=page,
+                page_size=(
+                    ADMIN_SPECIALIST_PAGE_SIZE
+                ),
+            )
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        super_admin_impersonation_admin_professional_cabinet_ids=[
+            str(
+                item.professional_cabinet_id
+            )
+            for item in cabinet_page.items
+        ],
+        super_admin_impersonation_admin_specialist_ids=[
+            str(item.specialist_id)
+            for item in cabinet_page.items
+        ],
+        super_admin_impersonation_admin_specialist_page=(
+            cabinet_page.page
+        ),
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            format_super_admin_read_only_admin_cabinets_screen(
+                cabinet_page.items,
+                page=cabinet_page.page,
+                language=language,
+            )
+        ),
+        reply_markup=(
+            super_admin_read_only_admin_cabinets_screen_keyboard(
+                items_count=len(
+                    cabinet_page.items
+                ),
+                page=cabinet_page.page,
+                has_next=(
+                    cabinet_page.has_next
+                ),
+                language=language,
+            )
+        ),
+    )
+
+def format_super_admin_read_only_admin_cabinets_screen(
+    items,
+    *,
+    page: int,
+    language: str,
+) -> str:
+    parts = [
+        t(
+            "super_admin_ro_admin_specialists_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(items),
+        ),
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
+    ]
+
+    if not items:
+        parts.append(
+            t(
+                "admin_specialists_empty",
+                language,
+            )
+        )
+    else:
+        for index, item in enumerate(items):
+            number = (
+                page
+                * ADMIN_SPECIALIST_PAGE_SIZE
+                + index
+                + 1
+            )
+            parts.append(
+                format_admin_specialist_item(
+                    item,
+                    number=number,
+                    language=language,
+                )
+            )
+
+    return "\n\n".join(parts)
+
 def super_admin_read_only_admin_specialists_keyboard(
     *,
     page: int,
     has_next: bool,
     language: str,
 ) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    navigation: list[InlineKeyboardButton] = []
+    rows: list[
+        list[InlineKeyboardButton]
+    ] = []
+    navigation: list[
+        InlineKeyboardButton
+    ] = []
 
     if page > 0:
         navigation.append(
             InlineKeyboardButton(
-                text=t("admin_prev", language),
+                text=t(
+                    "admin_prev",
+                    language,
+                ),
                 callback_data=(
-                    f"SA_RO_ADMIN_SPECIALISTS:{page - 1}"
+                    "SA_RO_ADMIN_SPECIALISTS:"
+                    f"{page - 1}"
                 ),
             )
         )
@@ -9535,15 +10036,21 @@ def super_admin_read_only_admin_specialists_keyboard(
     if has_next:
         navigation.append(
             InlineKeyboardButton(
-                text=t("admin_next", language),
+                text=t(
+                    "admin_next",
+                    language,
+                ),
                 callback_data=(
-                    f"SA_RO_ADMIN_SPECIALISTS:{page + 1}"
+                    "SA_RO_ADMIN_SPECIALISTS:"
+                    f"{page + 1}"
                 ),
             )
         )
 
     if navigation:
-        rows.append(navigation)
+        rows.append(
+            navigation
+        )
 
     rows.extend(
         [
@@ -9553,7 +10060,9 @@ def super_admin_read_only_admin_specialists_keyboard(
                         "super_admin_impersonation_change_cabinet_btn",
                         language,
                     ),
-                    callback_data="SA_RO_ADMIN_HOME",
+                    callback_data=(
+                        "SA_RO_ADMIN_HOME"
+                    ),
                 )
             ],
             [
@@ -9562,13 +10071,62 @@ def super_admin_read_only_admin_specialists_keyboard(
                         "super_admin_impersonation_stop_btn",
                         language,
                     ),
-                    callback_data="SA_IMPERSONATE_STOP",
+                    callback_data=(
+                        "SA_IMPERSONATE_STOP"
+                    ),
                 )
             ],
         ]
     )
 
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
+
+def super_admin_read_only_admin_cabinets_screen_keyboard(
+    *,
+    items_count: int,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    for index in range(items_count):
+        number = (
+            page
+            * ADMIN_SPECIALIST_PAGE_SIZE
+            + index
+            + 1
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_admin_open_specialist_btn",
+                        language,
+                    ).format(
+                        number=number
+                    ),
+                    callback_data=(
+                        "SA_RO_ADMIN_SPECIALIST_OPEN:"
+                        f"{index}"
+                    ),
+                )
+            ]
+        )
+
+    rows.extend(
+        super_admin_read_only_admin_specialists_keyboard(
+            page=page,
+            has_next=has_next,
+            language=language,
+        ).inline_keyboard
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
 def super_admin_read_only_admin_user_search_keyboard(
     language: str,
@@ -10115,7 +10673,9 @@ async def super_admin_read_only_moderator_home(
 
 
 @admin_router.callback_query(
-    F.data.startswith("SA_RO_MOD_QUEUE:")
+    F.data.startswith(
+        "SA_RO_MOD_QUEUE:"
+    )
 )
 async def super_admin_read_only_moderator_queue(
     callback: CallbackQuery,
@@ -10127,12 +10687,24 @@ async def super_admin_read_only_moderator_queue(
 
     try:
         page = max(
-            int((callback.data or "").split(":", 1)[1]),
+            int(
+                (callback.data or "").split(
+                    ":",
+                    1,
+                )[1]
+            ),
             0,
         )
-    except (IndexError, TypeError, ValueError):
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -10140,13 +10712,19 @@ async def super_admin_read_only_moderator_queue(
     data = await state.get_data()
 
     if (
-        not data.get("super_admin_impersonation_read_only")
+        not data.get(
+            "super_admin_impersonation_read_only"
+        )
         or data.get(
             "super_admin_impersonation_target_role"
-        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+        )
+        not in READ_ONLY_MODERATION_TARGET_ROLES
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -10161,13 +10739,20 @@ async def super_admin_read_only_moderator_queue(
         )
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
@@ -10176,7 +10761,10 @@ async def super_admin_read_only_moderator_queue(
         or "super_admin" not in roles
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -10186,10 +10774,14 @@ async def super_admin_read_only_moderator_queue(
             items = await ModerationService(
                 ModerationRepository(session)
             ).open_pending_specialists_queue(
-                moderator_user_id=target_user_id,
+                moderator_user_id=(
+                    target_user_id
+                ),
                 tenant_id=tenant_id,
                 page=page,
-                page_size=MODERATOR_PROFILE_PAGE_SIZE,
+                page_size=(
+                    MODERATOR_PROFILE_PAGE_SIZE
+                ),
             )
     except ModerationError as exc:
         await callback.answer(
@@ -10198,70 +10790,57 @@ async def super_admin_read_only_moderator_queue(
         )
         return
 
-    visible_items = items[:MODERATOR_PROFILE_PAGE_SIZE]
-    has_next = len(items) > MODERATOR_PROFILE_PAGE_SIZE
+    visible_items = items[
+        :MODERATOR_PROFILE_PAGE_SIZE
+    ]
+    has_next = (
+        len(items)
+        > MODERATOR_PROFILE_PAGE_SIZE
+    )
 
     await state.update_data(
-        super_admin_impersonation_moderator_profile_ids=[
+        super_admin_impersonation_moderator_professional_cabinet_ids=[
+            str(
+                item.professional_cabinet_id
+            )
+            for item in visible_items
+        ],
+        super_admin_impersonation_moderator_specialist_ids=[
             str(item.specialist_id)
             for item in visible_items
         ],
-        super_admin_impersonation_moderator_page=page,
+        super_admin_impersonation_moderator_page=(
+            page
+        ),
     )
 
-    await callback.message.answer(
-        t(
-            "super_admin_ro_moderator_queue_title",
-            language,
-        ).format(
-            page=page + 1,
-            count=len(visible_items),
-        )
-    )
-
-    start_number = page * MODERATOR_PROFILE_PAGE_SIZE + 1
-
-    for index, item in enumerate(visible_items):
-        number = start_number + index
-
-        await callback.message.answer(
-            format_pending_profile_queue_item(
-                item,
-                number=number,
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            format_super_admin_read_only_moderator_cabinets_screen(
+                visible_items,
+                page=page,
                 language=language,
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "super_admin_ro_moderator_open_profile_btn",
-                                language,
-                            ).format(number=number),
-                            callback_data=(
-                                f"SA_RO_MOD_PROFILE:{index}"
-                            ),
-                        )
-                    ]
-                ]
-            ),
-        )
-
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
+            )
+        ),
         reply_markup=(
-            super_admin_read_only_moderator_queue_keyboard(
+            super_admin_read_only_moderator_cabinets_screen_keyboard(
+                items_count=len(
+                    visible_items
+                ),
                 page=page,
                 has_next=has_next,
                 language=language,
             )
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
-    F.data.startswith("SA_RO_MOD_PROFILE:")
+    F.data.startswith(
+        "SA_RO_MOD_PROFILE:"
+    )
 )
 async def super_admin_read_only_moderator_profile(
     callback: CallbackQuery,
@@ -10274,29 +10853,45 @@ async def super_admin_read_only_moderator_profile(
 
     try:
         index = int(
-            (callback.data or "").split(":", 1)[1]
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
         )
-    except (IndexError, TypeError, ValueError):
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    profile_ids = data.get(
-        "super_admin_impersonation_moderator_profile_ids"
+    cabinet_ids = data.get(
+        "super_admin_impersonation_moderator_professional_cabinet_ids"
     ) or []
 
     if (
-        not data.get("super_admin_impersonation_read_only")
+        not data.get(
+            "super_admin_impersonation_read_only"
+        )
         or data.get(
             "super_admin_impersonation_target_role"
-        ) not in READ_ONLY_MODERATION_TARGET_ROLES
+        )
+        not in READ_ONLY_MODERATION_TARGET_ROLES
         or index < 0
-        or index >= len(profile_ids)
+        or index >= len(cabinet_ids)
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -10309,16 +10904,25 @@ async def super_admin_read_only_moderator_profile(
                 )
             )
         )
-        specialist_id = UUID(profile_ids[index])
+        professional_cabinet_id = UUID(
+            cabinet_ids[index]
+        )
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
@@ -10327,7 +10931,10 @@ async def super_admin_read_only_moderator_profile(
         or "super_admin" not in roles
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -10337,9 +10944,13 @@ async def super_admin_read_only_moderator_profile(
             card = await ModerationService(
                 ModerationRepository(session)
             ).get_moderator_specialist_card(
-                moderator_user_id=target_user_id,
+                moderator_user_id=(
+                    target_user_id
+                ),
                 tenant_id=tenant_id,
-                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
     except ModerationError as exc:
         await callback.answer(
@@ -10351,11 +10962,14 @@ async def super_admin_read_only_moderator_profile(
     page = int(
         data.get(
             "super_admin_impersonation_moderator_page"
-        ) or 0
+        )
+        or 0
     )
 
-    await callback.message.answer(
-        format_pending_specialist_card(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_pending_specialist_card(
             card,
             language=language,
         ),
@@ -10367,7 +10981,9 @@ async def super_admin_read_only_moderator_profile(
                             "super_admin_ro_moderator_back_to_queue_btn",
                             language,
                         ),
-                        callback_data=f"SA_RO_MOD_QUEUE:{page}",
+                        callback_data=(
+                            f"SA_RO_MOD_QUEUE:{page}"
+                        ),
                     )
                 ],
                 [
@@ -10376,13 +10992,14 @@ async def super_admin_read_only_moderator_profile(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("SA_RO_MOD_COMPLAINTS:")
@@ -12319,170 +12936,9 @@ async def super_admin_read_only_admin_support_open(
     await callback.answer()
 
 @admin_router.callback_query(
-    F.data.startswith("SA_RO_ADMIN_SPECIALISTS:")
-)
-async def super_admin_read_only_admin_specialists(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
+    F.data.startswith(
+        "SA_RO_ADMIN_SPECIALIST_OPEN:"
     )
-
-    try:
-        page = max(
-            int((callback.data or "").split(":", 1)[1]),
-            0,
-        )
-    except (IndexError, TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    data = await state.get_data()
-
-    if (
-        not data.get("super_admin_impersonation_read_only")
-        or data.get(
-            "super_admin_impersonation_target_role"
-        ) != "admin"
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        target_user_id = UUID(
-            str(
-                data.get(
-                    "super_admin_impersonation_target_user_id"
-                )
-            )
-        )
-    except (TypeError, ValueError):
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
-    )
-
-    if (
-        not admin_user_id
-        or not tenant_id
-        or "super_admin" not in roles
-    ):
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        async with get_session() as session:
-            specialist_page = await ModerationService(
-                ModerationRepository(session)
-            ).open_admin_specialists(
-                admin_user_id=target_user_id,
-                tenant_id=tenant_id,
-                status="all",
-                page=page,
-                page_size=ADMIN_SPECIALIST_PAGE_SIZE,
-            )
-    except ModerationError as exc:
-        await callback.answer(
-            str(exc),
-            show_alert=True,
-        )
-        return
-
-    await state.update_data(
-        super_admin_impersonation_admin_specialist_ids=[
-            str(item.specialist_id)
-            for item in specialist_page.items
-        ],
-        super_admin_impersonation_admin_specialist_page=(
-            specialist_page.page
-        ),
-    )
-
-    await callback.message.answer(
-        t(
-            "super_admin_ro_admin_specialists_title",
-            language,
-        ).format(
-            page=specialist_page.page + 1,
-            count=len(specialist_page.items),
-        )
-    )
-
-    if not specialist_page.items:
-        await callback.message.answer(
-            t("admin_specialists_empty", language),
-            reply_markup=(
-                super_admin_read_only_admin_specialists_keyboard(
-                    page=specialist_page.page,
-                    has_next=False,
-                    language=language,
-                )
-            ),
-        )
-        await callback.answer()
-        return
-
-    start_number = (
-        specialist_page.page * ADMIN_SPECIALIST_PAGE_SIZE
-        + 1
-    )
-
-    for index, item in enumerate(specialist_page.items):
-        number = start_number + index
-
-        await callback.message.answer(
-            format_admin_specialist_item(
-                item,
-                number=number,
-                language=language,
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "super_admin_ro_admin_open_specialist_btn",
-                                language,
-                            ).format(number=number),
-                            callback_data=(
-                                f"SA_RO_ADMIN_SPECIALIST_OPEN:{index}"
-                            ),
-                        )
-                    ]
-                ]
-            ),
-        )
-
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
-        reply_markup=(
-            super_admin_read_only_admin_specialists_keyboard(
-                page=specialist_page.page,
-                has_next=specialist_page.has_next,
-                language=language,
-            )
-        ),
-    )
-    await callback.answer()
-
-
-@admin_router.callback_query(
-    F.data.startswith("SA_RO_ADMIN_SPECIALIST_OPEN:")
 )
 async def super_admin_read_only_admin_specialist_open(
     callback: CallbackQuery,
@@ -12495,29 +12951,45 @@ async def super_admin_read_only_admin_specialist_open(
 
     try:
         index = int(
-            (callback.data or "").split(":", 1)[1]
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
         )
-    except (IndexError, TypeError, ValueError):
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    specialist_ids = data.get(
-        "super_admin_impersonation_admin_specialist_ids"
+    cabinet_ids = data.get(
+        "super_admin_impersonation_admin_professional_cabinet_ids"
     ) or []
 
     if (
-        not data.get("super_admin_impersonation_read_only")
+        not data.get(
+            "super_admin_impersonation_read_only"
+        )
         or data.get(
             "super_admin_impersonation_target_role"
-        ) != "admin"
+        )
+        != "admin"
         or index < 0
-        or index >= len(specialist_ids)
+        or index >= len(cabinet_ids)
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -12530,16 +13002,25 @@ async def super_admin_read_only_admin_specialist_open(
                 )
             )
         )
-        specialist_id = UUID(specialist_ids[index])
+        professional_cabinet_id = UUID(
+            cabinet_ids[index]
+        )
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
@@ -12548,7 +13029,10 @@ async def super_admin_read_only_admin_specialist_open(
         or "super_admin" not in roles
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -12558,9 +13042,13 @@ async def super_admin_read_only_admin_specialist_open(
             card = await ModerationService(
                 ModerationRepository(session)
             ).get_moderator_specialist_card(
-                moderator_user_id=target_user_id,
+                moderator_user_id=(
+                    target_user_id
+                ),
                 tenant_id=tenant_id,
-                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
     except ModerationError as exc:
         await callback.answer(
@@ -12572,11 +13060,14 @@ async def super_admin_read_only_admin_specialist_open(
     page = int(
         data.get(
             "super_admin_impersonation_admin_specialist_page"
-        ) or 0
+        )
+        or 0
     )
 
-    await callback.message.answer(
-        format_pending_specialist_card(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_pending_specialist_card(
             card,
             language=language,
         ),
@@ -12589,7 +13080,8 @@ async def super_admin_read_only_admin_specialist_open(
                             language,
                         ),
                         callback_data=(
-                            f"SA_RO_ADMIN_SPECIALISTS:{page}"
+                            "SA_RO_ADMIN_SPECIALISTS:"
+                            f"{page}"
                         ),
                     )
                 ],
@@ -12599,13 +13091,14 @@ async def super_admin_read_only_admin_specialist_open(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "SA_RO_ADMIN_USERS")
 async def super_admin_read_only_admin_users_start(
@@ -24895,7 +25388,9 @@ async def admin_main_menu_alias(
 
 @admin_router.callback_query(
     (F.data == "ADM_ADMIN_SPECIALISTS")
-    | F.data.startswith("ADM_ADMIN_SPECIALISTS:")
+    | F.data.startswith(
+        "ADM_ADMIN_SPECIALISTS:"
+    )
 )
 async def open_admin_specialists_list(
     callback: CallbackQuery,
@@ -24908,12 +25403,20 @@ async def open_admin_specialists_list(
     status = "approved"
     page = 0
 
-    if callback.data != "ADM_ADMIN_SPECIALISTS":
-        parts = (callback.data or "").split(":")
+    if (
+        callback.data
+        != "ADM_ADMIN_SPECIALISTS"
+    ):
+        parts = (
+            callback.data or ""
+        ).split(":")
 
         if len(parts) != 3:
             await callback.answer(
-                t("admin_item_not_found", language),
+                t(
+                    "admin_item_not_found",
+                    language,
+                ),
                 show_alert=True,
             )
             return
@@ -24921,39 +25424,59 @@ async def open_admin_specialists_list(
         status = parts[1]
 
         try:
-            page = max(int(parts[2]), 0)
+            page = max(
+                int(parts[2]),
+                0,
+            )
         except (TypeError, ValueError):
             await callback.answer(
-                t("admin_item_not_found", language),
+                t(
+                    "admin_item_not_found",
+                    language,
+                ),
                 show_alert=True,
             )
             return
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection({"admin", "super_admin"})
+        or not roles.intersection(
+            {
+                "admin",
+                "super_admin",
+            }
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     try:
         async with get_session() as session:
-            specialist_page = await ModerationService(
+            cabinet_page = await ModerationService(
                 ModerationRepository(session)
             ).open_admin_specialists(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
                 status=status,
                 page=page,
-                page_size=ADMIN_SPECIALIST_PAGE_SIZE,
+                page_size=(
+                    ADMIN_SPECIALIST_PAGE_SIZE
+                ),
             )
     except ModerationError as exc:
         await callback.answer(
@@ -24963,68 +25486,54 @@ async def open_admin_specialists_list(
         return
 
     await state.update_data(
+        admin_professional_cabinet_ids=[
+            str(
+                item.professional_cabinet_id
+            )
+            for item in cabinet_page.items
+        ],
         admin_specialist_ids=[
             str(item.specialist_id)
-            for item in specialist_page.items
+            for item in cabinet_page.items
         ],
-        admin_specialist_status=specialist_page.status,
-        admin_specialist_page=specialist_page.page,
-    )
-
-    await callback.message.answer(
-        t("admin_specialists_header", language).format(
-            status=specialist_page.status,
-            page=specialist_page.page + 1,
-            count=len(specialist_page.items),
-        )
-    )
-
-    if not specialist_page.items:
-        await callback.message.answer(
-            t("admin_specialists_empty", language),
-            reply_markup=admin_specialists_keyboard(
-                status=specialist_page.status,
-                page=specialist_page.page,
-                has_next=False,
-                language=language,
-            ),
-        )
-        await callback.answer()
-        return
-
-    for index, item in enumerate(specialist_page.items):
-        number = (
-            specialist_page.page
-            * ADMIN_SPECIALIST_PAGE_SIZE
-            + index
-            + 1
-        )
-
-        await callback.message.answer(
-            format_admin_specialist_item(
-                item,
-                number=number,
-                language=language,
-            ),
-            reply_markup=admin_specialist_item_keyboard(
-                index=index,
-                language=language,
-            ),
-        )
-
-    await callback.message.answer(
-        t("admin_specialists_actions", language),
-        reply_markup=admin_specialists_keyboard(
-            status=specialist_page.status,
-            page=specialist_page.page,
-            has_next=specialist_page.has_next,
-            language=language,
+        admin_specialist_status=(
+            cabinet_page.status
+        ),
+        admin_specialist_page=(
+            cabinet_page.page
         ),
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            format_admin_professional_cabinets_screen(
+                cabinet_page.items,
+                status=cabinet_page.status,
+                page=cabinet_page.page,
+                language=language,
+            )
+        ),
+        reply_markup=(
+            admin_professional_cabinets_screen_keyboard(
+                items_count=len(
+                    cabinet_page.items
+                ),
+                status=cabinet_page.status,
+                page=cabinet_page.page,
+                has_next=(
+                    cabinet_page.has_next
+                ),
+                language=language,
+            )
+        ),
+    )
 
 @admin_router.callback_query(
-    F.data.startswith("ADM_ADMIN_SPECIALIST_OPEN:")
+    F.data.startswith(
+        "ADM_ADMIN_SPECIALIST_OPEN:"
+    )
 )
 async def open_admin_specialist_card(
     callback: CallbackQuery,
@@ -25035,51 +25544,103 @@ async def open_admin_specialist_card(
     )
     data = await state.get_data()
 
-    specialist_ids = data.get("admin_specialist_ids") or []
+    cabinet_ids = (
+        data.get(
+            "admin_professional_cabinet_ids"
+        )
+        or []
+    )
+    specialist_ids = (
+        data.get(
+            "admin_specialist_ids"
+        )
+        or []
+    )
     status = (
-        data.get("admin_specialist_status")
+        data.get(
+            "admin_specialist_status"
+        )
         or "approved"
     )
     page = int(
-        data.get("admin_specialist_page") or 0
+        data.get(
+            "admin_specialist_page"
+        )
+        or 0
     )
 
     try:
-        index = int(callback.data.split(":", 1)[1])
-    except (TypeError, ValueError, IndexError):
+        index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+    except (
+        TypeError,
+        ValueError,
+        IndexError,
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    if index < 0 or index >= len(specialist_ids):
+    if (
+        index < 0
+        or index >= len(cabinet_ids)
+        or index >= len(specialist_ids)
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     try:
-        specialist_id = UUID(specialist_ids[index])
+        professional_cabinet_id = UUID(
+            cabinet_ids[index]
+        )
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection({"admin", "super_admin"})
+        or not roles.intersection(
+            {
+                "admin",
+                "super_admin",
+            }
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -25089,9 +25650,13 @@ async def open_admin_specialist_card(
             card = await ModerationService(
                 ModerationRepository(session)
             ).get_moderator_specialist_card(
-                moderator_user_id=admin_user_id,
+                moderator_user_id=(
+                    admin_user_id
+                ),
                 tenant_id=tenant_id,
-                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
     except ModerationError as exc:
         await callback.answer(
@@ -25100,25 +25665,38 @@ async def open_admin_specialist_card(
         )
         return
 
-    # Existing moderation handlers use this FSM key.
     await state.update_data(
-        admin_pending_specialist_ids=specialist_ids,
+        admin_pending_professional_cabinet_ids=(
+            cabinet_ids
+        ),
+        admin_pending_specialist_ids=(
+            specialist_ids
+        ),
         admin_pending_specialist_page=page,
+        moderator_selected_professional_cabinet_id=(
+            str(card.professional_cabinet_id)
+        ),
+        moderator_selected_specialist_id=(
+            str(card.specialist_id)
+        ),
     )
 
-    await callback.message.answer(
-        format_pending_specialist_card(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_pending_specialist_card(
             card,
             language=language,
         ),
-        reply_markup=admin_specialist_card_keyboard(
-            index=index,
-            status=card.status,
-            page=page,
-            language=language,
+        reply_markup=(
+            admin_specialist_card_keyboard(
+                index=index,
+                status=card.status,
+                page=page,
+                language=language,
+            )
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "ADMIN_SPECIALIST_READ_ONLY"
@@ -25140,33 +25718,52 @@ async def admin_specialist_read_only(
 )
 async def open_admin_specialist_filter(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
     language = normalize_language(
         callback.from_user.language_code
     )
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection({"admin", "super_admin"})
+        or not roles.intersection(
+            {
+                "admin",
+                "super_admin",
+            }
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    await callback.message.answer(
-        t("admin_specialist_filter_title", language),
-        reply_markup=admin_specialist_filter_keyboard(
-            language
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_specialist_filter_title",
+            language,
+        ),
+        reply_markup=(
+            admin_specialist_filter_keyboard(
+                language
+            )
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     (F.data == "ADM_PENDING")
@@ -25176,7 +25773,9 @@ async def list_pending_profiles(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     if callback.data == "ADM_PENDING":
         page = 0
@@ -25184,26 +25783,43 @@ async def list_pending_profiles(
         try:
             page = max(
                 0,
-                int((callback.data or "").split(":", 1)[1]),
+                int(
+                    (callback.data or "").split(
+                        ":",
+                        1,
+                    )[1]
+                ),
             )
         except (TypeError, ValueError):
             await callback.answer(
-                t("admin_item_not_found", language),
+                t(
+                    "admin_item_not_found",
+                    language,
+                ),
                 show_alert=True,
             )
             return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -25216,16 +25832,32 @@ async def list_pending_profiles(
                 moderator_user_id=admin_user_id,
                 tenant_id=tenant_id,
                 page=page,
-                page_size=MODERATOR_PROFILE_PAGE_SIZE,
+                page_size=(
+                    MODERATOR_PROFILE_PAGE_SIZE
+                ),
             )
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
-    visible_items = items[:MODERATOR_PROFILE_PAGE_SIZE]
-    has_next = len(items) > MODERATOR_PROFILE_PAGE_SIZE
+    visible_items = items[
+        :MODERATOR_PROFILE_PAGE_SIZE
+    ]
+    has_next = (
+        len(items)
+        > MODERATOR_PROFILE_PAGE_SIZE
+    )
 
     await state.update_data(
+        admin_pending_professional_cabinet_ids=[
+            str(
+                item.professional_cabinet_id
+            )
+            for item in visible_items
+        ],
         admin_pending_specialist_ids=[
             str(item.specialist_id)
             for item in visible_items
@@ -25233,73 +25865,70 @@ async def list_pending_profiles(
         admin_pending_specialist_page=page,
     )
 
-    await callback.message.answer(
-        format_pending_profiles_header(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_pending_profiles_screen(
+            visible_items,
             page=page,
-            count=len(visible_items),
             language=language,
-        )
-    )
-
-    if not visible_items:
-        await callback.message.answer(
-            t("admin_no_pending_profiles", language),
-            reply_markup=pending_profiles_queue_keyboard(
+        ),
+        reply_markup=(
+            pending_profiles_screen_keyboard(
+                items_count=len(
+                    visible_items
+                ),
                 page=page,
-                has_next=False,
+                has_next=has_next,
                 language=language,
-            ),
-        )
-        await callback.answer()
-        return
-
-    for index, item in enumerate(visible_items):
-        number = page * MODERATOR_PROFILE_PAGE_SIZE + index + 1
-
-        await callback.message.answer(
-            format_pending_profile_queue_item(
-                item,
-                number=number,
-                language=language,
-            ),
-            reply_markup=pending_profile_queue_item_keyboard(
-                index=index,
-                language=language,
-            ),
-        )
-
-    await callback.message.answer(
-        t("moderator_queue_actions", language),
-        reply_markup=pending_profiles_queue_keyboard(
-            page=page,
-            has_next=has_next,
-            language=language,
+            )
         ),
     )
 
-    await callback.answer()
-
-@admin_router.callback_query(F.data.startswith("ADM_SP_OPEN:"))
+@admin_router.callback_query(
+    F.data.startswith("ADM_SP_OPEN:")
+)
 async def open_pending_specialist(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
-    ids = data.get("admin_pending_specialist_ids") or []
+    cabinet_ids = (
+        data.get(
+            "admin_pending_professional_cabinet_ids"
+        )
+        or []
+    )
 
     try:
-        index = int((callback.data or "").split(":", 1)[1])
+        index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    if index < 0 or index >= len(ids):
+    if (
+        index < 0
+        or index >= len(cabinet_ids)
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -25310,40 +25939,70 @@ async def open_pending_specialist(
         index=index,
     )
 
+
 async def show_pending_specialist(
     callback: CallbackQuery,
     state: FSMContext,
     index: int,
 ):
     data = await state.get_data()
-    language = normalize_language(callback.from_user.language_code)
-    ids = data.get("admin_pending_specialist_ids") or []
-    page = int(data.get("admin_pending_specialist_page") or 0)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    cabinet_ids = (
+        data.get(
+            "admin_pending_professional_cabinet_ids"
+        )
+        or []
+    )
+    page = int(
+        data.get(
+            "admin_pending_specialist_page"
+        )
+        or 0
+    )
 
-    if index < 0 or index >= len(ids):
+    if (
+        index < 0
+        or index >= len(cabinet_ids)
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     try:
-        specialist_id = UUID(ids[index])
+        professional_cabinet_id = UUID(
+            cabinet_ids[index]
+        )
 
         async with get_session() as session:
             card = await ModerationService(
@@ -25351,7 +26010,9 @@ async def show_pending_specialist(
             ).get_moderator_specialist_card(
                 moderator_user_id=admin_user_id,
                 tenant_id=tenant_id,
-                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
     except (ValueError, ModerationError) as exc:
         await callback.answer(
@@ -25360,8 +26021,19 @@ async def show_pending_specialist(
         )
         return
 
-    await callback.message.answer(
-        format_pending_specialist_card(
+    await state.update_data(
+        moderator_selected_professional_cabinet_id=(
+            str(card.professional_cabinet_id)
+        ),
+        moderator_selected_specialist_id=(
+            str(card.specialist_id)
+        ),
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_pending_specialist_card(
             card,
             language=language,
         ),
@@ -25372,7 +26044,6 @@ async def show_pending_specialist(
         ),
     )
 
-    await callback.answer()
 @admin_router.callback_query(
     F.data.startswith("ADM_SP_APPROVE:")
     | F.data.startswith("ADM_SP_REJECT:")
@@ -25381,61 +26052,115 @@ async def ask_specialist_decision_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
     try:
-        callback_prefix, raw_index = (callback.data or "").split(":", 1)
+        callback_prefix, raw_index = (
+            callback.data or ""
+        ).split(
+            ":",
+            1,
+        )
         index = int(raw_index)
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    specialist_ids = data.get("admin_pending_specialist_ids") or []
-    page = int(data.get("admin_pending_specialist_page") or 0)
+    cabinet_ids = (
+        data.get(
+            "admin_pending_professional_cabinet_ids"
+        )
+        or []
+    )
+    specialist_ids = (
+        data.get(
+            "admin_pending_specialist_ids"
+        )
+        or []
+    )
+    page = int(
+        data.get(
+            "admin_pending_specialist_page"
+        )
+        or 0
+    )
 
-    if index < 0 or index >= len(specialist_ids):
+    if (
+        index < 0
+        or index >= len(cabinet_ids)
+        or index >= len(specialist_ids)
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    moderator_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        moderator_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not moderator_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     decision = (
         "approved"
-        if callback_prefix == "ADM_SP_APPROVE"
+        if callback_prefix
+        == "ADM_SP_APPROVE"
         else "rejected"
     )
 
     await state.update_data(
-        moderator_decision_specialist_id=specialist_ids[index],
+        moderator_decision_professional_cabinet_id=(
+            cabinet_ids[index]
+        ),
+        moderator_decision_specialist_id=(
+            specialist_ids[index]
+        ),
         moderator_decision=decision,
         moderator_decision_page=page,
     )
     await state.set_state(
-        AdminModerationFSM.entering_specialist_decision_reason
+        AdminModerationFSM
+        .entering_specialist_decision_reason
     )
 
-    await callback.message.answer(
-        t("moderator_decision_reason_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_decision_reason_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -25445,34 +26170,44 @@ async def ask_specialist_decision_reason(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_SP_DECISION_CANCEL:{page}"
+                            "ADM_SP_DECISION_CANCEL:"
+                            f"{page}"
                         ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_SP_HIDE:")
-    | F.data.startswith("ADM_SP_RESTORE:")
+    | F.data.startswith(
+        "ADM_SP_RESTORE:"
+    )
 )
 async def ask_specialist_visibility_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
     try:
         callback_prefix, raw_index = (
             callback.data or ""
-        ).split(":", 1)
+        ).split(
+            ":",
+            1,
+        )
         index = int(raw_index)
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -25481,62 +26216,103 @@ async def ask_specialist_visibility_reason(
         "ADM_SP_HIDE": "hide",
         "ADM_SP_RESTORE": "restore",
     }
-    action = action_by_callback.get(callback_prefix)
+    action = action_by_callback.get(
+        callback_prefix
+    )
 
-    specialist_ids = data.get("admin_specialist_ids") or []
+    cabinet_ids = (
+        data.get(
+            "admin_professional_cabinet_ids"
+        )
+        or []
+    )
+    specialist_ids = (
+        data.get(
+            "admin_specialist_ids"
+        )
+        or []
+    )
     status = (
-        data.get("admin_specialist_status")
+        data.get(
+            "admin_specialist_status"
+        )
         or "approved"
     )
-    page = int(data.get("admin_specialist_page") or 0)
-
-    expected_status = (
-        "approved"
-        if action == "hide"
-        else "hidden"
+    page = int(
+        data.get(
+            "admin_specialist_page"
+        )
+        or 0
     )
 
     if (
         action is None
-        or status != expected_status
         or index < 0
+        or index >= len(cabinet_ids)
         or index >= len(specialist_ids)
     ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     await state.update_data(
-        admin_specialist_visibility_action=action,
+        admin_specialist_visibility_action=(
+            action
+        ),
+        admin_specialist_visibility_professional_cabinet_id=(
+            cabinet_ids[index]
+        ),
         admin_specialist_visibility_specialist_id=(
             specialist_ids[index]
         ),
-        admin_specialist_visibility_status=status,
-        admin_specialist_visibility_page=page,
+        admin_specialist_visibility_status=(
+            status
+        ),
+        admin_specialist_visibility_page=(
+            page
+        ),
     )
     await state.set_state(
-        AdminModerationFSM.entering_specialist_visibility_reason
+        AdminModerationFSM
+        .entering_specialist_visibility_reason
     )
 
-    await callback.message.answer(
-        t("moderator_decision_reason_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_decision_reason_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -25554,53 +26330,107 @@ async def ask_specialist_visibility_reason(
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
-    AdminModerationFSM.entering_specialist_visibility_reason
+    AdminModerationFSM
+    .entering_specialist_visibility_reason
 )
 async def receive_specialist_visibility_reason(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
     reason = (message.text or "").strip()
-
-    if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
-        )
-        return
-
     data = await state.get_data()
+
     action = data.get(
         "admin_specialist_visibility_action"
+    )
+    professional_cabinet_id = data.get(
+        "admin_specialist_visibility_professional_cabinet_id"
     )
     specialist_id = data.get(
         "admin_specialist_visibility_specialist_id"
     )
-    status = data.get(
-        "admin_specialist_visibility_status"
+    status = (
+        data.get(
+            "admin_specialist_visibility_status"
+        )
+        or "approved"
     )
     page = int(
-        data.get("admin_specialist_visibility_page") or 0
+        data.get(
+            "admin_specialist_visibility_page"
+        )
+        or 0
     )
 
-    expected_status = (
-        "approved"
-        if action == "hide"
-        else "hidden"
+    cancel_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "moderator_changes_cancel_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_SP_VISIBILITY_CANCEL:"
+                        f"{status}:{page}"
+                    ),
+                )
+            ]
+        ]
     )
+
+    if len(reason) < 3:
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t('admin_reason_too_short', language)}"
+                "\n\n"
+                f"{t('moderator_decision_reason_prompt', language)}"
+            ),
+            reply_markup=cancel_keyboard,
+        )
+        return
 
     if (
-        not specialist_id
-        or action not in {"hide", "restore"}
-        or status != expected_status
+        not professional_cabinet_id
+        or not specialist_id
+        or action
+        not in {
+            "hide",
+            "restore",
+        }
     ):
-        await state.clear()
-        await message.answer(
-            t("admin_item_not_found", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_panel_back",
+                                language,
+                            ),
+                            callback_data=(
+                                "ADM_ADMIN_SPECIALISTS:"
+                                f"{status}:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
         )
+        await state.set_state(None)
         return
 
     confirmation_key = (
@@ -25613,11 +26443,17 @@ async def receive_specialist_visibility_reason(
         admin_specialist_visibility_reason=reason,
     )
     await state.set_state(
-        AdminModerationFSM.confirming_specialist_visibility
+        AdminModerationFSM
+        .confirming_specialist_visibility
     )
 
-    await message.answer(
-        t(confirmation_key, language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            confirmation_key,
+            language,
+        ).format(
             reason=reason
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -25667,61 +26503,157 @@ async def edit_specialist_visibility_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
     action = data.get(
         "admin_specialist_visibility_action"
     )
+    professional_cabinet_id = data.get(
+        "admin_specialist_visibility_professional_cabinet_id"
+    )
     specialist_id = data.get(
         "admin_specialist_visibility_specialist_id"
     )
+    status = (
+        data.get(
+            "admin_specialist_visibility_status"
+        )
+        or "approved"
+    )
+    page = int(
+        data.get(
+            "admin_specialist_visibility_page"
+        )
+        or 0
+    )
 
     if (
-        not specialist_id
-        or action not in {"hide", "restore"}
+        not professional_cabinet_id
+        or not specialist_id
+        or action
+        not in {
+            "hide",
+            "restore",
+        }
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_panel_back",
+                                language,
+                            ),
+                            callback_data=(
+                                "ADM_ADMIN_SPECIALISTS:"
+                                f"{status}:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
         )
+        await state.set_state(None)
         return
 
     await state.set_state(
-        AdminModerationFSM.entering_specialist_visibility_reason
+        AdminModerationFSM
+        .entering_specialist_visibility_reason
     )
-    await callback.message.answer(
-        t("moderator_decision_reason_prompt", language)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_decision_reason_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_VISIBILITY_CANCEL:"
+                            f"{status}:{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
-    F.data.startswith("ADM_SP_VISIBILITY_CANCEL:")
+    F.data.startswith(
+        "ADM_SP_VISIBILITY_CANCEL:"
+    )
 )
 async def cancel_specialist_visibility(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     try:
         _, status, raw_page = (
             callback.data or ""
-        ).split(":", 2)
-        page = max(int(raw_page), 0)
+        ).split(
+            ":",
+            2,
+        )
+        page = max(
+            int(raw_page),
+            0,
+        )
     except (TypeError, ValueError):
         status = "approved"
         page = 0
 
-    if status not in {"approved", "hidden"}:
+    allowed_statuses = {
+        "all",
+        "draft",
+        "pending_moderation",
+        "approved",
+        "rejected",
+        "hidden",
+    }
+
+    if status not in allowed_statuses:
         status = "approved"
 
-    await state.clear()
+    await state.set_state(None)
+    await state.update_data(
+        admin_specialist_visibility_action=None,
+        admin_specialist_visibility_professional_cabinet_id=None,
+        admin_specialist_visibility_specialist_id=None,
+        admin_specialist_visibility_reason=None,
+        admin_specialist_visibility_status=None,
+        admin_specialist_visibility_page=None,
+    )
 
-    await callback.message.answer(
-        t("moderator_decision_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_decision_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -25731,14 +26663,14 @@ async def cancel_specialist_visibility(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_ADMIN_SPECIALISTS:{status}:{page}"
+                            "ADM_ADMIN_SPECIALISTS:"
+                            f"{status}:{page}"
                         ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "ADM_SP_VISIBILITY_CONFIRM"
@@ -25747,72 +26679,143 @@ async def confirm_specialist_visibility(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
     action = data.get(
         "admin_specialist_visibility_action"
     )
+    professional_cabinet_id = data.get(
+        "admin_specialist_visibility_professional_cabinet_id"
+    )
     specialist_id = data.get(
         "admin_specialist_visibility_specialist_id"
     )
     reason = (
-        data.get("admin_specialist_visibility_reason") or ""
+        data.get(
+            "admin_specialist_visibility_reason"
+        )
+        or ""
     ).strip()
+    status = (
+        data.get(
+            "admin_specialist_visibility_status"
+        )
+        or "approved"
+    )
+    page = int(
+        data.get(
+            "admin_specialist_visibility_page"
+        )
+        or 0
+    )
 
     if (
-        not specialist_id
-        or action not in {"hide", "restore"}
+        not professional_cabinet_id
+        or not specialist_id
+        or action
+        not in {
+            "hide",
+            "restore",
+        }
         or len(reason) < 3
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_panel_back",
+                                language,
+                            ),
+                            callback_data=(
+                                "ADM_ADMIN_SPECIALISTS:"
+                                f"{status}:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
         )
         return
 
-    admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(callback.from_user.id)
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
+        callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
-        await state.clear()
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     try:
+        cabinet_id = UUID(
+            professional_cabinet_id
+        )
+
         async with get_session() as session:
             service = ModerationService(
                 ModerationRepository(session)
             )
 
             if action == "hide":
-                result = await service.hide_specialist(
-                    admin_user_id=admin_user_id,
-                    tenant_id=tenant_id,
-                    specialist_id=UUID(specialist_id),
-                    reason=reason,
+                result = await (
+                    service
+                    .hide_professional_cabinet(
+                        admin_user_id=admin_user_id,
+                        tenant_id=tenant_id,
+                        professional_cabinet_id=(
+                            cabinet_id
+                        ),
+                        reason=reason,
+                    )
                 )
             else:
-                result = await service.restore_specialist(
-                    admin_user_id=admin_user_id,
-                    tenant_id=tenant_id,
-                    specialist_id=UUID(specialist_id),
-                    reason=reason,
+                result = await (
+                    service
+                    .restore_professional_cabinet(
+                        admin_user_id=admin_user_id,
+                        tenant_id=tenant_id,
+                        professional_cabinet_id=(
+                            cabinet_id
+                        ),
+                        reason=reason,
+                    )
                 )
+
     except (ModerationError, ValueError) as exc:
         logger.warning(
-            "specialist_visibility_change_failed "
-            "telegram_id=%s specialist_id=%s action=%s error=%s",
+            "professional_cabinet_visibility_failed "
+            "telegram_id=%s "
+            "professional_cabinet_id=%s "
+            "specialist_id=%s action=%s error=%s",
             callback.from_user.id,
+            professional_cabinet_id,
             specialist_id,
             action,
             exc,
@@ -25830,20 +26833,35 @@ async def confirm_specialist_visibility(
     )
 
     logger.info(
-        "specialist_visibility_change_completed "
+        "professional_cabinet_visibility_completed "
         "telegram_id=%s admin_user_id=%s "
+        "professional_cabinet_id=%s "
         "specialist_id=%s action=%s status=%s",
         callback.from_user.id,
         admin_user_id,
+        professional_cabinet_id,
         specialist_id,
         action,
         result.status,
     )
 
-    await state.clear()
+    await state.set_state(None)
+    await state.update_data(
+        admin_specialist_visibility_action=None,
+        admin_specialist_visibility_professional_cabinet_id=None,
+        admin_specialist_visibility_specialist_id=None,
+        admin_specialist_visibility_reason=None,
+        admin_specialist_visibility_status=None,
+        admin_specialist_visibility_page=None,
+    )
 
-    await callback.message.answer(
-        t(result_text_key, language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            result_text_key,
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -25854,44 +26872,115 @@ async def confirm_specialist_visibility(
                         ),
                         callback_data=(
                             "ADM_ADMIN_SPECIALISTS:"
-                            f"{result.status}:0"
+                            f"{status}:{page}"
                         ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
-    AdminModerationFSM.entering_specialist_decision_reason
+    AdminModerationFSM
+    .entering_specialist_decision_reason
 )
 async def receive_specialist_decision_reason(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
     reason = (message.text or "").strip()
+    data = await state.get_data()
+
+    professional_cabinet_id = data.get(
+        "moderator_decision_professional_cabinet_id"
+    )
+    specialist_id = data.get(
+        "moderator_decision_specialist_id"
+    )
+    decision = data.get(
+        "moderator_decision"
+    )
+    page = int(
+        data.get(
+            "moderator_decision_page"
+        )
+        or 0
+    )
+
+    cancel_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "moderator_changes_cancel_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_SP_DECISION_CANCEL:"
+                        f"{page}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if len(reason) < 3:
-        await message.answer(t("admin_reason_too_short", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t('admin_reason_too_short', language)}"
+                "\n\n"
+                f"{t('moderator_decision_reason_prompt', language)}"
+            ),
+            reply_markup=cancel_keyboard,
+        )
         return
 
-    data = await state.get_data()
-    specialist_id = data.get("moderator_decision_specialist_id")
-    decision = data.get("moderator_decision")
-    page = int(data.get("moderator_decision_page") or 0)
-
-    if not specialist_id or decision not in {"approved", "rejected"}:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+    if (
+        not professional_cabinet_id
+        or not specialist_id
+        or decision
+        not in {
+            "approved",
+            "rejected",
+        }
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_panel_back",
+                                language,
+                            ),
+                            callback_data=(
+                                f"ADM_SP_QUEUE:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+        await state.set_state(None)
         return
 
     await state.update_data(
         moderator_decision_reason=reason,
     )
     await state.set_state(
-        AdminModerationFSM.confirming_specialist_decision
+        AdminModerationFSM
+        .confirming_specialist_decision
     )
 
     confirmation_key = (
@@ -25900,8 +26989,15 @@ async def receive_specialist_decision_reason(
         else "moderator_reject_confirmation"
     )
 
-    await message.answer(
-        t(confirmation_key, language).format(reason=reason),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            confirmation_key,
+            language,
+        ).format(
+            reason=reason
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -25910,7 +27006,9 @@ async def receive_specialist_decision_reason(
                             "moderator_decision_confirm_btn",
                             language,
                         ),
-                        callback_data="ADM_SP_DECISION_CONFIRM",
+                        callback_data=(
+                            "ADM_SP_DECISION_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -25919,7 +27017,9 @@ async def receive_specialist_decision_reason(
                             "moderator_decision_edit_btn",
                             language,
                         ),
-                        callback_data="ADM_SP_DECISION_EDIT",
+                        callback_data=(
+                            "ADM_SP_DECISION_EDIT"
+                        ),
                     )
                 ],
                 [
@@ -25929,7 +27029,8 @@ async def receive_specialist_decision_reason(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_SP_DECISION_CANCEL:{page}"
+                            "ADM_SP_DECISION_CANCEL:"
+                            f"{page}"
                         ),
                     )
                 ],
@@ -25944,49 +27045,134 @@ async def edit_specialist_decision_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    specialist_id = data.get("moderator_decision_specialist_id")
-    decision = data.get("moderator_decision")
-
-    if not specialist_id or decision not in {"approved", "rejected"}:
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
+    professional_cabinet_id = data.get(
+        "moderator_decision_professional_cabinet_id"
+    )
+    specialist_id = data.get(
+        "moderator_decision_specialist_id"
+    )
+    decision = data.get(
+        "moderator_decision"
+    )
+    page = int(
+        data.get(
+            "moderator_decision_page"
         )
+        or 0
+    )
+
+    if (
+        not professional_cabinet_id
+        or not specialist_id
+        or decision
+        not in {
+            "approved",
+            "rejected",
+        }
+    ):
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_panel_back",
+                                language,
+                            ),
+                            callback_data=(
+                                f"ADM_SP_QUEUE:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+        await state.set_state(None)
         return
 
     await state.set_state(
-        AdminModerationFSM.entering_specialist_decision_reason
+        AdminModerationFSM
+        .entering_specialist_decision_reason
     )
-    await callback.message.answer(
-        t("moderator_decision_reason_prompt", language)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_decision_reason_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_DECISION_CANCEL:"
+                            f"{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
-    F.data.startswith("ADM_SP_DECISION_CANCEL:")
+    F.data.startswith(
+        "ADM_SP_DECISION_CANCEL:"
+    )
 )
 async def cancel_specialist_decision(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     try:
         page = max(
             0,
-            int((callback.data or "").split(":", 1)[1]),
+            int(
+                (callback.data or "").split(
+                    ":",
+                    1,
+                )[1]
+            ),
         )
     except (TypeError, ValueError):
         page = 0
 
-    await state.clear()
+    await state.set_state(None)
+    await state.update_data(
+        moderator_decision_professional_cabinet_id=None,
+        moderator_decision_specialist_id=None,
+        moderator_decision=None,
+        moderator_decision_reason=None,
+        moderator_decision_page=None,
+    )
 
-    await callback.message.answer(
-        t("moderator_decision_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_decision_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -25995,13 +27181,14 @@ async def cancel_specialist_decision(
                             "moderator_back_to_queue_btn",
                             language,
                         ),
-                        callback_data=f"ADM_SP_QUEUE:{page}",
+                        callback_data=(
+                            f"ADM_SP_QUEUE:{page}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "ADM_SP_DECISION_CONFIRM"
@@ -26010,82 +27197,157 @@ async def confirm_specialist_decision(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    specialist_id = data.get("moderator_decision_specialist_id")
-    decision = data.get("moderator_decision")
-    reason = (data.get("moderator_decision_reason") or "").strip()
-    page = int(data.get("moderator_decision_page") or 0)
+    professional_cabinet_id = data.get(
+        "moderator_decision_professional_cabinet_id"
+    )
+    specialist_id = data.get(
+        "moderator_decision_specialist_id"
+    )
+    decision = data.get(
+        "moderator_decision"
+    )
+    reason = (
+        data.get(
+            "moderator_decision_reason"
+        )
+        or ""
+    ).strip()
+    page = int(
+        data.get(
+            "moderator_decision_page"
+        )
+        or 0
+    )
 
     if (
-        not specialist_id
-        or decision not in {"approved", "rejected"}
+        not professional_cabinet_id
+        or not specialist_id
+        or decision
+        not in {
+            "approved",
+            "rejected",
+        }
         or len(reason) < 3
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "moderator_back_to_queue_btn",
+                                language,
+                            ),
+                            callback_data=(
+                                f"ADM_SP_QUEUE:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
         )
         return
 
-    moderator_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        moderator_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not moderator_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
-        await state.clear()
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     try:
+        cabinet_id = UUID(
+            professional_cabinet_id
+        )
+
         async with get_session() as session:
             service = ModerationService(
                 ModerationRepository(session)
             )
 
             if decision == "approved":
-                result = await service.approve_specialist(
-                    admin_user_id=moderator_user_id,
-                    tenant_id=tenant_id,
-                    specialist_id=UUID(specialist_id),
-                    reason=reason,
+                result = (
+                    await service.approve_specialist(
+                        admin_user_id=(
+                            moderator_user_id
+                        ),
+                        tenant_id=tenant_id,
+                        professional_cabinet_id=(
+                            cabinet_id
+                        ),
+                        reason=reason,
+                    )
                 )
             else:
-                result = await service.reject_specialist(
-                    admin_user_id=moderator_user_id,
-                    tenant_id=tenant_id,
-                    specialist_id=UUID(specialist_id),
-                    reason=reason,
+                result = (
+                    await service.reject_specialist(
+                        admin_user_id=(
+                            moderator_user_id
+                        ),
+                        tenant_id=tenant_id,
+                        professional_cabinet_id=(
+                            cabinet_id
+                        ),
+                        reason=reason,
+                    )
                 )
 
     except (ModerationError, ValueError) as exc:
         logger.warning(
-            "moderator_specialist_decision_failed "
-            "telegram_id=%s specialist_id=%s "
-            "decision=%s error=%s",
+            "moderator_cabinet_decision_failed "
+            "telegram_id=%s "
+            "professional_cabinet_id=%s "
+            "specialist_id=%s decision=%s "
+            "error=%s",
             callback.from_user.id,
+            professional_cabinet_id,
             specialist_id,
             decision,
             exc,
         )
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
     logger.info(
-        "moderator_specialist_decision_completed "
+        "moderator_cabinet_decision_completed "
         "telegram_id=%s moderator_user_id=%s "
+        "professional_cabinet_id=%s "
         "specialist_id=%s decision=%s status=%s",
         callback.from_user.id,
         moderator_user_id,
+        professional_cabinet_id,
         specialist_id,
         decision,
         result.status,
@@ -26097,10 +27359,22 @@ async def confirm_specialist_decision(
         else "moderator_decision_rejected"
     )
 
-    await state.clear()
+    await state.set_state(None)
+    await state.update_data(
+        moderator_decision_professional_cabinet_id=None,
+        moderator_decision_specialist_id=None,
+        moderator_decision=None,
+        moderator_decision_reason=None,
+        moderator_decision_page=None,
+    )
 
-    await callback.message.answer(
-        t(result_text_key, language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            result_text_key,
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -26109,111 +27383,242 @@ async def confirm_specialist_decision(
                             "moderator_back_to_queue_btn",
                             language,
                         ),
-                        callback_data=f"ADM_SP_QUEUE:{page}",
+                        callback_data=(
+                            f"ADM_SP_QUEUE:{page}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
-@admin_router.callback_query(F.data.startswith("ADM_SP_CHANGES:"))
+@admin_router.callback_query(
+    F.data.startswith("ADM_SP_CHANGES:")
+)
 async def ask_specialist_changes_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
     data = await state.get_data()
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     try:
-        index = int((callback.data or "").split(":", 1)[1])
+        index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
     except (TypeError, ValueError):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    specialist_ids = data.get("admin_pending_specialist_ids") or []
-    page = int(data.get("admin_pending_specialist_page") or 0)
+    cabinet_ids = (
+        data.get(
+            "admin_pending_professional_cabinet_ids"
+        )
+        or []
+    )
+    specialist_ids = (
+        data.get(
+            "admin_pending_specialist_ids"
+        )
+        or []
+    )
+    page = int(
+        data.get(
+            "admin_pending_specialist_page"
+        )
+        or 0
+    )
 
-    if index < 0 or index >= len(specialist_ids):
+    if (
+        index < 0
+        or index >= len(cabinet_ids)
+        or index >= len(specialist_ids)
+    ):
         await callback.answer(
-            t("admin_item_not_found", language),
+            t(
+                "admin_item_not_found",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    moderator_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        moderator_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not moderator_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     await state.update_data(
-        moderator_changes_specialist_id=specialist_ids[index],
+        moderator_changes_professional_cabinet_id=(
+            cabinet_ids[index]
+        ),
+        moderator_changes_specialist_id=(
+            specialist_ids[index]
+        ),
         moderator_changes_page=page,
     )
     await state.set_state(
-        AdminModerationFSM.entering_specialist_changes_reason
+        AdminModerationFSM
+        .entering_specialist_changes_reason
     )
 
-    await callback.message.answer(
-        t("moderator_changes_reason_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_changes_reason_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("moderator_changes_cancel_btn", language),
-                        callback_data=f"ADM_SP_QUEUE:{page}",
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_CHANGES_CANCEL:"
+                            f"{page}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
-    AdminModerationFSM.entering_specialist_changes_reason
+    AdminModerationFSM
+    .entering_specialist_changes_reason
 )
 async def receive_specialist_changes_reason(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
     reason = (message.text or "").strip()
+    data = await state.get_data()
+
+    professional_cabinet_id = data.get(
+        "moderator_changes_professional_cabinet_id"
+    )
+    specialist_id = data.get(
+        "moderator_changes_specialist_id"
+    )
+    page = int(
+        data.get(
+            "moderator_changes_page"
+        )
+        or 0
+    )
+
+    cancel_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "moderator_changes_cancel_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_SP_CHANGES_CANCEL:"
+                        f"{page}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if len(reason) < 3:
-        await message.answer(t("admin_reason_too_short", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t('admin_reason_too_short', language)}"
+                "\n\n"
+                f"{t('moderator_changes_reason_prompt', language)}"
+            ),
+            reply_markup=cancel_keyboard,
+        )
         return
 
-    data = await state.get_data()
-    specialist_id = data.get("moderator_changes_specialist_id")
-    page = int(data.get("moderator_changes_page") or 0)
-
-    if not specialist_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+    if (
+        not professional_cabinet_id
+        or not specialist_id
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "moderator_back_to_queue_btn",
+                                language,
+                            ),
+                            callback_data=(
+                                f"ADM_SP_QUEUE:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+        await state.set_state(None)
         return
 
     await state.update_data(
         moderator_changes_reason=reason,
     )
     await state.set_state(
-        AdminModerationFSM.confirming_specialist_changes
+        AdminModerationFSM
+        .confirming_specialist_changes
     )
 
-    await message.answer(
-        t("moderator_changes_confirmation", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "moderator_changes_confirmation",
+            language,
+        ).format(
             reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -26224,7 +27629,9 @@ async def receive_specialist_changes_reason(
                             "moderator_changes_confirm_btn",
                             language,
                         ),
-                        callback_data="ADM_SP_CHANGES_CONFIRM",
+                        callback_data=(
+                            "ADM_SP_CHANGES_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -26233,7 +27640,9 @@ async def receive_specialist_changes_reason(
                             "moderator_changes_edit_btn",
                             language,
                         ),
-                        callback_data="ADM_SP_CHANGES_EDIT",
+                        callback_data=(
+                            "ADM_SP_CHANGES_EDIT"
+                        ),
                     )
                 ],
                 [
@@ -26242,7 +27651,10 @@ async def receive_specialist_changes_reason(
                             "moderator_changes_cancel_btn",
                             language,
                         ),
-                        callback_data=f"ADM_SP_CHANGES_CANCEL:{page}",
+                        callback_data=(
+                            "ADM_SP_CHANGES_CANCEL:"
+                            f"{page}"
+                        ),
                     )
                 ],
             ]
@@ -26256,46 +27668,125 @@ async def edit_specialist_changes_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    if not data.get("moderator_changes_specialist_id"):
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
+    professional_cabinet_id = data.get(
+        "moderator_changes_professional_cabinet_id"
+    )
+    specialist_id = data.get(
+        "moderator_changes_specialist_id"
+    )
+    page = int(
+        data.get(
+            "moderator_changes_page"
         )
+        or 0
+    )
+
+    if (
+        not professional_cabinet_id
+        or not specialist_id
+    ):
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "moderator_back_to_queue_btn",
+                                language,
+                            ),
+                            callback_data=(
+                                f"ADM_SP_QUEUE:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
+        await state.set_state(None)
         return
 
     await state.set_state(
-        AdminModerationFSM.entering_specialist_changes_reason
+        AdminModerationFSM
+        .entering_specialist_changes_reason
     )
-    await callback.message.answer(
-        t("moderator_changes_reason_prompt", language)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_changes_reason_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SP_CHANGES_CANCEL:"
+                            f"{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
-    F.data.startswith("ADM_SP_CHANGES_CANCEL:")
+    F.data.startswith(
+        "ADM_SP_CHANGES_CANCEL:"
+    )
 )
 async def cancel_specialist_changes(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     try:
         page = max(
             0,
-            int((callback.data or "").split(":", 1)[1]),
+            int(
+                (callback.data or "").split(
+                    ":",
+                    1,
+                )[1]
+            ),
         )
     except (TypeError, ValueError):
         page = 0
 
-    await state.clear()
+    await state.set_state(None)
+    await state.update_data(
+        moderator_changes_professional_cabinet_id=None,
+        moderator_changes_specialist_id=None,
+        moderator_changes_reason=None,
+        moderator_changes_page=None,
+    )
 
-    await callback.message.answer(
-        t("moderator_changes_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_changes_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -26304,13 +27795,14 @@ async def cancel_specialist_changes(
                             "moderator_back_to_queue_btn",
                             language,
                         ),
-                        callback_data=f"ADM_SP_QUEUE:{page}",
+                        callback_data=(
+                            f"ADM_SP_QUEUE:{page}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "ADM_SP_CHANGES_CONFIRM"
@@ -26319,72 +27811,148 @@ async def confirm_specialist_changes(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    specialist_id = data.get("moderator_changes_specialist_id")
-    reason = (data.get("moderator_changes_reason") or "").strip()
-    page = int(data.get("moderator_changes_page") or 0)
+    professional_cabinet_id = data.get(
+        "moderator_changes_professional_cabinet_id"
+    )
+    specialist_id = data.get(
+        "moderator_changes_specialist_id"
+    )
+    reason = (
+        data.get(
+            "moderator_changes_reason"
+        )
+        or ""
+    ).strip()
+    page = int(
+        data.get(
+            "moderator_changes_page"
+        )
+        or 0
+    )
 
-    if not specialist_id or len(reason) < 3:
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
+    if (
+        not professional_cabinet_id
+        or not specialist_id
+        or len(reason) < 3
+    ):
+        await state.set_state(None)
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "moderator_back_to_queue_btn",
+                                language,
+                            ),
+                            callback_data=(
+                                f"ADM_SP_QUEUE:{page}"
+                            ),
+                        )
+                    ]
+                ]
+            ),
         )
         return
 
-    moderator_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        moderator_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not moderator_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
-        await state.clear()
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     try:
+        cabinet_id = UUID(
+            professional_cabinet_id
+        )
+
         async with get_session() as session:
             result = await ModerationService(
                 ModerationRepository(session)
             ).request_specialist_changes(
-                moderator_user_id=moderator_user_id,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
                 tenant_id=tenant_id,
-                specialist_id=UUID(specialist_id),
+                professional_cabinet_id=(
+                    cabinet_id
+                ),
                 reason=reason,
             )
+
     except (ModerationError, ValueError) as exc:
         logger.warning(
-            "moderator_specialist_changes_failed "
-            "telegram_id=%s specialist_id=%s error=%s",
+            "moderator_cabinet_changes_failed "
+            "telegram_id=%s "
+            "professional_cabinet_id=%s "
+            "specialist_id=%s error=%s",
             callback.from_user.id,
+            professional_cabinet_id,
             specialist_id,
             exc,
         )
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
     logger.info(
-        "moderator_specialist_changes_requested "
+        "moderator_cabinet_changes_requested "
         "telegram_id=%s moderator_user_id=%s "
+        "professional_cabinet_id=%s "
         "specialist_id=%s status=%s",
         callback.from_user.id,
         moderator_user_id,
+        professional_cabinet_id,
         specialist_id,
         result.status,
     )
 
-    await state.clear()
+    await state.set_state(None)
+    await state.update_data(
+        moderator_changes_professional_cabinet_id=None,
+        moderator_changes_specialist_id=None,
+        moderator_changes_reason=None,
+        moderator_changes_page=None,
+    )
 
-    await callback.message.answer(
-        t("moderator_changes_submitted", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_changes_submitted",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -26393,13 +27961,14 @@ async def confirm_specialist_changes(
                             "moderator_back_to_queue_btn",
                             language,
                         ),
-                        callback_data=f"ADM_SP_QUEUE:{page}",
+                        callback_data=(
+                            f"ADM_SP_QUEUE:{page}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_SP_SCOPED_BLOCK:")
@@ -29227,20 +30796,29 @@ async def list_pending_portfolio(
     )
 
     if not visible_items:
-        await callback.message.answer(
-            t("admin_no_pending_portfolio", language),
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_no_pending_portfolio",
+                language,
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text=t("moderator_back_btn", language),
-                            callback_data="ADM_PANEL",
+                            text=t(
+                                "moderator_back_btn",
+                                language,
+                            ),
+                            callback_data=(
+                                "ADM_PANEL"
+                            ),
                         )
                     ]
                 ]
             ),
         )
-        await callback.answer()
         return
 
     await show_pending_portfolio_item(
@@ -29255,65 +30833,119 @@ async def show_pending_portfolio_item(
     *,
     index: int,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
-    ids = data.get("admin_portfolio_ids") or []
+    ids = (
+        data.get(
+            "admin_portfolio_ids"
+        )
+        or []
+    )
 
-    page = int(data.get("admin_portfolio_page") or 0)
+    page = int(
+        data.get(
+            "admin_portfolio_page"
+        )
+        or 0
+    )
     has_next_page = bool(
-        data.get("admin_portfolio_has_next")
+        data.get(
+            "admin_portfolio_has_next"
+        )
     )
 
     if not ids:
         await callback.answer(
-            t("admin_no_pending_portfolio", language),
+            t(
+                "admin_no_pending_portfolio",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    index = max(0, min(int(index), len(ids) - 1))
-    item_id = UUID(ids[index])
+    index = max(
+        0,
+        min(
+            int(index),
+            len(ids) - 1,
+        ),
+    )
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
+    try:
+        item_id = UUID(
+            ids[index]
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    (
+        admin_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    await callback.answer()
-
     try:
         async with get_session() as session:
-
             items = await PortfolioService(
                 PortfolioRepository(session)
             ).list_pending_items(
                 tenant_id=tenant_id,
-                moderator_user_id=admin_user_id,
+                moderator_user_id=(
+                    admin_user_id
+                ),
                 page=page,
-                page_size=MODERATOR_PORTFOLIO_PAGE_SIZE,
+                page_size=(
+                    MODERATOR_PORTFOLIO_PAGE_SIZE
+                ),
             )
 
-            items = items[:MODERATOR_PORTFOLIO_PAGE_SIZE]
+            items = items[
+                :MODERATOR_PORTFOLIO_PAGE_SIZE
+            ]
+
     except PortfolioServiceError as exc:
         logger.warning(
             "moderator_portfolio_load_failed "
-            "telegram_id=%s item_id=%s error=%s",
+            "telegram_id=%s item_id=%s "
+            "error=%s",
             callback.from_user.id,
             item_id,
             exc,
         )
-        await callback.message.answer(
-            t("moderator_portfolio_load_failed", language)
+        await callback.answer(
+            t(
+                "moderator_portfolio_load_failed",
+                language,
+            ),
+            show_alert=True,
         )
         return
 
@@ -29321,17 +30953,22 @@ async def show_pending_portfolio_item(
         (
             candidate
             for candidate in items
-            if candidate.item.id == item_id
+            if candidate.item.id
+            == item_id
         ),
         None,
     )
 
     if not view:
-        await callback.message.answer(
-            t("admin_item_not_found", language)
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
         )
-        return 
-    
+        return
+
     text = format_portfolio_moderation_card(
         view,
         index=index,
@@ -29348,17 +30985,25 @@ async def show_pending_portfolio_item(
         language=language,
     )
 
-    if view.storage_object.file_type == "photo":
-        await callback.message.answer_photo(
+    if (
+        view.storage_object.file_type
+        == "photo"
+    ):
+        await replace_admin_photo_screen(
+            callback=callback,
+            state=state,
             photo=view.signed_url,
             caption=text,
             reply_markup=keyboard,
         )
-    else:
-        await callback.message.answer(
-            text,
-            reply_markup=keyboard,
-        )
+        return
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=text,
+        reply_markup=keyboard,
+    )
 
 @admin_router.callback_query(F.data == "ADM_PORTFOLIO_REJECTED")
 async def list_rejected_portfolio(
@@ -29670,11 +31315,15 @@ async def ask_portfolio_moderation_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
     try:
-        prefix, raw_index = (callback.data or "").split(":", 1)
+        prefix, raw_index = (
+            callback.data or ""
+        ).split(":", 1)
         index = int(raw_index)
     except (TypeError, ValueError):
         await callback.answer(
@@ -29692,14 +31341,20 @@ async def ask_portfolio_moderation_reason(
         )
         return
 
-    moderator_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        moderator_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not moderator_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
         await callback.answer(
             t("admin_access_denied", language),
@@ -29709,13 +31364,17 @@ async def ask_portfolio_moderation_reason(
 
     if prefix == "ADM_PORT_REJECT":
         await state.update_data(
-            moderator_portfolio_item_id=item_ids[index],
+            moderator_portfolio_item_id=(
+                item_ids[index]
+            ),
             moderator_portfolio_index=index,
             moderator_portfolio_decision=None,
         )
 
-        await callback.message.answer(
-            t(
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
                 "moderator_portfolio_reject_type_prompt",
                 language,
             ),
@@ -29723,7 +31382,6 @@ async def ask_portfolio_moderation_reason(
                 language=language,
             ),
         )
-        await callback.answer()
         return
 
     await state.update_data(
@@ -29732,11 +31390,17 @@ async def ask_portfolio_moderation_reason(
         moderator_portfolio_index=index,
     )
     await state.set_state(
-        AdminModerationFSM.entering_portfolio_moderation_reason
+        AdminModerationFSM
+        .entering_portfolio_moderation_reason
     )
 
-    await callback.message.answer(
-        t("moderator_portfolio_reason_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_portfolio_reason_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -29746,14 +31410,14 @@ async def ask_portfolio_moderation_reason(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_PORT_DECISION_CANCEL:{index}"
+                            "ADM_PORT_DECISION_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.in_(
@@ -29772,8 +31436,21 @@ async def choose_portfolio_reject_type(
     )
     data = await state.get_data()
 
-    if not data.get("moderator_portfolio_item_id"):
-        await state.clear()
+    item_id = data.get(
+        "moderator_portfolio_item_id"
+    )
+    index = int(
+        data.get("moderator_portfolio_index")
+        or 0
+    )
+
+    if not item_id:
+        await state.set_state(None)
+        await state.update_data(
+            moderator_portfolio_item_id=None,
+            moderator_portfolio_decision=None,
+            moderator_portfolio_reason=None,
+        )
         await callback.answer(
             t("admin_item_not_found", language),
             show_alert=True,
@@ -29795,14 +31472,30 @@ async def choose_portfolio_reject_type(
         .entering_portfolio_moderation_reason
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "moderator_portfolio_reason_prompt",
             language,
-        )
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_PORT_DECISION_CANCEL:"
+                            f"{index}"
+                        ),
+                    )
+                ]
+            ]
+        ),
     )
-    await callback.answer()
-
 @admin_router.callback_query(
     F.data == "ADM_PORT_REJECT_CANCEL"
 )
@@ -29822,12 +31515,18 @@ async def cancel_portfolio_reject_type(
     await state.set_state(None)
     await state.update_data(
         moderator_portfolio_item_id=None,
+        moderator_portfolio_index=None,
         moderator_portfolio_decision=None,
         moderator_portfolio_reason=None,
     )
 
-    await callback.message.answer(
-        t("moderator_portfolio_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_portfolio_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -29844,8 +31543,6 @@ async def cancel_portfolio_reject_type(
             ]
         ),
     )
-    await callback.answer()
-
 @admin_router.message(
     AdminModerationFSM.entering_portfolio_moderation_reason
 )
@@ -29853,32 +31550,98 @@ async def receive_portfolio_moderation_reason(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
     reason = (message.text or "").strip()
+    data = await state.get_data()
+
+    item_id = data.get(
+        "moderator_portfolio_item_id"
+    )
+    decision = data.get(
+        "moderator_portfolio_decision"
+    )
+    index = int(
+        data.get("moderator_portfolio_index")
+        or 0
+    )
+
+    cancel_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "moderator_changes_cancel_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_PORT_DECISION_CANCEL:"
+                        f"{index}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if len(reason) < 3:
-        await message.answer(t("admin_reason_too_short", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t('admin_reason_too_short', language)}"
+                "\n\n"
+                f"{t('moderator_portfolio_reason_prompt', language)}"
+            ),
+            reply_markup=cancel_keyboard,
+        )
         return
-
-    data = await state.get_data()
-    item_id = data.get("moderator_portfolio_item_id")
-    decision = data.get("moderator_portfolio_decision")
-    index = int(data.get("moderator_portfolio_index") or 0)
 
     if (
         not item_id
         or decision
-        not in {"approved", "rejected", "forbidden"}
+        not in {
+            "approved",
+            "rejected",
+            "forbidden",
+        }
     ):
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "moderator_back_btn",
+                                language,
+                            ),
+                            callback_data="ADM_PORTFOLIO",
+                        )
+                    ]
+                ]
+            ),
+        )
+        await state.set_state(None)
+        await state.update_data(
+            moderator_portfolio_item_id=None,
+            moderator_portfolio_index=None,
+            moderator_portfolio_decision=None,
+            moderator_portfolio_reason=None,
+        )
         return
 
     await state.update_data(
         moderator_portfolio_reason=reason,
     )
     await state.set_state(
-        AdminModerationFSM.confirming_portfolio_moderation
+        AdminModerationFSM
+        .confirming_portfolio_moderation
     )
 
     if decision == "approved":
@@ -29894,8 +31657,15 @@ async def receive_portfolio_moderation_reason(
             "moderator_portfolio_reject_confirmation"
         )
 
-    await message.answer(
-        t(confirmation_key, language).format(reason=reason),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            confirmation_key,
+            language,
+        ).format(
+            reason=reason
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -29904,7 +31674,9 @@ async def receive_portfolio_moderation_reason(
                             "moderator_portfolio_confirm_btn",
                             language,
                         ),
-                        callback_data="ADM_PORT_DECISION_CONFIRM",
+                        callback_data=(
+                            "ADM_PORT_DECISION_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -29913,7 +31685,9 @@ async def receive_portfolio_moderation_reason(
                             "moderator_portfolio_edit_reason_btn",
                             language,
                         ),
-                        callback_data="ADM_PORT_DECISION_EDIT",
+                        callback_data=(
+                            "ADM_PORT_DECISION_EDIT"
+                        ),
                     )
                 ],
                 [
@@ -29923,7 +31697,8 @@ async def receive_portfolio_moderation_reason(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_PORT_DECISION_CANCEL:{index}"
+                            "ADM_PORT_DECISION_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ],
@@ -29938,25 +31713,65 @@ async def edit_portfolio_moderation_reason(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    if not data.get("moderator_portfolio_item_id"):
-        await state.clear()
+    item_id = data.get(
+        "moderator_portfolio_item_id"
+    )
+    index = int(
+        data.get("moderator_portfolio_index")
+        or 0
+    )
+
+    if not item_id:
+        await state.set_state(None)
+        await state.update_data(
+            moderator_portfolio_item_id=None,
+            moderator_portfolio_index=None,
+            moderator_portfolio_decision=None,
+            moderator_portfolio_reason=None,
+        )
         await callback.answer(
             t("admin_item_not_found", language),
             show_alert=True,
         )
         return
 
+    await state.update_data(
+        moderator_portfolio_reason=None,
+    )
     await state.set_state(
-        AdminModerationFSM.entering_portfolio_moderation_reason
+        AdminModerationFSM
+        .entering_portfolio_moderation_reason
     )
-    await callback.message.answer(
-        t("moderator_portfolio_reason_prompt", language)
-    )
-    await callback.answer()
 
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_portfolio_reason_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "moderator_changes_cancel_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_PORT_DECISION_CANCEL:"
+                            f"{index}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 @admin_router.callback_query(
     F.data.startswith("ADM_PORT_DECISION_CANCEL:")
 )
@@ -29964,12 +31779,19 @@ async def cancel_portfolio_moderation(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     try:
         index = max(
             0,
-            int((callback.data or "").split(":", 1)[1]),
+            int(
+                (callback.data or "").split(
+                    ":",
+                    1,
+                )[1]
+            ),
         )
     except (TypeError, ValueError):
         index = 0
@@ -29977,24 +31799,34 @@ async def cancel_portfolio_moderation(
     await state.set_state(None)
     await state.update_data(
         moderator_portfolio_item_id=None,
+        moderator_portfolio_index=None,
         moderator_portfolio_decision=None,
         moderator_portfolio_reason=None,
     )
 
-    await callback.message.answer(
-        t("moderator_portfolio_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "moderator_portfolio_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("moderator_back_btn", language),
-                        callback_data=f"ADM_PORT_VIEW:{index}",
+                        text=t(
+                            "moderator_back_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            f"ADM_PORT_VIEW:{index}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "ADM_PORT_DECISION_CONFIRM"
@@ -30003,38 +31835,70 @@ async def confirm_portfolio_moderation(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
 
-    item_id = data.get("moderator_portfolio_item_id")
-    decision = data.get("moderator_portfolio_decision")
-    reason = (data.get("moderator_portfolio_reason") or "").strip()
-    index = int(data.get("moderator_portfolio_index") or 0)
-    item_ids = data.get("admin_portfolio_ids") or []
+    item_id = data.get(
+        "moderator_portfolio_item_id"
+    )
+    decision = data.get(
+        "moderator_portfolio_decision"
+    )
+    reason = (
+        data.get("moderator_portfolio_reason")
+        or ""
+    ).strip()
+    item_ids = data.get(
+        "admin_portfolio_ids"
+    ) or []
 
     if (
         not item_id
         or decision
-        not in {"approved", "rejected", "forbidden"}
+        not in {
+            "approved",
+            "rejected",
+            "forbidden",
+        }
         or len(reason) < 3
     ):
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            moderator_portfolio_item_id=None,
+            moderator_portfolio_index=None,
+            moderator_portfolio_decision=None,
+            moderator_portfolio_reason=None,
+        )
         await callback.answer(
             t("admin_item_not_found", language),
             show_alert=True,
         )
         return
 
-    moderator_user_id, tenant_id, roles = await get_admin_user_context(
+    (
+        moderator_user_id,
+        tenant_id,
+        roles,
+    ) = await get_admin_user_context(
         callback.from_user.id
     )
 
     if (
         not moderator_user_id
         or not tenant_id
-        or not roles.intersection(ADMIN_MODERATION_MENU_ROLES)
+        or not roles.intersection(
+            ADMIN_MODERATION_MENU_ROLES
+        )
     ):
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            moderator_portfolio_item_id=None,
+            moderator_portfolio_index=None,
+            moderator_portfolio_decision=None,
+            moderator_portfolio_reason=None,
+        )
         await callback.answer(
             t("admin_access_denied", language),
             show_alert=True,
@@ -30050,37 +31914,51 @@ async def confirm_portfolio_moderation(
             if decision == "approved":
                 item = await service.approve_item(
                     tenant_id=tenant_id,
-                    moderator_user_id=moderator_user_id,
+                    moderator_user_id=(
+                        moderator_user_id
+                    ),
                     item_id=UUID(item_id),
                     reason=reason,
                 )
-
             elif decision == "forbidden":
-                item = await service.reject_forbidden_item(
-                    tenant_id=tenant_id,
-                    moderator_user_id=moderator_user_id,
-                    item_id=UUID(item_id),
-                    reason=reason,
+                item = (
+                    await service
+                    .reject_forbidden_item(
+                        tenant_id=tenant_id,
+                        moderator_user_id=(
+                            moderator_user_id
+                        ),
+                        item_id=UUID(item_id),
+                        reason=reason,
+                    )
                 )
-
             else:
                 item = await service.reject_item(
                     tenant_id=tenant_id,
-                    moderator_user_id=moderator_user_id,
+                    moderator_user_id=(
+                        moderator_user_id
+                    ),
                     item_id=UUID(item_id),
                     reason=reason,
                 )
 
-    except (PortfolioServiceError, ValueError) as exc:
+    except (
+        PortfolioServiceError,
+        ValueError,
+    ) as exc:
         logger.warning(
             "moderator_portfolio_decision_failed "
-            "telegram_id=%s item_id=%s decision=%s error=%s",
+            "telegram_id=%s item_id=%s "
+            "decision=%s error=%s",
             callback.from_user.id,
             item_id,
             decision,
             exc,
         )
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
     logger.info(
@@ -30104,6 +31982,7 @@ async def confirm_portfolio_moderation(
     await state.update_data(
         admin_portfolio_ids=remaining_ids,
         moderator_portfolio_item_id=None,
+        moderator_portfolio_index=None,
         moderator_portfolio_decision=None,
         moderator_portfolio_reason=None,
     )
@@ -30114,8 +31993,13 @@ async def confirm_portfolio_moderation(
         else "moderator_portfolio_rejected"
     )
 
-    await callback.message.answer(
-        t(result_text_key, language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            result_text_key,
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -30130,4 +32014,3 @@ async def confirm_portfolio_moderation(
             ]
         ),
     )
-    await callback.answer()

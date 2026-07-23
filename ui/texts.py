@@ -1596,9 +1596,9 @@ translations = {
         "pt": "Acesso negado.",
     },
     "admin_no_pending_profiles": {
-        "ru": "Профилей на модерации нет.",
-        "en": "No pending profiles.",
-        "pt": "Não há perfis pendentes.",
+        "ru": "Профессиональных кабинетов на модерации нет.",
+        "en": "No professional cabinets pending moderation.",
+        "pt": "Não há gabinetes profissionais pendentes de moderação.",
     },
     "admin_no_open_complaints": {
         "ru": "Нерассмотренных жалоб нет.",
@@ -1631,14 +1631,14 @@ translations = {
         "pt": "Rejeitar",
     },
     "admin_hide_specialist_btn": {
-        "ru": "👁 Скрыть профиль",
-        "en": "👁 Hide profile",
-        "pt": "👁 Ocultar perfil",
+        "ru": "Скрыть кабинет",
+        "en": "Hide cabinet",
+        "pt": "Ocultar gabinete",
     },
     "admin_restore_specialist_btn": {
-        "ru": "👁 Показать профиль",
-        "en": "👁 Show profile",
-        "pt": "👁 Mostrar perfil",
+        "ru": "Восстановить кабинет",
+        "en": "Restore cabinet",
+        "pt": "Restaurar gabinete",
     },
     "admin_prev": {
         "ru": "Назад",
@@ -4602,7 +4602,7 @@ translations = {
         "ru": (
             "Кабинет Moderator\n\n"
             "Очереди модерации:\n"
-            "Специалисты: {profiles}\n"
+            "Профессиональные кабинеты: {profiles}\n"
             "Портфолио: {portfolio}\n"
             "Отзывы: {reviews}\n"
             "Жалобы: {complaints}\n"
@@ -4611,7 +4611,7 @@ translations = {
         "en": (
             "Moderator cabinet\n\n"
             "Moderation queues:\n"
-            "Specialists: {profiles}\n"
+            "Professional cabinets: {profiles}\n"
             "Portfolio: {portfolio}\n"
             "Reviews: {reviews}\n"
             "Complaints: {complaints}\n"
@@ -4619,23 +4619,23 @@ translations = {
         ),
         "pt": (
             "Painel do moderador\n\n"
-            "Filas de moderacao:\n"
-            "Especialistas: {profiles}\n"
-            "Portfolio: {portfolio}\n"
-            "Avaliacoes: {reviews}\n"
-            "Denuncias: {complaints}\n"
+            "Filas de moderação:\n"
+            "Gabinetes profissionais: {profiles}\n"
+            "Portfólio: {portfolio}\n"
+            "Avaliações: {reviews}\n"
+            "Denúncias: {complaints}\n"
             "Blacklist: {blacklist}"
         ),
     },
     "moderator_profiles_btn": {
-        "ru": "Специалисты ({count})",
-        "en": "Specialists ({count})",
-        "pt": "Especialistas ({count})",
+        "ru": "Кабинеты на модерации ({count})",
+        "en": "Cabinets in moderation ({count})",
+        "pt": "Gabinetes em moderação ({count})",
     },
     "admin_specialist_management_btn": {
-        "ru": "👤 Управление профилями специалистов",
-        "en": "👤 Manage specialist profiles",
-        "pt": "👤 Gerir perfis de especialistas",
+        "ru": "Профессиональные кабинеты",
+        "en": "Professional cabinets",
+        "pt": "Gabinetes profissionais",
     },
     "moderator_portfolio_btn": {
         "ru": "Портфолио ({count})",
@@ -4658,9 +4658,21 @@ translations = {
         "pt": "Blacklist ({count})",
     },
     "moderator_profiles_header": {
-        "ru": "Профили на модерации\nСтраница: {page}\nПоказано: {count}",
-        "en": "Pending profiles\nPage: {page}\nShown: {count}",
-        "pt": "Perfis pendentes\nPagina: {page}\nExibidos: {count}",
+        "ru": (
+            "Профессиональные кабинеты на модерации\n"
+            "Страница: {page}\n"
+            "Показано: {count}"
+        ),
+        "en": (
+            "Professional cabinets pending moderation\n"
+            "Page: {page}\n"
+            "Shown: {count}"
+        ),
+        "pt": (
+            "Gabinetes profissionais pendentes de moderação\n"
+            "Página: {page}\n"
+            "Apresentados: {count}"
+        ),
     },
     "moderator_profile_queue_item": {
         "ru": (
@@ -4704,8 +4716,8 @@ translations = {
     },
     "moderator_profile_card": {
         "ru": (
-            "Профиль специалиста\n\n"
-            "Имя: {name}\n"
+            "Профессиональный кабинет\n\n"
+            "Владелец: {name}\n"
             "Профессия: {profession}\n"
             "Город: {city}\n"
             "Статус: {status}\n"
@@ -4716,8 +4728,8 @@ translations = {
             "Услуги:\n{services}"
         ),
         "en": (
-            "Specialist profile\n\n"
-            "Name: {name}\n"
+            "Professional cabinet\n\n"
+            "Owner: {name}\n"
             "Profession: {profession}\n"
             "City: {city}\n"
             "Status: {status}\n"
@@ -4728,16 +4740,16 @@ translations = {
             "Services:\n{services}"
         ),
         "pt": (
-            "Perfil do especialista\n\n"
-            "Nome: {name}\n"
-            "Profissao: {profession}\n"
+            "Gabinete profissional\n\n"
+            "Proprietário: {name}\n"
+            "Profissão: {profession}\n"
             "Cidade: {city}\n"
-            "Status: {status}\n"
+            "Estado: {status}\n"
             "Contato: {contact}\n"
-            "Denuncias: {complaints}\n\n"
+            "Denúncias: {complaints}\n\n"
             "Risk flags abertos: {risk_flags}\n\n"
-            "Descricao:\n{description}\n\n"
-            "Servicos:\n{services}"
+            "Descrição:\n{description}\n\n"
+            "Serviços:\n{services}"
         ),
     },
     "moderator_no_services": {
@@ -4761,9 +4773,9 @@ translations = {
         "pt": "Voltar aos perfis",
     },
     "moderator_changes_reason_prompt": {
-        "ru": "Опишите, что специалист должен исправить. Минимум 3 символа.",
-        "en": "Describe what the specialist must correct. Minimum 3 characters.",
-        "pt": "Descreva o que o especialista deve corrigir. Minimo de 3 caracteres.",
+        "ru": "Укажите причину возврата кабинета на доработку:",
+        "en": "Enter the reason for returning the cabinet for changes:",
+        "pt": "Informe o motivo para devolver o gabinete para ajustes:",
     },
     "moderator_changes_cancel_btn": {
         "ru": "Отмена",
@@ -4772,22 +4784,22 @@ translations = {
     },
     "moderator_changes_confirmation": {
         "ru": (
-            "Подтвердите возврат профиля на правки:\n\n"
+            "Подтвердите возврат профессионального кабинета "
+            "на доработку:\n\n"
             "Причина: {reason}\n\n"
-            "Статус будет изменён:\n"
-            "pending_moderation → draft"
+            "Статус изменится: pending_moderation -> draft"
         ),
         "en": (
-            "Confirm returning the profile for changes:\n\n"
+            "Confirm returning the professional cabinet "
+            "for changes:\n\n"
             "Reason: {reason}\n\n"
-            "Status will change:\n"
-            "pending_moderation → draft"
+            "Status change: pending_moderation -> draft"
         ),
         "pt": (
-            "Confirme o retorno do perfil para correcoes:\n\n"
+            "Confirme a devolução do gabinete profissional "
+            "para ajustes:\n\n"
             "Motivo: {reason}\n\n"
-            "O estado sera alterado:\n"
-            "pending_moderation → draft"
+            "Alteração de estado: pending_moderation -> draft"
         ),
     },
     "moderator_changes_confirm_btn": {
@@ -4801,9 +4813,9 @@ translations = {
         "pt": "Alterar motivo",
     },
     "moderator_changes_submitted": {
-        "ru": "Профиль возвращён специалисту на правки.",
-        "en": "The profile was returned to the specialist for changes.",
-        "pt": "O perfil foi devolvido ao especialista para correcoes.",
+        "ru": "Профессиональный кабинет возвращён на доработку.",
+        "en": "Professional cabinet returned for changes.",
+        "pt": "Gabinete profissional devolvido para ajustes.",
     },
     "moderator_changes_cancelled": {
         "ru": "Возврат профиля на правки отменён.",
@@ -4816,79 +4828,76 @@ translations = {
         "pt": "Voltar a fila de moderacao",
     },
     "moderator_decision_reason_prompt": {
-        "ru": "Укажите причину решения. Минимум 3 символа.",
-        "en": "Enter the decision reason. Minimum 3 characters.",
-        "pt": "Informe o motivo da decisao. Minimo de 3 caracteres.",
+        "ru": "Укажите причину решения по профессиональному кабинету:",
+        "en": "Enter the reason for the professional cabinet decision:",
+        "pt": "Informe o motivo da decisão sobre o gabinete profissional:",
     },
     "moderator_approve_confirmation": {
         "ru": (
-            "Подтвердите одобрение профиля:\n\n"
+            "Подтвердите одобрение профессионального кабинета:\n\n"
             "Причина: {reason}\n\n"
-            "Профиль станет одобренным и будет виден в поиске."
+            "Статус изменится: pending_moderation -> approved"
         ),
         "en": (
-            "Confirm profile approval:\n\n"
+            "Confirm approval of the professional cabinet:\n\n"
             "Reason: {reason}\n\n"
-            "The profile will be approved and visible in search."
+            "Status change: pending_moderation -> approved"
         ),
         "pt": (
-            "Confirme a aprovacao do perfil:\n\n"
+            "Confirme a aprovação do gabinete profissional:\n\n"
             "Motivo: {reason}\n\n"
-            "O perfil sera aprovado e ficara visivel na pesquisa."
+            "Alteração de estado: pending_moderation -> approved"
         ),
     },
     "moderator_reject_confirmation": {
         "ru": (
-            "Подтвердите отклонение профиля:\n\n"
+            "Подтвердите отклонение профессионального кабинета:\n\n"
             "Причина: {reason}\n\n"
-            "Статус будет изменён:\n"
-            "pending_moderation → rejected"
+            "Статус изменится: pending_moderation -> rejected"
         ),
         "en": (
-            "Confirm profile rejection:\n\n"
+            "Confirm rejection of the professional cabinet:\n\n"
             "Reason: {reason}\n\n"
-            "Status will change:\n"
-            "pending_moderation → rejected"
+            "Status change: pending_moderation -> rejected"
         ),
         "pt": (
-            "Confirme a rejeicao do perfil:\n\n"
+            "Confirme a rejeição do gabinete profissional:\n\n"
             "Motivo: {reason}\n\n"
-            "O estado sera alterado:\n"
-            "pending_moderation → rejected"
+            "Alteração de estado: pending_moderation -> rejected"
         ),
     },
     "moderator_hide_specialist_confirmation": {
         "ru": (
-            "Подтвердите скрытие профиля:\n\n"
+            "Подтвердите скрытие профессионального кабинета:\n\n"
             "Причина: {reason}\n\n"
-            "Профиль перестанет отображаться в поиске."
+            "Кабинет перестанет отображаться в поиске."
         ),
         "en": (
-            "Confirm profile hiding:\n\n"
+            "Confirm hiding the professional cabinet:\n\n"
             "Reason: {reason}\n\n"
-            "The profile will no longer appear in search."
+            "The cabinet will no longer appear in search."
         ),
         "pt": (
-            "Confirme a ocultacao do perfil:\n\n"
+            "Confirme a ocultação do gabinete profissional:\n\n"
             "Motivo: {reason}\n\n"
-            "O perfil deixara de aparecer na pesquisa."
+            "O gabinete deixará de aparecer na pesquisa."
         ),
     },
     "moderator_restore_specialist_confirmation": {
         "ru": (
-            "Подтвердите публикацию профиля:\n\n"
+            "Подтвердите восстановление профессионального кабинета:\n\n"
             "Причина: {reason}\n\n"
-            "Профиль снова появится в поиске."
+            "Кабинет снова появится в поиске."
         ),
         "en": (
-            "Confirm profile publication:\n\n"
+            "Confirm restoring the professional cabinet:\n\n"
             "Reason: {reason}\n\n"
-            "The profile will appear in search again."
+            "The cabinet will appear in search again."
         ),
         "pt": (
-            "Confirme a publicacao do perfil:\n\n"
+            "Confirme a restauração do gabinete profissional:\n\n"
             "Motivo: {reason}\n\n"
-            "O perfil voltara a aparecer na pesquisa."
+            "O gabinete voltará a aparecer na pesquisa."
         ),
     },
     "moderator_decision_confirm_btn": {
@@ -4902,24 +4911,24 @@ translations = {
         "pt": "Alterar motivo",
     },
     "moderator_decision_approved": {
-        "ru": "Профиль одобрен.",
-        "en": "Profile approved.",
-        "pt": "Perfil aprovado.",
+        "ru": "Профессиональный кабинет одобрен.",
+        "en": "Professional cabinet approved.",
+        "pt": "Gabinete profissional aprovado.",
     },
     "moderator_decision_rejected": {
-        "ru": "Профиль отклонён.",
-        "en": "Profile rejected.",
-        "pt": "Perfil rejeitado.",
+        "ru": "Профессиональный кабинет отклонён.",
+        "en": "Professional cabinet rejected.",
+        "pt": "Gabinete profissional rejeitado.",
     },
     "moderator_specialist_hidden": {
-        "ru": "Профиль скрыт из поиска.",
-        "en": "Profile hidden from search.",
-        "pt": "Perfil ocultado da pesquisa.",
+        "ru": "Профессиональный кабинет скрыт из поиска.",
+        "en": "Professional cabinet hidden from search.",
+        "pt": "Gabinete profissional ocultado da pesquisa.",
     },
     "moderator_specialist_restored": {
-        "ru": "Профиль снова отображается в поиске.",
-        "en": "Profile is visible in search again.",
-        "pt": "O perfil esta visivel na pesquisa novamente.",
+        "ru": "Профессиональный кабинет снова отображается в поиске.",
+        "en": "Professional cabinet is visible in search again.",
+        "pt": "O gabinete profissional está visível na pesquisa novamente.",
     },
     "moderator_decision_cancelled": {
         "ru": "Решение отменено.",
@@ -5544,7 +5553,7 @@ translations = {
         "ru": (
             "Кабинет Admin\n\n"
             "Пользователи: {users}\n"
-            "Специалисты: {specialists}\n"
+            "Профессиональные кабинеты: {specialists}\n"
             "Support: {tickets}\n"
             "Жалобы: {complaints}\n"
             "Global Blacklist: {blacklist}\n"
@@ -5553,7 +5562,7 @@ translations = {
         "en": (
             "Admin cabinet\n\n"
             "Users: {users}\n"
-            "Specialists: {specialists}\n"
+            "Professional cabinets: {specialists}\n"
             "Support: {tickets}\n"
             "Complaints: {complaints}\n"
             "Global Blacklist: {blacklist}\n"
@@ -5562,9 +5571,9 @@ translations = {
         "pt": (
             "Gabinete Admin\n\n"
             "Utilizadores: {users}\n"
-            "Especialistas: {specialists}\n"
+            "Gabinetes profissionais: {specialists}\n"
             "Support: {tickets}\n"
-            "Denuncias: {complaints}\n"
+            "Denúncias: {complaints}\n"
             "Global Blacklist: {blacklist}\n"
             "Alertas de auditoria: {audit_alerts}"
         ),
@@ -5575,9 +5584,9 @@ translations = {
         "pt": "Utilizadores ({count})",
     },
     "admin_specialists_btn": {
-        "ru": "Специалисты ({count})",
-        "en": "Specialists ({count})",
-        "pt": "Especialistas ({count})",
+        "ru": "Профессиональные кабинеты ({count})",
+        "en": "Professional cabinets ({count})",
+        "pt": "Gabinetes profissionais ({count})",
     },
     "admin_support_btn": {
         "ru": "Support ({count})",
@@ -5906,21 +5915,21 @@ translations = {
     },
     "admin_specialists_header": {
         "ru": (
-            "Специалисты Admin\n"
+            "Профессиональные кабинеты\n"
             "Статус: {status}\n"
             "Страница: {page}\n"
             "Показано: {count}"
         ),
         "en": (
-            "Admin specialists\n"
+            "Professional cabinets\n"
             "Status: {status}\n"
             "Page: {page}\n"
             "Shown: {count}"
         ),
         "pt": (
-            "Especialistas Admin\n"
+            "Gabinetes profissionais\n"
             "Estado: {status}\n"
-            "Pagina: {page}\n"
+            "Página: {page}\n"
             "Apresentados: {count}"
         ),
     },
@@ -5953,24 +5962,24 @@ translations = {
         "pt": "nao indicada",
     },
     "admin_specialists_empty": {
-        "ru": "Специалистов с таким статусом нет.",
-        "en": "No specialists with this status.",
-        "pt": "Nao existem especialistas com este estado.",
+        "ru": "Профессиональных кабинетов с таким статусом нет.",
+        "en": "No professional cabinets with this status.",
+        "pt": "Não há gabinetes profissionais com este estado.",
     },
     "admin_specialists_actions": {
-        "ru": "Действия со списком",
-        "en": "List actions",
-        "pt": "Acoes da lista",
+        "ru": "Действия со списком кабинетов",
+        "en": "Cabinet list actions",
+        "pt": "Ações da lista de gabinetes",
     },
     "admin_specialist_filter_btn": {
-        "ru": "Фильтр",
-        "en": "Filter",
-        "pt": "Filtro",
+        "ru": "Фильтр кабинетов",
+        "en": "Cabinet filter",
+        "pt": "Filtro de gabinetes",
     },
     "admin_specialist_filter_title": {
-        "ru": "Выберите статус специалистов:",
-        "en": "Select specialist status:",
-        "pt": "Selecione o estado dos especialistas:",
+        "ru": "Выберите статус профессионального кабинета:",
+        "en": "Select professional cabinet status:",
+        "pt": "Selecione o estado do gabinete profissional:",
     },
     "admin_specialist_filter_all": {
         "ru": "Все",
@@ -10173,63 +10182,61 @@ translations = {
             "Режим просмотра от имени пользователя\n\n"
             "Кабинет модератора\n"
             "Сотрудник: {user_number}\n\n"
-            "Доступна только очередь профилей на модерации.\n\n"
+            "Доступна очередь профессиональных кабинетов "
+            "на модерации.\n\n"
             "Режим: только просмотр. Изменение данных недоступно."
         ),
         "en": (
             "User impersonation view\n\n"
             "Moderator cabinet\n"
             "Staff member: {user_number}\n\n"
-            "Only the pending profiles queue is available.\n\n"
+            "The professional cabinets moderation queue "
+            "is available.\n\n"
             "Read-only mode. Data changes are disabled."
         ),
         "pt": (
-            "Modo de visualizacao em nome do usuario\n\n"
+            "Modo de visualização em nome do utilizador\n\n"
             "Painel do moderador\n"
             "Colaborador: {user_number}\n\n"
-            "Apenas a fila de perfis pendentes esta disponivel.\n\n"
-            "Modo somente leitura. Alteracoes de dados estao desativadas."
+            "A fila de moderação de gabinetes profissionais "
+            "está disponível.\n\n"
+            "Modo somente leitura. Alterações de dados estão desativadas."
         ),
     },
     "super_admin_ro_moderator_pending_btn": {
-        "ru": "Профили на модерации",
-        "en": "Profiles in moderation",
-        "pt": "Perfis em moderacao",
+        "ru": "Кабинеты на модерации",
+        "en": "Cabinets in moderation",
+        "pt": "Gabinetes em moderação",
     },
     "super_admin_ro_moderator_queue_title": {
         "ru": (
-            "Профили на модерации\n"
+            "Профессиональные кабинеты на модерации\n"
             "Страница: {page}\n"
             "Показано: {count}\n\n"
             "Режим только просмотра."
         ),
         "en": (
-            "Profiles in moderation\n"
+            "Professional cabinets in moderation\n"
             "Page: {page}\n"
             "Shown: {count}\n\n"
             "Read-only mode."
         ),
         "pt": (
-            "Perfis em moderacao\n"
-            "Pagina: {page}\n"
-            "Exibidos: {count}\n\n"
+            "Gabinetes profissionais em moderação\n"
+            "Página: {page}\n"
+            "Apresentados: {count}\n\n"
             "Modo somente leitura."
         ),
     },
     "super_admin_ro_moderator_open_profile_btn": {
-        "ru": "Открыть профиль №{number}",
-        "en": "Open profile #{number}",
-        "pt": "Abrir perfil #{number}",
-    },
-    "super_admin_ro_moderator_back_btn": {
-        "ru": "К кабинету модератора",
-        "en": "To moderator cabinet",
-        "pt": "Para o painel do moderador",
+        "ru": "Открыть кабинет №{number}",
+        "en": "Open cabinet #{number}",
+        "pt": "Abrir gabinete #{number}",
     },
     "super_admin_ro_moderator_back_to_queue_btn": {
-        "ru": "К профилям на модерации",
-        "en": "To profiles in moderation",
-        "pt": "Para perfis em moderacao",
+        "ru": "К кабинетам на модерации",
+        "en": "To cabinets in moderation",
+        "pt": "Para os gabinetes em moderação",
     },
     "super_admin_ro_moderator_complaints_btn": {
         "ru": "Жалобы",
@@ -10457,39 +10464,36 @@ translations = {
         "pt": "Para tickets escalados",
     },
     "super_admin_ro_admin_specialists_btn": {
-        "ru": "Специалисты",
-        "en": "Specialists",
-        "pt": "Especialistas",
+        "ru": "Профессиональные кабинеты",
+        "en": "Professional cabinets",
+        "pt": "Gabinetes profissionais",
     },
     "super_admin_ro_admin_specialists_title": {
         "ru": (
-            "Специалисты\n"
+            "Профессиональные кабинеты Admin\n"
             "Страница: {page}\n"
-            "Показано: {count}\n\n"
-            "Режим только просмотра."
+            "Показано: {count}"
         ),
         "en": (
-            "Specialists\n"
+            "Admin professional cabinets\n"
             "Page: {page}\n"
-            "Shown: {count}\n\n"
-            "Read-only mode."
+            "Shown: {count}"
         ),
         "pt": (
-            "Especialistas\n"
-            "Pagina: {page}\n"
-            "Exibidos: {count}\n\n"
-            "Modo somente leitura."
+            "Gabinetes profissionais Admin\n"
+            "Página: {page}\n"
+            "Apresentados: {count}"
         ),
     },
     "super_admin_ro_admin_open_specialist_btn": {
-        "ru": "Открыть специалиста №{number}",
-        "en": "Open specialist #{number}",
-        "pt": "Abrir especialista #{number}",
+        "ru": "Открыть кабинет {number}",
+        "en": "Open cabinet {number}",
+        "pt": "Abrir gabinete {number}",
     },
     "super_admin_ro_admin_back_to_specialists_btn": {
-        "ru": "К списку специалистов",
-        "en": "To specialists list",
-        "pt": "Para a lista de especialistas",
+        "ru": "Назад к кабинетам",
+        "en": "Back to cabinets",
+        "pt": "Voltar aos gabinetes",
     },
     "super_admin_ro_admin_users_btn": {
         "ru": "Пользователи",

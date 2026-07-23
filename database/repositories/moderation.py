@@ -35,6 +35,9 @@ from database.models import (
     Profession,
     Country,
     SpecialistService,
+    Profession,
+    ProfessionalCabinet,
+    Country,
 )
 
 
@@ -156,6 +159,7 @@ class SuperAdminPermissionMatrixRow:
 
 @dataclass(frozen=True)
 class AdminSpecialistQueueItem:
+    professional_cabinet_id: UUID
     specialist_id: UUID
     display_name: str
     profession_name: str
@@ -165,6 +169,7 @@ class AdminSpecialistQueueItem:
 
 @dataclass(frozen=True)
 class PendingSpecialistQueueItem:
+    professional_cabinet_id: UUID
     specialist_id: UUID
     display_name: str
     profession_name: str
@@ -174,6 +179,7 @@ class PendingSpecialistQueueItem:
 
 @dataclass(frozen=True)
 class PendingSpecialistDetails:
+    professional_cabinet_id: UUID
     specialist_id: UUID
     owner_user_id: UUID
     display_name: str
@@ -326,18 +332,52 @@ class ModerationRepository:
         self.session = session
 
 
-    async def count_specialists_by_status(
+    async def count_professional_cabinets_by_status(
         self,
         *,
-        status: str,
+        statuses: set[str],
     ) -> int:
         result = await self.session.execute(
-            select(func.count(Specialist.id)).where(
-                Specialist.status == status
+            select(
+                func.count(
+                    ProfessionalCabinet.id
+                )
+            )
+            .select_from(
+                ProfessionalCabinet
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .where(
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status.in_(
+                    statuses
+                ),
+                Specialist.status.in_(
+                    statuses
+                ),
+                User.status.notin_(
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
+                ),
             )
         )
 
-        return int(result.scalar_one() or 0)
+        return int(
+            result.scalar_one()
+            or 0
+        )
 
     async def get_admin_roles(self, user_id: UUID) -> set[str]:
         result = await self.session.execute(
@@ -1548,17 +1588,57 @@ class ModerationRepository:
         global_blacklist_count = int(
             global_blacklist_result.scalar_one()
         )
-
+        professional_cabinets_result = (
+            await self.session.execute(
+                select(
+                    func.count(
+                        ProfessionalCabinet.id
+                    )
+                )
+                .select_from(
+                    ProfessionalCabinet
+                )
+                .join(
+                    Specialist,
+                    Specialist.id
+                    == ProfessionalCabinet.specialist_id,
+                )
+                .join(
+                    User,
+                    User.id
+                    == Specialist.user_id,
+                )
+                .where(
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                    ProfessionalCabinet.is_active.is_(
+                        True
+                    ),
+                    Specialist.status
+                    != "deleted",
+                    User.status.notin_(
+                        [
+                            "blocked",
+                            "deleted",
+                        ]
+                    ),
+                )
+            )
+        )
+        professional_cabinets_count = int(
+            professional_cabinets_result.scalar_one()
+            or 0
+        )
         return {
             "users": await count_rows(
                 User,
                 User.tenant_id == tenant_id,
                 User.status != "deleted",
             ),
-            "specialists": await count_rows(
-                Specialist,
-                Specialist.tenant_id == tenant_id,
-                Specialist.status != "deleted",
+            "professional_cabinets": (
+                professional_cabinets_count
             ),
             "tickets": await count_rows(
                 SupportTicket,
@@ -2788,12 +2868,44 @@ class ModerationRepository:
             )
             return int(result.scalar_one())
 
-        return {
-            "profiles": await count_rows(
+        profiles_result = await self.session.execute(
+            select(
+                func.count(
+                    ProfessionalCabinet.id
+                )
+            )
+            .select_from(ProfessionalCabinet)
+            .join(
                 Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .where(
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
                 Specialist.tenant_id == tenant_id,
-                Specialist.status == "pending_moderation",
-            ),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status
+                == "pending_moderation",
+                Specialist.user_id != admin_user_id,
+                Specialist.status != "deleted",
+                User.status.notin_(
+                    ["blocked", "deleted"]
+                ),
+            )
+        )
+        pending_cabinets_count = int(
+            profiles_result.scalar_one()
+        )
+
+        return {
+            "profiles": pending_cabinets_count,
             "portfolio": await count_rows(
                 SpecialistPortfolioItem,
                 SpecialistPortfolioItem.tenant_id == tenant_id,
@@ -2827,54 +2939,109 @@ class ModerationRepository:
     ) -> list[AdminSpecialistQueueItem]:
         await self.require_admin_role(
             admin_user_id,
-            {"admin", "super_admin"},
+            {
+                "admin",
+                "super_admin",
+            },
         )
 
         result = await self.session.execute(
             select(
+                ProfessionalCabinet.id,
                 Specialist.id,
                 Specialist.display_name,
                 Profession.name,
                 City.name,
-                Specialist.status,
-                Specialist.created_at,
+                ProfessionalCabinet.moderation_status,
+                ProfessionalCabinet.created_at,
             )
-            .outerjoin(
+            .select_from(
+                ProfessionalCabinet
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .join(
                 Profession,
-                Profession.id == Specialist.profession_id,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
             )
             .outerjoin(
                 City,
-                City.id == Specialist.city_id,
+                City.id
+                == ProfessionalCabinet.city_id,
             )
             .where(
-                Specialist.tenant_id == tenant_id,
-                Specialist.user_id != admin_user_id,
-                Specialist.status.in_(statuses),
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id
+                == tenant_id,
+                Specialist.user_id
+                != admin_user_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status.in_(
+                    statuses
+                ),
+                Specialist.status != "deleted",
+                User.status.notin_(
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
+                ),
             )
             .order_by(
-                Specialist.updated_at.desc(),
-                Specialist.id.asc(),
+                ProfessionalCabinet.updated_at.desc(),
+                ProfessionalCabinet.id.asc(),
             )
-            .offset(max(int(offset), 0))
-            .limit(max(1, min(int(limit), 20)))
+            .offset(
+                max(
+                    int(offset),
+                    0,
+                )
+            )
+            .limit(
+                max(
+                    1,
+                    min(
+                        int(limit),
+                        20,
+                    ),
+                )
+            )
         )
 
         return [
             AdminSpecialistQueueItem(
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
                 specialist_id=specialist_id,
-                display_name=display_name or "-",
-                profession_name=profession_name or "-",
+                display_name=(
+                    display_name or "-"
+                ),
+                profession_name=(
+                    profession_name or "-"
+                ),
                 city_name=city_name,
-                status=status,
+                status=moderation_status,
                 created_at=created_at,
             )
             for (
+                professional_cabinet_id,
                 specialist_id,
                 display_name,
                 profession_name,
                 city_name,
-                status,
+                moderation_status,
                 created_at,
             ) in result.all()
         ]
@@ -2894,28 +3061,51 @@ class ModerationRepository:
 
         result = await self.session.execute(
             select(
+                ProfessionalCabinet.id,
                 Specialist.id,
                 Specialist.display_name,
                 Profession.name,
                 City.name,
-                Specialist.created_at,
+                ProfessionalCabinet.created_at,
+            )
+            .select_from(ProfessionalCabinet)
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
             )
             .join(
                 Profession,
-                Profession.id == Specialist.profession_id,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
             )
             .outerjoin(
                 City,
-                City.id == Specialist.city_id,
+                City.id
+                == ProfessionalCabinet.city_id,
             )
             .where(
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
                 Specialist.tenant_id == tenant_id,
-                Specialist.status == "pending_moderation",
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status
+                == "pending_moderation",
                 Specialist.user_id != admin_user_id,
+                Specialist.status != "deleted",
+                User.status.notin_(
+                    ["blocked", "deleted"]
+                ),
             )
             .order_by(
-                Specialist.created_at.asc(),
-                Specialist.id.asc(),
+                ProfessionalCabinet.created_at.asc(),
+                ProfessionalCabinet.id.asc(),
             )
             .offset(max(int(offset), 0))
             .limit(max(1, min(int(limit), 20)))
@@ -2923,6 +3113,9 @@ class ModerationRepository:
 
         return [
             PendingSpecialistQueueItem(
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
                 specialist_id=specialist_id,
                 display_name=display_name,
                 profession_name=profession_name,
@@ -2930,6 +3123,7 @@ class ModerationRepository:
                 created_at=created_at,
             )
             for (
+                professional_cabinet_id,
                 specialist_id,
                 display_name,
                 profession_name,
@@ -2943,38 +3137,80 @@ class ModerationRepository:
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
-        specialist_id: UUID,
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
     ) -> PendingSpecialistDetails:
         await self.require_admin_role(
             admin_user_id,
             {"moderator", "admin", "super_admin"},
         )
 
-        result = await self.session.execute(
+        if (
+            specialist_id is None
+            and professional_cabinet_id is None
+        ):
+            raise ModerationNotFoundError(
+                "Professional cabinet identifier is required."
+            )
+
+        query = (
             select(
                 Specialist,
+                ProfessionalCabinet,
                 Profession.name,
                 City.name,
             )
+            .select_from(ProfessionalCabinet)
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
             .join(
                 Profession,
-                Profession.id == Specialist.profession_id,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
             )
             .outerjoin(
                 City,
-                City.id == Specialist.city_id,
+                City.id
+                == ProfessionalCabinet.city_id,
             )
             .where(
-                Specialist.id == specialist_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
                 Specialist.tenant_id == tenant_id,
             )
+        )
+
+        if professional_cabinet_id is not None:
+            query = query.where(
+                ProfessionalCabinet.id
+                == professional_cabinet_id,
+            )
+        else:
+            query = query.where(
+                Specialist.id == specialist_id,
+                ProfessionalCabinet.id
+                == Specialist.active_professional_cabinet_id,
+            )
+
+        result = await self.session.execute(
+            query.limit(1)
         )
         row = result.first()
 
         if not row:
-            raise ModerationNotFoundError("Specialist not found.")
+            raise ModerationNotFoundError(
+                "Professional cabinet not found."
+            )
 
-        specialist, profession_name, city_name = row
+        (
+            specialist,
+            cabinet,
+            profession_name,
+            city_name,
+        ) = row
 
         if specialist.user_id == admin_user_id:
             raise ModerationAccessError(
@@ -2982,16 +3218,26 @@ class ModerationRepository:
             )
 
         services_result = await self.session.execute(
-            select(SpecialistService.title)
+            select(
+                SpecialistService.title
+            )
             .where(
-                SpecialistService.tenant_id == tenant_id,
-                SpecialistService.specialist_id == specialist.id,
+                SpecialistService.tenant_id
+                == tenant_id,
+                SpecialistService.specialist_id
+                == specialist.id,
+                SpecialistService.professional_cabinet_id
+                == cabinet.id,
                 SpecialistService.status != "deleted",
             )
-            .order_by(SpecialistService.created_at.asc())
+            .order_by(
+                SpecialistService.created_at.asc()
+            )
             .limit(10)
         )
-        service_titles = tuple(services_result.scalars().all())
+        service_titles = tuple(
+            services_result.scalars().all()
+        )
 
         complaints_result = await self.session.execute(
             select(func.count())
@@ -3002,7 +3248,9 @@ class ModerationRepository:
                 Complaint.target_id == specialist.id,
             )
         )
-        complaints_count = int(complaints_result.scalar_one())
+        complaints_count = int(
+            complaints_result.scalar_one()
+        )
 
         risk_result = await self.session.execute(
             select(func.count())
@@ -3020,58 +3268,188 @@ class ModerationRepository:
 
         metadata = specialist.extra_metadata or {}
         contact_text = (
-            str(metadata.get("contact_text") or "").strip()
+            str(
+                metadata.get("contact_text") or ""
+            ).strip()
             or None
         )
 
         return PendingSpecialistDetails(
+            professional_cabinet_id=cabinet.id,
             specialist_id=specialist.id,
             owner_user_id=specialist.user_id,
             display_name=specialist.display_name,
             profession_name=profession_name,
             city_name=city_name,
-            status=specialist.status,
-            description=specialist.short_description,
+            status=cabinet.moderation_status,
+            description=cabinet.description or "",
             contact_text=contact_text,
             service_titles=service_titles,
             complaints_count=complaints_count,
-            open_risk_flags_count=open_risk_flags_count,
-            created_at=specialist.created_at,
+            open_risk_flags_count=(
+                open_risk_flags_count
+            ),
+            created_at=cabinet.created_at,
         )
+
+    async def _get_moderation_cabinet(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
+        expected_status: str | None = None,
+    ) -> tuple[
+        Specialist,
+        ProfessionalCabinet,
+    ]:
+        if (
+            specialist_id is None
+            and professional_cabinet_id is None
+        ):
+            raise ModerationNotFoundError(
+                "Professional cabinet identifier is required."
+            )
+
+        query = (
+            select(
+                Specialist,
+                ProfessionalCabinet,
+            )
+            .select_from(ProfessionalCabinet)
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .where(
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id == tenant_id,
+            )
+        )
+
+        if professional_cabinet_id is not None:
+            query = query.where(
+                ProfessionalCabinet.id
+                == professional_cabinet_id,
+            )
+        else:
+            query = query.where(
+                Specialist.id == specialist_id,
+                ProfessionalCabinet.id
+                == Specialist.active_professional_cabinet_id,
+            )
+
+        result = await self.session.execute(
+            query.limit(1)
+        )
+        row = result.first()
+
+        if not row:
+            raise ModerationNotFoundError(
+                "Professional cabinet not found."
+            )
+
+        specialist, cabinet = row
+
+        if specialist.user_id == admin_user_id:
+            raise ModerationAccessError(
+                "You cannot moderate your own professional cabinet."
+            )
+
+        if (
+            expected_status is not None
+            and cabinet.moderation_status
+            != expected_status
+        ):
+            raise ModerationAccessError(
+                "Professional cabinet status has changed."
+            )
+
+        return specialist, cabinet
+
+    @staticmethod
+    def _professional_cabinet_audit_state(
+        cabinet: ProfessionalCabinet,
+    ) -> dict:
+        return {
+            "id": str(cabinet.id),
+            "specialist_id": str(
+                cabinet.specialist_id
+            ),
+            "profession_id": str(
+                cabinet.profession_id
+            ),
+            "moderation_status": (
+                cabinet.moderation_status
+            ),
+            "moderation_comment": (
+                cabinet.moderation_comment
+            ),
+            "is_active": bool(
+                cabinet.is_active
+            ),
+        }
+
+    async def _sync_legacy_specialist_status(
+        self,
+        specialist: Specialist,
+    ) -> None:
+        if specialist.status in {
+            "blocked",
+            "deleted",
+        }:
+            return
+
+        result = await self.session.execute(
+            select(
+                ProfessionalCabinet.moderation_status
+            ).where(
+                ProfessionalCabinet.tenant_id
+                == specialist.tenant_id,
+                ProfessionalCabinet.specialist_id
+                == specialist.id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+        )
+        statuses = set(
+            result.scalars().all()
+        )
+
+        priority = (
+            "approved",
+            "pending_moderation",
+            "draft",
+            "rejected",
+        )
+        specialist.status = next(
+            (
+                status
+                for status in priority
+                if status in statuses
+            ),
+            "hidden",
+        )
+        specialist.moderation_comment = None
+        specialist.updated_at = datetime.utcnow()
 
     async def approve_specialist(
         self,
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
-        specialist_id: UUID,
         reason: str,
-    ) -> Specialist:
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
+    ) -> ProfessionalCabinet:
         await self.require_admin_role(
             admin_user_id,
             MODERATION_ROLES,
         )
-
-        result = await self.session.execute(
-            select(Specialist).where(
-                Specialist.id == specialist_id,
-                Specialist.tenant_id == tenant_id,
-            )
-        )
-        specialist = result.scalar_one_or_none()
-
-        if not specialist:
-            raise ModerationNotFoundError("Specialist not found.")
-
-        if specialist.user_id == admin_user_id:
-            raise ModerationAccessError(
-                "You cannot moderate your own profile."
-            )
-
-        if specialist.status != "pending_moderation":
-            raise ModerationAccessError(
-                "Specialist profile is no longer pending moderation."
-            )
 
         normalized_reason = reason.strip()
         if not normalized_reason:
@@ -3079,74 +3457,90 @@ class ModerationRepository:
                 "Moderation reason is required."
             )
 
-        before_state = self._specialist_audit_state(specialist)
+        specialist, cabinet = await (
+            self._get_moderation_cabinet(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                expected_status="pending_moderation",
+            )
+        )
 
-        specialist.status = "approved"
-        specialist.moderation_comment = None
-        specialist.updated_at = datetime.utcnow()
+        before_state = (
+            self._professional_cabinet_audit_state(
+                cabinet
+            )
+        )
 
+        cabinet.moderation_status = "approved"
+        cabinet.moderation_comment = None
+        cabinet.is_active = True
+        cabinet.updated_at = datetime.utcnow()
+
+        await self._sync_legacy_specialist_status(
+            specialist
+        )
         await self.session.flush()
 
         await self.log_admin_action(
             admin_user_id=admin_user_id,
             tenant_id=tenant_id,
-            action_type="approve_specialist",
-            target_type="specialist",
-            target_id=specialist.id,
+            action_type=(
+                "approve_professional_cabinet"
+            ),
+            target_type="professional_cabinet",
+            target_id=cabinet.id,
             before_state=before_state,
-            after_state=self._specialist_audit_state(specialist),
+            after_state=(
+                self._professional_cabinet_audit_state(
+                    cabinet
+                )
+            ),
             reason=normalized_reason,
         )
 
         await self.log_event(
             tenant_id=tenant_id,
             user_id=admin_user_id,
-            event_type="profile_moderated",
-            entity_type="specialist",
-            entity_id=specialist.id,
+            event_type=(
+                "professional_cabinet_moderated"
+            ),
+            entity_type="professional_cabinet",
+            entity_id=cabinet.id,
             payload={
+                "specialist_id": str(
+                    specialist.id
+                ),
                 "decision": "approved",
                 "reason": normalized_reason,
-                "before_status": before_state["status"],
+                "before_status": (
+                    before_state[
+                        "moderation_status"
+                    ]
+                ),
                 "after_status": "approved",
             },
         )
 
         await self.session.flush()
-        return specialist
+        return cabinet
+
     async def reject_specialist(
         self,
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
-        specialist_id: UUID,
         reason: str,
-    ) -> Specialist:
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
+    ) -> ProfessionalCabinet:
         await self.require_admin_role(
             admin_user_id,
             MODERATION_ROLES,
         )
-
-        result = await self.session.execute(
-            select(Specialist).where(
-                Specialist.id == specialist_id,
-                Specialist.tenant_id == tenant_id,
-            )
-        )
-        specialist = result.scalar_one_or_none()
-
-        if not specialist:
-            raise ModerationNotFoundError("Specialist not found.")
-
-        if specialist.user_id == admin_user_id:
-            raise ModerationAccessError(
-                "You cannot moderate your own profile."
-            )
-
-        if specialist.status != "pending_moderation":
-            raise ModerationAccessError(
-                "Specialist profile is no longer pending moderation."
-            )
 
         normalized_reason = reason.strip()
         if not normalized_reason:
@@ -3154,75 +3548,91 @@ class ModerationRepository:
                 "Moderation reason is required."
             )
 
-        before_state = self._specialist_audit_state(specialist)
+        specialist, cabinet = await (
+            self._get_moderation_cabinet(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                expected_status="pending_moderation",
+            )
+        )
 
-        specialist.status = "rejected"
-        specialist.moderation_comment = normalized_reason
-        specialist.updated_at = datetime.utcnow()
+        before_state = (
+            self._professional_cabinet_audit_state(
+                cabinet
+            )
+        )
 
+        cabinet.moderation_status = "rejected"
+        cabinet.moderation_comment = (
+            normalized_reason
+        )
+        cabinet.updated_at = datetime.utcnow()
+
+        await self._sync_legacy_specialist_status(
+            specialist
+        )
         await self.session.flush()
 
         await self.log_admin_action(
             admin_user_id=admin_user_id,
             tenant_id=tenant_id,
-            action_type="reject_specialist",
-            target_type="specialist",
-            target_id=specialist.id,
+            action_type=(
+                "reject_professional_cabinet"
+            ),
+            target_type="professional_cabinet",
+            target_id=cabinet.id,
             before_state=before_state,
-            after_state=self._specialist_audit_state(specialist),
+            after_state=(
+                self._professional_cabinet_audit_state(
+                    cabinet
+                )
+            ),
             reason=normalized_reason,
         )
 
         await self.log_event(
             tenant_id=tenant_id,
             user_id=admin_user_id,
-            event_type="profile_moderated",
-            entity_type="specialist",
-            entity_id=specialist.id,
+            event_type=(
+                "professional_cabinet_moderated"
+            ),
+            entity_type="professional_cabinet",
+            entity_id=cabinet.id,
             payload={
+                "specialist_id": str(
+                    specialist.id
+                ),
                 "decision": "rejected",
                 "reason": normalized_reason,
-                "before_status": before_state["status"],
+                "before_status": (
+                    before_state[
+                        "moderation_status"
+                    ]
+                ),
                 "after_status": "rejected",
             },
         )
 
         await self.session.flush()
-        return specialist
+        return cabinet
 
     async def request_specialist_changes(
         self,
         *,
         moderator_user_id: UUID,
         tenant_id: UUID,
-        specialist_id: UUID,
         reason: str,
-    ) -> Specialist:
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
+    ) -> ProfessionalCabinet:
         await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
         )
-
-        result = await self.session.execute(
-            select(Specialist).where(
-                Specialist.id == specialist_id,
-                Specialist.tenant_id == tenant_id,
-            )
-        )
-        specialist = result.scalar_one_or_none()
-
-        if not specialist:
-            raise ModerationNotFoundError("Specialist not found.")
-
-        if specialist.user_id == moderator_user_id:
-            raise ModerationAccessError(
-                "You cannot moderate your own profile."
-            )
-
-        if specialist.status != "pending_moderation":
-            raise ModerationAccessError(
-                "Specialist profile is no longer pending moderation."
-            )
 
         normalized_reason = reason.strip()
         if not normalized_reason:
@@ -3230,114 +3640,168 @@ class ModerationRepository:
                 "Moderation reason is required."
             )
 
-        before_state = self._specialist_audit_state(specialist)
+        specialist, cabinet = await (
+            self._get_moderation_cabinet(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                expected_status="pending_moderation",
+            )
+        )
 
-        specialist.status = "draft"
-        specialist.moderation_comment = normalized_reason
-        specialist.updated_at = datetime.utcnow()
+        before_state = (
+            self._professional_cabinet_audit_state(
+                cabinet
+            )
+        )
 
+        cabinet.moderation_status = "draft"
+        cabinet.moderation_comment = (
+            normalized_reason
+        )
+        cabinet.updated_at = datetime.utcnow()
+
+        await self._sync_legacy_specialist_status(
+            specialist
+        )
         await self.session.flush()
 
         await self.log_admin_action(
             admin_user_id=moderator_user_id,
             tenant_id=tenant_id,
-            action_type="request_specialist_changes",
-            target_type="specialist",
-            target_id=specialist.id,
+            action_type=(
+                "request_professional_cabinet_changes"
+            ),
+            target_type="professional_cabinet",
+            target_id=cabinet.id,
             before_state=before_state,
-            after_state=self._specialist_audit_state(specialist),
+            after_state=(
+                self._professional_cabinet_audit_state(
+                    cabinet
+                )
+            ),
             reason=normalized_reason,
         )
 
         await self.log_event(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
-            event_type="profile_moderated",
-            entity_type="specialist",
-            entity_id=specialist.id,
+            event_type=(
+                "professional_cabinet_moderated"
+            ),
+            entity_type="professional_cabinet",
+            entity_id=cabinet.id,
             payload={
+                "specialist_id": str(
+                    specialist.id
+                ),
                 "decision": "changes_requested",
                 "reason": normalized_reason,
-                "before_status": before_state["status"],
+                "before_status": (
+                    before_state[
+                        "moderation_status"
+                    ]
+                ),
                 "after_status": "draft",
             },
         )
 
         await self.session.flush()
-        return specialist
+        return cabinet
 
-    async def update_specialist_visibility(
+    async def update_professional_cabinet_visibility(
         self,
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
-        specialist_id: UUID,
+        professional_cabinet_id: UUID,
         expected_status: str,
         target_status: str,
         moderation_comment: str | None,
         reason: str,
         action_type: str,
-    ) -> Specialist:
+    ) -> ProfessionalCabinet:
         await self.require_admin_role(
             admin_user_id,
             MODERATION_ROLES,
         )
 
-        result = await self.session.execute(
-            select(Specialist).where(
-                Specialist.id == specialist_id,
-                Specialist.tenant_id == tenant_id,
+        specialist, cabinet = await (
+            self._get_moderation_cabinet(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                expected_status=expected_status,
             )
         )
-        specialist = result.scalar_one_or_none()
 
-        if not specialist:
-            raise ModerationNotFoundError("Specialist not found.")
-
-        if specialist.user_id == admin_user_id:
-            raise ModerationAccessError(
-                "You cannot change visibility of your own profile."
+        before_state = (
+            self._professional_cabinet_audit_state(
+                cabinet
             )
+        )
 
-        if specialist.status != expected_status:
-            raise ModerationAccessError(
-                "Specialist profile status has changed."
-            )
-
-        before_state = self._specialist_audit_state(specialist)
-
-        specialist.status = target_status
-        specialist.moderation_comment = moderation_comment
-        specialist.updated_at = datetime.utcnow()
+        cabinet.moderation_status = (
+            target_status
+        )
+        cabinet.moderation_comment = (
+            moderation_comment
+        )
+        cabinet.is_active = True
+        cabinet.updated_at = datetime.utcnow()
 
         await self.session.flush()
+        await self._sync_legacy_specialist_status(
+            specialist
+        )
+        await self.session.flush()
+
+        after_state = (
+            self._professional_cabinet_audit_state(
+                cabinet
+            )
+        )
 
         await self.log_admin_action(
             admin_user_id=admin_user_id,
             tenant_id=tenant_id,
             action_type=action_type,
-            target_type="specialist",
-            target_id=specialist.id,
+            target_type="professional_cabinet",
+            target_id=cabinet.id,
             before_state=before_state,
-            after_state=self._specialist_audit_state(specialist),
+            after_state=after_state,
             reason=reason,
         )
 
         await self.log_event(
             tenant_id=tenant_id,
             user_id=admin_user_id,
-            event_type="profile_visibility_changed",
-            entity_type="specialist",
-            entity_id=specialist.id,
+            event_type=(
+                "professional_cabinet_visibility_changed"
+            ),
+            entity_type="professional_cabinet",
+            entity_id=cabinet.id,
             payload={
+                "specialist_id": str(
+                    specialist.id
+                ),
                 "reason": reason,
-                "before_status": before_state["status"],
+                "before_status": (
+                    before_state[
+                        "moderation_status"
+                    ]
+                ),
                 "after_status": target_status,
             },
         )
 
         await self.session.flush()
-        return specialist
+        return cabinet
 
     async def has_active_complaint(
         self,

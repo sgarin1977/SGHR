@@ -182,7 +182,7 @@ class SupportReadOnlyCabinet:
 @dataclass(frozen=True)
 class AdminMenuSummary:
     users: int
-    specialists: int
+    professional_cabinets: int
     tickets: int
     complaints: int
     blacklist: int
@@ -216,6 +216,7 @@ class AdminSpecialistPage:
 
 @dataclass(frozen=True)
 class ModeratorSpecialistCard:
+    professional_cabinet_id: UUID
     specialist_id: UUID
     display_name: str
     profession_name: str
@@ -1860,8 +1861,6 @@ class ModerationService:
             "approved",
             "rejected",
             "hidden",
-            "blocked",
-            "deleted",
         }
 
         normalized_status = (
@@ -1870,7 +1869,7 @@ class ModerationService:
 
         if normalized_status not in allowed_statuses:
             raise ModerationError(
-                "Unsupported specialist status."
+                "Unsupported professional cabinet status."
             )
 
         normalized_page = max(int(page), 0)
@@ -1973,19 +1972,30 @@ class ModerationService:
         *,
         moderator_user_id: UUID,
         tenant_id: UUID,
-        specialist_id: UUID,
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
     ) -> ModeratorSpecialistCard:
         try:
-            details = await self.repository.get_pending_specialist_details(
-                admin_user_id=moderator_user_id,
-                tenant_id=tenant_id,
-                specialist_id=specialist_id,
+            details = await (
+                self.repository
+                .get_pending_specialist_details(
+                    admin_user_id=(
+                        moderator_user_id
+                    ),
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                )
             )
         except (
             ModerationAccessError,
             ModerationNotFoundError,
         ) as exc:
-            raise ModerationError(str(exc)) from exc
+            raise ModerationError(
+                str(exc)
+            ) from exc
 
         masked_contact = (
             "***"
@@ -1994,15 +2004,24 @@ class ModerationService:
         )
 
         return ModeratorSpecialistCard(
+            professional_cabinet_id=(
+                details.professional_cabinet_id
+            ),
             specialist_id=details.specialist_id,
             display_name=details.display_name,
-            profession_name=details.profession_name,
+            profession_name=(
+                details.profession_name
+            ),
             city_name=details.city_name,
             status=details.status,
             description=details.description,
             masked_contact=masked_contact,
-            service_titles=details.service_titles,
-            complaints_count=details.complaints_count,
+            service_titles=(
+                details.service_titles
+            ),
+            complaints_count=(
+                details.complaints_count
+            ),
             open_risk_flags_count=(
                 details.open_risk_flags_count
             ),
@@ -2013,156 +2032,25 @@ class ModerationService:
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
-        specialist_id: UUID,
         reason: str,
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
     ) -> ModerationActionResult:
-        normalized_reason = self._require_reason(reason)
+        normalized_reason = self._require_reason(
+            reason
+        )
 
         try:
-            specialist = await self.repository.approve_specialist(
-                admin_user_id=admin_user_id,
-                tenant_id=tenant_id,
-                specialist_id=specialist_id,
-                reason=normalized_reason,
-            )
-            await self.repository.session.commit()
-        except (
-            ModerationAccessError,
-            ModerationNotFoundError,
-        ) as exc:
-            await self.repository.session.rollback()
-            raise ModerationError(str(exc)) from exc
-
-        return ModerationActionResult(
-            entity_id=specialist.id,
-            status=specialist.status,
-            message="Specialist approved.",
-        )
-
-    async def reject_specialist(
-        self,
-        *,
-        admin_user_id: UUID,
-        tenant_id: UUID,
-        specialist_id: UUID,
-        reason: str,
-    ) -> ModerationActionResult:
-        normalized_reason = self._require_reason(reason)
-
-        try:
-            specialist = await self.repository.reject_specialist(
-                admin_user_id=admin_user_id,
-                tenant_id=tenant_id,
-                specialist_id=specialist_id,
-                reason=normalized_reason,
-            )
-            await self.repository.session.commit()
-        except (
-            ModerationAccessError,
-            ModerationNotFoundError,
-        ) as exc:
-            await self.repository.session.rollback()
-            raise ModerationError(str(exc)) from exc
-
-        return ModerationActionResult(
-            entity_id=specialist.id,
-            status=specialist.status,
-            message="Specialist rejected.",
-        )
-    async def request_specialist_changes(
-        self,
-        *,
-        moderator_user_id: UUID,
-        tenant_id: UUID,
-        specialist_id: UUID,
-        reason: str,
-    ) -> ModerationActionResult:
-        normalized_reason = self._require_reason(reason)
-
-        try:
-            specialist = await self.repository.request_specialist_changes(
-                moderator_user_id=moderator_user_id,
-                tenant_id=tenant_id,
-                specialist_id=specialist_id,
-                reason=normalized_reason,
-            )
-            await self.repository.session.commit()
-        except (ModerationAccessError, ModerationNotFoundError) as exc:
-            await self.repository.session.rollback()
-            raise ModerationError(str(exc)) from exc
-
-        return ModerationActionResult(
-            entity_id=specialist.id,
-            status=specialist.status,
-            message="Specialist profile returned for changes.",
-        )
-
-    async def hide_specialist(
-        self,
-        *,
-        admin_user_id: UUID,
-        tenant_id: UUID,
-        specialist_id: UUID,
-        reason: str,
-    ) -> ModerationActionResult:
-        return await self._change_specialist_visibility(
-            admin_user_id=admin_user_id,
-            tenant_id=tenant_id,
-            specialist_id=specialist_id,
-            reason=reason,
-            expected_status="approved",
-            target_status="hidden",
-            moderation_comment=reason,
-            action_type="hide_specialist",
-            message="Specialist profile hidden.",
-        )
-
-    async def restore_specialist(
-        self,
-        *,
-        admin_user_id: UUID,
-        tenant_id: UUID,
-        specialist_id: UUID,
-        reason: str,
-    ) -> ModerationActionResult:
-        return await self._change_specialist_visibility(
-            admin_user_id=admin_user_id,
-            tenant_id=tenant_id,
-            specialist_id=specialist_id,
-            reason=reason,
-            expected_status="hidden",
-            target_status="approved",
-            moderation_comment=None,
-            action_type="restore_specialist",
-            message="Specialist profile restored.",
-        )
-
-    async def _change_specialist_visibility(
-        self,
-        *,
-        admin_user_id: UUID,
-        tenant_id: UUID,
-        specialist_id: UUID,
-        reason: str,
-        expected_status: str,
-        target_status: str,
-        moderation_comment: str | None,
-        action_type: str,
-        message: str,
-    ) -> ModerationActionResult:
-        normalized_reason = self._require_reason(reason)
-
-        try:
-            specialist = (
-                await self.repository.update_specialist_visibility(
+            cabinet = await (
+                self.repository
+                .approve_specialist(
                     admin_user_id=admin_user_id,
                     tenant_id=tenant_id,
-                    specialist_id=specialist_id,
-                    expected_status=expected_status,
-                    target_status=target_status,
-                    moderation_comment=moderation_comment,
                     reason=normalized_reason,
-                    action_type=action_type,
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
                 )
             )
             await self.repository.session.commit()
@@ -2171,11 +2059,213 @@ class ModerationService:
             ModerationNotFoundError,
         ) as exc:
             await self.repository.session.rollback()
-            raise ModerationError(str(exc)) from exc
+            raise ModerationError(
+                str(exc)
+            ) from exc
 
         return ModerationActionResult(
-            entity_id=specialist.id,
-            status=specialist.status,
+            entity_id=cabinet.id,
+            status=cabinet.moderation_status,
+            message=(
+                "Professional cabinet approved."
+            ),
+        )
+
+    async def reject_specialist(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        reason: str,
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
+    ) -> ModerationActionResult:
+        normalized_reason = self._require_reason(
+            reason
+        )
+
+        try:
+            cabinet = await (
+                self.repository
+                .reject_specialist(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    reason=normalized_reason,
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                )
+            )
+            await self.repository.session.commit()
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(
+                str(exc)
+            ) from exc
+
+        return ModerationActionResult(
+            entity_id=cabinet.id,
+            status=cabinet.moderation_status,
+            message=(
+                "Professional cabinet rejected."
+            ),
+        )
+
+    async def request_specialist_changes(
+        self,
+        *,
+        moderator_user_id: UUID,
+        tenant_id: UUID,
+        reason: str,
+        specialist_id: UUID | None = None,
+        professional_cabinet_id: UUID | None = None,
+    ) -> ModerationActionResult:
+        normalized_reason = self._require_reason(
+            reason
+        )
+
+        try:
+            cabinet = await (
+                self.repository
+                .request_specialist_changes(
+                    moderator_user_id=(
+                        moderator_user_id
+                    ),
+                    tenant_id=tenant_id,
+                    reason=normalized_reason,
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                )
+            )
+            await self.repository.session.commit()
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(
+                str(exc)
+            ) from exc
+
+        return ModerationActionResult(
+            entity_id=cabinet.id,
+            status=cabinet.moderation_status,
+            message=(
+                "Professional cabinet returned for changes."
+            ),
+        )
+
+    async def hide_professional_cabinet(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        professional_cabinet_id: UUID,
+        reason: str,
+    ) -> ModerationActionResult:
+        return await (
+            self._change_professional_cabinet_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                reason=reason,
+                expected_status="approved",
+                target_status="hidden",
+                moderation_comment=reason,
+                action_type=(
+                    "hide_professional_cabinet"
+                ),
+                message=(
+                    "Professional cabinet hidden."
+                ),
+            )
+        )
+
+    async def restore_professional_cabinet(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        professional_cabinet_id: UUID,
+        reason: str,
+    ) -> ModerationActionResult:
+        return await (
+            self._change_professional_cabinet_visibility(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                reason=reason,
+                expected_status="hidden",
+                target_status="approved",
+                moderation_comment=None,
+                action_type=(
+                    "restore_professional_cabinet"
+                ),
+                message=(
+                    "Professional cabinet restored."
+                ),
+            )
+        )
+
+    async def _change_professional_cabinet_visibility(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        professional_cabinet_id: UUID,
+        reason: str,
+        expected_status: str,
+        target_status: str,
+        moderation_comment: str | None,
+        action_type: str,
+        message: str,
+    ) -> ModerationActionResult:
+        normalized_reason = self._require_reason(
+            reason
+        )
+
+        try:
+            cabinet = await (
+                self.repository
+                .update_professional_cabinet_visibility(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                    expected_status=expected_status,
+                    target_status=target_status,
+                    moderation_comment=(
+                        moderation_comment
+                    ),
+                    reason=normalized_reason,
+                    action_type=action_type,
+                )
+            )
+            await self.repository.session.commit()
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise ModerationError(
+                str(exc)
+            ) from exc
+
+        return ModerationActionResult(
+            entity_id=cabinet.id,
+            status=cabinet.moderation_status,
             message=message,
         )
 
@@ -3445,19 +3535,25 @@ class ModerationService:
     ) -> str:
         counts = await self._require_tables(
             "specialists",
+            "professional_cabinets",
             "professions",
             "cities",
         )
 
-        approved_count = (
-            await self.repository.count_specialists_by_status(
-                status="approved"
+        public_cabinets_count = (
+            await self.repository
+            .count_professional_cabinets_by_status(
+                statuses={
+                    "approved",
+                    "pending_moderation",
+                }
             )
         )
 
         return (
             "Search prerequisites ok. "
-            f"approved_specialists={approved_count}, "
+            "public_professional_cabinets="
+            f"{public_cabinets_count}, "
             f"professions={counts['professions']}, "
             f"cities={counts['cities']}."
         )

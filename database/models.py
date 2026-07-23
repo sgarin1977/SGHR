@@ -495,6 +495,10 @@ class ProfessionalCabinet(Base):
         nullable=False,
         default="draft",
     )
+    moderation_comment: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
