@@ -41,8 +41,11 @@ from handlers.search import (
 from services.translation import TranslationService
 from services.billing import BillingError, BillingService
 from services.specialist import (
+    ProfessionalCabinetOption,
+    SpecialistActiveCabinetProfile,
     SpecialistProfileUpdateData,
     SpecialistRegistrationError,
+    ProfessionalCabinetAlreadyExistsError,
     SpecialistService,
     SpecialistServiceItemData,
     MAX_PROFESSIONS_PER_CATEGORY,
@@ -85,6 +88,8 @@ class SpecialistCabinetFSM(StatesGroup):
     entering_contact = State()
     choosing_category = State()
     choosing_profession = State()
+    adding_cabinet_category = State()
+    adding_cabinet_profession = State()
     entering_location_query = State()
     entering_country_query = State()
     choosing_geo_place = State()
@@ -97,7 +102,6 @@ class SpecialistCabinetFSM(StatesGroup):
     entering_service_description = State()
     entering_service_price = State()
     confirming_service = State()
-    entering_availability_date = State()
     entering_messages_search = State()
 
 async def clear_cross_feature_messages(
@@ -710,6 +714,17 @@ def cabinet_menu_keyboard(
         ],
         [
             InlineKeyboardButton(
+                text=t(
+                    "professional_cabinets_btn",
+                    language,
+                ),
+                callback_data=(
+                    "SPEC_PRO_CABINETS"
+                ),
+            )
+        ],
+        [
+            InlineKeyboardButton(
                 text=t("specialist_dialogs_btn", language),
                 callback_data="SPEC_DIALOGS",
             )
@@ -792,6 +807,836 @@ def cabinet_menu_keyboard(
 
     return InlineKeyboardMarkup(
         inline_keyboard=rows,
+    )
+
+def format_professional_cabinets_text(
+    options: tuple[
+        ProfessionalCabinetOption,
+        ...,
+    ],
+    language: str,
+) -> str:
+    if not options:
+        return t(
+            "professional_cabinets_empty",
+            language,
+        )
+
+    return t(
+        "professional_cabinets_title",
+        language,
+    )
+
+
+def professional_cabinets_keyboard(
+    options: tuple[
+        ProfessionalCabinetOption,
+        ...,
+    ],
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[
+        list[InlineKeyboardButton]
+    ] = []
+
+    for option in options:
+        marker = (
+            "✅ "
+            if option.is_selected
+            else ""
+        )
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=(
+                        f"{marker}"
+                        f"{option.profession_name}"
+                    ),
+                    callback_data=(
+                        "SPEC_PRO_CABINET_SWITCH:"
+                        f"{option.id}"
+                    ),
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "professional_cabinet_add_btn",
+                    language,
+                ),
+                callback_data=(
+                    "SPEC_PRO_CABINET_ADD"
+                ),
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "billing_back",
+                    language,
+                ),
+                callback_data="M_SPECIALIST",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows,
+    )
+
+def professional_cabinet_add_selection_keyboard(
+    *,
+    items,
+    language: str,
+    page: int,
+    select_callback_prefix: str,
+    page_callback_prefix: str,
+    back_callback_data: str,
+) -> InlineKeyboardMarkup:
+    page = max(0, page)
+    start = (
+        page
+        * SPECIALIST_CABINET_EDITOR_PAGE_SIZE
+    )
+    end = (
+        start
+        + SPECIALIST_CABINET_EDITOR_PAGE_SIZE
+    )
+    page_items = items[start:end]
+    rows: list[list[InlineKeyboardButton]] = []
+
+    for index, item in enumerate(
+        page_items,
+        start=start,
+    ):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=item.name,
+                    callback_data=(
+                        f"{select_callback_prefix}:"
+                        f"{index}"
+                    ),
+                )
+            ]
+        )
+
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text="⬅️",
+                callback_data=(
+                    f"{page_callback_prefix}:"
+                    f"{page - 1}"
+                ),
+            )
+        )
+
+    if end < len(items):
+        navigation.append(
+            InlineKeyboardButton(
+                text="➡️",
+                callback_data=(
+                    f"{page_callback_prefix}:"
+                    f"{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "billing_back",
+                    language,
+                ),
+                callback_data=back_callback_data,
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows,
+    )
+
+@billing_router.callback_query(
+    F.data == "SPEC_PRO_CABINETS"
+)
+async def show_professional_cabinets(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    user, specialist, tenant_id = (
+        await get_current_specialist_for_telegram(
+            callback.from_user.id
+        )
+    )
+
+    if not user or not specialist:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            options = await SpecialistService(
+                SpecialistRepository(session)
+            ).list_professional_cabinet_options(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                specialist_id=specialist.id,
+                language=language,
+            )
+
+    except (
+        SpecialistRegistrationError,
+        ValueError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=format_professional_cabinets_text(
+            options,
+            language,
+        ),
+        reply_markup=(
+            professional_cabinets_keyboard(
+                options,
+                language,
+            )
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        )
+    )
+
+
+@billing_router.callback_query(
+    F.data.startswith(
+        "SPEC_PRO_CABINET_SWITCH:"
+    )
+)
+async def switch_professional_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    try:
+        professional_cabinet_id = UUID(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    user, specialist, tenant_id = (
+        await get_current_specialist_for_telegram(
+            callback.from_user.id
+        )
+    )
+
+    if not user or not specialist:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            changed = await SpecialistService(
+                SpecialistRepository(session)
+            ).switch_active_professional_cabinet(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                specialist_id=specialist.id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+
+    except (
+        SpecialistRegistrationError,
+        ValueError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer(
+        (
+            t(
+                "professional_cabinet_switched",
+                language,
+            )
+            if changed
+            else None
+        )
+    )
+
+    await show_specialist_cabinet(
+        callback,
+        state,
+        callback_answered=True,
+    )
+
+@billing_router.callback_query(
+    F.data == "SPEC_PRO_CABINET_ADD"
+)
+async def start_professional_cabinet_creation(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    user, specialist, tenant_id = (
+        await get_current_specialist_for_telegram(
+            callback.from_user.id
+        )
+    )
+    if not user or not specialist or not tenant_id:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            categories = await SpecialistService(
+                SpecialistRepository(session)
+            ).list_professional_cabinet_categories(
+                language=language,
+                limit=50,
+            )
+    except Exception:
+        logger.exception(
+            "professional_cabinet_categories_failed "
+            "telegram_id=%s",
+            callback.from_user.id,
+        )
+        await callback.answer(
+            t(
+                "professional_cabinet_add_failed",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        SpecialistCabinetFSM.adding_cabinet_category
+    )
+    await state.update_data(
+        professional_cabinet_category_ids=[
+            str(item.id)
+            for item in categories
+        ],
+        professional_cabinet_category_page=0,
+    )
+
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "professional_cabinet_choose_category",
+            language,
+        ),
+        reply_markup=(
+            professional_cabinet_add_selection_keyboard(
+                items=categories,
+                language=language,
+                page=0,
+                select_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_CAT"
+                ),
+                page_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_CAT_PAGE"
+                ),
+                back_callback_data=(
+                    "SPEC_PRO_CABINETS"
+                ),
+            )
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
+
+
+@billing_router.callback_query(
+    StateFilter(
+        SpecialistCabinetFSM.adding_cabinet_category
+    ),
+    F.data.startswith(
+        "SPEC_PRO_CABINET_ADD_CAT_PAGE:"
+    ),
+)
+async def change_professional_cabinet_category_page(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    try:
+        page = max(
+            0,
+            int(
+                (callback.data or "").rsplit(
+                    ":",
+                    1,
+                )[1]
+            ),
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        categories = await SpecialistService(
+            SpecialistRepository(session)
+        ).list_professional_cabinet_categories(
+            language=language,
+            limit=50,
+        )
+
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "professional_cabinet_choose_category",
+            language,
+        ),
+        reply_markup=(
+            professional_cabinet_add_selection_keyboard(
+                items=categories,
+                language=language,
+                page=page,
+                select_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_CAT"
+                ),
+                page_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_CAT_PAGE"
+                ),
+                back_callback_data=(
+                    "SPEC_PRO_CABINETS"
+                ),
+            )
+        ),
+    )
+
+    await state.update_data(
+        professional_cabinet_category_ids=[
+            str(item.id)
+            for item in categories
+        ],
+        professional_cabinet_category_page=page,
+        last_menu_message_id=menu_message.message_id,
+    )
+
+
+@billing_router.callback_query(
+    StateFilter(
+        SpecialistCabinetFSM.adding_cabinet_category
+    ),
+    F.data.startswith(
+        "SPEC_PRO_CABINET_ADD_CAT:"
+    ),
+)
+async def select_professional_cabinet_category(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+    category_ids = (
+        data.get(
+            "professional_cabinet_category_ids"
+        )
+        or []
+    )
+
+    try:
+        index = int(
+            (callback.data or "").rsplit(
+                ":",
+                1,
+            )[1]
+        )
+        category_id = UUID(category_ids[index])
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            professions = await SpecialistService(
+                SpecialistRepository(session)
+            ).list_professional_cabinet_professions(
+                category_id=category_id,
+                language=language,
+                limit=50,
+            )
+    except SpecialistRegistrationError:
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    if not professions:
+        await callback.answer(
+            t(
+                "professional_cabinet_add_failed",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(
+        SpecialistCabinetFSM.adding_cabinet_profession
+    )
+    await state.update_data(
+        professional_cabinet_category_id=(
+            str(category_id)
+        ),
+        professional_cabinet_profession_ids=[
+            str(item.id)
+            for item in professions
+        ],
+        professional_cabinet_profession_page=0,
+    )
+
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "professional_cabinet_choose_profession",
+            language,
+        ),
+        reply_markup=(
+            professional_cabinet_add_selection_keyboard(
+                items=professions,
+                language=language,
+                page=0,
+                select_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_PROF"
+                ),
+                page_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_PROF_PAGE"
+                ),
+                back_callback_data=(
+                    "SPEC_PRO_CABINET_ADD"
+                ),
+            )
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=menu_message.message_id
+    )
+
+
+@billing_router.callback_query(
+    StateFilter(
+        SpecialistCabinetFSM.adding_cabinet_profession
+    ),
+    F.data.startswith(
+        "SPEC_PRO_CABINET_ADD_PROF_PAGE:"
+    ),
+)
+async def change_professional_cabinet_profession_page(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+
+    try:
+        page = max(
+            0,
+            int(
+                (callback.data or "").rsplit(
+                    ":",
+                    1,
+                )[1]
+            ),
+        )
+        category_id = UUID(
+            data["professional_cabinet_category_id"]
+        )
+    except (
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        professions = await SpecialistService(
+            SpecialistRepository(session)
+        ).list_professional_cabinet_professions(
+            category_id=category_id,
+            language=language,
+            limit=50,
+        )
+
+    await callback.answer()
+
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=t(
+            "professional_cabinet_choose_profession",
+            language,
+        ),
+        reply_markup=(
+            professional_cabinet_add_selection_keyboard(
+                items=professions,
+                language=language,
+                page=page,
+                select_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_PROF"
+                ),
+                page_callback_prefix=(
+                    "SPEC_PRO_CABINET_ADD_PROF_PAGE"
+                ),
+                back_callback_data=(
+                    "SPEC_PRO_CABINET_ADD"
+                ),
+            )
+        ),
+    )
+
+    await state.update_data(
+        professional_cabinet_profession_ids=[
+            str(item.id)
+            for item in professions
+        ],
+        professional_cabinet_profession_page=page,
+        last_menu_message_id=menu_message.message_id,
+    )
+
+
+@billing_router.callback_query(
+    StateFilter(
+        SpecialistCabinetFSM.adding_cabinet_profession
+    ),
+    F.data.startswith(
+        "SPEC_PRO_CABINET_ADD_PROF:"
+    ),
+)
+async def create_selected_professional_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+    data = await state.get_data()
+    profession_ids = (
+        data.get(
+            "professional_cabinet_profession_ids"
+        )
+        or []
+    )
+
+    try:
+        index = int(
+            (callback.data or "").rsplit(
+                ":",
+                1,
+            )[1]
+        )
+        profession_id = UUID(
+            profession_ids[index]
+        )
+        category_id = UUID(
+            data[
+                "professional_cabinet_category_id"
+            ]
+        )
+    except (
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    user, specialist, tenant_id = (
+        await get_current_specialist_for_telegram(
+            callback.from_user.id
+        )
+    )
+    if not user or not specialist or not tenant_id:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            await SpecialistService(
+                SpecialistRepository(session)
+            ).create_professional_cabinet(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                specialist_id=specialist.id,
+                category_id=category_id,
+                profession_id=profession_id,
+                language=language,
+            )
+
+    except ProfessionalCabinetAlreadyExistsError:
+        await callback.answer(
+            t(
+                "professional_cabinet_already_exists",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except (
+        SpecialistRegistrationError,
+        ValueError,
+    ):
+        logger.exception(
+            "professional_cabinet_creation_rejected "
+            "telegram_id=%s",
+            callback.from_user.id,
+        )
+        await callback.answer(
+            t(
+                "professional_cabinet_add_failed",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except Exception:
+        logger.exception(
+            "professional_cabinet_creation_failed "
+            "telegram_id=%s",
+            callback.from_user.id,
+        )
+        await callback.answer(
+            t(
+                "professional_cabinet_add_failed",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer(
+        t(
+            "professional_cabinet_created",
+            language,
+        )
+    )
+
+    await show_specialist_cabinet(
+        callback,
+        state,
+        callback_answered=True,
     )
 
 def favorites_list_keyboard(
@@ -1610,62 +2455,96 @@ def format_profile_skills_text(
 
     return "\n".join(lines)
 
-def specialist_availability_keyboard(language: str) -> InlineKeyboardMarkup:
+def specialist_availability_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("spec_availability_now_btn", language),
-                    callback_data="SPEC_AVAILABILITY_SET:available_now",
+                    text=t(
+                        "spec_availability_now_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SPEC_AVAILABILITY_SET:available"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("spec_availability_busy_btn", language),
-                    callback_data="SPEC_AVAILABILITY_SET:partly_busy",
+                    text=t(
+                        "spec_availability_busy_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SPEC_AVAILABILITY_SET:busy"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("spec_availability_from_date_btn", language),
-                    callback_data="SPEC_AVAILABILITY_SET:available_from",
+                    text=t(
+                        "spec_availability_vacation_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SPEC_AVAILABILITY_SET:vacation"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("cabinet_specialist_btn", language),
+                    text=t(
+                        "spec_availability_unavailable_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SPEC_AVAILABILITY_SET:"
+                        "temporarily_unavailable"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "cabinet_specialist_btn",
+                        language,
+                    ),
                     callback_data="M_SPECIALIST",
                 )
             ],
         ]
     )
 
+def format_specialist_availability_text(
+    availability_status: str,
+    language: str,
+) -> str:
+    status_keys = {
+        "available": "spec_availability_now",
+        "busy": "spec_availability_busy",
+        "vacation": "spec_availability_vacation",
+        "temporarily_unavailable": (
+            "spec_availability_unavailable"
+        ),
+    }
 
-def format_specialist_availability_text(specialist, language: str) -> str:
-    metadata = dict(specialist.extra_metadata or {})
-    availability_status = metadata.get("availability_status")
-
-    if availability_status == "partly_busy":
-        status_text = t("spec_availability_busy", language)
-    elif availability_status == "available_from":
-        date_text = metadata.get("available_from_text") or ""
-        status_text = t("spec_availability_from_date", language).format(
-            date=date_text,
-        )
-    else:
-        status_text = t("spec_availability_now", language)
+    status_key = status_keys.get(
+        availability_status,
+        "spec_availability_unavailable",
+    )
 
     return (
         f"{t('spec_availability_title', language)}\n"
         f"{t('spec_availability_hint', language)}\n\n"
-        f"{status_text}"
+        f"{t(status_key, language)}"
     )
-
 def format_specialist_moderation_text(
-    specialist,
+    status: str | None,
     language: str,
 ) -> str:
-    status = specialist.status or "draft"
+    status = status or "draft"
 
     if status == "approved":
         status_text = t(
@@ -1738,16 +2617,60 @@ def format_specialist_moderation_text(
         hint_text,
     ]
 
-    if specialist.moderation_comment:
-        lines.extend(
+    return "\n".join(lines)
+
+
+def specialist_moderation_keyboard(
+    status: str | None,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+
+    if status in {
+        "draft",
+        "rejected",
+    }:
+        rows.append(
             [
-                "",
-                f"{t('spec_moderation_comment_label', language)}:",
-                specialist.moderation_comment,
+                InlineKeyboardButton(
+                    text=t(
+                        "professional_cabinet_submit_moderation_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SPEC_MODERATION_SUBMIT"
+                    ),
+                )
             ]
         )
 
-    return "\n".join(lines)
+    rows.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "cabinet_specialist_btn",
+                        language,
+                    ),
+                    callback_data="M_SPECIALIST",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
+
 
 @billing_router.callback_query(F.data == "SPEC_AVAILABILITY")
 async def show_specialist_availability(callback: CallbackQuery, state: FSMContext):
@@ -1764,7 +2687,35 @@ async def show_specialist_availability(callback: CallbackQuery, state: FSMContex
         return
 
     if not specialist:
-        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            availability_status = await (
+                SpecialistService(
+                    SpecialistRepository(session)
+                ).get_active_cabinet_availability(
+                    tenant_id=tenant_id,
+                    user_id=user.id,
+                    specialist_id=specialist.id,
+                )
+            )
+
+    except (
+        SpecialistRegistrationError,
+        ValueError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
     await state.update_data(
@@ -1776,7 +2727,7 @@ async def show_specialist_availability(callback: CallbackQuery, state: FSMContex
     menu_message = await edit_or_replace_menu_message(
         callback=callback,
         text=format_specialist_availability_text(
-            specialist,
+            availability_status,
             language,
         ),
         reply_markup=specialist_availability_keyboard(
@@ -1801,38 +2752,6 @@ async def set_specialist_availability(callback: CallbackQuery, state: FSMContext
     data = await state.get_data()
 
     availability_status = (callback.data or "").split(":", 1)[1]
-
-    if availability_status == "available_from":
-        await state.update_data(pending_availability_status=availability_status)
-        await state.set_state(SpecialistCabinetFSM.entering_availability_date)
-        menu_message = await edit_or_replace_menu_message(
-            callback=callback,
-            text=t(
-                "spec_availability_date_prompt",
-                language,
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "billing_back",
-                                language,
-                            ),
-                            callback_data="SPEC_AVAILABILITY",
-                        )
-                    ]
-                ]
-            ),
-        )
-
-        await state.update_data(
-            last_menu_message_id=(
-                menu_message.message_id
-            ),
-        )
-        await callback.answer()
-        return
 
     specialist_id = data.get("cabinet_specialist_id")
     user_id = data.get("cabinet_user_id")
@@ -1885,101 +2804,6 @@ async def set_specialist_availability(callback: CallbackQuery, state: FSMContext
         ),
     )
     await callback.answer()
-
-
-@billing_router.message(
-    SpecialistCabinetFSM.entering_availability_date
-)
-async def receive_specialist_availability_date(
-    message: Message,
-    state: FSMContext,
-):
-    language = await get_billing_interface_language(
-        message.from_user.id,
-        message.from_user.language_code,
-    )
-    data = await state.get_data()
-
-    specialist_id = data.get(
-        "cabinet_specialist_id"
-    )
-    user_id = data.get(
-        "cabinet_user_id"
-    )
-    tenant_id = data.get(
-        "cabinet_tenant_id"
-    )
-    date_text = (
-        message.text or ""
-    ).strip()
-
-    if (
-        not specialist_id
-        or not user_id
-        or not tenant_id
-    ):
-        await replace_billing_input_screen(
-            message=message,
-            state=state,
-            text=t(
-                "cabinet_profile_not_found",
-                language,
-            ),
-        )
-        await state.set_state(None)
-        return
-
-    try:
-        async with get_session() as session:
-            await SpecialistService(
-                SpecialistRepository(session)
-            ).update_availability(
-                tenant_id=UUID(
-                    tenant_id
-                ),
-                user_id=UUID(
-                    user_id
-                ),
-                specialist_id=UUID(
-                    specialist_id
-                ),
-                availability_status=(
-                    "available_from"
-                ),
-                available_from_text=date_text,
-            )
-
-    except (
-        SpecialistRegistrationError,
-        ValueError,
-    ) as exc:
-        await replace_billing_input_screen(
-            message=message,
-            state=state,
-            text=str(exc),
-            reply_markup=(
-                specialist_availability_keyboard(
-                    language
-                )
-            ),
-        )
-        return
-
-    await state.set_state(None)
-
-    await replace_billing_input_screen(
-        message=message,
-        state=state,
-        text=t(
-            "spec_availability_saved",
-            language,
-        ),
-        reply_markup=(
-            specialist_availability_keyboard(
-                language
-            )
-        ),
-    )
 
 def format_geo_candidates_text(candidates: list[dict], language: str) -> str:
     lines = []
@@ -2230,54 +3054,23 @@ def localized_name(item, language: str) -> str:
         or "-"
     )
 
-
-async def get_specialist_location_text(
-    specialist: Specialist | None,
+def format_specialist_profile_text(
+    profile: SpecialistActiveCabinetProfile | None,
     language: str,
 ) -> str:
-    if not specialist:
-        return "-"
-
-    async with get_session() as session:
-        city, country = await SpecialistRepository(
-            session
-        ).get_specialist_location_parts(
-            specialist=specialist,
+    if not profile:
+        return t(
+            "cabinet_profile_not_found",
+            language,
         )
 
-    city_name = localized_name(city, language)
-    country_name = localized_name(country, language)
-
-    if city and country:
-        return f"{city_name}, {country_name}"
-
-    if city:
-        return city_name
-
-    if country:
-        return country_name
-
-    return "-"
-
-
-def format_specialist_profile_text(
-    specialist: Specialist | None,
-    language: str,
-    location_text: str = "-",
-    profession_text: str = "-",
-) -> str:
-    if not specialist:
-        return t("cabinet_profile_not_found", language)
-
-    reviews_count = specialist.reviews_count or 0
-
-    if reviews_count > 0 and specialist.rating is not None:
+    if profile.reviews_count > 0:
         rating_text = t(
             "specialist_card_rating_value",
             language,
         ).format(
-            rating=f"{float(specialist.rating):.1f}",
-            count=reviews_count,
+            rating=f"{profile.rating:.1f}",
+            count=profile.reviews_count,
         )
     else:
         rating_text = t(
@@ -2285,38 +3078,60 @@ def format_specialist_profile_text(
             language,
         )
 
-    status_key = (
-        "specialist_card_status_available"
-        if specialist.is_available
-        else "specialist_card_status_busy"
+    availability_keys = {
+        "available": "spec_availability_now",
+        "busy": "spec_availability_busy",
+        "vacation": "spec_availability_vacation",
+        "temporarily_unavailable": (
+            "spec_availability_unavailable"
+        ),
+    }
+    availability_key = availability_keys.get(
+        profile.availability_status,
+        "spec_availability_unavailable",
     )
 
     lines = [
-        t("specialist_card_title", language),
+        t(
+            "specialist_card_title",
+            language,
+        ),
         "",
-        f"👤 {specialist.display_name or '-'}",
+        f"👤 {profile.display_name}",
     ]
 
-    if profession_text and profession_text != "-":
+    if (
+        profile.profession_name
+        and profile.profession_name != "-"
+    ):
         lines.append(
             t(
                 "specialist_card_profession",
                 language,
-            ).format(profession=profession_text)
+            ).format(
+                profession=(
+                    profile.profession_name
+                )
+            )
         )
 
     lines.append(rating_text)
 
-    if location_text and location_text != "-":
-        lines.append(f"📍 {location_text}")
+    if profile.location != "-":
+        lines.append(
+            f"📍 {profile.location}"
+        )
 
-    lines.extend(
-        [
-            t(status_key, language),
-        ]
+    lines.append(
+        t(
+            availability_key,
+            language,
+        )
     )
 
-    description = (specialist.short_description or "").strip()
+    description = (
+        profile.description or ""
+    ).strip()
     if description:
         lines.extend(
             [
@@ -3972,8 +4787,8 @@ async def add_specialist_service(callback: CallbackQuery, state: FSMContext):
         service_specialist_id=str(specialist.id),
         service_tenant_id=str(tenant_id),
         service_user_id=str(user.id),
-        service_category_id=str(specialist.category_id) if specialist.category_id else None,
-        service_profession_id=str(specialist.profession_id) if specialist.profession_id else None,
+        service_category_id=None,
+        service_profession_id=None,
         service_currency="EUR",
         service_price_from=None,
         service_price_to=None,
@@ -5521,6 +6336,8 @@ async def show_cabinet_stub(
 async def show_specialist_moderation(
     callback: CallbackQuery,
     state: FSMContext,
+    *,
+    callback_answered: bool = False,
 ):
     language = await get_billing_interface_language(
         callback.from_user.id,
@@ -5533,7 +6350,7 @@ async def show_specialist_moderation(
         )
     )
 
-    if not specialist:
+    if not user or not specialist or not tenant_id:
         await callback.answer(
             t(
                 "specialist_not_found",
@@ -5543,35 +6360,36 @@ async def show_specialist_moderation(
         )
         return
 
-    await callback.answer()
+    async with get_session() as session:
+        cabinet = await SpecialistRepository(
+            session
+        ).get_active_professional_cabinet(
+            tenant_id=tenant_id,
+            specialist_id=specialist.id,
+        )
+
+    if not cabinet:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    if not callback_answered:
+        await callback.answer()
 
     menu_message = await edit_or_replace_menu_message(
         callback=callback,
         text=format_specialist_moderation_text(
-            specialist,
+            cabinet.moderation_status,
             language,
         ),
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "cabinet_specialist_btn",
-                            language,
-                        ),
-                        callback_data="M_SPECIALIST",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "search_menu",
-                            language,
-                        ),
-                        callback_data="BILL_MENU",
-                    )
-                ],
-            ]
+        reply_markup=specialist_moderation_keyboard(
+            cabinet.moderation_status,
+            language,
         ),
     )
 
@@ -5579,7 +6397,72 @@ async def show_specialist_moderation(
         last_menu_message_id=menu_message.message_id
     )
 
+@billing_router.callback_query(
+    F.data == "SPEC_MODERATION_SUBMIT"
+)
+async def submit_specialist_cabinet_for_moderation(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
 
+    user, specialist, tenant_id = (
+        await get_current_specialist_for_telegram(
+            callback.from_user.id
+        )
+    )
+
+    if not user or not specialist or not tenant_id:
+        await callback.answer(
+            t(
+                "specialist_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            changed = await SpecialistService(
+                SpecialistRepository(session)
+            ).submit_active_professional_cabinet_for_moderation(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                specialist_id=specialist.id,
+            )
+
+    except SpecialistRegistrationError:
+        await callback.answer(
+            t(
+                "professional_cabinet_submit_failed",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    result_key = (
+        "professional_cabinet_submitted"
+        if changed
+        else "professional_cabinet_already_pending"
+    )
+
+    await callback.answer(
+        t(
+            result_key,
+            language,
+        )
+    )
+
+    await show_specialist_moderation(
+        callback,
+        state,
+        callback_answered=True,
+    )
 
 @billing_router.callback_query(
     F.data.startswith("CAB_FAVORITES:")
@@ -5922,35 +6805,43 @@ async def show_specialist_profile_menu(
         )
         return
 
-    location_text = await get_specialist_location_text(
-        specialist,
-        language,
-    )
-    profession_text = "-"
+    if not specialist:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
 
-    if specialist:
-        async with get_session() as session:
-            profession_names = await SpecialistService(
-                SpecialistRepository(session)
-            ).list_profile_profession_names(
-                specialist_id=specialist.id,
-                language=language,
-            )
+    async with get_session() as session:
+        profile = await SpecialistService(
+            SpecialistRepository(session)
+        ).get_active_cabinet_profile(
+            tenant_id=tenant_id,
+            user_id=user.id,
+            specialist_id=specialist.id,
+            language=language,
+        )
 
-        if profession_names:
-            profession_text = ", ".join(
-                profession_names
-            )
+    if not profile:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
 
     await callback.answer()
 
     menu_message = await edit_or_replace_menu_message(
         callback=callback,
         text=format_specialist_profile_text(
-            specialist,
+            profile,
             language,
-            location_text,
-            profession_text,
         ),
         reply_markup=(
             specialist_public_profile_preview_keyboard(
@@ -5960,9 +6851,10 @@ async def show_specialist_profile_menu(
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
-
 
 @billing_router.callback_query(
     F.data == "SPEC_CARD_FULL"
@@ -5976,7 +6868,7 @@ async def show_specialist_card_full_description(
         callback.from_user.language_code,
     )
 
-    user, specialist, _ = (
+    user, specialist, tenant_id = (
         await get_current_specialist_for_telegram(
             callback.from_user.id
         )
@@ -5992,10 +6884,28 @@ async def show_specialist_card_full_description(
         )
         return
 
+    async with get_session() as session:
+        profile = await SpecialistService(
+            SpecialistRepository(session)
+        ).get_active_cabinet_profile(
+            tenant_id=tenant_id,
+            user_id=user.id,
+            specialist_id=specialist.id,
+            language=language,
+        )
+
+    if not profile:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
     description = (
-        specialist.full_description
-        or specialist.short_description
-        or ""
+        profile.description or ""
     ).strip()
 
     if description:
@@ -6022,9 +6932,10 @@ async def show_specialist_card_full_description(
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
-
 
 @billing_router.callback_query(
     F.data == "CAB_PORTFOLIO"
@@ -6746,46 +7657,80 @@ async def confirm_portfolio_upload(
     )
 
 
-@billing_router.callback_query(F.data == "CAB_PROFILE_VIEW")
-async def view_specialist_profile(callback: CallbackQuery, state: FSMContext):
-    language = await get_billing_interface_language(callback.from_user.id, callback.from_user.language_code)
-    user, specialist, tenant_id = await get_current_specialist_for_telegram(callback.from_user.id)
+async def view_specialist_profile(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_billing_interface_language(
+        callback.from_user.id,
+        callback.from_user.language_code,
+    )
+
+    user, specialist, tenant_id = (
+        await get_current_specialist_for_telegram(
+            callback.from_user.id
+        )
+    )
 
     if not user:
-        await callback.answer(t("billing_start_required", language), show_alert=True)
+        await callback.answer(
+            t(
+                "billing_start_required",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    location_text = await get_specialist_location_text(specialist, language)
-    profession_text = "-"
+    if not specialist:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
 
-    if specialist:
-        async with get_session() as session:
-            card = await GeoSearchService(
-                SpecialistSearchRepository(session)
-            ).get_public_card(
-                specialist_id=specialist.id,
-                language=language,
-            )
-            if card and card.profession_name:
-                profession_text = card.profession_name
+    async with get_session() as session:
+        profile = await SpecialistService(
+            SpecialistRepository(session)
+        ).get_active_cabinet_profile(
+            tenant_id=tenant_id,
+            user_id=user.id,
+            specialist_id=specialist.id,
+            language=language,
+        )
+
+    if not profile:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
 
     await callback.answer()
 
     menu_message = await edit_or_replace_menu_message(
         callback=callback,
         text=format_specialist_profile_text(
-            specialist,
+            profile,
             language,
-            location_text,
-            profession_text,
         ),
-        reply_markup=specialist_profile_keyboard(
-            language
+        reply_markup=(
+            specialist_profile_keyboard(
+                language
+            )
         ),
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 @billing_router.callback_query(F.data == "CAB_PROFILE_PAUSE")
@@ -6842,7 +7787,27 @@ async def show_specialist_profile_visibility(
             show_alert=True,
         )
         return
+    try:
+        async with get_session() as session:
+            availability_status = await (
+                SpecialistService(
+                    SpecialistRepository(session)
+                ).get_active_cabinet_availability(
+                    tenant_id=tenant_id,
+                    user_id=user.id,
+                    specialist_id=specialist.id,
+                )
+            )
 
+    except (
+        SpecialistRegistrationError,
+        ValueError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
     async with get_session() as session:
         current_visibility = await SpecialistService(
             SpecialistRepository(session)
@@ -8183,7 +9148,6 @@ async def choose_specialist_location_update(callback: CallbackQuery, state: FSMC
                     specialist_id
                 ),
                 candidate=candidate,
-                service_radius_km=25,
             )
 
     except RateLimitError as exc:

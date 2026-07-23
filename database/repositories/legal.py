@@ -25,7 +25,7 @@ class LegalRepository:
                 LegalDocument.tenant_id == tenant_id,
                 LegalDocument.doc_type.in_(list(doc_types)),
                 LegalDocument.language.in_(languages),
-                LegalDocument.status == "active",
+                LegalDocument.status == "published",
             )
             .order_by(
                 LegalDocument.doc_type,

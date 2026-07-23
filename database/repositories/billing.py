@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
@@ -209,6 +209,7 @@ class BillingRepository:
         tenant_id: UUID,
         payer_user_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID,
         feature_code: str,
     ) -> tuple[Invoice, SpecialistPromotion]:
         feature = await self.get_paid_feature(tenant_id, feature_code)
@@ -219,6 +220,9 @@ class BillingRepository:
             await self.ensure_boost_allowed(
                 tenant_id=tenant_id,
                 specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
 
         now = datetime.utcnow()
@@ -258,6 +262,9 @@ class BillingRepository:
         promotion = SpecialistPromotion(
             tenant_id=tenant_id,
             specialist_id=specialist_id,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
             promotion_type=promotion_type,
             starts_at=None,
             ends_at=None,
@@ -490,16 +497,6 @@ class BillingRepository:
             promotion.starts_at = now
             promotion.ends_at = now + timedelta(days=duration_days)
 
-            specialist = await self.session.get(Specialist, promotion.specialist_id)
-            if specialist:
-                if promotion.promotion_type == "premium":
-                    specialist.is_premium = True
-                specialist.priority_score = self.calculate_priority_score(
-                    specialist,
-                    active_promotion_type=promotion.promotion_type,
-                )
-                specialist.updated_at = now
-
         await self.session.flush()
 
         await self.create_ledger_entry(
@@ -553,57 +550,31 @@ class BillingRepository:
         )
         promotions = list(result.scalars().all())
 
-        touched_specialist_ids = set()
         for promotion in promotions:
             promotion.status = "expired"
-            touched_specialist_ids.add(promotion.specialist_id)
-
-        await self.session.flush()
-
-        for specialist_id in touched_specialist_ids:
-            await self.recalculate_specialist_promotions(specialist_id)
 
         await self.session.flush()
         return promotions
-
-    async def recalculate_specialist_promotions(self, specialist_id: UUID) -> None:
-        specialist = await self.session.get(Specialist, specialist_id)
-        if not specialist:
-            return
-
-        now = datetime.utcnow()
-        active_result = await self.session.execute(
-            select(SpecialistPromotion).where(
-                SpecialistPromotion.specialist_id == specialist_id,
-                SpecialistPromotion.status == "active",
-                or_(
-                    SpecialistPromotion.ends_at.is_(None),
-                    SpecialistPromotion.ends_at > now,
-                ),
-            )
-        )
-        active_types = {item.promotion_type for item in active_result.scalars().all()}
-
-        specialist.is_premium = "premium" in active_types
-        specialist.priority_score = self.calculate_priority_score(
-            specialist,
-            active_promotion_type=max(active_types) if active_types else None,
-        )
-        specialist.updated_at = now
 
     async def ensure_boost_allowed(
         self,
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID,
     ) -> None:
         since = datetime.utcnow() - timedelta(days=7)
         existing = (
             await self.session.execute(
                 select(SpecialistPromotion).where(
-                    SpecialistPromotion.tenant_id == tenant_id,
-                    SpecialistPromotion.specialist_id == specialist_id,
-                    SpecialistPromotion.promotion_type == "boost",
+                    SpecialistPromotion.tenant_id
+                    == tenant_id,
+                    SpecialistPromotion.specialist_id
+                    == specialist_id,
+                    SpecialistPromotion.professional_cabinet_id
+                    == professional_cabinet_id,
+                    SpecialistPromotion.promotion_type
+                    == "boost",
                     SpecialistPromotion.created_at >= since,
                     SpecialistPromotion.status.in_(
                         ["pending_payment", "active"]
@@ -697,22 +668,6 @@ class BillingRepository:
 
     def get_feature_duration_days(self, feature: PaidFeature) -> int:
         return int((feature.extra_metadata or {}).get("duration_days") or 7)
-
-    def calculate_priority_score(
-        self,
-        specialist: Specialist,
-        *,
-        active_promotion_type: str | None,
-    ) -> Decimal:
-        base = Decimal(str(specialist.priority_score or 0))
-        promotion_bonus = {
-            "top_category": Decimal("100.00"),
-            "premium": Decimal("50.00"),
-            "featured_service": Decimal("25.00"),
-            "boost": Decimal("15.00"),
-        }.get(active_promotion_type or "", Decimal("0.00"))
-
-        return max(base, promotion_bonus)
 
     def payment_audit_state(
         self,

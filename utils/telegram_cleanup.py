@@ -66,6 +66,7 @@ async def edit_or_replace_tracked_menu_message(
     *,
     message: Message,
     menu_message_id: int | None,
+    delete_source_message: bool = False,
     text: str,
     reply_markup: (
         InlineKeyboardMarkup
@@ -74,6 +75,14 @@ async def edit_or_replace_tracked_menu_message(
         | None
     ) = None,
 ) -> int:
+    if delete_source_message:
+        try:
+            await message.delete()
+        except (
+            TelegramBadRequest,
+            TelegramForbiddenError,
+        ):
+            pass
     requires_replacement = isinstance(
         reply_markup,
         (

@@ -2,38 +2,50 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import UUID
 
-from database.models import Specialist
+from database.models import (
+    ProfessionalCabinet,
+    Specialist,
+)
 from database.repositories.event import EventRepository
 from database.repositories.search import (
     SpecialistSearchFilters,
     SpecialistSearchRepository,
 )
 from utils.geo import calculate_distance_km
-
+from database.repositories.reviews import (
+    ReviewRepository,
+)
 
 @dataclass
 class SpecialistSearchResult:
     specialist: Specialist
+    professional_cabinet: (
+        ProfessionalCabinet | None
+    ) = None
     distance_km: float | None = None
     ranking_score: float = 0.0
+    rating: float = 0.0
+    reviews_count: int = 0
+    is_premium: bool = False
+    promotion_priority: float = 0.0
     city_name: str | None = None
     category_name: str | None = None
     profession_name: str | None = None
-    languages: list[str] = field(default_factory=list)
+    languages: list[str] = field(
+        default_factory=list
+    )
 
 
 @dataclass
 class SpecialistPublicCard:
     specialist_id: UUID
+    professional_cabinet_id: UUID
     display_name: str
     short_description: str
     city_id: UUID | None
-    price_from: float | None
-    price_to: float | None
-    currency: str
-    price_unit: str | None
     experience_years: int | None = None
     city_name: str | None = None
+    country_name: str | None = None
     category_name: str | None = None
     profession_name: str | None = None
     work_format: str | None = None
@@ -43,7 +55,13 @@ class SpecialistPublicCard:
     rating: float = 0.0
     reviews_count: int = 0
     is_verified: bool = False
+    moderation_status: str = (
+        "pending_moderation"
+    )
     is_available: bool = False
+    availability_status: str = (
+        "temporarily_unavailable"
+    )
     is_premium: bool = False
     distance_km: float | None = None
 
@@ -300,14 +318,18 @@ class GeoSearchService:
         self,
         *,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
         viewer_user_id: UUID | None,
-        tenant_id: UUID | None,
+        tenant_id: UUID,
         event: PublicCardViewEvent,
         language: str = "ru",
     ) -> SpecialistPublicCard | None:
         try:
             card = await self.get_public_card(
                 specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
                 requester_user_id=viewer_user_id,
                 tenant_id=tenant_id,
                 distance_km=event.distance_km,
@@ -390,26 +412,138 @@ class GeoSearchService:
             activity_at = activity_at.replace(tzinfo=timezone.utc)
         return activity_at.timestamp()
 
+    async def _apply_cabinet_reputations(
+        self,
+        results: list[SpecialistSearchResult],
+    ) -> list[SpecialistSearchResult]:
+        cabinet_ids = [
+            result.professional_cabinet.id
+            for result in results
+            if result.professional_cabinet
+        ]
+
+        reputations = await ReviewRepository(
+            self.repository.session
+        ).list_professional_cabinet_reputations(
+            professional_cabinet_ids=(
+                cabinet_ids
+            ),
+        )
+
+        for result in results:
+            cabinet = result.professional_cabinet
+
+            if not cabinet:
+                continue
+
+            reputation = reputations.get(
+                cabinet.id
+            )
+
+            if not reputation:
+                continue
+
+            result.rating = float(
+                reputation.score or 0
+            )
+            result.reviews_count = int(
+                reputation.review_count or 0
+            )
+
+        return results
+
+    async def _apply_cabinet_promotions(
+        self,
+        *,
+        results: list[SpecialistSearchResult],
+        tenant_id: UUID,
+    ) -> list[SpecialistSearchResult]:
+        cabinet_ids = [
+            result.professional_cabinet.id
+            for result in results
+            if result.professional_cabinet
+        ]
+
+        promotion_types_by_cabinet = await (
+            self.repository
+            .list_active_professional_cabinet_promotion_types(
+                tenant_id=tenant_id,
+                professional_cabinet_ids=(
+                    cabinet_ids
+                ),
+            )
+        )
+
+        priority_by_type = {
+            "top_category": 100.0,
+            "premium": 50.0,
+            "featured_service": 25.0,
+            "boost": 15.0,
+        }
+
+        for result in results:
+            cabinet = result.professional_cabinet
+            if not cabinet:
+                continue
+
+            promotion_types = (
+                promotion_types_by_cabinet.get(
+                    cabinet.id,
+                    set(),
+                )
+            )
+
+            result.is_premium = (
+                "premium" in promotion_types
+            )
+            result.promotion_priority = max(
+                (
+                    priority_by_type.get(
+                        promotion_type,
+                        0.0,
+                    )
+                    for promotion_type
+                    in promotion_types
+                ),
+                default=0.0,
+            )
+
+        return results
+
     async def _enrich_search_results(
         self,
         results: list[SpecialistSearchResult],
         language: str = "ru",
     ) -> list[SpecialistSearchResult]:
         for result in results:
-            result.city_name = await self.repository.get_city_name(
-                result.specialist.city_id,
-                language,
+            cabinet = result.professional_cabinet
+
+            if not cabinet:
+                continue
+
+            result.city_name = (
+                await self.repository.get_city_name(
+                    cabinet.city_id,
+                    language,
+                )
             )
-            result.category_name = await self.repository.get_category_name(
-                result.specialist.category_id,
-                language,
+            result.category_name = (
+                await self.repository.get_category_name(
+                    cabinet.category_id,
+                    language,
+                )
             )
-            result.profession_name = await self.repository.get_profession_name(
-                result.specialist.profession_id,
-                language,
+            result.profession_name = (
+                await self.repository.get_profession_name(
+                    cabinet.profession_id,
+                    language,
+                )
             )
-            result.languages = await self.repository.get_language_codes_for_specialist(
-                result.specialist.id,
+            result.languages = await (
+                self.repository
+                .get_language_codes_for_specialist(
+                    result.specialist.id,
+                )
             )
 
         return results
@@ -422,6 +556,8 @@ class GeoSearchService:
         radius_km: float,
         profile_completion_score: int,
         risk_score: int,
+        rating: float = 0.0,
+        is_premium: bool = False,
     ) -> float:
         if distance_km is None:
             distance_score = 0.5
@@ -430,7 +566,10 @@ class GeoSearchService:
         else:
             distance_score = max(0.0, 1.0 - (distance_km / radius_km))
 
-        rating_score = min(float(specialist.rating or 0) / 5.0, 1.0)
+        rating_score = min(
+            float(rating or 0) / 5.0,
+            1.0,
+        )
 
         response_minutes = specialist.response_time_minutes
         if response_minutes is None:
@@ -443,7 +582,9 @@ class GeoSearchService:
             response_score = 0.3
 
         profile_completion = min(float(profile_completion_score or 0) / 100.0, 1.0)
-        premium_boost = 1.0 if specialist.is_premium else 0.0
+        premium_boost = (
+            1.0 if is_premium else 0.0
+        )
 
         created_at = specialist.created_at
         if created_at is None:
@@ -466,73 +607,199 @@ class GeoSearchService:
             - risk_penalty
         )
 
+    def _recalculate_ranking_scores(
+        self,
+        *,
+        results: list[SpecialistSearchResult],
+        user_metrics: dict[UUID, dict],
+        radius_km: float,
+    ) -> list[SpecialistSearchResult]:
+        for result in results:
+            specialist = result.specialist
+            metrics = user_metrics.get(
+                specialist.id,
+                {},
+            )
+
+            result.ranking_score = (
+                self._calculate_ranking_score(
+                    specialist=specialist,
+                    distance_km=(
+                        result.distance_km
+                    ),
+                    radius_km=radius_km,
+                    profile_completion_score=(
+                        metrics.get(
+                            "profile_completion_score",
+                            0,
+                        )
+                    ),
+                    risk_score=metrics.get(
+                        "risk_score",
+                        0,
+                    ),
+                    rating=result.rating,
+                    is_premium=result.is_premium,
+                )
+            )
+
+        return results
+
     async def get_public_card(
         self,
         *,
+        tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: (
+            UUID | None
+        ) = None,
         requester_user_id: UUID | None = None,
-        tenant_id: UUID | None = None,
         distance_km: float | None = None,
         log_event: bool = False,
         language: str = "ru",
     ) -> SpecialistPublicCard | None:
-        specialist = await self.repository.get_approved_specialist_for_card(
-    specialist_id
-)
-        if not specialist:
+        context = await (
+            self.repository
+            .get_approved_professional_cabinet_for_card(
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                tenant_id=tenant_id,
+            )
+        )
+        if not context:
             return None
 
-        languages = await self.repository.get_language_codes_for_specialist(specialist.id)
-        city_name = await self.repository.get_city_name(specialist.city_id, language)
+        specialist, cabinet = context
+        effective_tenant_id = tenant_id
 
-        category_name = await self.repository.get_category_name(
-            specialist.category_id,
+        languages = await (
+            self.repository
+            .get_language_codes_for_specialist(
+                specialist.id
+            )
+        )
+        city_name = await self.repository.get_city_name(
+            cabinet.city_id,
             language,
         )
-        profession_name = await self.repository.get_profession_name(
-            specialist.profession_id,
-            language,
+        country_name = (
+            await self.repository.get_country_name(
+                cabinet.country_id,
+                language,
+            )
         )
-        service_titles = await self.repository.get_public_service_titles(
-            specialist.id,
-            limit=5,
+        category_name = (
+            await self.repository.get_category_name(
+                cabinet.category_id,
+                language,
+            )
         )
-        skill_names = await self.repository.get_public_skill_names_for_user(
-            specialist.user_id,
-            language=language,
-            limit=8,
+        profession_name = (
+            await self.repository.get_profession_name(
+                cabinet.profession_id,
+                language,
+            )
+        )
+        service_titles = await (
+            self.repository
+            .get_public_service_titles(
+                specialist.id,
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+                limit=5,
+            )
+        )
+        skill_names = await (
+            self.repository
+            .get_public_skill_names_for_cabinet(
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+                language=language,
+                limit=8,
+            )
+        )
+
+        reputation = await ReviewRepository(
+            self.repository.session
+        ).get_professional_cabinet_reputation(
+            tenant_id=effective_tenant_id,
+            professional_cabinet_id=cabinet.id,
+        )
+
+        promotion_types_by_cabinet = await (
+            self.repository
+            .list_active_professional_cabinet_promotion_types(
+                tenant_id=effective_tenant_id,
+                professional_cabinet_ids=[
+                    cabinet.id
+                ],
+            )
+        )
+        cabinet_promotion_types = (
+            promotion_types_by_cabinet.get(
+                cabinet.id,
+                set(),
+            )
         )
 
         if log_event:
             await self.repository.log_specialist_viewed(
-                tenant_id=tenant_id,
+                tenant_id=effective_tenant_id,
                 user_id=requester_user_id,
                 specialist_id=specialist.id,
             )
 
         return SpecialistPublicCard(
             specialist_id=specialist.id,
+            professional_cabinet_id=cabinet.id,
             display_name=specialist.display_name,
-            short_description=specialist.short_description,
-            experience_years=specialist.experience_years,
-            city_id=specialist.city_id,
-            price_from=float(specialist.price_from) if specialist.price_from is not None else None,
-            price_to=float(specialist.price_to) if specialist.price_to is not None else None,
-            currency=specialist.currency,
-            price_unit=specialist.price_unit,
+            short_description=(
+                cabinet.description or ""
+            ),
+            experience_years=(
+                specialist.experience_years
+            ),
+            city_id=cabinet.city_id,
             languages=languages,
-            rating=float(specialist.rating or 0),
-            reviews_count=specialist.reviews_count or 0,
+            rating=(
+                float(reputation.score)
+                if reputation
+                else 0.0
+            ),
+            reviews_count=(
+                reputation.review_count
+                if reputation
+                else 0
+            ),
             category_name=category_name,
             profession_name=profession_name,
-            work_format=specialist.work_format,
+            work_format=cabinet.work_format,
             service_titles=service_titles,
             skill_names=skill_names,
-            is_verified=bool(specialist.is_verified),
-            is_available=bool(specialist.is_available),
-            is_premium=bool(specialist.is_premium),
+            is_verified=bool(
+                specialist.is_verified
+            ),
+            moderation_status=(
+                cabinet.moderation_status
+            ),
+            is_available=(
+                cabinet.availability_status
+                == "available"
+            ),
+            availability_status=(
+                cabinet.availability_status
+            ),
+            is_premium=(
+                "premium"
+                in cabinet_promotion_types
+            ),
             distance_km=distance_km,
             city_name=city_name,
+            country_name=country_name,
         )
 
     async def search_by_city(
@@ -553,7 +820,7 @@ class GeoSearchService:
         limit: int = 10,
         offset: int = 0,
         requester_user_id: UUID | None = None,
-        tenant_id: UUID | None = None,
+        tenant_id: UUID,
         log_event: bool = False,
         interface_language: str = "ru",
     ) -> list[SpecialistSearchResult]:
@@ -569,7 +836,6 @@ class GeoSearchService:
             available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
-            status="approved",
             limit=limit,
             offset=offset,
             sort_by=sort_by,
@@ -586,22 +852,38 @@ class GeoSearchService:
             available_only=available_only,
             work_format=work_format,
             rating_min=rating_min,
-            status="approved",
             limit=200,
             offset=0,
             sort_by=sort_by,
         )
-        specialists = await self.repository.search_specialists(candidate_filters)
-        user_metrics = await self.repository.get_user_metrics_by_specialist_ids(
-            [specialist.id for specialist in specialists]
+        cabinet_rows = await (
+            self.repository
+            .search_professional_cabinets(
+                candidate_filters,
+                tenant_id=tenant_id,
+            )
+        )
+        user_metrics = await (
+            self.repository
+            .get_user_metrics_by_specialist_ids(
+                [
+                    specialist.id
+                    for specialist, _cabinet
+                    in cabinet_rows
+                ]
+            )
         )
 
         results = []
-        for specialist in specialists:
-            metrics = user_metrics.get(specialist.id, {})
+        for specialist, cabinet in cabinet_rows:
+            metrics = user_metrics.get(
+                specialist.id,
+                {},
+            )
             results.append(
                 SpecialistSearchResult(
                     specialist=specialist,
+                    professional_cabinet=cabinet,
                     distance_km=None,
                     ranking_score=self._calculate_ranking_score(
                         specialist=specialist,
@@ -612,15 +894,34 @@ class GeoSearchService:
                     ),
                 )
             )
-
+        results = await (
+            self._apply_cabinet_reputations(
+                results
+            )
+        )
+        results = await (
+            self._apply_cabinet_promotions(
+                results=results,
+                tenant_id=tenant_id,
+            )
+        )
+        results = (
+            self._recalculate_ranking_scores(
+                results=results,
+                user_metrics=user_metrics,
+                radius_km=(
+                    filters.normalized_radius_km
+                ),
+            )
+        )
         if filters.sort_by == "relevance":
             results.sort(
                 key=lambda item: (
-                    -int(bool(item.specialist.is_premium)),
-                    -float(item.specialist.priority_score or 0),
-                    -float(item.specialist.rating or 0),
+                    -int(bool(item.is_premium)),
+                    -float(item.promotion_priority or 0),
+                    -float(item.rating or 0),
                     -int(bool(item.specialist.is_verified)),
-                    -int(item.specialist.reviews_count or 0),
+                    -int(item.reviews_count or 0),
                     -self._activity_timestamp(item.specialist),
                     str(item.specialist.id),
                 )
@@ -628,9 +929,9 @@ class GeoSearchService:
         else:
             results.sort(
                 key=lambda item: (
-                    -float(item.specialist.rating or 0),
+                    -float(item.rating or 0),
                     -int(bool(item.specialist.is_verified)),
-                    -int(item.specialist.reviews_count or 0),
+                    -int(item.reviews_count or 0),
                     -self._activity_timestamp(item.specialist),
                     str(item.specialist.id),
                 )
@@ -670,7 +971,7 @@ class GeoSearchService:
         limit: int = 10,
         offset: int = 0,
         requester_user_id: UUID | None = None,
-        tenant_id: UUID | None = None,
+        tenant_id: UUID,
         log_event: bool = False,
         interface_language: str = "ru",
     ) -> list[SpecialistSearchResult]:
@@ -684,23 +985,39 @@ class GeoSearchService:
             available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
-            status="approved",
             limit=limit,
             offset=offset,
             sort_by="relevance" if sort_by == "distance" else sort_by,
         )
 
-        specialists = await self.repository.search_specialists(filters)
-        user_metrics = await self.repository.get_user_metrics_by_specialist_ids(
-            [specialist.id for specialist in specialists]
+        cabinet_rows = await (
+            self.repository
+            .search_professional_cabinets(
+                filters,
+                tenant_id=tenant_id,
+            )
+        )
+        user_metrics = await (
+            self.repository
+            .get_user_metrics_by_specialist_ids(
+                [
+                    specialist.id
+                    for specialist, _cabinet
+                    in cabinet_rows
+                ]
+            )
         )
 
         results = []
-        for specialist in specialists:
-            metrics = user_metrics.get(specialist.id, {})
+        for specialist, cabinet in cabinet_rows:
+            metrics = user_metrics.get(
+                specialist.id,
+                {},
+            )
             results.append(
                 SpecialistSearchResult(
                     specialist=specialist,
+                    professional_cabinet=cabinet,
                     distance_km=None,
                     ranking_score=self._calculate_ranking_score(
                         specialist=specialist,
@@ -711,14 +1028,33 @@ class GeoSearchService:
                     ),
                 )
             )
-
+        results = await (
+            self._apply_cabinet_reputations(
+                results
+            )
+        )
+        results = await (
+            self._apply_cabinet_promotions(
+                results=results,
+                tenant_id=tenant_id,
+            )
+        )
+        results = (
+            self._recalculate_ranking_scores(
+                results=results,
+                user_metrics=user_metrics,
+                radius_km=(
+                    filters.normalized_radius_km
+                ),
+            )
+        )
         results.sort(
             key=lambda item: (
-                -int(bool(item.specialist.is_premium)),
-                -float(item.specialist.priority_score or 0),
-                -float(item.specialist.rating or 0),
+                -int(bool(item.is_premium)),
+                -float(item.promotion_priority or 0),
+                -float(item.rating or 0),
                 -int(bool(item.specialist.is_verified)),
-                -int(item.specialist.reviews_count or 0),
+                -int(item.reviews_count or 0),
                 -self._activity_timestamp(item.specialist),
                 str(item.specialist.id),
             )
@@ -760,7 +1096,7 @@ class GeoSearchService:
         limit: int = 10,
         offset: int = 0,
         requester_user_id: UUID | None = None,
-        tenant_id: UUID | None = None,
+        tenant_id: UUID,
         log_event: bool = False,
         interface_language: str = "ru",
     ) -> list[SpecialistSearchResult]:
@@ -783,8 +1119,11 @@ class GeoSearchService:
             sort_by=sort_by,
         )
 
-        candidates = await self.repository.search_within_radius(
-            latitude=latitude,
+        cabinet_candidates = await (
+            self.repository
+            .search_professional_cabinets_within_radius(
+                tenant_id=tenant_id,
+                latitude=latitude,
             longitude=longitude,
             radius_km=filters.normalized_radius_km,
             country_wide=country_wide,
@@ -798,21 +1137,34 @@ class GeoSearchService:
             available_only=available_only,
             rating_min=rating_min,
             work_format=work_format,
-            limit=200,
+                limit=200,
+            )
         )
 
-        specialist_ids = [specialist.id for specialist, _distance in candidates]
+        specialist_ids = [
+            specialist.id
+            for specialist, _cabinet, _distance
+            in cabinet_candidates
+        ]
         user_metrics = await self.repository.get_user_metrics_by_specialist_ids(
             specialist_ids
         )
 
         results: list[SpecialistSearchResult] = []
 
-        for specialist, distance in candidates:
-            metrics = user_metrics.get(specialist.id, {})
+        for (
+            specialist,
+            cabinet,
+            distance,
+        ) in cabinet_candidates:
+            metrics = user_metrics.get(
+                specialist.id,
+                {},
+            )
             results.append(
                 SpecialistSearchResult(
                     specialist=specialist,
+                    professional_cabinet=cabinet,
                     distance_km=distance,
                     ranking_score=self._calculate_ranking_score(
                         specialist=specialist,
@@ -823,16 +1175,35 @@ class GeoSearchService:
                     ),
                 )
             )
-
+        results = await (
+            self._apply_cabinet_reputations(
+                results
+            )
+        )
+        results = await (
+            self._apply_cabinet_promotions(
+                results=results,
+                tenant_id=tenant_id,
+            )
+        )
+        results = (
+            self._recalculate_ranking_scores(
+                results=results,
+                user_metrics=user_metrics,
+                radius_km=(
+                    filters.normalized_radius_km
+                ),
+            )
+        )
         if filters.sort_by == "distance":
             results.sort(
                 key=lambda item: (
-                    -int(bool(item.specialist.is_premium)),
-                    -float(item.specialist.priority_score or 0),
+                    -int(bool(item.is_premium)),
+                    -float(item.promotion_priority or 0),
                     item.distance_km if item.distance_km is not None else 999999,
-                    -float(item.specialist.rating or 0),
+                    -float(item.rating or 0),
                     -int(bool(item.specialist.is_verified)),
-                    -int(item.specialist.reviews_count or 0),
+                    -int(item.reviews_count or 0),
                     -self._activity_timestamp(item.specialist),
                     str(item.specialist.id),
                 )
@@ -840,11 +1211,11 @@ class GeoSearchService:
         else:
             results.sort(
                 key=lambda item: (
-                    -int(bool(item.specialist.is_premium)),
-                    -float(item.specialist.priority_score or 0),
-                    -float(item.specialist.rating or 0),
+                    -int(bool(item.is_premium)),
+                    -float(item.promotion_priority or 0),
+                    -float(item.rating or 0),
                     -int(bool(item.specialist.is_verified)),
-                    -int(item.specialist.reviews_count or 0),
+                    -int(item.reviews_count or 0),
                     -self._activity_timestamp(item.specialist),
                     str(item.specialist.id),
                 )

@@ -902,6 +902,16 @@ translations = {
         "en": "verified",
         "pt": "verificado",
     },
+    "search_moderation_approved_label": {
+        "ru": "Модерация пройдена",
+        "en": "Moderation approved",
+        "pt": "Moderação aprovada",
+    },
+    "search_moderation_pending_label": {
+        "ru": "На модерации",
+        "en": "Pending moderation",
+        "pt": "Em moderação",
+    },
     "search_premium_label": {
         "ru": "premium",
         "en": "premium",
@@ -2963,6 +2973,76 @@ translations = {
         "en": "Admin",
         "pt": "Administrador",
     },
+    "professional_cabinets_btn": {
+        "ru": "🔄 Профессиональные кабинеты",
+        "en": "🔄 Professional cabinets",
+        "pt": "🔄 Gabinetes profissionais",
+    },
+    "professional_cabinets_title": {
+        "ru": "🔄 Профессиональные кабинеты\n\nВыберите кабинет, который хотите открыть.",
+        "en": "🔄 Professional cabinets\n\nChoose the cabinet you want to open.",
+        "pt": "🔄 Gabinetes profissionais\n\nEscolha o gabinete que deseja abrir.",
+    },
+    "professional_cabinets_empty": {
+        "ru": "У вас пока нет активных профессиональных кабинетов.",
+        "en": "You do not have active professional cabinets yet.",
+        "pt": "Voce ainda nao tem gabinetes profissionais ativos.",
+    },
+    "professional_cabinet_switched": {
+        "ru": "Профессиональный кабинет открыт.",
+        "en": "Professional cabinet opened.",
+        "pt": "Gabinete profissional aberto.",
+    },
+    "professional_cabinet_add_btn": {
+        "ru": "➕ Добавить кабинет",
+        "en": "➕ Add cabinet",
+        "pt": "➕ Adicionar gabinete",
+    },
+    "professional_cabinet_choose_category": {
+        "ru": "➕ Новый профессиональный кабинет\n\nВыберите направление.",
+        "en": "➕ New professional cabinet\n\nChoose a category.",
+        "pt": "➕ Novo gabinete profissional\n\nEscolha uma categoria.",
+    },
+    "professional_cabinet_choose_profession": {
+        "ru": "➕ Новый профессиональный кабинет\n\nВыберите профессию.",
+        "en": "➕ New professional cabinet\n\nChoose a profession.",
+        "pt": "➕ Novo gabinete profissional\n\nEscolha uma profissão.",
+    },
+    "professional_cabinet_created": {
+        "ru": "Профессиональный кабинет создан и открыт.",
+        "en": "Professional cabinet created and opened.",
+        "pt": "Gabinete profissional criado e aberto.",
+    },
+    "professional_cabinet_already_exists": {
+        "ru": "Кабинет для этой профессии уже существует.",
+        "en": "A cabinet for this profession already exists.",
+        "pt": "Ja existe um gabinete para esta profissao.",
+    },
+    "professional_cabinet_add_failed": {
+        "ru": "Не удалось создать профессиональный кабинет.",
+        "en": "Unable to create the professional cabinet.",
+        "pt": "Nao foi possivel criar o gabinete profissional.",
+    },
+    "professional_cabinet_submit_moderation_btn": {
+        "ru": "Отправить на модерацию",
+        "en": "Submit for moderation",
+        "pt": "Enviar para moderacao",
+    },
+    "professional_cabinet_submitted": {
+        "ru": "Кабинет отправлен на модерацию.",
+        "en": "The cabinet was submitted for moderation.",
+        "pt": "O gabinete foi enviado para moderacao.",
+    },
+    "professional_cabinet_already_pending": {
+        "ru": "Кабинет уже ожидает модерации.",
+        "en": "The cabinet is already awaiting moderation.",
+        "pt": "O gabinete ja esta aguardando moderacao.",
+    },
+    "professional_cabinet_submit_failed": {
+        "ru": "Не удалось отправить кабинет на модерацию.",
+        "en": "Unable to submit the cabinet for moderation.",
+        "pt": "Nao foi possivel enviar o gabinete para moderacao.",
+    },
     "role_switch_prompt": {
         "ru": "🔄 Мои кабинеты\n\nВыберите кабинет, который хотите открыть.",
         "en": "🔄 My cabinets\n\nChoose the cabinet you want to open.",
@@ -3277,9 +3357,18 @@ translations = {
         "pt": "O perfil de especialista ainda nao foi criado. Inicie o cadastro.",
     },
     "specialist_status_pending_notice": {
-        "ru": "Профиль ожидает модерации. Клиенты пока его не видят.",
-        "en": "Profile is waiting for moderation. Clients cannot see it yet.",
-        "pt": "O perfil aguarda moderacao. Clientes ainda nao o veem.",
+        "ru": (
+            "Профиль опубликован с отметкой «На модерации». "
+            "Клиенты уже видят его в поиске."
+        ),
+        "en": (
+            "The profile is published with a “Pending moderation” "
+            "label and is already visible in search."
+        ),
+        "pt": (
+            "O perfil foi publicado com a indicação «Em moderação» "
+            "e já aparece na pesquisa."
+        ),
     },
     "specialist_status_rejected_notice": {
         "ru": "Профиль отклонён. Исправьте данные или обратитесь в поддержку.",
@@ -7783,6 +7872,26 @@ translations = {
         "en": "Available from date",
         "pt": "Disponivel a partir de uma data",
     },
+    "spec_availability_vacation": {
+        "ru": "🏖 В отпуске",
+        "en": "🏖 On vacation",
+        "pt": "🏖 De ferias",
+    },
+    "spec_availability_unavailable": {
+        "ru": "⛔ Временно недоступен",
+        "en": "⛔ Temporarily unavailable",
+        "pt": "⛔ Temporariamente indisponivel",
+    },
+    "spec_availability_vacation_btn": {
+        "ru": "В отпуске",
+        "en": "On vacation",
+        "pt": "De ferias",
+    },
+    "spec_availability_unavailable_btn": {
+        "ru": "Временно недоступен",
+        "en": "Temporarily unavailable",
+        "pt": "Temporariamente indisponivel",
+    },
     "spec_availability_date_prompt": {
         "ru": "Напишите дату или срок, когда вы будете доступны. Например: 2026-07-15 или с понедельника.",
         "en": "Send the date or time when you will be available. Example: 2026-07-15 or from Monday.",
@@ -7836,9 +7945,18 @@ translations = {
         "pt": "Perfil em revisão",
     },
     "spec_moderation_status_pending_hint": {
-        "ru": "Обычно проверка занимает до 24 часов. Пока профиль не виден в поиске.",
-        "en": "Review usually takes up to 24 hours. The profile is not visible in search yet.",
-        "pt": "A revisão normalmente leva até 24 horas. O perfil ainda não aparece na busca.",
+        "ru": (
+            "Профиль уже виден клиентам с отметкой «На модерации». "
+            "Проверка обычно занимает до 24 часов."
+        ),
+        "en": (
+            "The profile is already visible to clients with a "
+            "“Pending moderation” label. Review usually takes up to 24 hours."
+        ),
+        "pt": (
+            "O perfil já está visível aos clientes com a indicação "
+            "«Em moderação». A revisão normalmente leva até 24 horas."
+        ),
     },
     "spec_moderation_status_rejected": {
         "ru": "Профиль отклонен",
@@ -10878,9 +10996,18 @@ translations = {
         "pt": "🟢 Perfil publicado.\nOs clientes podem encontrá-lo na pesquisa.",
     },
     "specialist_cabinet_pending": {
-        "ru": "🛡 Профиль находится на проверке.",
-        "en": "🛡 Profile is being reviewed.",
-        "pt": "🛡 O perfil está em análise.",
+        "ru": (
+            "🟡 Профиль опубликован с отметкой «На модерации».\n"
+            "Клиенты уже видят его в поиске."
+        ),
+        "en": (
+            "🟡 Profile published with a “Pending moderation” label.\n"
+            "Clients can already find it in search."
+        ),
+        "pt": (
+            "🟡 Perfil publicado com a indicação «Em moderação».\n"
+            "Os clientes já podem encontrá-lo na pesquisa."
+        ),
     },
     "specialist_cabinet_draft": {
         "ru": "⚪ Профиль ещё не опубликован.",

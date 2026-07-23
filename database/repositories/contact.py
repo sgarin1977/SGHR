@@ -15,6 +15,7 @@ from database.models import (
     MessageReadReceipt,
     Notification,
     Profession,
+    ProfessionalCabinet,
     Specialist,
     SpecialistProfession,
     TranslationJob,
@@ -23,7 +24,10 @@ from database.models import (
     UserRoleMapping,
 )
 from database.repositories.translation import TranslationRepository
-
+from database.repositories.search import (
+    PUBLIC_CABINET_MODERATION_STATUSES,
+    PUBLIC_SPECIALIST_STATUSES,
+)
 class ContactChatRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -71,56 +75,83 @@ class ContactChatRepository:
         return None
     async def get_approved_specialist(
         self,
+        *,
+        tenant_id: UUID,
         specialist_id: UUID,
     ) -> Specialist | None:
         result = await self.session.execute(
             select(Specialist)
-            .join(User, User.id == Specialist.user_id)
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
             .where(
                 Specialist.id == specialist_id,
-                Specialist.status == "approved",
-                User.status.notin_(["blocked", "deleted"]),
+                Specialist.tenant_id == tenant_id,
+                Specialist.status.in_(
+                    PUBLIC_SPECIALIST_STATUSES
+                ),
+                User.status.notin_(
+                    ["blocked", "deleted"]
+                ),
             )
         )
         return result.scalar_one_or_none()
-
-    async def resolve_contact_profession_id(
+    async def get_approved_professional_cabinet(
         self,
         *,
+        tenant_id: UUID,
         specialist_id: UUID,
         requested_profession_id: UUID | None = None,
-    ) -> UUID | None:
-        query = select(SpecialistProfession.profession_id).where(
-            SpecialistProfession.specialist_id == specialist_id,
-            SpecialistProfession.status == "active",
+    ) -> ProfessionalCabinet | None:
+        query = select(
+            ProfessionalCabinet
+        ).where(
+            ProfessionalCabinet.tenant_id
+            == tenant_id,
+            ProfessionalCabinet.specialist_id
+            == specialist_id,
+            ProfessionalCabinet.is_active.is_(
+                True
+            ),
+            ProfessionalCabinet.moderation_status.in_(
+                PUBLIC_CABINET_MODERATION_STATUSES
+            ),
         )
 
         if requested_profession_id is not None:
             query = query.where(
-                SpecialistProfession.profession_id == requested_profession_id,
+                ProfessionalCabinet.profession_id
+                == requested_profession_id,
+            )
+        else:
+            specialist = await self.session.get(
+                Specialist,
+                specialist_id,
+            )
+            if (
+                not specialist
+                or specialist.tenant_id != tenant_id
+                or not specialist.active_professional_cabinet_id
+            ):
+                return None
+
+            query = query.where(
+                ProfessionalCabinet.id
+                == specialist.active_professional_cabinet_id,
             )
 
-        query = query.order_by(
-            SpecialistProfession.is_primary.desc(),
-            SpecialistProfession.created_at.asc(),
-        ).limit(1)
-
-        result = await self.session.execute(query)
-        profession_id = result.scalar_one_or_none()
-
-        if profession_id is not None:
-            return profession_id
-
-        specialist = await self.session.get(Specialist, specialist_id)
-        return specialist.profession_id if specialist else None
-
+        result = await self.session.execute(
+            query.limit(1)
+        )
+        return result.scalar_one_or_none()
     async def get_active_contact_request_for_pair(
         self,
         *,
         tenant_id: UUID,
         from_user_id: UUID,
         specialist_id: UUID,
-        profession_id: UUID,
+        professional_cabinet_id: UUID,
     ) -> ContactRequest | None:
         result = await self.session.execute(
             select(ContactRequest)
@@ -128,7 +159,8 @@ class ContactChatRepository:
                 ContactRequest.tenant_id == tenant_id,
                 ContactRequest.from_user_id == from_user_id,
                 ContactRequest.specialist_id == specialist_id,
-                ContactRequest.profession_id == profession_id,
+                ContactRequest.professional_cabinet_id
+                == professional_cabinet_id,
                 ContactRequest.status.in_(["new", "accepted"]),
             )
             .order_by(ContactRequest.created_at.desc())
@@ -234,6 +266,21 @@ class ContactChatRepository:
         )
         if not specialist:
             raise ValueError("Specialist not found.")
+
+        if (
+            actor_user_id == specialist.user_id
+            and (
+                not specialist
+                .active_professional_cabinet_id
+                or specialist
+                .active_professional_cabinet_id
+                != thread.professional_cabinet_id
+            )
+        ):
+            raise ValueError(
+                "Conversation belongs to another "
+                "professional cabinet."
+            )
 
         participant_user_ids = {
             thread.client_user_id,
@@ -730,6 +777,7 @@ class ContactChatRepository:
         from_user_id: UUID,
         specialist_id: UUID,
         profession_id: UUID,
+        professional_cabinet_id: UUID,
         specialist_user_id: UUID,
         system_message: str,
         original_language: str,
@@ -746,6 +794,7 @@ class ContactChatRepository:
             from_user_id=from_user_id,
             specialist_id=specialist_id,
             profession_id=profession_id,
+            professional_cabinet_id=professional_cabinet_id,
             message=system_message,
             original_language=original_language,
             status="new",
@@ -763,6 +812,7 @@ class ContactChatRepository:
             context_id=contact_request.id,
             client_user_id=from_user_id,
             specialist_id=specialist_id,
+            professional_cabinet_id=professional_cabinet_id,
             status="waiting_specialist",
         )
         self.session.add(thread)
@@ -852,6 +902,7 @@ class ContactChatRepository:
         from_user_id: UUID,
         specialist_id: UUID,
         profession_id: UUID,
+        professional_cabinet_id: UUID,
         specialist_user_id: UUID,
         message: str,
         original_language: str,
@@ -864,6 +915,7 @@ class ContactChatRepository:
             from_user_id=from_user_id,
             specialist_id=specialist_id,
             profession_id=profession_id,
+            professional_cabinet_id=professional_cabinet_id,
             message=message,
             original_language=original_language,
             status="new",
@@ -880,6 +932,7 @@ class ContactChatRepository:
             context_id=contact_request.id,
             client_user_id=from_user_id,
             specialist_id=specialist_id,
+            professional_cabinet_id=professional_cabinet_id,
             status="waiting_specialist",
         )
         self.session.add(thread)
@@ -1041,6 +1094,7 @@ class ContactChatRepository:
         offset: int = 0,
         language: str = "ru",
         search_query: str | None = None,
+        professional_cabinet_id: UUID | None = None,
     ) -> list[tuple]:
         localized_profession_name = {
             "ru": Profession.name_ru,
@@ -1110,18 +1164,26 @@ class ContactChatRepository:
                 (UserAccount.user_id == ContactRequest.from_user_id)
                 & (UserAccount.platform == "telegram"),
             )
-            .outerjoin(
-                SpecialistProfession,
-                (SpecialistProfession.specialist_id == Specialist.id)
-                & (SpecialistProfession.status == "active")
-                & (SpecialistProfession.is_primary.is_(True)),
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == ConversationThread.professional_cabinet_id,
             )
-            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .join(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
             .where(
                 ConversationParticipant.user_id == user_id,
                 ConversationParticipant.participant_role == participant_role,
             )
         )
+        if professional_cabinet_id is not None:
+            stmt = stmt.where(
+                ConversationThread.professional_cabinet_id
+                == professional_cabinet_id
+            )
         normalized_search_query = (search_query or "").strip()
 
         if normalized_search_query:
@@ -1206,21 +1268,43 @@ class ContactChatRepository:
         *,
         user_id: UUID,
         participant_role: str,
+        professional_cabinet_id: UUID | None = None,
     ) -> int:
-        result = await self.session.execute(
+        stmt = (
             select(
                 func.coalesce(
-                    func.sum(ConversationParticipant.unread_count),
+                    func.sum(
+                        ConversationParticipant.unread_count
+                    ),
                     0,
                 )
-            ).where(
-                ConversationParticipant.user_id == user_id,
-                ConversationParticipant.participant_role == participant_role,
-                ConversationParticipant.is_archived.is_(False),
-                ConversationParticipant.is_hidden.is_(False),
+            )
+            .join(
+                ConversationThread,
+                ConversationThread.id
+                == ConversationParticipant.thread_id,
+            )
+            .where(
+                ConversationParticipant.user_id
+                == user_id,
+                ConversationParticipant.participant_role
+                == participant_role,
+                ConversationParticipant.is_archived.is_(
+                    False
+                ),
+                ConversationParticipant.is_hidden.is_(
+                    False
+                ),
             )
         )
 
+        if professional_cabinet_id is not None:
+            stmt = stmt.where(
+                ConversationThread.professional_cabinet_id
+                == professional_cabinet_id
+            )
+
+        result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
 
     async def list_contact_requests_for_client(
@@ -1561,10 +1645,26 @@ class ContactChatRepository:
 
         if sender_user_id == thread.client_user_id:
             receiver_user_id = specialist.user_id
+
         elif sender_user_id == specialist.user_id:
+            if (
+                not specialist
+                .active_professional_cabinet_id
+                or specialist
+                .active_professional_cabinet_id
+                != thread.professional_cabinet_id
+            ):
+                raise ValueError(
+                    "Conversation belongs to another "
+                    "professional cabinet."
+                )
+
             receiver_user_id = thread.client_user_id
+
         else:
-            raise ValueError("User is not a thread participant.")
+            raise ValueError(
+                "User is not a thread participant."
+            )
         if await self._is_user_blacklisted_or_blocked(
             tenant_id=thread.tenant_id,
             user_id=receiver_user_id,
@@ -1813,7 +1913,20 @@ class ContactChatRepository:
         specialist = await self.session.get(Specialist, thread.specialist_id)
         if not specialist:
             raise ValueError("Specialist not found.")
-
+        if (
+            actor_user_id == specialist.user_id
+            and (
+                not specialist
+                .active_professional_cabinet_id
+                or specialist
+                .active_professional_cabinet_id
+                != thread.professional_cabinet_id
+            )
+        ):
+            raise ValueError(
+                "Service order belongs to another "
+                "professional cabinet."
+            )
         existing_result = await self.session.execute(
             select(ServiceOrder).where(
                 ServiceOrder.contact_request_id == contact_request.id,
@@ -1832,6 +1945,7 @@ class ContactChatRepository:
             specialist_user_id=specialist.user_id,
             specialist_id=thread.specialist_id,
             profession_id=contact_request.profession_id,
+            professional_cabinet_id=thread.professional_cabinet_id,
             status="draft",
             description=(description or contact_request.message or "").strip() or None,
             agreed_amount=agreed_amount,
@@ -1889,7 +2003,23 @@ class ContactChatRepository:
             order.specialist_user_id,
         }:
             raise ValueError("Only order participants can confirm the order.")
-
+        if actor_user_id == order.specialist_user_id:
+            specialist = await self.session.get(
+                Specialist,
+                order.specialist_id,
+            )
+            if (
+                not specialist
+                or not specialist
+                .active_professional_cabinet_id
+                or specialist
+                .active_professional_cabinet_id
+                != order.professional_cabinet_id
+            ):
+                raise ValueError(
+                    "Service order belongs to another "
+                    "professional cabinet."
+                )
         confirmed_at = datetime.utcnow()
         order.status = "confirmed"
         order.confirmed_by = actor_user_id
@@ -1939,7 +2069,23 @@ class ContactChatRepository:
             order.specialist_user_id,
         }:
             raise ValueError("Only order participants can complete the order.")
-
+        if actor_user_id == order.specialist_user_id:
+            specialist = await self.session.get(
+                Specialist,
+                order.specialist_id,
+            )
+            if (
+                not specialist
+                or not specialist
+                .active_professional_cabinet_id
+                or specialist
+                .active_professional_cabinet_id
+                != order.professional_cabinet_id
+            ):
+                raise ValueError(
+                    "Service order belongs to another "
+                    "professional cabinet."
+                )
         completed_at = datetime.utcnow()
         order.status = "completed"
         order.completed_by = actor_user_id
@@ -1989,7 +2135,20 @@ class ContactChatRepository:
         )
         if not specialist:
             raise ValueError("Specialist not found.")
-
+        if (
+            actor_user_id == specialist.user_id
+            and (
+                not specialist
+                .active_professional_cabinet_id
+                or specialist
+                .active_professional_cabinet_id
+                != thread.professional_cabinet_id
+            )
+        ):
+            raise ValueError(
+                "Conversation belongs to another "
+                "professional cabinet."
+            )
         participant_user_ids = {
             thread.client_user_id,
             specialist.user_id,

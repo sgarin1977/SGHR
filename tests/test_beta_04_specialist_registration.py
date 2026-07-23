@@ -647,36 +647,41 @@ def test_specialist_registration_s3_category_matches_tz10_contract():
     assert 'text=t("search_menu", language)' in source
     assert 'callback_data="spec_cancel"' in source
 
-def test_specialist_registration_s4_profession_matches_tz10_contract():
-    source = open("fsm/specialist_form.py", encoding="utf-8").read()
+def test_specialist_registration_s4_selects_one_profession_for_first_cabinet():
+    source = open(
+        "fsm/specialist_form.py",
+        encoding="utf-8",
+    ).read()
 
     assert "choosing_profession = State()" in source
-
-    assert "def build_profession_multi_keyboard" in source
-    assert 'callback_data=f"spec_profession:{item_index}"' in source
-    assert 'callback_data=f"spec_professions_page:{page - 1}"' in source
-    assert 'callback_data=f"spec_professions_page:{page + 1}"' in source
+    assert "def build_profession_keyboard" in source
+    assert 'f"spec_profession:{item_index}"' in source
+    assert 'f"spec_professions_page:"' in source
+    assert 'f"{page - 1}"' in source
+    assert 'f"{page + 1}"' in source
 
     assert "async def paginate_professions" in source
     assert "async def choose_profession" in source
-    assert "async def finish_profession_selection" in source
+    assert (
+        "SpecialistForm.choosing_location_mode"
+        in source
+    )
 
-    assert "selected_profession_ids" in source
-    assert "selected_professions" in source
-    assert "profession_limit_error_key" in source
-    assert "MAX_SPECIALIST_CATEGORIES = 3" in source
-    assert "MAX_PROFESSIONS_PER_CATEGORY = 3" in source
+    assert "selected_profession_ids" not in source
+    assert "selected_professions" not in source
+    assert "finish_profession_selection" not in source
+    assert (
+        'callback_data="spec_profession_done"'
+        not in source
+    )
+    assert "MAX_SPECIALIST_CATEGORIES" not in source
+    assert "MAX_PROFESSIONS_PER_CATEGORY" not in source
 
-    assert "spec_profession_select_one" in source
     assert "spec_professions_missing" in source
     assert "spec_profession_not_found" in source
-    assert "spec_profession_not_found_back" in source
+    assert '"spec_back_to_categories"' in source
+    assert '"spec_cancel"' in source
 
-    assert 'callback_data="spec_back_to_categories"' in source
-    assert 'text=t("search_menu", language)' in source
-    assert 'callback_data="spec_cancel"' in source
-
-    assert "await state.set_state(SpecialistForm.choosing_location_mode)" in source
 def test_specialist_registration_s5_location_matches_tz10_contract():
     source = open("fsm/specialist_form.py", encoding="utf-8").read()
     texts_source = open("ui/texts.py", encoding="utf-8").read()

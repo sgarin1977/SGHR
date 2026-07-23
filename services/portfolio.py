@@ -14,6 +14,9 @@ from database.repositories.portfolio import (
     PortfolioRepository,
     PortfolioRepositoryError,
 )
+from database.repositories.specialist import (
+    SpecialistRepository,
+)
 from services.portfolio_storage import (
     PortfolioStorageError,
     SupabasePortfolioStorage,
@@ -98,6 +101,18 @@ class PortfolioService:
                 user_id=owner_user_id,
             )
 
+            cabinet = await SpecialistRepository(
+                self.repository.session
+            ).get_active_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist.id,
+            )
+
+            if not cabinet:
+                raise PortfolioServiceError(
+                    "Active professional cabinet not found."
+                )
+
             await self.repository.ensure_upload_allowed(
                 specialist_id=specialist.id,
                 file_type=validated.file_type,
@@ -120,6 +135,7 @@ class PortfolioService:
                 await self.repository.create_pending_item(
                     tenant_id=tenant_id,
                     owner_user_id=owner_user_id,
+                    professional_cabinet_id=cabinet.id,
                     storage_path=storage_path,
                     file_type=validated.file_type,
                     mime_type=validated.mime_type,
@@ -274,11 +290,15 @@ class PortfolioService:
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
     ) -> list[PortfolioItemView]:
         try:
             rows = await self.repository.list_active_items(
                 tenant_id=tenant_id,
                 specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
             return await self._create_views(rows)
         except (PortfolioRepositoryError, PortfolioStorageError) as exc:
@@ -289,12 +309,16 @@ class PortfolioService:
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
         viewer_user_id: UUID,
         page: int = 0,
     ) -> list[PortfolioItemView]:
         items = await self.list_active_items(
             tenant_id=tenant_id,
             specialist_id=specialist_id,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
         )
 
         try:
@@ -302,8 +326,15 @@ class PortfolioService:
                 tenant_id=tenant_id,
                 user_id=viewer_user_id,
                 event_type="portfolio_viewed",
-                entity_type="specialist",
-                entity_id=specialist_id,
+                entity_type=(
+                    "professional_cabinet"
+                    if professional_cabinet_id
+                    else "specialist"
+                ),
+                entity_id=(
+                    professional_cabinet_id
+                    or specialist_id
+                ),
                 payload={
                     "page": max(int(page), 0),
                     "total_count": len(items),

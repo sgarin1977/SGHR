@@ -67,23 +67,76 @@ class ReviewRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_professional_cabinet_reputation(
+        self,
+        *,
+        tenant_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> ReputationScore | None:
+        result = await self.session.execute(
+            select(ReputationScore).where(
+                ReputationScore.tenant_id == tenant_id,
+                ReputationScore.target_type
+                == "professional_cabinet",
+                ReputationScore.target_id
+                == professional_cabinet_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_professional_cabinet_reputations(
+        self,
+        *,
+        professional_cabinet_ids: list[UUID],
+    ) -> dict[UUID, ReputationScore]:
+        cabinet_ids = list(
+            set(professional_cabinet_ids)
+        )
+
+        if not cabinet_ids:
+            return {}
+
+        result = await self.session.execute(
+            select(ReputationScore).where(
+                ReputationScore.target_type
+                == "professional_cabinet",
+                ReputationScore.target_id.in_(
+                    cabinet_ids
+                ),
+            )
+        )
+
+        reputations = result.scalars().all()
+
+        return {
+            reputation.target_id: reputation
+            for reputation in reputations
+        }
+
     async def list_public_reviews_for_specialist(
         self,
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
         limit: int = 5,
         offset: int = 0,
     ) -> tuple[list[Review], int]:
         normalized_limit = max(1, min(int(limit), 10))
         normalized_offset = max(int(offset), 0)
 
-        filters = (
+        filters = [
             Review.tenant_id == tenant_id,
             Review.target_type == "specialist",
             Review.target_id == specialist_id,
             Review.status == "published",
-        )
+        ]
+
+        if professional_cabinet_id is not None:
+            filters.append(
+                Review.professional_cabinet_id
+                == professional_cabinet_id
+            )
 
         reviews_result = await self.session.execute(
             select(Review)
@@ -191,6 +244,9 @@ class ReviewRepository:
         review = Review(
             tenant_id=tenant_id,
             reviewer_user_id=reviewer_user_id,
+            professional_cabinet_id=(
+                contact_request.professional_cabinet_id
+            ),
             target_type="specialist",
             target_id=contact_request.specialist_id,
             context_type="contact_request",
@@ -230,6 +286,10 @@ class ReviewRepository:
         review = Review(
             tenant_id=tenant_id,
             reviewer_user_id=reviewer_user_id,
+            professional_cabinet_id=(
+                order.professional_cabinet_id
+            ),
+            service_order_id=order.id,
             target_type="specialist",
             target_id=order.specialist_id,
             context_type="service_order",
@@ -255,11 +315,6 @@ class ReviewRepository:
         review.updated_at = datetime.utcnow()
 
         await self.session.flush()
-        await self.recalculate_reputation(
-            tenant_id=review.tenant_id,
-            target_type=review.target_type,
-            target_id=review.target_id,
-        )
         return review
 
     async def reject_review(
@@ -356,26 +411,6 @@ class ReviewRepository:
 
         return result.scalar_one_or_none()
 
-    async def hide_review(
-        self,
-        *,
-        review_id: UUID,
-    ) -> Review:
-        review = await self.session.get(Review, review_id)
-        if not review:
-            raise ReviewError("Review not found.")
-
-        review.status = "hidden"
-        review.updated_at = datetime.utcnow()
-
-        await self.session.flush()
-        await self.recalculate_reputation(
-            tenant_id=review.tenant_id,
-            target_type=review.target_type,
-            target_id=review.target_id,
-        )
-        return review
-
     async def set_review_status(
         self,
         *,
@@ -428,6 +463,60 @@ class ReviewRepository:
         reply: str,
     ) -> Review:
         raise ReviewError("Review replies are disabled for controlled Beta.")
+
+    async def recalculate_professional_cabinet_reputation(
+        self,
+        *,
+        tenant_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> ReputationScore:
+        aggregate = await self.session.execute(
+            select(
+                func.coalesce(
+                    func.avg(Review.rating),
+                    0,
+                ),
+                func.count(Review.id),
+            ).where(
+                Review.tenant_id == tenant_id,
+                Review.professional_cabinet_id
+                == professional_cabinet_id,
+                Review.status == "published",
+            )
+        )
+        score, review_count = aggregate.one()
+        score = float(score or 0)
+        review_count = int(review_count or 0)
+
+        reputation = (
+            await self.session.execute(
+                select(ReputationScore).where(
+                    ReputationScore.tenant_id
+                    == tenant_id,
+                    ReputationScore.target_type
+                    == "professional_cabinet",
+                    ReputationScore.target_id
+                    == professional_cabinet_id,
+                )
+            )
+        ).scalar_one_or_none()
+
+        if not reputation:
+            reputation = ReputationScore(
+                tenant_id=tenant_id,
+                target_type=(
+                    "professional_cabinet"
+                ),
+                target_id=professional_cabinet_id,
+            )
+            self.session.add(reputation)
+
+        reputation.score = score
+        reputation.review_count = review_count
+        reputation.calculated_at = datetime.utcnow()
+
+        await self.session.flush()
+        return reputation
 
     async def recalculate_reputation(
         self,

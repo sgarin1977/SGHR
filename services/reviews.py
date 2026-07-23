@@ -90,11 +90,28 @@ class ReviewService:
 
     async def publish_review(self, *, review_id: UUID) -> ReviewResult:
         try:
-            review = await self.repository.publish_review(review_id=review_id)
-            reputation = await self.repository.recalculate_reputation(
-                tenant_id=review.tenant_id,
-                target_type=review.target_type,
-                target_id=review.target_id,
+            review = await self.repository.publish_review(
+                review_id=review_id
+            )
+
+            if review.professional_cabinet_id:
+                await (
+                    self.repository
+                    .recalculate_professional_cabinet_reputation(
+                        tenant_id=review.tenant_id,
+                        professional_cabinet_id=(
+                            review.professional_cabinet_id
+                        ),
+                    )
+                )
+
+            reputation = await (
+                self.repository
+                .recalculate_reputation(
+                    tenant_id=review.tenant_id,
+                    target_type=review.target_type,
+                    target_id=review.target_id,
+                )
             )
             await self.repository.session.commit()
             return ReviewResult(review=review, reputation=reputation)
@@ -187,10 +204,24 @@ class ReviewService:
                 status=status,
             )
 
-            reputation = await self.repository.recalculate_reputation(
-                tenant_id=review.tenant_id,
-                target_type=review.target_type,
-                target_id=review.target_id,
+            if review.professional_cabinet_id:
+                await (
+                    self.repository
+                    .recalculate_professional_cabinet_reputation(
+                        tenant_id=review.tenant_id,
+                        professional_cabinet_id=(
+                            review.professional_cabinet_id
+                        ),
+                    )
+                )
+
+            reputation = await (
+                self.repository
+                .recalculate_reputation(
+                    tenant_id=review.tenant_id,
+                    target_type=review.target_type,
+                    target_id=review.target_id,
+                )
             )
 
             decision = "shown" if status == "published" else "hidden"
@@ -277,6 +308,7 @@ class ReviewService:
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
         page: int = 0,
         page_size: int = 5,
     ) -> PublicReviewPage:
@@ -287,13 +319,30 @@ class ReviewService:
         reviews, total_count = await self.repository.list_public_reviews_for_specialist(
             tenant_id=tenant_id,
             specialist_id=specialist_id,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
             limit=normalized_page_size,
             offset=offset,
         )
-        reputation = await self.repository.get_specialist_reputation(
-            tenant_id=tenant_id,
-            specialist_id=specialist_id,
-        )
+        if professional_cabinet_id is not None:
+            reputation = await (
+                self.repository
+                .get_professional_cabinet_reputation(
+                    tenant_id=tenant_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                )
+            )
+        else:
+            reputation = await (
+                self.repository
+                .get_specialist_reputation(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                )
+            )
 
         return PublicReviewPage(
             reviews=reviews,
@@ -310,6 +359,7 @@ class ReviewService:
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
         viewer_user_id: UUID,
         page: int = 0,
         page_size: int = 5,
@@ -319,6 +369,9 @@ class ReviewService:
             await self.list_public_reviews_for_specialist(
                 tenant_id=tenant_id,
                 specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
                 page=page,
                 page_size=page_size,
             )
@@ -338,8 +391,15 @@ class ReviewService:
                 tenant_id=tenant_id,
                 user_id=viewer_user_id,
                 event_type="reviews_viewed",
-                entity_type="specialist",
-                entity_id=specialist_id,
+                entity_type=(
+                    "professional_cabinet"
+                    if professional_cabinet_id
+                    else "specialist"
+                ),
+                entity_id=(
+                    professional_cabinet_id
+                    or specialist_id
+                ),
                 payload=payload,
                 platform="telegram",
             )

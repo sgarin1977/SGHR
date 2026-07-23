@@ -302,6 +302,9 @@ async def resume_public_portfolio_after_auth(
     specialist_id: str,
 ) -> None:
     data = await state.get_data()
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
     results_page = int(
         data.get("results_page") or 0
     )
@@ -313,6 +316,11 @@ async def resume_public_portfolio_after_auth(
             ).list_active_items_for_viewer(
                 tenant_id=tenant_id,
                 specialist_id=UUID(specialist_id),
+                professional_cabinet_id=(
+                    UUID(professional_cabinet_id)
+                    if professional_cabinet_id
+                    else None
+                ),
                 viewer_user_id=user_id,
                 page=0,
             )
@@ -538,6 +546,9 @@ async def resume_public_reviews_after_auth(
     specialist_id: str,
 ) -> None:
     data = await state.get_data()
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
     results_page = int(
         data.get("results_page") or 0
     )
@@ -549,6 +560,11 @@ async def resume_public_reviews_after_auth(
             ).list_public_reviews_for_viewer(
                 tenant_id=tenant_id,
                 specialist_id=UUID(specialist_id),
+                professional_cabinet_id=(
+                    UUID(professional_cabinet_id)
+                    if professional_cabinet_id
+                    else None
+                ),
                 viewer_user_id=user_id,
                 page=0,
                 page_size=PUBLIC_REVIEW_PAGE_SIZE,
@@ -1541,6 +1557,9 @@ async def render_public_portfolio(
     language = await get_search_language(state, callback)
 
     specialist_id = data.get("selected_specialist_id")
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
     if not specialist_id:
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
@@ -1564,6 +1583,11 @@ async def render_public_portfolio(
             ).list_active_items_for_viewer(
                 tenant_id=tenant_id,
                 specialist_id=UUID(specialist_id),
+                professional_cabinet_id=(
+                    UUID(professional_cabinet_id)
+                    if professional_cabinet_id
+                    else None
+                ),
                 viewer_user_id=requester_user_id,
                 page=page,
             )
@@ -1707,28 +1731,66 @@ async def render_public_portfolio(
 async def store_complaint_target_summary(
     state: FSMContext,
     language: str,
+    telegram_id: int | str,
 ) -> None:
     data = await state.get_data()
-    specialist_id = data.get("selected_specialist_id")
-    target_type = data.get("pending_report_target_type") or "specialist"
+
+    specialist_id = data.get(
+        "selected_specialist_id"
+    )
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
+    target_type = (
+        data.get("pending_report_target_type")
+        or "specialist"
+    )
 
     target_labels = {
-        "specialist": t("complaint_target_specialist", language),
-        "review": t("complaint_target_review", language),
-        "portfolio_item": t("complaint_target_portfolio", language),
-        "thread": t("complaint_target_dialog", language),
-        "message": t("complaint_target_message", language),
+        "specialist": t(
+            "complaint_target_specialist",
+            language,
+        ),
+        "review": t(
+            "complaint_target_review",
+            language,
+        ),
+        "portfolio_item": t(
+            "complaint_target_portfolio",
+            language,
+        ),
+        "thread": t(
+            "complaint_target_dialog",
+            language,
+        ),
+        "message": t(
+            "complaint_target_message",
+            language,
+        ),
     }
-    target_label = target_labels.get(target_type, target_type)
-
+    target_label = target_labels.get(
+        target_type,
+        target_type,
+    )
+    _, tenant_id = await get_requester_context(
+        telegram_id
+    )
     specialist_name = None
 
-    if specialist_id:
+    if specialist_id and tenant_id:
         async with get_session() as session:
             card = await GeoSearchService(
                 SpecialistSearchRepository(session)
             ).get_public_card(
-                specialist_id=UUID(specialist_id),
+                specialist_id=UUID(
+                    specialist_id
+                ),
+                professional_cabinet_id=(
+                    UUID(professional_cabinet_id)
+                    if professional_cabinet_id
+                    else None
+                ),
+                tenant_id=tenant_id,
                 log_event=False,
                 language=language,
             )
@@ -1743,8 +1805,11 @@ async def store_complaint_target_summary(
     )
 
     await state.update_data(
-        pending_report_target_summary=target_summary,
+        pending_report_target_summary=(
+            target_summary
+        ),
     )
+
 
 def complaint_reason_label(reason: str, language: str) -> str:
     labels = {
@@ -2375,9 +2440,10 @@ async def show_contact_chat(
         async with get_session() as session:
             detail = await ContactChatService(
                 ContactChatRepository(session)
-            ).get_thread_detail(
+            ).get_thread_detail_for_viewer(
                 thread_id=UUID(thread_id),
                 user_id=user_id,
+                participant_role=normalized_role,
                 language=language,
             )
     except ContactChatError:
@@ -3236,16 +3302,38 @@ def public_safe_description(text: str | None, limit: int = 300) -> str:
 
     return clean[:limit].rstrip()
 
+def public_moderation_label(
+    moderation_status: str | None,
+    language: str,
+) -> str:
+    if moderation_status == "approved":
+        return (
+            f"✅ "
+            f"{t('search_moderation_approved_label', language)}"
+        )
+
+    if moderation_status == "pending_moderation":
+        return (
+            f"🟡 "
+            f"{t('search_moderation_pending_label', language)}"
+        )
+
+    return ""
+
 def format_specialist_result(result, index: int, language: str) -> str:
     specialist = result.specialist
+    cabinet = result.professional_cabinet
     profession = result.profession_name
 
-    if specialist.reviews_count and specialist.rating is not None:
-        rating = f"⭐ {float(specialist.rating):.1f}"
+    if result.reviews_count:
+        rating = f"⭐ {result.rating:.1f}"
     else:
         rating = f"⭐ {t('search_no_reviews', language)}"
 
-    is_remote = getattr(specialist, "work_format", None) == "remote"
+    is_remote = bool(
+        cabinet
+        and cabinet.work_format == "remote"
+    )
     location_parts = []
 
     if is_remote:
@@ -3258,7 +3346,11 @@ def format_specialist_result(result, index: int, language: str) -> str:
 
     availability = (
         t("search_filter_available_now", language)
-        if getattr(specialist, "is_available", False)
+        if (
+            cabinet
+            and cabinet.availability_status
+            == "available"
+        )
         else t("search_unavailable_now", language)
     )
 
@@ -3266,12 +3358,29 @@ def format_specialist_result(result, index: int, language: str) -> str:
         language_filter_label(language_code, language)
         for language_code in (result.languages or [])
     ]
-    description = public_safe_description(specialist.short_description)
+    description = public_safe_description(
+        cabinet.description
+        if cabinet
+        else ""
+    )
+
+    moderation = public_moderation_label(
+        (
+            cabinet.moderation_status
+            if cabinet
+            else None
+        ),
+        language,
+    )
 
     lines = [
         f"👤 {specialist.display_name}",
-        rating,
     ]
+
+    if moderation:
+        lines.append(moderation)
+
+    lines.append(rating)
 
     if location_parts:
         lines.append(f"📍 {' • '.join(location_parts)}")
@@ -3300,12 +3409,22 @@ def format_public_card(card: SpecialistPublicCard, language: str) -> str:
 
     label_text = f" ({', '.join(labels)})" if labels else ""
     is_remote = card.work_format == "remote"
-
+    moderation = public_moderation_label(
+        card.moderation_status,
+        language,
+    )
     lines = [
-        t("search_profile_photo_placeholder", language),
+        t(
+            "search_profile_photo_placeholder",
+            language,
+        ),
         f"{card.display_name}{label_text}",
-        "",
     ]
+
+    if moderation:
+        lines.append(moderation)
+
+    lines.append("")
 
     if card.category_name:
         lines.append(f"{t('search_filter_category_label', language)}: {card.category_name}")
@@ -3388,7 +3507,58 @@ async def render_results(
     page: int,
 ):
     data = await state.get_data()
-    language = await get_search_language(state, event)
+    language = await get_search_language(
+        state,
+        event,
+    )
+
+    platform_user_id = (
+        event.from_user.id
+        if event.from_user
+        else None
+    )
+
+    if platform_user_id is None:
+        if isinstance(event, CallbackQuery):
+            await event.answer(
+                t(
+                    "auth_required_start",
+                    language,
+                ),
+                show_alert=True,
+            )
+        else:
+            await event.answer(
+                t(
+                    "auth_required_start",
+                    language,
+                )
+            )
+        return
+
+    requester_user_id, tenant_id = (
+        await get_requester_context(
+            platform_user_id
+        )
+    )
+
+    if not requester_user_id or not tenant_id:
+        if isinstance(event, CallbackQuery):
+            await event.answer(
+                t(
+                    "auth_required_start",
+                    language,
+                ),
+                show_alert=True,
+            )
+        else:
+            await event.answer(
+                t(
+                    "auth_required_start",
+                    language,
+                )
+            )
+        return
 
     if isinstance(event, CallbackQuery):
         await event.answer()
@@ -3462,11 +3632,6 @@ async def render_results(
     remote_only = work_format == "remote"
     rating_min = data.get("rating_min")
     sort_by = data.get("sort_by") or "distance"
-    requester_user_id = None
-    tenant_id = None
-    platform_user_id = event.from_user.id if event.from_user else None
-    if platform_user_id is not None:
-        requester_user_id, tenant_id = await get_requester_context(platform_user_id)
 
     async with get_session() as session:
         service = GeoSearchService(SpecialistSearchRepository(session))
@@ -3723,8 +3888,32 @@ async def render_results(
 
     await state.update_data(
         results_page=page,
-        result_specialist_ids=[str(item.specialist.id) for item in visible_results],
-        result_distances=[item.distance_km for item in visible_results],
+        result_specialist_ids=[
+            str(item.specialist.id)
+            for item in visible_results
+        ],
+        result_professional_cabinet_ids=[
+            (
+                str(item.professional_cabinet.id)
+                if item.professional_cabinet
+                else None
+            )
+            for item in visible_results
+        ],
+        result_profession_ids=[
+            (
+                str(
+                    item.professional_cabinet.profession_id
+                )
+                if item.professional_cabinet
+                else None
+            )
+            for item in visible_results
+        ],
+        result_distances=[
+            item.distance_km
+            for item in visible_results
+        ],
     )
 
     if not visible_results:
@@ -5824,17 +6013,45 @@ async def contact_from_result(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
     language = await get_search_language(state, callback)
-    specialist_ids = data.get("result_specialist_ids") or []
-    distances = data.get("result_distances") or []
+    specialist_ids = (
+        data.get("result_specialist_ids") or []
+    )
+    cabinet_ids = (
+        data.get(
+            "result_professional_cabinet_ids"
+        )
+        or []
+    )
+    profession_ids = (
+        data.get("result_profession_ids") or []
+    )
+    distances = (
+        data.get("result_distances") or []
+    )
 
-    if index is None or index >= len(specialist_ids):
+    if (
+        index is None
+        or index >= len(specialist_ids)
+        or index >= len(cabinet_ids)
+        or index >= len(profession_ids)
+        or not cabinet_ids[index]
+        or not profession_ids[index]
+    ):
         await callback.answer()
         return
 
     distance_km = distances[index] if index < len(distances) else None
 
     await state.update_data(
-        selected_specialist_id=specialist_ids[index],
+        selected_specialist_id=(
+            specialist_ids[index]
+        ),
+        selected_professional_cabinet_id=(
+            cabinet_ids[index]
+        ),
+        selected_profession_id=(
+            profession_ids[index]
+        ),
         selected_specialist_distance=distance_km,
         selected_result_index=index,
     )
@@ -5846,18 +6063,48 @@ async def favorite_from_result(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
     language = await get_search_language(state, callback)
-    specialist_ids = data.get("result_specialist_ids") or []
-    distances = data.get("result_distances") or []
+    specialist_ids = (
+        data.get("result_specialist_ids") or []
+    )
+    cabinet_ids = (
+        data.get(
+            "result_professional_cabinet_ids"
+        )
+        or []
+    )
+    profession_ids = (
+        data.get("result_profession_ids") or []
+    )
+    distances = (
+        data.get("result_distances") or []
+    )
 
-    if index is None or index >= len(specialist_ids):
+    if (
+        index is None
+        or index >= len(specialist_ids)
+        or index >= len(cabinet_ids)
+        or index >= len(profession_ids)
+        or not cabinet_ids[index]
+        or not profession_ids[index]
+    ):
         await callback.answer()
         return
 
     distance_km = distances[index] if index < len(distances) else None
 
     await state.update_data(
-        selected_specialist_id=specialist_ids[index],
-        selected_specialist_distance=distance_km,
+        selected_specialist_id=(
+            specialist_ids[index]
+        ),
+        selected_professional_cabinet_id=(
+            cabinet_ids[index]
+        ),
+        selected_profession_id=(
+            profession_ids[index]
+        ),
+        selected_specialist_distance=(
+            distance_km
+        ),
         selected_result_index=index,
     )
 
@@ -5869,18 +6116,47 @@ async def report_from_result(callback: CallbackQuery, state: FSMContext):
     index = callback_index(callback)
     data = await state.get_data()
     language = await get_search_language(state, callback)
-    specialist_ids = data.get("result_specialist_ids") or []
-    distances = data.get("result_distances") or []
+    specialist_ids = (
+        data.get("result_specialist_ids") or []
+    )
+    cabinet_ids = (
+        data.get(
+            "result_professional_cabinet_ids"
+        )
+        or []
+    )
+    profession_ids = (
+        data.get("result_profession_ids") or []
+    )
+    distances = (
+        data.get("result_distances") or []
+    )
 
-    if index is None or index >= len(specialist_ids):
+    if (
+        index is None
+        or index >= len(specialist_ids)
+        or index >= len(cabinet_ids)
+        or index >= len(profession_ids)
+        or not cabinet_ids[index]
+        or not profession_ids[index]
+    ):
         await callback.answer()
         return
 
     distance_km = distances[index] if index < len(distances) else None
 
     await state.update_data(
-        selected_specialist_id=specialist_ids[index],
+        selected_specialist_id=(
+            specialist_ids[index]
+        ),
+        selected_professional_cabinet_id=(
+            cabinet_ids[index]
+        ),
+        selected_profession_id=(
+            profession_ids[index]
+        ),
         selected_specialist_distance=distance_km,
+        selected_result_index=index,
     )
 
     await report_pending(callback, state)
@@ -5901,6 +6177,15 @@ async def show_specialist_card(
     specialist_ids = (
         data.get("result_specialist_ids") or []
     )
+    cabinet_ids = (
+        data.get(
+            "result_professional_cabinet_ids"
+        )
+        or []
+    )
+    profession_ids = (
+        data.get("result_profession_ids") or []
+    )
     distances = (
         data.get("result_distances") or []
     )
@@ -5909,11 +6194,13 @@ async def show_specialist_card(
         index is None
         or index < 0
         or index >= len(specialist_ids)
+        or index >= len(cabinet_ids)
+        or index >= len(profession_ids)
+        or not cabinet_ids[index]
+        or not profession_ids[index]
     ):
         await callback.answer()
         return
-
-    await callback.answer()
 
     distance_km = (
         distances[index]
@@ -5930,12 +6217,27 @@ async def show_specialist_card(
         )
     )
 
+    if not requester_user_id or not tenant_id:
+        await callback.answer(
+            t(
+                "auth_required_start",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+
     async with get_session() as session:
         card = await GeoSearchService(
             SpecialistSearchRepository(session)
         ).get_public_card_for_viewer(
             specialist_id=UUID(
                 specialist_ids[index]
+            ),
+            professional_cabinet_id=UUID(
+                cabinet_ids[index]
             ),
             viewer_user_id=requester_user_id,
             tenant_id=tenant_id,
@@ -5954,6 +6256,12 @@ async def show_specialist_card(
     await state.update_data(
         selected_specialist_id=(
             specialist_ids[index]
+        ),
+        selected_professional_cabinet_id=(
+            cabinet_ids[index]
+        ),
+        selected_profession_id=(
+            profession_ids[index]
         ),
         selected_specialist_distance=distance_km,
         selected_result_index=index,
@@ -6015,6 +6323,7 @@ async def report_public_portfolio_item(callback: CallbackQuery, state: FSMContex
     await store_complaint_target_summary(
         state,
         language,
+        callback.from_user.id,
     )
 
     await show_callback_message(
@@ -6034,6 +6343,9 @@ async def render_selected_specialist_reviews(
     language = await get_search_language(state, callback)
 
     specialist_id = data.get("selected_specialist_id")
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
     if not specialist_id:
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
@@ -6057,6 +6369,11 @@ async def render_selected_specialist_reviews(
             ).list_public_reviews_for_viewer(
                 tenant_id=tenant_id,
                 specialist_id=UUID(specialist_id),
+                professional_cabinet_id=(
+                    UUID(professional_cabinet_id)
+                    if professional_cabinet_id
+                    else None
+                ),
                 viewer_user_id=requester_user_id,
                 page=page,
                 page_size=PUBLIC_REVIEW_PAGE_SIZE,
@@ -6173,6 +6490,7 @@ async def report_public_review(callback: CallbackQuery, state: FSMContext):
     await store_complaint_target_summary(
         state,
         language,
+        callback.from_user.id,
     )
 
     await show_callback_message(
@@ -6182,36 +6500,98 @@ async def report_public_review(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
-@search_router.callback_query(F.data.startswith("search_result_back_to_card:"))
-async def back_to_selected_specialist_card(callback: CallbackQuery, state: FSMContext):
+async def back_to_selected_specialist_card(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = await get_search_language(state, callback)
+    language = await get_search_language(
+        state,
+        callback,
+    )
 
-    specialist_id = data.get("selected_specialist_id")
+    specialist_id = data.get(
+        "selected_specialist_id"
+    )
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
+
     if not specialist_id:
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                language,
+            ),
+            show_alert=True,
+        )
         return
+    requester_user_id, tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
 
+    if not requester_user_id or not tenant_id:
+        await callback.answer(
+            t(
+                "auth_required_start",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
     async with get_session() as session:
         card = await GeoSearchService(
             SpecialistSearchRepository(session)
         ).get_public_card(
-            specialist_id=UUID(specialist_id),
+            tenant_id=tenant_id,
+            specialist_id=UUID(
+                specialist_id
+            ),
+            professional_cabinet_id=(
+                UUID(professional_cabinet_id)
+                if professional_cabinet_id
+                else None
+            ),
         )
 
     if not card:
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     try:
-        results_page = int((callback.data or "").split(":", 1)[1])
-    except (IndexError, TypeError, ValueError):
-        results_page = int(data.get("results_page") or 0)
+        results_page = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        results_page = int(
+            data.get("results_page") or 0
+        )
 
     await show_callback_message(
         callback,
-        format_public_card(card, language),
-        card_keyboard(language, results_page),
+        format_public_card(
+            card,
+            language,
+        ),
+        card_keyboard(
+            language,
+            results_page,
+        ),
     )
     await callback.answer()
 
@@ -6225,7 +6605,10 @@ async def contact_start(
     data = await state.get_data()
     language = await get_search_language(state, callback)
     specialist_id = data.get("selected_specialist_id")
-    profession_id = data.get("profession_id")
+    profession_id = (
+        data.get("selected_profession_id")
+        or data.get("profession_id")
+    )
 
     if not specialist_id:
         await callback.answer(
@@ -6862,6 +7245,7 @@ async def report_pending(
     await store_complaint_target_summary(
         state,
         language,
+        callback.from_user.id,
     )
 
     await collapse_search_results_to_callback_message(

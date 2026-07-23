@@ -1,7 +1,16 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import String, ForeignKey, DateTime, Text, Integer, Boolean, Numeric
+from sqlalchemy import (
+    String,
+    ForeignKey,
+    DateTime,
+    Text,
+    Integer,
+    Boolean,
+    Numeric,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
@@ -364,13 +373,34 @@ class UserSkill(Base):
 
 class Specialist(Base):
     __tablename__ = "specialists"
-
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "user_id",
+            name=(
+                "specialists_tenant_id_user_id_key"
+            ),
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialist_categories.id"), nullable=False)
-    profession_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("professions.id"), nullable=False)
-    country_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("countries.id"), nullable=True)
+    profession_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("professions.id"),
+        nullable=False,
+    )
+    active_professional_cabinet_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    country_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("countries.id"),
+        nullable=True,
+    )
     city_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("cities.id"), nullable=True)
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     short_description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -396,6 +426,127 @@ class Specialist(Base):
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class ProfessionalCabinet(Base):
+    __tablename__ = "professional_cabinets"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "specialist_id",
+            "profession_id",
+            name="uq_professional_cabinets_profession",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "specialists.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialist_categories.id"),
+        nullable=False,
+    )
+    profession_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("professions.id"),
+        nullable=False,
+    )
+    title: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    country_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("countries.id"),
+        nullable=True,
+    )
+    city_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("cities.id"),
+        nullable=True,
+    )
+    work_format: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="mixed",
+    )
+    availability_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="available",
+    )
+    moderation_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="draft",
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class ProfessionalCabinetSkill(Base):
+    __tablename__ = "professional_cabinet_skills"
+    __table_args__ = (
+        UniqueConstraint(
+            "professional_cabinet_id",
+            "skill_id",
+            name="uq_professional_cabinet_skills",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    skill_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "skills.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    level: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
 
 class SpecialistProfession(Base):
     __tablename__ = "specialist_professions"
@@ -467,9 +618,25 @@ class SpecialistLanguage(Base):
 class SpecialistService(Base):
     __tablename__ = "specialist_services"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
-    specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id"),
+        nullable=False,
+    )
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialists.id"),
+        nullable=False,
+    )
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
     category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("specialist_categories.id", ondelete="SET NULL"),
         nullable=True,
@@ -495,12 +662,28 @@ class ContactRequest(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     from_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id"), nullable=False)
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialists.id"),
+        nullable=False,
+    )
     profession_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-    ForeignKey("professions.id", ondelete="SET NULL"),
-    nullable=True,
-)
-    message: Mapped[str] = mapped_column(Text, nullable=False)
+        ForeignKey(
+            "professions.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    message: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
     original_language: Mapped[str] = mapped_column(String(10), default="ru")
     status: Mapped[str] = mapped_column(Text, default="new")
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
@@ -533,10 +716,23 @@ class ServiceOrder(Base):
         nullable=False,
     )
     profession_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        ForeignKey("professions.id", ondelete="SET NULL"),
+        ForeignKey(
+            "professions.id",
+            ondelete="SET NULL",
+        ),
         nullable=True,
     )
-    status: Mapped[str] = mapped_column(Text, default="draft")
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="draft",
+    )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     due_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -573,8 +769,21 @@ class ConversationThread(Base):
     context_type: Mapped[str] = mapped_column(Text, default="contact_request")
     context_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contact_requests.id"), nullable=False)
     client_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id"), nullable=False)
-    status: Mapped[str] = mapped_column(Text, default="waiting_specialist")
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("specialists.id"),
+        nullable=False,
+    )
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="waiting_specialist",
+    )
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -768,6 +977,20 @@ class Review(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     reviewer_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    service_order_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey(
+            "service_orders.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
     target_type: Mapped[str] = mapped_column(Text, nullable=False)
     target_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
     context_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -951,6 +1174,13 @@ class SpecialistPromotion(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id"), nullable=False)
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
     promotion_type: Mapped[str] = mapped_column(Text, nullable=False)
     starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -1001,6 +1231,13 @@ class SpecialistPortfolioItem(Base):
     )
     specialist_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("specialists.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    professional_cabinet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
     )
     title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

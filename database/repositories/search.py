@@ -1,10 +1,11 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
-
 from sqlalchemy import and_, case, exists, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
+    ReputationScore,
     EventLog,
     Specialist,
     SpecialistCategory,
@@ -15,11 +16,23 @@ from database.models import (
     Profession,
     ProfessionSkill,
     Skill,
+    ProfessionalCabinet,
+    ProfessionalCabinetSkill,
     User,
     UserSkill,
     City,
+    Country,
+    SpecialistPromotion,
+)
+PUBLIC_SPECIALIST_STATUSES = (
+    "approved",
+    "pending_moderation",
 )
 
+PUBLIC_CABINET_MODERATION_STATUSES = (
+    "approved",
+    "pending_moderation",
+)
 
 @dataclass
 class SpecialistSearchFilters:
@@ -37,7 +50,7 @@ class SpecialistSearchFilters:
     available_only: bool = False
     rating_min: float | None = None
     work_format: str | None = None
-    status: str = "approved"
+    status: str | None = None
     page: int = 1
     page_size: int = 5
     limit: int | None = None
@@ -71,6 +84,146 @@ class SpecialistSearchFilters:
 class SpecialistSearchRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    def _active_cabinet_promotion_conditions(
+        self,
+    ) -> tuple:
+        return (
+            SpecialistPromotion.tenant_id
+            == ProfessionalCabinet.tenant_id,
+            SpecialistPromotion.professional_cabinet_id
+            == ProfessionalCabinet.id,
+            SpecialistPromotion.status == "active",
+            or_(
+                SpecialistPromotion.starts_at.is_(
+                    None
+                ),
+                SpecialistPromotion.starts_at
+                <= func.now(),
+            ),
+            or_(
+                SpecialistPromotion.ends_at.is_(
+                    None
+                ),
+                SpecialistPromotion.ends_at
+                > func.now(),
+            ),
+        )
+
+    def _active_cabinet_promotion_exists(
+        self,
+        promotion_type: str,
+    ):
+        return (
+            select(SpecialistPromotion.id)
+            .where(
+                *self._active_cabinet_promotion_conditions(),
+                SpecialistPromotion.promotion_type
+                == promotion_type,
+            )
+            .correlate(ProfessionalCabinet)
+            .exists()
+        )
+
+    def _cabinet_promotion_priority_expression(
+        self,
+    ):
+        priority = case(
+            (
+                SpecialistPromotion.promotion_type
+                == "top_category",
+                100.0,
+            ),
+            (
+                SpecialistPromotion.promotion_type
+                == "premium",
+                50.0,
+            ),
+            (
+                SpecialistPromotion.promotion_type
+                == "featured_service",
+                25.0,
+            ),
+            (
+                SpecialistPromotion.promotion_type
+                == "boost",
+                15.0,
+            ),
+            else_=0.0,
+        )
+
+        return func.coalesce(
+            (
+                select(func.max(priority))
+                .where(
+                    *self._active_cabinet_promotion_conditions()
+                )
+                .correlate(ProfessionalCabinet)
+                .scalar_subquery()
+            ),
+            0.0,
+        )
+
+    async def list_active_professional_cabinet_promotion_types(
+        self,
+        *,
+        tenant_id: UUID,
+        professional_cabinet_ids: list[UUID],
+    ) -> dict[UUID, set[str]]:
+        cabinet_ids = list(
+            set(professional_cabinet_ids)
+        )
+        if not cabinet_ids:
+            return {}
+
+        now = datetime.utcnow()
+
+        result = await self.session.execute(
+            select(
+                SpecialistPromotion.professional_cabinet_id,
+                SpecialistPromotion.promotion_type,
+            ).where(
+                SpecialistPromotion.tenant_id
+                == tenant_id,
+                SpecialistPromotion.professional_cabinet_id.in_(
+                    cabinet_ids
+                ),
+                SpecialistPromotion.status == "active",
+                or_(
+                    SpecialistPromotion.starts_at.is_(
+                        None
+                    ),
+                    SpecialistPromotion.starts_at
+                    <= now,
+                ),
+                or_(
+                    SpecialistPromotion.ends_at.is_(
+                        None
+                    ),
+                    SpecialistPromotion.ends_at
+                    > now,
+                ),
+            )
+        )
+
+        promotion_types: dict[
+            UUID,
+            set[str],
+        ] = {}
+
+        for (
+            professional_cabinet_id,
+            promotion_type,
+        ) in result.tuples().all():
+            if not professional_cabinet_id:
+                continue
+
+            promotion_types.setdefault(
+                professional_cabinet_id,
+                set(),
+            ).add(promotion_type)
+
+        return promotion_types
     def _distance_km_expression(
         self,
         *,
@@ -114,12 +267,85 @@ class SpecialistSearchRepository:
             .join(User, User.id == Specialist.user_id)
             .where(
                 Specialist.id == specialist_id,
-                Specialist.status == "approved",
+                Specialist.status.in_(
+    PUBLIC_SPECIALIST_STATUSES
+),
                 User.status.notin_(["blocked", "deleted"]),
             )
         )
         return result.scalar_one_or_none()
-    
+
+    async def get_approved_professional_cabinet_for_card(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
+    ) -> tuple[
+        Specialist,
+        ProfessionalCabinet,
+    ] | None:
+        query = (
+            select(
+                Specialist,
+                ProfessionalCabinet,
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .where(
+                Specialist.id == specialist_id,
+                ProfessionalCabinet.specialist_id
+                == specialist_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status.in_(
+                    PUBLIC_CABINET_MODERATION_STATUSES
+                ),
+                Specialist.status.in_(
+                    PUBLIC_SPECIALIST_STATUSES
+                ),
+                User.status.notin_(
+                    ["blocked", "deleted"]
+                ),
+            )
+        )
+
+        query = query.where(
+            Specialist.tenant_id == tenant_id,
+            ProfessionalCabinet.tenant_id
+            == tenant_id,
+        )
+
+        if professional_cabinet_id is not None:
+            query = query.where(
+                ProfessionalCabinet.id
+                == professional_cabinet_id
+            )
+        else:
+            query = query.where(
+                ProfessionalCabinet.id
+                == Specialist.active_professional_cabinet_id
+            )
+
+        result = await self.session.execute(
+            query.limit(1)
+        )
+
+        row = result.one_or_none()
+        if not row:
+            return None
+
+        specialist, cabinet = row
+        return specialist, cabinet
+
     async def get_city_name(
         self,
         city_id: UUID | None,
@@ -134,6 +360,27 @@ class SpecialistSearchRepository:
 
         localized = getattr(city, f"name_{language}", None)
         return localized or city.name_ru or city.name
+
+    async def get_country_name(
+        self,
+        country_id: UUID | None,
+        language: str = "ru",
+    ) -> str | None:
+        if not country_id:
+            return None
+
+        country = await self.session.get(
+            Country,
+            country_id,
+        )
+        if not country:
+            return None
+
+        return self._localized_name(
+            country,
+            language,
+        )
+
 
     def _localized_name(self, item, language: str = "ru") -> str | None:
         if not item:
@@ -167,18 +414,76 @@ class SpecialistSearchRepository:
     async def get_public_service_titles(
         self,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
         limit: int = 5,
     ) -> list[str]:
+        filters = [
+            SpecialistService.specialist_id
+            == specialist_id,
+            SpecialistService.status == "active",
+        ]
+
+        if professional_cabinet_id is not None:
+            filters.append(
+                SpecialistService.professional_cabinet_id
+                == professional_cabinet_id
+            )
+
         result = await self.session.execute(
             select(SpecialistService.title)
-            .where(
-                SpecialistService.specialist_id == specialist_id,
-                SpecialistService.status == "active",
+            .where(*filters)
+            .order_by(
+                SpecialistService.created_at.desc()
             )
-            .order_by(SpecialistService.created_at.desc())
             .limit(max(1, int(limit)))
         )
-        return [title for title in result.scalars().all() if title]
+        return [
+            title
+            for title in result.scalars().all()
+            if title
+        ]
+
+    async def get_public_skill_names_for_cabinet(
+        self,
+        *,
+        professional_cabinet_id: UUID,
+        language: str = "ru",
+        limit: int = 8,
+    ) -> list[str]:
+        name_field = {
+            "ru": Skill.name_ru,
+            "en": Skill.name_en,
+            "pt": Skill.name_pt,
+            "es": Skill.name_es,
+        }.get(language, Skill.name_ru)
+
+        result = await self.session.execute(
+            select(
+                func.coalesce(
+                    name_field,
+                    Skill.name_ru,
+                    Skill.name,
+                )
+            )
+            .join(
+                ProfessionalCabinetSkill,
+                ProfessionalCabinetSkill.skill_id
+                == Skill.id,
+            )
+            .where(
+                ProfessionalCabinetSkill.professional_cabinet_id
+                == professional_cabinet_id,
+                Skill.is_active.is_(True),
+            )
+            .order_by(Skill.name.asc())
+            .limit(max(1, int(limit)))
+        )
+
+        return [
+            name
+            for name in result.scalars().all()
+            if name
+        ]
 
     async def get_public_skill_names_for_user(
         self,
@@ -441,6 +746,180 @@ class SpecialistSearchRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def search_professional_cabinets(
+        self,
+        filters: SpecialistSearchFilters,
+        *,
+        tenant_id: UUID,
+    ) -> list[
+        tuple[
+            Specialist,
+            ProfessionalCabinet,
+        ]
+    ]:
+        premium_promotion_exists = (
+            self._active_cabinet_promotion_exists(
+                "premium"
+            )
+        )
+        promotion_priority = (
+            self._cabinet_promotion_priority_expression()
+        )
+
+        stmt = (
+            select(
+                Specialist,
+                ProfessionalCabinet,
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .outerjoin(
+                ReputationScore,
+                and_(
+                    ReputationScore.tenant_id
+                    == ProfessionalCabinet.tenant_id,
+                    ReputationScore.target_type
+                    == "professional_cabinet",
+                    ReputationScore.target_id
+                    == ProfessionalCabinet.id,
+                ),
+            )
+            .where(
+                Specialist.tenant_id == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.status.in_(
+                    PUBLIC_SPECIALIST_STATUSES
+                ),
+                User.status.notin_(
+                    ["blocked", "deleted"]
+                ),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status.in_(
+                    PUBLIC_CABINET_MODERATION_STATUSES
+                ),
+            )
+        )
+        if filters.status:
+            stmt = stmt.where(
+                Specialist.status
+                == filters.status
+            )
+        if filters.city_id:
+            stmt = stmt.where(
+                ProfessionalCabinet.city_id
+                == filters.city_id
+            )
+
+        if filters.country_id:
+            stmt = stmt.where(
+                ProfessionalCabinet.country_id
+                == filters.country_id
+            )
+
+        if filters.category_id:
+            stmt = stmt.where(
+                ProfessionalCabinet.category_id
+                == filters.category_id
+            )
+
+        profession_ids = list(
+            filters.profession_ids or []
+        )
+        if (
+            filters.profession_id
+            and filters.profession_id
+            not in profession_ids
+        ):
+            profession_ids.append(
+                filters.profession_id
+            )
+
+        if profession_ids:
+            stmt = stmt.where(
+                ProfessionalCabinet.profession_id.in_(
+                    profession_ids
+                )
+            )
+
+        if filters.language_code:
+            language_exists = exists(
+                select(
+                    SpecialistLanguage.id
+                ).where(
+                    SpecialistLanguage.specialist_id
+                    == Specialist.id,
+                    SpecialistLanguage.language_code
+                    == filters.language_code.lower(),
+                )
+            )
+            stmt = stmt.where(language_exists)
+
+        if filters.premium_only:
+            stmt = stmt.where(
+                premium_promotion_exists
+            )
+
+        if filters.verified_only:
+            stmt = stmt.where(
+                Specialist.is_verified.is_(True)
+            )
+
+        if filters.available_only:
+            stmt = stmt.where(
+                ProfessionalCabinet.availability_status
+                == "available"
+            )
+
+        if filters.rating_min is not None:
+            stmt = stmt.where(
+                func.coalesce(
+                    ReputationScore.score,
+                    0,
+                )
+                >= filters.rating_min
+            )
+
+        if filters.work_format:
+            stmt = stmt.where(
+                ProfessionalCabinet.work_format
+                == filters.work_format
+            )
+
+        stmt = (
+            stmt.order_by(
+                premium_promotion_exists.desc(),
+                promotion_priority.desc(),
+                func.coalesce(
+                    ReputationScore.score,
+                    0,
+                ).desc(),
+                Specialist.is_verified.desc(),
+                func.coalesce(
+                    ReputationScore.review_count,
+                    0,
+                ).desc(),
+                ProfessionalCabinet.updated_at.desc(),
+                ProfessionalCabinet.id.asc(),
+            )
+            .offset(filters.normalized_offset)
+            .limit(filters.query_limit)
+        )
+
+        result = await self.session.execute(
+            stmt
+        )
+        return list(result.tuples().all())
+
     async def list_active_with_coordinates(
         self,
         *,
@@ -460,7 +939,9 @@ class SpecialistSearchRepository:
             select(Specialist)
             .join(User, User.id == Specialist.user_id)
             .where(
-                Specialist.status == "approved",
+                Specialist.status.in_(
+    PUBLIC_SPECIALIST_STATUSES
+),
                 User.status.notin_(["blocked", "deleted"]),
                 or_(
                     Specialist.latitude.isnot(None),
@@ -564,6 +1045,246 @@ class SpecialistSearchRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
     
+    async def search_professional_cabinets_within_radius(
+        self,
+        *,
+        tenant_id: UUID,
+        latitude: float,
+        longitude: float,
+        radius_km: float,
+        country_wide: bool = False,
+        country_id: UUID | None = None,
+        category_id: UUID | None = None,
+        profession_id: UUID | None = None,
+        profession_ids: list[UUID] | None = None,
+        language_code: str | None = None,
+        verified_only: bool = False,
+        premium_only: bool = False,
+        available_only: bool = False,
+        rating_min: float | None = None,
+        work_format: str | None = None,
+        limit: int = 200,
+    ) -> list[
+        tuple[
+            Specialist,
+            ProfessionalCabinet,
+            float | None,
+        ]
+    ]:
+        premium_promotion_exists = (
+            self._active_cabinet_promotion_exists(
+                "premium"
+            )
+        )
+        promotion_priority = (
+            self._cabinet_promotion_priority_expression()
+        )
+
+        cabinet_latitude = City.latitude
+        cabinet_longitude = City.longitude
+
+        earth_radius_km = 6371.0
+        lat1 = func.radians(
+            literal(latitude)
+        )
+        lon1 = func.radians(
+            literal(longitude)
+        )
+        lat2 = func.radians(cabinet_latitude)
+        lon2 = func.radians(cabinet_longitude)
+
+        delta_lat = lat2 - lat1
+        delta_lon = lon2 - lon1
+
+        haversine = (
+            func.pow(
+                func.sin(delta_lat / 2),
+                2,
+            )
+            + func.cos(lat1)
+            * func.cos(lat2)
+            * func.pow(
+                func.sin(delta_lon / 2),
+                2,
+            )
+        )
+
+        distance_expr = (
+            earth_radius_km
+            * 2
+            * func.asin(func.sqrt(haversine))
+        ).label("distance_km")
+
+        stmt = (
+            select(
+                Specialist,
+                ProfessionalCabinet,
+                distance_expr,
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .outerjoin(
+                ReputationScore,
+                and_(
+                    ReputationScore.tenant_id
+                    == ProfessionalCabinet.tenant_id,
+                    ReputationScore.target_type
+                    == "professional_cabinet",
+                    ReputationScore.target_id
+                    == ProfessionalCabinet.id,
+                ),
+            )
+            .outerjoin(
+                City,
+                City.id
+                == ProfessionalCabinet.city_id,
+            )
+            .where(
+                Specialist.tenant_id == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.status.in_(
+                    PUBLIC_SPECIALIST_STATUSES
+                ),
+                User.status.notin_(
+                    ["blocked", "deleted"]
+                ),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status.in_(
+                    PUBLIC_CABINET_MODERATION_STATUSES
+                ),
+            )
+        )
+
+        if country_id:
+            stmt = stmt.where(
+                ProfessionalCabinet.country_id
+                == country_id
+            )
+
+        if category_id:
+            stmt = stmt.where(
+                ProfessionalCabinet.category_id
+                == category_id
+            )
+
+        selected_profession_ids = list(
+            profession_ids or []
+        )
+        if (
+            profession_id
+            and profession_id
+            not in selected_profession_ids
+        ):
+            selected_profession_ids.append(
+                profession_id
+            )
+
+        if selected_profession_ids:
+            stmt = stmt.where(
+                ProfessionalCabinet.profession_id.in_(
+                    selected_profession_ids
+                )
+            )
+
+        if language_code:
+            language_exists = exists(
+                select(
+                    SpecialistLanguage.id
+                ).where(
+                    SpecialistLanguage.specialist_id
+                    == Specialist.id,
+                    SpecialistLanguage.language_code
+                    == language_code.lower(),
+                )
+            )
+            stmt = stmt.where(language_exists)
+
+        if premium_only:
+            stmt = stmt.where(
+                premium_promotion_exists
+            )
+
+        if verified_only:
+            stmt = stmt.where(
+                Specialist.is_verified.is_(True)
+            )
+
+        if available_only:
+            stmt = stmt.where(
+                ProfessionalCabinet.availability_status
+                == "available"
+            )
+
+        if rating_min is not None:
+            stmt = stmt.where(
+                func.coalesce(
+                    ReputationScore.score,
+                    0,
+                )
+                >= rating_min
+            )
+
+        if work_format:
+            stmt = stmt.where(
+                ProfessionalCabinet.work_format
+                == work_format
+            )
+
+        if not country_wide:
+            stmt = stmt.where(
+                cabinet_latitude.isnot(None),
+                cabinet_longitude.isnot(None),
+                distance_expr <= radius_km,
+            )
+
+        stmt = (
+            stmt.order_by(
+                premium_promotion_exists.desc(),
+                promotion_priority.desc(),
+                distance_expr.asc().nulls_last(),
+                func.coalesce(
+                    ReputationScore.score,
+                    0,
+                ).desc(),
+                Specialist.is_verified.desc(),
+                func.coalesce(
+                    ReputationScore.review_count,
+                    0,
+                ).desc(),
+                ProfessionalCabinet.updated_at.desc(),
+                ProfessionalCabinet.id.asc(),
+            )
+            .limit(max(1, int(limit)))
+        )
+
+        result = await self.session.execute(
+            stmt
+        )
+
+        return [
+            (
+                specialist,
+                cabinet,
+                (
+                    float(distance)
+                    if distance is not None
+                    else None
+                ),
+            )
+            for specialist, cabinet, distance
+            in result.all()
+        ]
+
     async def search_within_radius(
         self,
         *,
@@ -597,7 +1318,9 @@ class SpecialistSearchRepository:
                 & (SpecialistLocation.is_current.is_(True)),
             )
             .where(
-                Specialist.status == "approved",
+                Specialist.status.in_(
+    PUBLIC_SPECIALIST_STATUSES
+),
                 User.status.notin_(["blocked", "deleted"]),
 )
         )

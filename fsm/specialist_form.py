@@ -40,8 +40,6 @@ from utils.telegram_cleanup import (
 specialist_form_router = Router()
 logger = logging.getLogger(__name__)
 PER_PAGE = 8
-MAX_SPECIALIST_CATEGORIES = 3
-MAX_PROFESSIONS_PER_CATEGORY = 3
 LANGUAGE_OPTIONS = {
     "ru": "Русский",
     "en": "English",
@@ -71,67 +69,6 @@ class SpecialistForm(StatesGroup):
 def item_name(item, language: str = "ru") -> str:
     localized = getattr(item, f"name_{language}", None)
     return localized or getattr(item, "name_ru", None) or getattr(item, "name", None) or str(item.id)
-
-def selected_professions_text(
-    selected_professions: list[dict],
-    language: str = "ru",
-) -> str:
-    if not selected_professions:
-        return t("spec_selected_professions_empty", language)
-
-    rows = []
-    for item in selected_professions:
-        category_name = item.get("category_name") or "-"
-        profession_name = item.get("profession_name") or "-"
-        rows.append(f"- {category_name}: {profession_name}")
-
-    return "\n".join(rows)
-def profession_limit_error_key(
-    selected_professions: list[dict],
-    category_id: str,
-) -> str | None:
-    category_ids = {
-        str(item.get("category_id"))
-        for item in selected_professions
-        if item.get("category_id")
-    }
-
-    if category_id not in category_ids and len(category_ids) >= MAX_SPECIALIST_CATEGORIES:
-        return "spec_profession_limit_categories"
-
-    professions_in_category = [
-        item
-        for item in selected_professions
-        if str(item.get("category_id")) == category_id
-    ]
-
-    if len(professions_in_category) >= MAX_PROFESSIONS_PER_CATEGORY:
-        return "spec_profession_limit_per_category"
-
-    return None
-
-def profession_multi_prompt_text(
-    selected_professions: list[dict],
-    language: str = "ru",
-) -> str:
-    return (
-        f"{t('spec_profession_multi_prompt', language)}\n\n"
-        f"{t('spec_selected_professions_title', language)}\n"
-        f"{selected_professions_text(selected_professions, language)}"
-    )
-
-def category_prompt_text(
-    selected_professions: list[dict],
-    language: str = "ru",
-) -> str:
-    if not selected_professions:
-        return t("spec_category_prompt", language)
-
-    return (
-        f"{t('spec_category_prompt', language)}\n\n"
-        f"{t('spec_selected_professions_title', language)}\n"
-        f"{selected_professions_text(selected_professions, language)}"
-    )
 
 async def show_callback_message(
     callback: CallbackQuery,
@@ -199,15 +136,15 @@ def build_paged_keyboard(
     )
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
 def build_category_keyboard(
     *,
     items,
-    selected_professions: list[dict],
     page: int,
     language: str,
     back_callback: str = "M",
 ) -> InlineKeyboardMarkup:
-    keyboard = build_paged_keyboard(
+    return build_paged_keyboard(
         items=items,
         prefix="spec_category",
         page_prefix="spec_categories_page",
@@ -216,25 +153,9 @@ def build_category_keyboard(
         back_callback=back_callback,
     )
 
-    rows = list(keyboard.inline_keyboard)
-
-    if selected_professions:
-        rows.insert(
-            -2,
-            [
-                InlineKeyboardButton(
-                    text=t("spec_profession_done_btn", language),
-                    callback_data="spec_profession_done",
-                )
-            ],
-        )
-
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-def build_profession_multi_keyboard(
+def build_profession_keyboard(
     *,
     items,
-    selected_ids: list[str],
     page: int,
     language: str,
 ) -> InlineKeyboardMarkup:
@@ -242,58 +163,80 @@ def build_profession_multi_keyboard(
     end = start + PER_PAGE
 
     rows = []
-    selected_set = set(selected_ids)
 
-    for offset, item in enumerate(items[start:end]):
+    for offset, item in enumerate(
+        items[start:end]
+    ):
         item_index = start + offset
-        item_id = str(item.id)
-        marker = "✓ " if item_id in selected_set else ""
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"{marker}{item_name(item, language)}",
-                    callback_data=f"spec_profession:{item_index}",
+                    text=item_name(
+                        item,
+                        language,
+                    ),
+                    callback_data=(
+                        f"spec_profession:{item_index}"
+                    ),
                 )
             ]
         )
 
     navigation = []
+
     if page > 0:
         navigation.append(
-            InlineKeyboardButton(text="<", callback_data=f"spec_professions_page:{page - 1}")
+            InlineKeyboardButton(
+                text="<",
+                callback_data=(
+                    f"spec_professions_page:"
+                    f"{page - 1}"
+                ),
+            )
         )
+
     if end < len(items):
         navigation.append(
-            InlineKeyboardButton(text=">", callback_data=f"spec_professions_page:{page + 1}")
+            InlineKeyboardButton(
+                text=">",
+                callback_data=(
+                    f"spec_professions_page:"
+                    f"{page + 1}"
+                ),
+            )
         )
+
     if navigation:
         rows.append(navigation)
 
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("spec_profession_done_btn", language),
-                callback_data="spec_profession_done",
+                text=t(
+                    "spec_back_btn",
+                    language,
+                ),
+                callback_data=(
+                    "spec_back_to_categories"
+                ),
             )
         ]
     )
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("spec_back_btn", language),
-                callback_data="spec_back_to_categories",
-            )
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=t("search_menu", language),
+                text=t(
+                    "search_menu",
+                    language,
+                ),
                 callback_data="spec_cancel",
             )
         ]
     )
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
 def contact_visibility_keyboard(
     selected: str | None,
@@ -725,10 +668,12 @@ async def register_specialist(callback: CallbackQuery, state: FSMContext):
 
     await show_callback_message(
         callback,
-        category_prompt_text([], language),
+        t(
+            "spec_category_prompt",
+            language,
+        ),
         build_category_keyboard(
             items=categories,
-            selected_professions=[],
             page=0,
             language=language,
             back_callback="spec_cancel",
@@ -747,10 +692,12 @@ async def paginate_categories(callback: CallbackQuery, state: FSMContext):
 
     await show_callback_message(
         callback,
-        category_prompt_text(data.get("selected_professions") or [], language),
+        t(
+            "spec_category_prompt",
+            language,
+        ),
         build_category_keyboard(
             items=categories,
-            selected_professions=data.get("selected_professions") or [],
             page=page,
             language=language,
             back_callback="spec_cancel",
@@ -807,19 +754,16 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
         current_category_id=str(category.id),
         current_category_name=item_name(category, language),
         profession_ids=[str(item.id) for item in professions],
-        selected_profession_ids=data.get("selected_profession_ids") or [],
-        selected_professions=data.get("selected_professions") or [],
         profession_page=0,
     )
     await show_callback_message(
         callback,
-        profession_multi_prompt_text(
-            data.get("selected_professions") or [],
+        t(
+            "spec_profession_prompt",
             language,
         ),
-        build_profession_multi_keyboard(
+        build_profession_keyboard(
             items=professions,
-            selected_ids=data.get("selected_profession_ids") or [],
             page=0,
             language=language,
         ),
@@ -836,10 +780,12 @@ async def back_to_categories(callback: CallbackQuery, state: FSMContext):
 
     await show_callback_message(
         callback,
-        category_prompt_text(data.get("selected_professions") or [], language),
+        t(
+            "spec_category_prompt",
+            language,
+        ),
         build_category_keyboard(
             items=categories,
-            selected_professions=data.get("selected_professions") or [],
             page=0,
             language=language,
             back_callback="M",
@@ -869,32 +815,54 @@ async def paginate_professions(callback: CallbackQuery, state: FSMContext):
 
     await show_callback_message(
         callback,
-        profession_multi_prompt_text(
-            data.get("selected_professions") or [],
+        t(
+            "spec_profession_prompt",
             language,
         ),
-        build_profession_multi_keyboard(
+        build_profession_keyboard(
             items=professions,
-            selected_ids=data.get("selected_profession_ids") or [],
             page=page,
             language=language,
         ),
     )
     await callback.answer()
 
-@specialist_form_router.callback_query(F.data.startswith("spec_profession:"))
-async def choose_profession(callback: CallbackQuery, state: FSMContext):
+@specialist_form_router.callback_query(
+    F.data.startswith("spec_profession:")
+)
+async def choose_profession(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = data.get("user_language") or callback.from_user.language_code or "ru"
-    profession_ids = data.get("profession_ids") or []
-    selected_profession_ids = data.get("selected_profession_ids") or []
-    selected_professions = data.get("selected_professions") or []
-    page = int(data.get("profession_page") or 0)
+    language = (
+        data.get("user_language")
+        or callback.from_user.language_code
+        or "ru"
+    )
+    profession_ids = (
+        data.get("profession_ids") or []
+    )
 
     try:
-        item_index = int(callback.data.split(":", 1)[1])
-        profession_id = UUID(profession_ids[item_index])
-    except (ValueError, IndexError, KeyError):
+        item_index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+        profession_id = UUID(
+            profession_ids[item_index]
+        )
+        category_id = UUID(
+            data["current_category_id"]
+        )
+    except (
+        ValueError,
+        IndexError,
+        KeyError,
+        TypeError,
+    ):
         await callback.answer(
             t(
                 "spec_profession_not_found_back",
@@ -905,14 +873,16 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
         return
 
     async with get_session() as session:
-        repository = SpecialistRepository(session)
-        profession = await repository.get_active_profession(profession_id)
-        professions = await repository.list_active_professions_by_category(
-            UUID(data["current_category_id"]),
-            limit=100,
+        profession = await SpecialistRepository(
+            session
+        ).get_active_profession(
+            profession_id
         )
 
-    if not profession:
+    if (
+        not profession
+        or profession.category_id != category_id
+    ):
         await callback.answer(
             t(
                 "spec_profession_not_found",
@@ -922,82 +892,31 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
         )
         return
 
-    profession_id_text = str(profession.id)
-
-    if profession_id_text in selected_profession_ids:
-        selected_profession_ids = [
-            item for item in selected_profession_ids if item != profession_id_text
-        ]
-        selected_professions = [
-            item for item in selected_professions if item["profession_id"] != profession_id_text
-        ]
-    else:
-        limit_error_key = profession_limit_error_key(
-            selected_professions,
-            str(profession.category_id),
-        )
-        if limit_error_key:
-            await callback.answer(t(limit_error_key, language), show_alert=True)
-            return
-
-        selected_profession_ids.append(profession_id_text)
-        selected_professions.append(
-            {
-                "category_id": str(profession.category_id),
-                "category_name": data.get("current_category_name"),
-                "profession_id": profession_id_text,
-                "profession_name": item_name(profession, language),
-            }
-        )
+    profession_name = item_name(
+        profession,
+        language,
+    )
 
     await state.update_data(
-        selected_profession_ids=selected_profession_ids,
-        selected_professions=selected_professions,
+        category_id=str(category_id),
+        category_name=data.get(
+            "current_category_name"
+        ),
+        profession_id=str(profession.id),
+        profession_name=profession_name,
     )
 
     await show_callback_message(
         callback,
-        profession_multi_prompt_text(
-            selected_professions,
+        t(
+            "spec_location_prompt",
             language,
         ),
-        build_profession_multi_keyboard(
-            items=professions,
-            selected_ids=selected_profession_ids,
-            page=page,
-            language=language,
-        ),
-    )
-    await callback.answer()
-
-@specialist_form_router.callback_query(F.data == "spec_profession_done")
-async def finish_profession_selection(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = data.get("user_language") or callback.from_user.language_code or "ru"
-    selected_professions = data.get("selected_professions") or []
-
-    if not selected_professions:
-        await callback.answer(
-            t("spec_profession_select_one", language),
-            show_alert=True,
-        )
-        return
-
-    primary_profession = selected_professions[0]
-
-    await state.update_data(
-        category_id=primary_profession["category_id"],
-        category_name=primary_profession.get("category_name"),
-        profession_id=primary_profession["profession_id"],
-        profession_name=primary_profession.get("profession_name"),
-    )
-
-    await show_callback_message(
-        callback,
-        t("spec_location_prompt", language),
         location_mode_keyboard(language),
     )
-    await state.set_state(SpecialistForm.choosing_location_mode)
+    await state.set_state(
+        SpecialistForm.choosing_location_mode
+    )
     await callback.answer()
 
 def location_query_keyboard(
@@ -1128,6 +1047,7 @@ async def search_city_query(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1170,6 +1090,7 @@ async def search_city_query(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1192,6 +1113,7 @@ async def search_city_query(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1219,6 +1141,7 @@ async def search_city_query(message: Message, state: FSMContext):
     menu_message_id = (
         await edit_or_replace_tracked_menu_message(
             message=message,
+            delete_source_message=True,
             menu_message_id=data.get(
                 "last_menu_message_id"
             ),
@@ -1250,6 +1173,7 @@ async def search_country_query(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1286,6 +1210,7 @@ async def search_country_query(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1308,6 +1233,7 @@ async def search_country_query(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1332,6 +1258,7 @@ async def search_country_query(message: Message, state: FSMContext):
     menu_message_id = (
         await edit_or_replace_tracked_menu_message(
             message=message,
+            delete_source_message=True,
             menu_message_id=data.get(
                 "last_menu_message_id"
             ),
@@ -1579,6 +1506,7 @@ async def receive_geo_location(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1643,6 +1571,7 @@ async def receive_geo_location(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1665,6 +1594,7 @@ async def receive_geo_location(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1691,6 +1621,7 @@ async def receive_geo_location(message: Message, state: FSMContext):
     menu_message_id = (
         await edit_or_replace_tracked_menu_message(
             message=message,
+            delete_source_message=True,
             menu_message_id=data.get(
                 "last_menu_message_id"
             ),
@@ -1722,6 +1653,7 @@ async def enter_display_name(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1744,6 +1676,7 @@ async def enter_display_name(message: Message, state: FSMContext):
     menu_message_id = (
         await edit_or_replace_tracked_menu_message(
             message=message,
+            delete_source_message=True,
             menu_message_id=data.get(
                 "last_menu_message_id"
             ),
@@ -1773,6 +1706,7 @@ async def enter_description(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1798,6 +1732,7 @@ async def enter_description(message: Message, state: FSMContext):
     menu_message_id = (
         await edit_or_replace_tracked_menu_message(
             message=message,
+            delete_source_message=True,
             menu_message_id=data.get(
                 "last_menu_message_id"
             ),
@@ -1825,6 +1760,7 @@ async def enter_price(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1852,6 +1788,7 @@ async def enter_price(message: Message, state: FSMContext):
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=message,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -1879,6 +1816,7 @@ async def enter_price(message: Message, state: FSMContext):
     menu_message_id = (
         await edit_or_replace_tracked_menu_message(
             message=message,
+            delete_source_message=True,
             menu_message_id=data.get(
                 "last_menu_message_id"
             ),
@@ -1995,27 +1933,12 @@ async def show_registration_summary(
     elif data.get("price_from"):
         price_text = f"{data['price_from']} EUR"
 
-    selected_professions = data.get("selected_professions") or []
-
-    if selected_professions:
-        category_names = []
-        profession_names = []
-
-        for item in selected_professions:
-            category_name = item.get("category_name")
-            profession_name = item.get("profession_name")
-
-            if category_name and category_name not in category_names:
-                category_names.append(category_name)
-
-            if profession_name:
-                profession_names.append(profession_name)
-
-        category_summary = ", ".join(category_names) or data.get("category_name")
-        profession_summary = ", ".join(profession_names) or data.get("profession_name")
-    else:
-        category_summary = data.get("category_name")
-        profession_summary = data.get("profession_name")
+    category_summary = data.get(
+        "category_name"
+    )
+    profession_summary = data.get(
+        "profession_name"
+    )
 
     work_format_key = {
         "at_client": "search_work_at_client",
@@ -2051,6 +1974,7 @@ async def show_registration_summary(
         menu_message_id = (
             await edit_or_replace_tracked_menu_message(
                 message=event,
+                delete_source_message=True,
                 menu_message_id=data.get(
                     "last_menu_message_id"
                 ),
@@ -2160,7 +2084,6 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
                     language=language,
                     category_id=UUID(data["category_id"]),
                     profession_id=UUID(data["profession_id"]),
-                    profession_selections=data.get("selected_professions") or [],
                     country_id=UUID(data["country_id"]) if data.get("country_id") else None,
                     city_id=UUID(data["city_id"]) if data.get("city_id") else None,
                     display_name=data["display_name"],
@@ -2174,7 +2097,10 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
                     longitude=data.get("longitude"),
                     service_radius_km=data.get("service_radius_km") or 0,
                     languages=data.get("languages") or ["ru"],
-                    service_title=data["display_name"],
+                    service_title=(
+                        data.get("profession_name")
+                        or data["display_name"]
+                    ),
                     service_description=data["short_description"],
                     contact_visibility=data.get("contact_visibility") or "platform_only",
                     allow_requests=bool(data.get("allow_requests", True)),

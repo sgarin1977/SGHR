@@ -155,6 +155,7 @@ class PortfolioRepository:
         *,
         tenant_id: UUID,
         owner_user_id: UUID,
+        professional_cabinet_id: UUID,
         storage_path: str,
         file_type: str,
         mime_type: str,
@@ -167,7 +168,14 @@ class PortfolioRepository:
             user_id=owner_user_id,
             for_update=True,
         )
-
+        if (
+            not specialist.active_professional_cabinet_id
+            or specialist.active_professional_cabinet_id
+            != professional_cabinet_id
+        ):
+            raise PortfolioRepositoryError(
+                "Portfolio cabinet does not match the active cabinet."
+            )
         await self.ensure_upload_allowed(
             specialist_id=specialist.id,
             file_type=file_type,
@@ -193,6 +201,9 @@ class PortfolioRepository:
         item = SpecialistPortfolioItem(
             tenant_id=tenant_id,
             specialist_id=specialist.id,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
             title=(title or "").strip() or None,
             description=(description or "").strip() or None,
             file_url=None,
@@ -217,7 +228,10 @@ class PortfolioRepository:
             tenant_id=tenant_id,
             user_id=owner_user_id,
         )
-
+        if not specialist.active_professional_cabinet_id:
+            raise PortfolioRepositoryError(
+                "Active professional cabinet not found."
+            )
         result = await self.session.execute(
             select(SpecialistPortfolioItem, FileStorageObject)
             .join(
@@ -227,6 +241,8 @@ class PortfolioRepository:
             .where(
                 SpecialistPortfolioItem.tenant_id == tenant_id,
                 SpecialistPortfolioItem.specialist_id == specialist.id,
+                SpecialistPortfolioItem.professional_cabinet_id
+                == specialist.active_professional_cabinet_id,
                 SpecialistPortfolioItem.status != "deleted",
                 FileStorageObject.owner_user_id == owner_user_id,
             )
@@ -243,19 +259,35 @@ class PortfolioRepository:
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
     ) -> list[tuple[SpecialistPortfolioItem, FileStorageObject]]:
+        filters = [
+            SpecialistPortfolioItem.tenant_id
+            == tenant_id,
+            SpecialistPortfolioItem.specialist_id
+            == specialist_id,
+            SpecialistPortfolioItem.status
+            == "active",
+            FileStorageObject.visibility_scope
+            == "private",
+        ]
+
+        if professional_cabinet_id is not None:
+            filters.append(
+                SpecialistPortfolioItem.professional_cabinet_id
+                == professional_cabinet_id
+            )
+
         result = await self.session.execute(
-            select(SpecialistPortfolioItem, FileStorageObject)
+            select(
+                SpecialistPortfolioItem,
+                FileStorageObject,
+            )
             .join(
                 FileStorageObject,
                 FileStorageObject.id == SpecialistPortfolioItem.file_id,
             )
-            .where(
-                SpecialistPortfolioItem.tenant_id == tenant_id,
-                SpecialistPortfolioItem.specialist_id == specialist_id,
-                SpecialistPortfolioItem.status == "active",
-                FileStorageObject.visibility_scope == "private",
-            )
+            .where(*filters)
             .order_by(
                 SpecialistPortfolioItem.sort_order,
                 SpecialistPortfolioItem.created_at.desc(),

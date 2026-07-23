@@ -4,7 +4,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import SavedSpecialist, Specialist
-
+from database.repositories.search import (
+    PUBLIC_SPECIALIST_STATUSES,
+)
 
 class FavoriteRepository:
     def __init__(self, session: AsyncSession):
@@ -75,7 +77,7 @@ class FavoriteRepository:
         if (
             not specialist
             or specialist.tenant_id != tenant_id
-            or specialist.status != "approved"
+            or specialist.status not in PUBLIC_SPECIALIST_STATUSES
         ):
             raise ValueError("Specialist is not available.")
 
@@ -106,7 +108,7 @@ class FavoriteRepository:
         specialist_id: UUID,
     ) -> bool:
         specialist = await self.session.get(Specialist, specialist_id)
-        if not specialist or specialist.tenant_id != tenant_id or specialist.status != "approved":
+        if not specialist or specialist.tenant_id != tenant_id or specialist.status not in PUBLIC_SPECIALIST_STATUSES:
             raise ValueError("Specialist is not available.")
 
         saved = await self.get_saved_specialist(
@@ -154,7 +156,9 @@ class FavoriteRepository:
                 SavedSpecialist.tenant_id == tenant_id,
                 SavedSpecialist.user_id == user_id,
                 Specialist.tenant_id == tenant_id,
-                Specialist.status == "approved",
+                Specialist.status.in_(
+                    PUBLIC_SPECIALIST_STATUSES
+                ),
             )
             .order_by(SavedSpecialist.created_at.desc())
             .limit(limit)

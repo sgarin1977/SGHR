@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from database.repositories.contact import ContactChatRepository
+from database.repositories.specialist import (
+    SpecialistRepository,
+)
 from database.repositories.event import EventRepository
 from database.repositories.support import SupportRepository
 from database.repositories.contact_detection import ContactDetectionRepository
@@ -30,6 +33,13 @@ class ContactRequestResult:
 class ExistingContactChat:
     contact_request_id: UUID
     thread_id: UUID
+
+@dataclass(frozen=True)
+class ContactCabinetContext:
+    specialist_id: UUID
+    specialist_user_id: UUID
+    professional_cabinet_id: UUID
+    profession_id: UUID
 
 @dataclass
 class ContactRequestStatusResult:
@@ -222,6 +232,87 @@ class ContactChatService:
             )
         else:
             self.rate_limit_service = None
+
+    async def _get_active_specialist_cabinet_id(
+        self,
+        *,
+        user_id: UUID,
+    ) -> UUID | None:
+        if self.repository is None:
+            return None
+
+        specialist_repository = SpecialistRepository(
+            self.repository.session
+        )
+        specialist = (
+            await specialist_repository.get_by_user_id(
+                user_id
+            )
+        )
+
+        if (
+            not specialist
+            or not specialist
+            .active_professional_cabinet_id
+        ):
+            return None
+
+        cabinet = await (
+            specialist_repository
+            .get_active_professional_cabinet(
+                tenant_id=specialist.tenant_id,
+                specialist_id=specialist.id,
+            )
+        )
+
+        return cabinet.id if cabinet else None
+
+    async def _get_contact_cabinet_context(
+        self,
+        *,
+        tenant_id: UUID,
+        from_user_id: UUID,
+        specialist_id: UUID,
+        profession_id: UUID | None,
+    ) -> ContactCabinetContext:
+        specialist = (
+            await self.repository
+            .get_approved_specialist(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+        )
+
+        if not specialist:
+            raise ContactChatError(
+                "Specialist is not available for contact."
+            )
+
+        if specialist.user_id == from_user_id:
+            raise ContactChatError(
+                "You cannot contact your own specialist profile."
+            )
+
+        cabinet = (
+            await self.repository
+            .get_approved_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist.id,
+                requested_profession_id=profession_id,
+            )
+        )
+
+        if not cabinet:
+            raise ContactChatError(
+                "Specialist profession is not available."
+            )
+
+        return ContactCabinetContext(
+            specialist_id=specialist.id,
+            specialist_user_id=specialist.user_id,
+            professional_cabinet_id=cabinet.id,
+            profession_id=cabinet.profession_id,
+        )
 
     def parse_service_order_form(self, text: str) -> ServiceOrderFormData:
         lines = [
@@ -422,36 +513,21 @@ class ContactChatService:
         specialist_id: UUID,
         profession_id: UUID | None = None,
     ) -> ExistingContactChat | None:
-        specialist = await self.repository.get_approved_specialist(
-            specialist_id,
+        context = await self._get_contact_cabinet_context(
+            tenant_id=tenant_id,
+            from_user_id=from_user_id,
+            specialist_id=specialist_id,
+            profession_id=profession_id,
         )
-        if not specialist:
-            raise ContactChatError(
-                "Specialist is not available for contact."
-            )
-
-        if specialist.user_id == from_user_id:
-            raise ContactChatError(
-                "You cannot contact your own specialist profile."
-            )
-
-        resolved_profession_id = (
-            await self.repository.resolve_contact_profession_id(
-                specialist_id=specialist.id,
-                requested_profession_id=profession_id,
-            )
-        )
-        if resolved_profession_id is None:
-            raise ContactChatError(
-                "Specialist profession is not available."
-            )
 
         contact_request = (
             await self.repository.get_active_contact_request_for_pair(
                 tenant_id=tenant_id,
                 from_user_id=from_user_id,
-                specialist_id=specialist.id,
-                profession_id=resolved_profession_id,
+                specialist_id=context.specialist_id,
+                professional_cabinet_id=(
+                    context.professional_cabinet_id
+                ),
             )
         )
         if not contact_request:
@@ -503,38 +579,26 @@ class ContactChatService:
             except RateLimitError as exc:
                 raise ContactChatError(str(exc)) from exc
 
-        specialist = await self.repository.get_approved_specialist(
-            specialist_id,
+        context = await self._get_contact_cabinet_context(
+            tenant_id=tenant_id,
+            from_user_id=from_user_id,
+            specialist_id=specialist_id,
+            profession_id=profession_id,
         )
-        if not specialist:
-            raise ContactChatError(
-                "Specialist is not available for contact."
-            )
-
-        if specialist.user_id == from_user_id:
-            raise ContactChatError(
-                "You cannot contact your own specialist profile."
-            )
-
-        resolved_profession_id = (
-            await self.repository.resolve_contact_profession_id(
-                specialist_id=specialist.id,
-                requested_profession_id=profession_id,
-            )
-        )
-        if resolved_profession_id is None:
-            raise ContactChatError(
-                "Specialist profession is not available."
-            )
 
         contact_request, thread, _ = await (
             self.repository
             .create_contact_thread_with_system_message(
                 tenant_id=tenant_id,
                 from_user_id=from_user_id,
-                specialist_id=specialist.id,
-                profession_id=resolved_profession_id,
-                specialist_user_id=specialist.user_id,
+                specialist_id=context.specialist_id,
+                profession_id=context.profession_id,
+                professional_cabinet_id=(
+                    context.professional_cabinet_id
+                ),
+                specialist_user_id=(
+                    context.specialist_user_id
+                ),
                 system_message=normalized_system_message,
                 original_language=self._normalize_language(
                     original_language,
@@ -567,30 +631,20 @@ class ContactChatService:
             except RateLimitError as exc:
                 raise ContactChatError(str(exc)) from exc
 
-        specialist = await self.repository.get_approved_specialist(specialist_id)
-        if not specialist:
-            raise ContactChatError("Specialist is not available for contact.")
-
-        if specialist.user_id == from_user_id:
-            raise ContactChatError("You cannot contact your own specialist profile.")
-
-        resolved_profession_id = (
-            await self.repository.resolve_contact_profession_id(
-                specialist_id=specialist.id,
-                requested_profession_id=profession_id,
-            )
+        context = await self._get_contact_cabinet_context(
+            tenant_id=tenant_id,
+            from_user_id=from_user_id,
+            specialist_id=specialist_id,
+            profession_id=profession_id,
         )
-
-        if resolved_profession_id is None:
-            raise ContactChatError(
-                "Specialist profession is not available."
-            )
 
         existing_contact_request = await self.repository.get_active_contact_request_for_pair(
             tenant_id=tenant_id,
             from_user_id=from_user_id,
-            specialist_id=specialist.id,
-            profession_id=resolved_profession_id,
+            specialist_id=context.specialist_id,
+            professional_cabinet_id=(
+                context.professional_cabinet_id
+            ),
         )
         if existing_contact_request:
             existing_thread = await self.repository.get_thread_by_contact_request_id(
@@ -609,7 +663,7 @@ class ContactChatService:
                 thread_id=existing_thread.id,
                 first_message_id=existing_thread.id,
                 notification_id=existing_thread.id,
-                specialist_user_id=specialist.user_id,
+                specialist_user_id=context.specialist_user_id,
                 contact_token=contact_token,
                 was_existing=True,
             )
@@ -618,9 +672,14 @@ class ContactChatService:
             await self.repository.create_contact_request_with_thread(
                 tenant_id=tenant_id,
                 from_user_id=from_user_id,
-                specialist_id=specialist.id,
-                profession_id=resolved_profession_id,
-                specialist_user_id=specialist.user_id,
+                specialist_id=context.specialist_id,
+                profession_id=context.profession_id,
+                professional_cabinet_id=(
+                    context.professional_cabinet_id
+                ),
+                specialist_user_id=(
+                    context.specialist_user_id
+                ),
                 message=normalized_message,
                 original_language=self._normalize_language(
                     original_language,
@@ -637,7 +696,7 @@ class ContactChatService:
             thread_id=thread.id,
             first_message_id=first_message.id,
             notification_id=notification.id,
-            specialist_user_id=specialist.user_id,
+            specialist_user_id=context.specialist_user_id,
             contact_token=contact_token,
             message_masked=detection_result.is_masked,
             detection_types=detection_result.detected_types,
@@ -1226,12 +1285,47 @@ class ContactChatService:
     async def get_thread_detail_for_viewer(
         self,
         *,
-        tenant_id: UUID,
         thread_id: UUID,
         user_id: UUID,
         participant_role: str,
         language: str = "ru",
+        tenant_id: UUID | None = None,
     ) -> ContactThreadDetail:
+        thread = await self.repository.get_thread_for_user(
+            thread_id=thread_id,
+            user_id=user_id,
+        )
+        if not thread:
+            raise ContactChatError(
+                "Conversation thread not found."
+            )
+        if (
+            tenant_id is not None
+            and thread.tenant_id != tenant_id
+        ):
+            raise ContactChatError(
+                "Conversation thread not found."
+            )
+
+        effective_tenant_id = thread.tenant_id
+        if participant_role == "specialist":
+            professional_cabinet_id = (
+                await self
+                ._get_active_specialist_cabinet_id(
+                    user_id=user_id,
+                )
+            )
+
+            if (
+                not professional_cabinet_id
+                or thread.professional_cabinet_id
+                != professional_cabinet_id
+            ):
+                raise ContactChatError(
+                    "Conversation belongs to another "
+                    "professional cabinet."
+                )
+
         detail = await self.get_thread_detail(
             thread_id=thread_id,
             user_id=user_id,
@@ -1243,14 +1337,21 @@ class ContactChatService:
                 self.repository.session
             ).create_event(
                 event_type="dialog_opened",
-                tenant_id=tenant_id,
+                tenant_id=effective_tenant_id,
                 user_id=user_id,
                 entity_type="conversation_thread",
                 entity_id=thread_id,
                 payload={
                     "role": participant_role,
-                    "thread_status": detail.thread_status,
-                    "request_status": detail.request_status,
+                    "thread_status": (
+                        detail.thread_status
+                    ),
+                    "request_status": (
+                        detail.request_status
+                    ),
+                    "professional_cabinet_id": str(
+                        thread.professional_cabinet_id
+                    ),
                 },
                 platform="telegram",
             )
@@ -1549,6 +1650,16 @@ class ContactChatService:
         language: str = "ru",
         search_query: str | None = None,
     ) -> list[ContactThreadListItem]:
+        professional_cabinet_id = (
+            await self
+            ._get_active_specialist_cabinet_id(
+                user_id=user_id,
+            )
+        )
+
+        if not professional_cabinet_id:
+            return []
+
         rows = await self.repository.list_threads_for_user(
             user_id=user_id,
             participant_role="specialist",
@@ -1557,6 +1668,9 @@ class ContactChatService:
             offset=offset,
             language=language,
             search_query=search_query,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
         )
 
         return [
@@ -1566,7 +1680,9 @@ class ContactChatService:
                 profession_name=profession_name,
                 last_message_text=last_message_text,
                 last_message_at=last_message_at,
-                unread_count=int(participant.unread_count or 0),
+                unread_count=int(
+                    participant.unread_count or 0
+                ),
                 status=thread.status,
             )
             for (
@@ -1578,16 +1694,35 @@ class ContactChatService:
                 last_message_at,
             ) in rows
         ]
-    
+
     async def count_unread_messages(
         self,
         *,
         user_id: UUID,
         participant_role: str,
     ) -> int:
-        return await self.repository.count_unread_messages_for_user(
-            user_id=user_id,
-            participant_role=participant_role,
+        professional_cabinet_id = None
+
+        if participant_role == "specialist":
+            professional_cabinet_id = (
+                await self
+                ._get_active_specialist_cabinet_id(
+                    user_id=user_id,
+                )
+            )
+
+            if not professional_cabinet_id:
+                return 0
+
+        return await (
+            self.repository
+            .count_unread_messages_for_user(
+                user_id=user_id,
+                participant_role=participant_role,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
         )
     
     async def record_messages_opened(

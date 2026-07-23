@@ -8,6 +8,8 @@ from database.models import (
     City,
     Country,
     EventLog,
+    ProfessionalCabinet,
+    ProfessionalCabinetSkill,
     Profession,
     Specialist,
     SpecialistCategory,
@@ -21,7 +23,6 @@ from database.models import (
     ProfessionAlias,
     ProfessionSkill,
     Skill,
-    UserSkill,
 )
 MAX_SPECIALIST_CATEGORIES = 3
 MAX_PROFESSIONS_PER_CATEGORY = 3
@@ -29,6 +30,264 @@ MAX_PROFESSIONS_PER_CATEGORY = 3
 class SpecialistRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def get_active_professional_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+    ) -> ProfessionalCabinet | None:
+        specialist = await self.session.get(
+            Specialist,
+            specialist_id,
+        )
+
+        if (
+            not specialist
+            or specialist.tenant_id != tenant_id
+            or not specialist.active_professional_cabinet_id
+        ):
+            return None
+
+        result = await self.session.execute(
+            select(ProfessionalCabinet).where(
+                ProfessionalCabinet.id
+                == specialist.active_professional_cabinet_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == specialist_id,
+                ProfessionalCabinet.is_active.is_(True),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_active_professional_cabinets(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+    ) -> list[
+        tuple[
+            ProfessionalCabinet,
+            Profession,
+        ]
+    ]:
+        result = await self.session.execute(
+            select(
+                ProfessionalCabinet,
+                Profession,
+            )
+            .join(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
+            .where(
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == specialist_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .order_by(
+                ProfessionalCabinet.created_at.asc(),
+                ProfessionalCabinet.id.asc(),
+            )
+        )
+
+        return list(
+            result.tuples().all()
+        )
+
+    async def set_active_professional_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> ProfessionalCabinet | None:
+        specialist = await self.session.get(
+            Specialist,
+            specialist_id,
+        )
+        if (
+            not specialist
+            or specialist.tenant_id != tenant_id
+        ):
+            return None
+
+        result = await self.session.execute(
+            select(ProfessionalCabinet).where(
+                ProfessionalCabinet.id
+                == professional_cabinet_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == specialist_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+        )
+        cabinet = result.scalar_one_or_none()
+
+        if not cabinet:
+            return None
+
+        specialist.active_professional_cabinet_id = (
+            cabinet.id
+        )
+        specialist.updated_at = datetime.utcnow()
+
+        await self.session.flush()
+        return cabinet
+
+    async def get_professional_cabinet_by_profession(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        profession_id: UUID,
+    ) -> ProfessionalCabinet | None:
+        result = await self.session.execute(
+            select(ProfessionalCabinet).where(
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == specialist_id,
+                ProfessionalCabinet.profession_id
+                == profession_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_professional_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        category_id: UUID,
+        profession_id: UUID,
+        title: str,
+    ) -> ProfessionalCabinet:
+        cabinet = ProfessionalCabinet(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+            category_id=category_id,
+            profession_id=profession_id,
+            title=title,
+            description=None,
+            country_id=None,
+            city_id=None,
+            work_format="mixed",
+            availability_status="available",
+            moderation_status="draft",
+            is_active=True,
+        )
+        self.session.add(cabinet)
+        await self.session.flush()
+        return cabinet
+
+    async def restore_professional_cabinet(
+        self,
+        *,
+        cabinet: ProfessionalCabinet,
+        category_id: UUID,
+        title: str,
+    ) -> ProfessionalCabinet:
+        cabinet.category_id = category_id
+        cabinet.title = title
+        cabinet.moderation_status = "draft"
+        cabinet.is_active = True
+        cabinet.updated_at = datetime.utcnow()
+
+        await self.session.flush()
+        return cabinet
+
+    async def update_professional_cabinet_moderation_status(
+        self,
+        *,
+        cabinet: ProfessionalCabinet,
+        moderation_status: str,
+    ) -> ProfessionalCabinet:
+        cabinet.moderation_status = (
+            moderation_status
+        )
+        cabinet.updated_at = datetime.utcnow()
+
+        await self.session.flush()
+        return cabinet
+
+    async def ensure_specialist_profession_relation(
+        self,
+        *,
+        specialist_id: UUID,
+        category_id: UUID,
+        profession_id: UUID,
+    ) -> SpecialistProfession:
+        result = await self.session.execute(
+            select(SpecialistProfession)
+            .where(
+                SpecialistProfession.specialist_id
+                == specialist_id,
+                SpecialistProfession.profession_id
+                == profession_id,
+            )
+            .order_by(
+                SpecialistProfession.created_at.asc()
+            )
+        )
+        existing_rows = list(result.scalars().all())
+
+        for row in existing_rows:
+            row.status = "deleted"
+            row.is_primary = False
+
+        if existing_rows:
+            relation = existing_rows[0]
+            relation.category_id = category_id
+            relation.status = "active"
+            relation.updated_at = datetime.utcnow()
+        else:
+            relation = SpecialistProfession(
+                specialist_id=specialist_id,
+                category_id=category_id,
+                profession_id=profession_id,
+                is_primary=False,
+                status="active",
+            )
+            self.session.add(relation)
+
+        await self.session.flush()
+        return relation
+
+    async def update_active_cabinet_description(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        description: str,
+    ) -> ProfessionalCabinet:
+        cabinet = (
+            await self.get_active_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+        )
+
+        if not cabinet:
+            raise ValueError(
+                "Active professional cabinet not found."
+            )
+
+        cabinet.description = description
+        cabinet.updated_at = datetime.utcnow()
+
+        await self.session.flush()
+        return cabinet
 
     @staticmethod
     def _release_category_conditions():
@@ -122,28 +381,82 @@ class SpecialistRepository:
         )
         return list(result.scalars().all())
 
-    async def list_user_skill_ids(self, user_id: UUID) -> list[UUID]:
-        result = await self.session.execute(
-            select(UserSkill.skill_id)
-            .where(UserSkill.user_id == user_id)
-            .order_by(UserSkill.created_at.asc())
-        )
-        return list(result.scalars().all())
-
-    async def replace_user_skills(
+    async def list_skills_for_profession(
         self,
         *,
-        user_id: UUID,
+        profession_id: UUID,
+        limit: int = 30,
+    ) -> list[Skill]:
+        result = await self.session.execute(
+            select(Skill)
+            .join(
+                ProfessionSkill,
+                ProfessionSkill.skill_id
+                == Skill.id,
+            )
+            .where(
+                ProfessionSkill.profession_id
+                == profession_id,
+                Skill.is_active.is_(True),
+            )
+            .order_by(
+                ProfessionSkill.is_primary.desc(),
+                ProfessionSkill.sort_order,
+                Skill.name,
+            )
+            .limit(limit)
+        )
+
+        return list(
+            result.scalars().all()
+        )
+
+    async def list_cabinet_skill_ids(
+        self,
+        *,
+        professional_cabinet_id: UUID,
+    ) -> list[UUID]:
+        result = await self.session.execute(
+            select(
+                ProfessionalCabinetSkill.skill_id
+            )
+            .where(
+                ProfessionalCabinetSkill
+                .professional_cabinet_id
+                == professional_cabinet_id
+            )
+            .order_by(
+                ProfessionalCabinetSkill
+                .created_at.asc()
+            )
+        )
+
+        return list(
+            result.scalars().all()
+        )
+
+    async def replace_cabinet_skills(
+        self,
+        *,
+        professional_cabinet_id: UUID,
         skill_ids: list[UUID],
     ) -> None:
         await self.session.execute(
-            delete(UserSkill).where(UserSkill.user_id == user_id)
+            delete(
+                ProfessionalCabinetSkill
+            ).where(
+                ProfessionalCabinetSkill
+                .professional_cabinet_id
+                == professional_cabinet_id
+            )
         )
 
         for skill_id in skill_ids:
             self.session.add(
-                UserSkill(
-                    user_id=user_id,
+                ProfessionalCabinetSkill(
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
                     skill_id=skill_id,
                 )
             )
@@ -320,20 +633,55 @@ class SpecialistRepository:
             return None
         return specialist
 
-    async def get_specialist_location_parts(
+    async def get_active_cabinet_location_parts(
         self,
         *,
-        specialist: Specialist,
-    ) -> tuple[City | None, Country | None]:
-        city = await self.session.get(City, specialist.city_id) if specialist.city_id else None
-        country_id = city.country_id if city else specialist.country_id
-        country = await self.session.get(Country, country_id) if country_id else None
+        tenant_id: UUID,
+        specialist_id: UUID,
+    ) -> tuple[
+        City | None,
+        Country | None,
+    ]:
+        cabinet = (
+            await self.get_active_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+        )
+
+        if not cabinet:
+            return None, None
+
+        city = (
+            await self.session.get(
+                City,
+                cabinet.city_id,
+            )
+            if cabinet.city_id
+            else None
+        )
+
+        country_id = (
+            city.country_id
+            if city
+            else cabinet.country_id
+        )
+        country = (
+            await self.session.get(
+                Country,
+                country_id,
+            )
+            if country_id
+            else None
+        )
+
         return city, country
 
     async def list_specialist_services_page(
         self,
         *,
         specialist_id: UUID,
+        professional_cabinet_id: UUID,
         limit: int,
         offset: int,
     ) -> tuple[int, list[SpecialistService]]:
@@ -342,6 +690,8 @@ class SpecialistRepository:
             .select_from(SpecialistService)
             .where(
                 SpecialistService.specialist_id == specialist_id,
+                SpecialistService.professional_cabinet_id
+                == professional_cabinet_id,
                 SpecialistService.status != "deleted",
             )
         )
@@ -351,6 +701,8 @@ class SpecialistRepository:
             select(SpecialistService)
             .where(
                 SpecialistService.specialist_id == specialist_id,
+                SpecialistService.professional_cabinet_id
+                == professional_cabinet_id,
                 SpecialistService.status != "deleted",
             )
             .order_by(SpecialistService.created_at.desc())
@@ -388,32 +740,32 @@ class SpecialistRepository:
         await self.session.flush()
         return specialist
 
-    async def update_specialist_availability(
+    async def update_active_cabinet_availability(
         self,
         *,
-        user_id: UUID,
+        tenant_id: UUID,
         specialist_id: UUID,
         availability_status: str,
-        available_from_text: str | None = None,
-    ) -> Specialist:
-        specialist = await self.session.get(Specialist, specialist_id)
-        if not specialist or specialist.user_id != user_id:
-            raise ValueError("Specialist profile not found.")
+    ) -> ProfessionalCabinet:
+        cabinet = (
+            await self.get_active_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+        )
 
-        metadata = dict(specialist.extra_metadata or {})
-        metadata["availability_status"] = availability_status
+        if not cabinet:
+            raise ValueError(
+                "Active professional cabinet not found."
+            )
 
-        if available_from_text:
-            metadata["available_from_text"] = available_from_text
-        else:
-            metadata.pop("available_from_text", None)
-
-        specialist.is_available = availability_status == "available_now"
-        specialist.extra_metadata = metadata
-        specialist.updated_at = datetime.utcnow()
+        cabinet.availability_status = (
+            availability_status
+        )
+        cabinet.updated_at = datetime.utcnow()
 
         await self.session.flush()
-        return specialist
+        return cabinet
 
     async def update_specialist_profile_visibility(
         self,
@@ -464,20 +816,57 @@ class SpecialistRepository:
         await self.session.flush()
         return specialist, before_visibility
 
-    async def update_specialist_work_format(
+    async def update_active_cabinet_work_format(
         self,
         *,
-        user_id: UUID,
+        tenant_id: UUID,
         specialist_id: UUID,
         work_format: str,
-    ) -> Specialist:
-        specialist = await self.session.get(Specialist, specialist_id)
-        if not specialist or specialist.user_id != user_id:
-            raise ValueError("Specialist profile not found.")
+    ) -> ProfessionalCabinet:
+        cabinet = (
+            await self.get_active_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+        )
 
-        specialist.work_format = work_format
+        if not cabinet:
+            raise ValueError(
+                "Active professional cabinet not found."
+            )
+
+        cabinet.work_format = work_format
+        cabinet.updated_at = datetime.utcnow()
+
         await self.session.flush()
-        return specialist
+        return cabinet
+
+    async def update_active_cabinet_location(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        country_id: UUID,
+        city_id: UUID | None,
+    ) -> ProfessionalCabinet:
+        cabinet = (
+            await self.get_active_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+        )
+
+        if not cabinet:
+            raise ValueError(
+                "Active professional cabinet not found."
+            )
+
+        cabinet.country_id = country_id
+        cabinet.city_id = city_id
+        cabinet.updated_at = datetime.utcnow()
+
+        await self.session.flush()
+        return cabinet
 
     async def list_specialist_language_codes(
         self,
@@ -527,14 +916,26 @@ class SpecialistRepository:
         user_id: UUID,
         service_id: UUID,
     ) -> SpecialistService | None:
-        specialist = await self.session.get(Specialist, specialist_id)
-        if not specialist or specialist.user_id != user_id:
+        specialist = await self.session.get(
+            Specialist,
+            specialist_id,
+        )
+        if (
+            not specialist
+            or specialist.user_id != user_id
+            or not specialist.active_professional_cabinet_id
+        ):
             return None
 
-        service = await self.session.get(SpecialistService, service_id)
+        service = await self.session.get(
+            SpecialistService,
+            service_id,
+        )
         if (
             not service
             or service.specialist_id != specialist_id
+            or service.professional_cabinet_id
+            != specialist.active_professional_cabinet_id
             or service.status == "deleted"
         ):
             return None
@@ -546,6 +947,7 @@ class SpecialistRepository:
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID,
         category_id: UUID | None,
         profession_id: UUID | None,
         title: str,
@@ -557,6 +959,9 @@ class SpecialistRepository:
         service = SpecialistService(
             tenant_id=tenant_id,
             specialist_id=specialist_id,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
             category_id=category_id,
             profession_id=profession_id,
             title=title,
@@ -720,7 +1125,7 @@ class SpecialistRepository:
         user_id: UUID,
         category_id: UUID,
         profession_id: UUID,
-        profession_selections: list[dict] | None = None,
+        cabinet_title: str,
         country_id: UUID | None,
         city_id: UUID | None,
         display_name: str,
@@ -777,42 +1182,41 @@ class SpecialistRepository:
         self.session.add(specialist)
         await self.session.flush()
 
-        seen_profession_ids = set()
-        normalized_selections = []
+        cabinet = ProfessionalCabinet(
+            tenant_id=tenant_id,
+            specialist_id=specialist.id,
+            category_id=category_id,
+            profession_id=profession_id,
+            title=cabinet_title,
+            description=(
+                full_description
+                or short_description
+            ),
+            country_id=country_id,
+            city_id=city_id,
+            work_format=work_format,
+            availability_status="available",
+            moderation_status=(
+                "pending_moderation"
+            ),
+            is_active=True,
+        )
+        self.session.add(cabinet)
+        await self.session.flush()
 
-        for item in profession_selections or []:
-            item_category_id = UUID(str(item["category_id"]))
-            item_profession_id = UUID(str(item["profession_id"]))
+        specialist.active_professional_cabinet_id = (
+            cabinet.id
+        )
 
-            if item_profession_id in seen_profession_ids:
-                continue
-
-            seen_profession_ids.add(item_profession_id)
-            normalized_selections.append(
-                {
-                    "category_id": item_category_id,
-                    "profession_id": item_profession_id,
-                }
+        self.session.add(
+            SpecialistProfession(
+                specialist_id=specialist.id,
+                category_id=category_id,
+                profession_id=profession_id,
+                is_primary=True,
+                status="active",
             )
-
-        if not normalized_selections:
-            normalized_selections.append(
-                {
-                    "category_id": category_id,
-                    "profession_id": profession_id,
-                }
-            )
-        self._validate_profession_limits(normalized_selections)
-        for index, item in enumerate(normalized_selections):
-            self.session.add(
-                SpecialistProfession(
-                    specialist_id=specialist.id,
-                    category_id=item["category_id"],
-                    profession_id=item["profession_id"],
-                    is_primary=index == 0,
-                    status="active",
-                )
-            )
+        )
 
         await self.ensure_specialist_role(tenant_id=tenant_id, user_id=user_id)
         visibility_level = contact_visibility or "platform_only"
@@ -875,6 +1279,11 @@ class SpecialistRepository:
                 SpecialistService(
                     tenant_id=tenant_id,
                     specialist_id=specialist.id,
+                    professional_cabinet_id=(
+                        cabinet.id
+                    ),
+                    category_id=cabinet.category_id,
+                    profession_id=cabinet.profession_id,
                     title=service_title,
                     description=service_description,
                     price_from=price_from,
@@ -896,6 +1305,9 @@ class SpecialistRepository:
                     "status": "pending_moderation",
                     "category_id": str(category_id),
                     "profession_id": str(profession_id),
+                    "professional_cabinet_id": str(
+                        cabinet.id
+                    ),
                     "city_id": str(city_id) if city_id else None,
                 },
                 platform="telegram",
@@ -905,10 +1317,15 @@ class SpecialistRepository:
             EventLog(
                 tenant_id=tenant_id,
                 user_id=user_id,
-                event_type="specialist_submitted",
-                entity_type="specialist",
-                entity_id=specialist.id,
+                event_type=(
+                    "professional_cabinet_submitted"
+                ),
+                entity_type="professional_cabinet",
+                entity_id=cabinet.id,
                 payload={
+                    "specialist_id": str(
+                        specialist.id
+                    ),
                     "status": "pending_moderation",
                 },
                 platform="telegram",

@@ -754,7 +754,13 @@ async def main_menu_beta_stub(
 async def cmd_start(message: Message, state: FSMContext):
     if not message.from_user:
         return
-
+    await delete_telegram_messages(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        message_ids=[
+            message.message_id
+        ],
+    )
     telegram_language = normalize_language(message.from_user.language_code)
     language = telegram_language
     first_name = message.from_user.first_name or t("start_default_first_name", language)
