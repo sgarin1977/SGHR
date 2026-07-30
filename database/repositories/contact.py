@@ -17,7 +17,6 @@ from database.models import (
     Profession,
     ProfessionalCabinet,
     Specialist,
-    SpecialistProfession,
     TranslationJob,
     User,
     UserAccount,
@@ -26,7 +25,6 @@ from database.models import (
 from database.repositories.translation import TranslationRepository
 from database.repositories.search import (
     PUBLIC_CABINET_MODERATION_STATUSES,
-    PUBLIC_SPECIALIST_STATUSES,
 )
 class ContactChatRepository:
     def __init__(self, session: AsyncSession):
@@ -73,14 +71,17 @@ class ContactChatRepository:
         await self.session.flush()
 
         return None
-    async def get_approved_specialist(
+
+    async def get_contactable_specialist(
         self,
         *,
         tenant_id: UUID,
         specialist_id: UUID,
     ) -> Specialist | None:
         result = await self.session.execute(
-            select(Specialist)
+            select(
+                Specialist
+            )
             .join(
                 User,
                 User.id == Specialist.user_id,
@@ -88,15 +89,20 @@ class ContactChatRepository:
             .where(
                 Specialist.id == specialist_id,
                 Specialist.tenant_id == tenant_id,
-                Specialist.status.in_(
-                    PUBLIC_SPECIALIST_STATUSES
-                ),
+                Specialist.status
+                != "deleted",
+                User.tenant_id == tenant_id,
                 User.status.notin_(
-                    ["blocked", "deleted"]
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
                 ),
             )
         )
+
         return result.scalar_one_or_none()
+
     async def get_approved_professional_cabinet(
         self,
         *,
@@ -1341,12 +1347,15 @@ class ContactChatRepository:
                 & (ConversationThread.context_id == ContactRequest.id),
             )
             .outerjoin(
-                SpecialistProfession,
-                (SpecialistProfession.specialist_id == Specialist.id)
-                & (SpecialistProfession.status == "active")
-                & (SpecialistProfession.is_primary.is_(True)),
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == ContactRequest.professional_cabinet_id,
             )
-            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .outerjoin(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
             .where(ContactRequest.from_user_id == user_id)
             .order_by(ContactRequest.created_at.desc())
             .limit(limit)
@@ -1447,12 +1456,15 @@ class ContactChatRepository:
                 & (ConversationThread.context_id == ContactRequest.id),
             )
             .outerjoin(
-                SpecialistProfession,
-                (SpecialistProfession.specialist_id == Specialist.id)
-                & (SpecialistProfession.status == "active")
-                & (SpecialistProfession.is_primary.is_(True)),
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == ContactRequest.professional_cabinet_id,
             )
-            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .outerjoin(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
             .where(
                 ContactRequest.specialist_id == specialist_id,
                 ContactRequest.status == status,
@@ -1496,12 +1508,15 @@ class ContactChatRepository:
                 & (ConversationThread.context_id == ContactRequest.id),
             )
             .outerjoin(
-                SpecialistProfession,
-                (SpecialistProfession.specialist_id == Specialist.id)
-                & (SpecialistProfession.status == "active")
-                & (SpecialistProfession.is_primary.is_(True)),
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == ContactRequest.professional_cabinet_id,
             )
-            .outerjoin(Profession, Profession.id == SpecialistProfession.profession_id)
+            .outerjoin(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
             .where(
                 ContactRequest.id == contact_request_id,
                 ContactRequest.from_user_id == user_id,

@@ -277,7 +277,7 @@ class ContactChatService:
     ) -> ContactCabinetContext:
         specialist = (
             await self.repository
-            .get_approved_specialist(
+            .get_contactable_specialist(
                 tenant_id=tenant_id,
                 specialist_id=specialist_id,
             )

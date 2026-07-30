@@ -463,11 +463,21 @@ async def send_global_main_menu(
                 )
                 or []
             ),
+        ]
+
+        previous_menu_message_id = (
             previous_data.get(
                 "last_menu_message_id"
-            ),
-            callback.message.message_id,
-        ]
+            )
+        )
+        if (
+            previous_menu_message_id
+            and previous_menu_message_id
+            != callback.message.message_id
+        ):
+            tracked_message_ids.append(
+                previous_menu_message_id
+            )
 
         await delete_telegram_messages(
             bot=callback.bot,
@@ -503,8 +513,9 @@ async def send_global_main_menu(
                 or user.language_code
             )
 
-    menu_message = await callback.message.answer(
-        await get_main_menu_text(language),
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback,
+        text=await get_main_menu_text(language),
         reply_markup=(
             await get_main_menu_keyboard_for_user(
                 callback.from_user.id,
@@ -684,12 +695,33 @@ async def main_menu_specialist(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    await open_active_role_cabinet(
-        callback,
-        state,
-        "specialist",
+    from fsm.specialist_form import (
+        register_specialist,
+    )
+    from handlers.billing import (
+        get_current_specialist_for_telegram,
+        show_professional_cabinets,
     )
 
+    (
+        _user,
+        specialist,
+        _tenant_id,
+    ) = await get_current_specialist_for_telegram(
+        callback.from_user.id
+    )
+
+    if specialist:
+        await show_professional_cabinets(
+            callback,
+            state,
+        )
+        return
+
+    await register_specialist(
+        callback,
+        state,
+    )
 
 @start_router.callback_query(
     F.data.in_(

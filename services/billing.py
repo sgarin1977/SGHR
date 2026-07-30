@@ -13,9 +13,6 @@ from database.repositories.billing import (
 from database.repositories.event import (
     EventRepository,
 )
-from database.repositories.specialist import (
-    SpecialistRepository,
-)
 class BillingError(Exception):
     pass
 
@@ -112,25 +109,16 @@ class BillingService:
         normalized_feature_code = self._require_code(feature_code)
 
         try:
-            specialist = await (
+            (
+                specialist,
+                cabinet,
+            ) = await (
                 self.repository
-                .get_approved_specialist_for_user(
+                .get_approved_specialist_cabinet_for_user(
                     user_id=payer_user_id,
                     tenant_id=tenant_id,
                 )
             )
-
-            cabinet = await SpecialistRepository(
-                self.repository.session
-            ).get_active_professional_cabinet(
-                tenant_id=tenant_id,
-                specialist_id=specialist.id,
-            )
-
-            if not cabinet:
-                raise BillingError(
-                    "Active professional cabinet not found."
-                )
 
             invoice, promotion = (
                 await self.repository

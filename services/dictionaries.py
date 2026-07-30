@@ -81,10 +81,10 @@ class AdminMultiProfessionMoveCard:
     mode: str
     requested_specialists_count: int
     selected_professions_count: int
-    created_links_count: int
-    reactivated_links_count: int
-    existing_links_count: int
-    deleted_old_links_count: int
+    created_cabinets_count: int
+    reactivated_cabinets_count: int
+    existing_cabinets_count: int
+    archived_old_cabinets_count: int
     synchronized_primary_count: int
     missing_specialists_count: int
 
@@ -105,7 +105,7 @@ class AdminCategorySpecialistMoveCard:
     requested_count: int
     moved_count: int
     archived_duplicate_count: int
-    archived_extra_links_count: int
+    archived_extra_cabinets_count: int
     synchronized_primary_count: int
     missing_count: int
 
@@ -135,7 +135,7 @@ class AdminSkillDictionaryCard:
     status: str
     status_code: str
     profession_links_count: int
-    user_links_count: int
+    cabinet_links_count: int
     vacancy_links_count: int
 
 @dataclass(frozen=True)
@@ -143,8 +143,8 @@ class AdminSkillMergeCard:
     target_skill: AdminSkillDictionaryCard
     moved_profession_links: int
     removed_duplicate_profession_links: int
-    moved_user_links: int
-    removed_duplicate_user_links: int
+    moved_cabinet_links: int
+    removed_duplicate_cabinet_links: int
 
 @dataclass(frozen=True)
 class AdminSkillMergePreviewCard:
@@ -171,7 +171,7 @@ class AdminCountryDictionaryCard:
     default_currency: str | None
     phone_code: str | None
     cities_count: int
-    specialists_count: int
+    professional_cabinets_count: int
 
 @dataclass(frozen=True)
 class AdminDictionaryImportCard:
@@ -191,7 +191,7 @@ class AdminCityDictionaryCard:
     latitude: float | None
     longitude: float | None
     timezone: str | None
-    specialists_count: int
+    professional_cabinets_count: int
 
 class DictionaryServiceError(Exception):
     def __init__(self, text_key: str):
@@ -1113,7 +1113,7 @@ class DictionaryService:
             default_currency=row.default_currency,
             phone_code=row.phone_code,
             cities_count=row.cities_count,
-            specialists_count=row.specialists_count,
+            professional_cabinets_count=row.professional_cabinets_count,
         )
 
     async def get_country_card(
@@ -1480,7 +1480,9 @@ class DictionaryService:
             latitude=row.latitude,
             longitude=row.longitude,
             timezone=row.timezone,
-            specialists_count=row.specialists_count,
+            professional_cabinets_count=(
+                row.professional_cabinets_count
+            ),
         )
 
     async def get_city_card(
@@ -2814,17 +2816,17 @@ class DictionaryService:
                 "selected_professions_count": (
                     result.selected_professions_count
                 ),
-                "created_links_count": (
-                    result.created_links_count
+                "created_cabinets_count": (
+                    result.created_cabinets_count
                 ),
-                "reactivated_links_count": (
-                    result.reactivated_links_count
+                "reactivated_cabinets_count": (
+                    result.reactivated_cabinets_count
                 ),
-                "existing_links_count": (
-                    result.existing_links_count
+                "existing_cabinets_count": (
+                    result.existing_cabinets_count
                 ),
-                "deleted_old_links_count": (
-                    result.deleted_old_links_count
+                "archived_old_cabinets_count": (
+                    result.archived_old_cabinets_count
                 ),
                 "synchronized_primary_count": (
                     result.synchronized_primary_count
@@ -2848,6 +2850,8 @@ class DictionaryService:
             ),
         )
 
+        await self.repository.session.commit()
+
         return AdminMultiProfessionMoveCard(
             source_type=preview.source_type,
             source_title=preview.source_title,
@@ -2862,17 +2866,17 @@ class DictionaryService:
             selected_professions_count=(
                 result.selected_professions_count
             ),
-            created_links_count=(
-                result.created_links_count
+            created_cabinets_count=(
+                result.created_cabinets_count
             ),
-            reactivated_links_count=(
-                result.reactivated_links_count
+            reactivated_cabinets_count=(
+                result.reactivated_cabinets_count
             ),
-            existing_links_count=(
-                result.existing_links_count
+            existing_cabinets_count=(
+                result.existing_cabinets_count
             ),
-            deleted_old_links_count=(
-                result.deleted_old_links_count
+            archived_old_cabinets_count=(
+                result.archived_old_cabinets_count
             ),
             synchronized_primary_count=(
                 result.synchronized_primary_count
@@ -3055,8 +3059,8 @@ class DictionaryService:
                 "archived_duplicate_count": (
                     result.archived_duplicate_count
                 ),
-                "archived_extra_links_count": (
-                    result.archived_extra_links_count
+                "archived_extra_cabinets_count": (
+                    result.archived_extra_cabinets_count
                 ),
                 "synchronized_primary_count": (
                     result.synchronized_primary_count
@@ -3075,6 +3079,8 @@ class DictionaryService:
             ),
         )
 
+        await self.repository.session.commit()
+
         return AdminCategorySpecialistMoveCard(
             source_category=preview.source_category,
             target_profession=preview.target_profession,
@@ -3083,8 +3089,8 @@ class DictionaryService:
             archived_duplicate_count=(
                 result.archived_duplicate_count
             ),
-            archived_extra_links_count=(
-                result.archived_extra_links_count
+            archived_extra_cabinets_count=(
+                result.archived_extra_cabinets_count
             ),
             synchronized_primary_count=(
                 result.synchronized_primary_count
@@ -3207,8 +3213,13 @@ class DictionaryService:
                 "target_category_id": str(result.target_category_id),
                 "target_profession_id": str(result.target_profession_id),
             },
-            reason="Specialists moved between professions from Super Admin dictionaries",
+            reason=(
+                "Specialists moved between professions "
+                "from Super Admin dictionaries"
+            ),
         )
+
+        await self.repository.session.commit()
 
         return AdminSpecialistMoveCard(
             source_profession=preview.source_profession,
@@ -3317,7 +3328,7 @@ class DictionaryService:
             status=status,
             status_code=status_code,
             profession_links_count=row.profession_links_count,
-            user_links_count=row.user_links_count,
+            cabinet_links_count=row.cabinet_links_count,
             vacancy_links_count=row.vacancy_links_count,
         )
 
@@ -3595,7 +3606,7 @@ class DictionaryService:
                 "target_code": target.code,
                 "target_name": target.name,
                 "target_profession_links_count": target.profession_links_count,
-                "target_user_links_count": target.user_links_count,
+                "target_cabinet_links_count": target.cabinet_links_count,
             },
             after_state={
                 "source_skill_id": str(source.skill_id),
@@ -3606,30 +3617,40 @@ class DictionaryService:
                 "target_profession_links_count": (
                     updated_target.profession_links_count
                 ),
-                "target_user_links_count": updated_target.user_links_count,
+                "target_cabinet_links_count": updated_target.cabinet_links_count,
                 "moved_profession_links": (
                     merge_result.moved_profession_links
                 ),
                 "removed_duplicate_profession_links": (
                     merge_result.removed_duplicate_profession_links
                 ),
-                "moved_user_links": merge_result.moved_user_links,
-                "removed_duplicate_user_links": (
-                    merge_result.removed_duplicate_user_links
+                "moved_cabinet_links": merge_result.moved_cabinet_links,
+                "removed_duplicate_cabinet_links": (
+                    merge_result.removed_duplicate_cabinet_links
                 ),
             },
             reason="Skill duplicate merged from Super Admin dictionaries",
         )
 
+        await self.repository.session.commit()
+
         return AdminSkillMergeCard(
-            target_skill=self._skill_card(updated_target, language),
-            moved_profession_links=merge_result.moved_profession_links,
-            removed_duplicate_profession_links=(
-                merge_result.removed_duplicate_profession_links
+            target_skill=self._skill_card(
+                updated_target,
+                language,
             ),
-            moved_user_links=merge_result.moved_user_links,
-            removed_duplicate_user_links=(
-                merge_result.removed_duplicate_user_links
+            moved_profession_links=(
+                merge_result.moved_profession_links
+            ),
+            removed_duplicate_profession_links=(
+                merge_result
+                .removed_duplicate_profession_links
+            ),
+            moved_cabinet_links=(
+                merge_result.moved_cabinet_links
+            ),
+            removed_duplicate_cabinet_links=(
+                merge_result
+                .removed_duplicate_cabinet_links
             ),
         )
-    

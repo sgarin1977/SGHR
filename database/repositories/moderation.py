@@ -165,6 +165,7 @@ class AdminSpecialistQueueItem:
     profession_name: str
     city_name: str | None
     status: str
+    is_active: bool
     created_at: datetime
 
 @dataclass(frozen=True)
@@ -186,6 +187,7 @@ class PendingSpecialistDetails:
     profession_name: str
     city_name: str | None
     status: str
+    is_active: bool
     description: str
     contact_text: str | None
     service_titles: tuple[str, ...]
@@ -335,6 +337,7 @@ class ModerationRepository:
     async def count_professional_cabinets_by_status(
         self,
         *,
+        tenant_id: UUID,
         statuses: set[str],
     ) -> int:
         result = await self.session.execute(
@@ -356,15 +359,18 @@ class ModerationRepository:
                 User.id == Specialist.user_id,
             )
             .where(
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id
+                == tenant_id,
                 ProfessionalCabinet.is_active.is_(
                     True
                 ),
                 ProfessionalCabinet.moderation_status.in_(
                     statuses
                 ),
-                Specialist.status.in_(
-                    statuses
-                ),
+                Specialist.status
+                != "deleted",
                 User.status.notin_(
                     [
                         "blocked",
@@ -1670,47 +1676,95 @@ class ModerationRepository:
         )
 
         users_count = await self.session.scalar(
-            select(func.count(User.id))
-            .where(User.tenant_id == tenant_id)
+            select(func.count(User.id)).where(
+                User.tenant_id == tenant_id,
+                User.status != "deleted",
+            )
         )
 
-        specialists_count = await self.session.scalar(
-            select(func.count(Specialist.id))
-            .where(Specialist.tenant_id == tenant_id)
+        professional_cabinets_count = (
+            await self.session.scalar(
+                select(
+                    func.count(
+                        ProfessionalCabinet.id
+                    )
+                )
+                .select_from(
+                    ProfessionalCabinet
+                )
+                .join(
+                    Specialist,
+                    Specialist.id
+                    == ProfessionalCabinet.specialist_id,
+                )
+                .join(
+                    User,
+                    User.id == Specialist.user_id,
+                )
+                .where(
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                    ProfessionalCabinet.is_active.is_(
+                        True
+                    ),
+                    Specialist.status
+                    != "deleted",
+                    User.status.notin_(
+                        [
+                            "blocked",
+                            "deleted",
+                        ]
+                    ),
+                )
+            )
         )
 
         tickets_count = await self.session.scalar(
-            select(func.count(SupportTicket.id))
-            .where(SupportTicket.tenant_id == tenant_id)
+            select(func.count(SupportTicket.id)).where(
+                SupportTicket.tenant_id
+                == tenant_id
+            )
         )
 
         complaints_count = await self.session.scalar(
-            select(func.count(Complaint.id))
-            .where(Complaint.tenant_id == tenant_id)
+            select(func.count(Complaint.id)).where(
+                Complaint.tenant_id
+                == tenant_id
+            )
         )
 
         global_blacklist_count = await self.session.scalar(
-            select(func.count(Blacklist.id))
-            .where(
+            select(func.count(Blacklist.id)).where(
                 Blacklist.tenant_id == tenant_id,
                 Blacklist.status == "active",
             )
         )
 
         audit_alerts_count = await self.session.scalar(
-            select(func.count(AdminAction.id))
-            .where(AdminAction.tenant_id == tenant_id)
+            select(func.count(AdminAction.id)).where(
+                AdminAction.tenant_id == tenant_id
+            )
         )
 
         return {
             "users": int(users_count or 0),
-            "specialists": int(specialists_count or 0),
+            "professional_cabinets": int(
+                professional_cabinets_count or 0
+            ),
             "tickets": int(tickets_count or 0),
-            "complaints": int(complaints_count or 0),
-            "global_blacklist": int(global_blacklist_count or 0),
+            "complaints": int(
+                complaints_count or 0
+            ),
+            "global_blacklist": int(
+                global_blacklist_count or 0
+            ),
             "system_alerts": 0,
             "finance_alerts": 0,
-            "audit_alerts": int(audit_alerts_count or 0),
+            "audit_alerts": int(
+                audit_alerts_count or 0
+            ),
         }
 
     async def list_admin_user_history(
@@ -2934,6 +2988,7 @@ class ModerationRepository:
         admin_user_id: UUID,
         tenant_id: UUID,
         statuses: set[str],
+        is_active: bool | None = True,
         limit: int = 5,
         offset: int = 0,
     ) -> list[AdminSpecialistQueueItem]:
@@ -2945,7 +3000,7 @@ class ModerationRepository:
             },
         )
 
-        result = await self.session.execute(
+        query = (
             select(
                 ProfessionalCabinet.id,
                 Specialist.id,
@@ -2953,6 +3008,7 @@ class ModerationRepository:
                 Profession.name,
                 City.name,
                 ProfessionalCabinet.moderation_status,
+                ProfessionalCabinet.is_active,
                 ProfessionalCabinet.created_at,
             )
             .select_from(
@@ -2984,9 +3040,6 @@ class ModerationRepository:
                 == tenant_id,
                 Specialist.user_id
                 != admin_user_id,
-                ProfessionalCabinet.is_active.is_(
-                    True
-                ),
                 ProfessionalCabinet.moderation_status.in_(
                     statuses
                 ),
@@ -2998,6 +3051,17 @@ class ModerationRepository:
                     ]
                 ),
             )
+        )
+
+        if is_active is not None:
+            query = query.where(
+                ProfessionalCabinet.is_active.is_(
+                    is_active
+                )
+            )
+
+        query = (
+            query
             .order_by(
                 ProfessionalCabinet.updated_at.desc(),
                 ProfessionalCabinet.id.asc(),
@@ -3019,6 +3083,10 @@ class ModerationRepository:
             )
         )
 
+        result = await self.session.execute(
+            query
+        )
+
         return [
             AdminSpecialistQueueItem(
                 professional_cabinet_id=(
@@ -3033,6 +3101,9 @@ class ModerationRepository:
                 ),
                 city_name=city_name,
                 status=moderation_status,
+                is_active=bool(
+                    cabinet_is_active
+                ),
                 created_at=created_at,
             )
             for (
@@ -3042,6 +3113,7 @@ class ModerationRepository:
                 profession_name,
                 city_name,
                 moderation_status,
+                cabinet_is_active,
                 created_at,
             ) in result.all()
         ]
@@ -3282,6 +3354,9 @@ class ModerationRepository:
             profession_name=profession_name,
             city_name=city_name,
             status=cabinet.moderation_status,
+            is_active=bool(
+                cabinet.is_active
+            ),
             description=cabinet.description or "",
             contact_text=contact_text,
             service_titles=service_titles,
@@ -3393,50 +3468,6 @@ class ModerationRepository:
             ),
         }
 
-    async def _sync_legacy_specialist_status(
-        self,
-        specialist: Specialist,
-    ) -> None:
-        if specialist.status in {
-            "blocked",
-            "deleted",
-        }:
-            return
-
-        result = await self.session.execute(
-            select(
-                ProfessionalCabinet.moderation_status
-            ).where(
-                ProfessionalCabinet.tenant_id
-                == specialist.tenant_id,
-                ProfessionalCabinet.specialist_id
-                == specialist.id,
-                ProfessionalCabinet.is_active.is_(
-                    True
-                ),
-            )
-        )
-        statuses = set(
-            result.scalars().all()
-        )
-
-        priority = (
-            "approved",
-            "pending_moderation",
-            "draft",
-            "rejected",
-        )
-        specialist.status = next(
-            (
-                status
-                for status in priority
-                if status in statuses
-            ),
-            "hidden",
-        )
-        specialist.moderation_comment = None
-        specialist.updated_at = datetime.utcnow()
-
     async def approve_specialist(
         self,
         *,
@@ -3480,9 +3511,6 @@ class ModerationRepository:
         cabinet.is_active = True
         cabinet.updated_at = datetime.utcnow()
 
-        await self._sync_legacy_specialist_status(
-            specialist
-        )
         await self.session.flush()
 
         await self.log_admin_action(
@@ -3572,9 +3600,6 @@ class ModerationRepository:
         )
         cabinet.updated_at = datetime.utcnow()
 
-        await self._sync_legacy_specialist_status(
-            specialist
-        )
         await self.session.flush()
 
         await self.log_admin_action(
@@ -3664,9 +3689,6 @@ class ModerationRepository:
         )
         cabinet.updated_at = datetime.utcnow()
 
-        await self._sync_legacy_specialist_status(
-            specialist
-        )
         await self.session.flush()
 
         await self.log_admin_action(
@@ -3755,10 +3777,6 @@ class ModerationRepository:
         cabinet.is_active = True
         cabinet.updated_at = datetime.utcnow()
 
-        await self.session.flush()
-        await self._sync_legacy_specialist_status(
-            specialist
-        )
         await self.session.flush()
 
         after_state = (

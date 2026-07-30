@@ -11,8 +11,8 @@ from database.models import (
     Country,
     ConversationParticipant,
     Profession,
+    ProfessionalCabinet,
     Specialist,
-    SpecialistProfession,
     Tenant,
     User,
     UserAccount,
@@ -202,20 +202,23 @@ class UserRepository:
             )
             .select_from(Specialist)
             .join(
-                SpecialistProfession,
-                SpecialistProfession.specialist_id == Specialist.id,
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Specialist.active_professional_cabinet_id,
             )
             .join(
                 Profession,
-                Profession.id == SpecialistProfession.profession_id,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
             )
             .where(
                 Specialist.user_id == user_id,
-                SpecialistProfession.status == "active",
-            )
-            .order_by(
-                SpecialistProfession.is_primary.desc(),
-                SpecialistProfession.created_at.asc(),
+                Specialist.status != "deleted",
+                ProfessionalCabinet.tenant_id
+                == Specialist.tenant_id,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
+                ProfessionalCabinet.is_active.is_(True),
             )
             .limit(1)
         )

@@ -2523,6 +2523,16 @@ translations = {
         "en": "Target",
         "pt": "Alvo",
     },
+    "admin_review_cabinet": {
+        "ru": "Профессиональный кабинет",
+        "en": "Professional cabinet",
+        "pt": "Gabinete profissional",
+    },
+    "admin_review_profession": {
+        "ru": "Профессия",
+        "en": "Profession",
+        "pt": "Profissão",
+    },
     "admin_review_text": {
         "ru": "Текст отзыва",
         "en": "Review text",
@@ -5051,6 +5061,8 @@ translations = {
         "ru": (
             "Портфолио на модерации\n"
             "Страница: {page} | Элемент: {number}\n\n"
+            "Кабинет: {cabinet_title}\n"
+            "Профессия: {profession_name}\n"
             "Тип: {file_type}\n"
             "MIME: {mime_type}\n"
             "Владелец: {owner}\n"
@@ -5060,6 +5072,8 @@ translations = {
         "en": (
             "Portfolio moderation\n"
             "Page: {page} | Item: {number}\n\n"
+            "Cabinet: {cabinet_title}\n"
+            "Profession: {profession_name}\n"
             "Type: {file_type}\n"
             "MIME: {mime_type}\n"
             "Owner: {owner}\n"
@@ -5069,6 +5083,8 @@ translations = {
         "pt": (
             "Moderacao do portfolio\n"
             "Pagina: {page} | Item: {number}\n\n"
+            "Gabinete: {cabinet_title}\n"
+            "Profissao: {profession_name}\n"
             "Tipo: {file_type}\n"
             "MIME: {mime_type}\n"
             "Proprietario: {owner}\n"
@@ -6011,6 +6027,21 @@ translations = {
         "en": "Rejected",
         "pt": "Rejeitados",
     },
+    "admin_specialist_filter_archived": {
+        "ru": "Архивные кабинеты",
+        "en": "Archived cabinets",
+        "pt": "Gabinetes arquivados",
+    },
+    "admin_professional_cabinet_active": {
+        "ru": "Активность: активен",
+        "en": "Activity: active",
+        "pt": "Atividade: ativo",
+    },
+    "admin_professional_cabinet_archived": {
+        "ru": "Активность: архивирован",
+        "en": "Activity: archived",
+        "pt": "Atividade: arquivado",
+    },
     "admin_specialist_filter_blocked": {
         "ru": "Заблокированные",
         "en": "Blocked",
@@ -6410,19 +6441,24 @@ translations = {
     "super_admin_menu_text": {
         "ru": (
             "Кабинет Super Admin\n\n"
-            "Users: {users}\n"
-            "Specialists: {specialists}\n"
-            "Tickets: {tickets}\n"
-            "Complaints: {complaints}\n"
+            "Пользователи: {users}\n"
+            "Профессиональные кабинеты: "
+            "{professional_cabinets}\n"
+            "Обращения: {tickets}\n"
+            "Жалобы: {complaints}\n"
             "Global blacklist: {global_blacklist}\n"
-            "System alerts: {system_alerts}\n"
-            "Finance alerts: {finance_alerts}\n"
-            "Audit alerts: {audit_alerts}"
+            "Системные предупреждения: "
+            "{system_alerts}\n"
+            "Финансовые предупреждения: "
+            "{finance_alerts}\n"
+            "Предупреждения аудита: "
+            "{audit_alerts}"
         ),
         "en": (
             "Super Admin cabinet\n\n"
             "Users: {users}\n"
-            "Specialists: {specialists}\n"
+            "Professional cabinets: "
+            "{professional_cabinets}\n"
             "Tickets: {tickets}\n"
             "Complaints: {complaints}\n"
             "Global blacklist: {global_blacklist}\n"
@@ -6432,14 +6468,16 @@ translations = {
         ),
         "pt": (
             "Painel Super Admin\n\n"
-            "Users: {users}\n"
-            "Specialists: {specialists}\n"
+            "Utilizadores: {users}\n"
+            "Gabinetes profissionais: "
+            "{professional_cabinets}\n"
             "Tickets: {tickets}\n"
-            "Complaints: {complaints}\n"
+            "Denúncias: {complaints}\n"
             "Global blacklist: {global_blacklist}\n"
-            "System alerts: {system_alerts}\n"
-            "Finance alerts: {finance_alerts}\n"
-            "Audit alerts: {audit_alerts}"
+            "Alertas do sistema: {system_alerts}\n"
+            "Alertas financeiros: "
+            "{finance_alerts}\n"
+            "Alertas de auditoria: {audit_alerts}"
         ),
     },
     "super_admin_users_btn": {
@@ -8444,9 +8482,9 @@ translations = {
         "pt": "Nenhuma competência encontrada.",
     },
     "admin_dict_skill_row": {
-        "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nСвязи: направления {profession_links} | пользователи {user_links} | вакансии {vacancy_links}",
-        "en": "{number}. {title}\nCode: {code}\nStatus: {status}\nLinks: directions {profession_links} | users {user_links} | vacancies {vacancy_links}",
-        "pt": "{number}. {title}\nCódigo: {code}\nEstado: {status}\nVínculos: direções {profession_links} | usuários {user_links} | vagas {vacancy_links}",
+        "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nСвязи: направления {profession_links} | профессиональные кабинеты {cabinet_links} | вакансии {vacancy_links}",
+        "en": "{number}. {title}\nCode: {code}\nStatus: {status}\nLinks: directions {profession_links} | professional cabinets {cabinet_links} | vacancies {vacancy_links}",
+        "pt": "{number}. {title}\nCódigo: {code}\nEstado: {status}\nVínculos: direções {profession_links} | gabinetes profissionais {cabinet_links} | vagas {vacancy_links}",
     },
     "admin_dict_skill_create_btn": {
         "ru": "➕ Создать навык",
@@ -8469,9 +8507,9 @@ translations = {
         "pt": "Número inválido. Digite um número de 1 a {count}.",
     },
     "admin_dict_skill_card": {
-        "ru": "Навык\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nСвязи с направлениями: {profession_links}\nСвязи с пользователями: {user_links}\nСвязи с вакансиями: {vacancy_links}",
-        "en": "Skill\n\nTitle: {title}\nCode: {code}\nStatus: {status}\nDirection links: {profession_links}\nUser links: {user_links}\nVacancy links: {vacancy_links}",
-        "pt": "Competência\n\nTítulo: {title}\nCódigo: {code}\nEstado: {status}\nVínculos com direções: {profession_links}\nVínculos com usuários: {user_links}\nVínculos com vagas: {vacancy_links}",
+        "ru": "Навык\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nСвязи с направлениями: {profession_links}\nСвязи с профессиональными кабинетами: {cabinet_links}\nСвязи с вакансиями: {vacancy_links}",
+        "en": "Skill\n\nTitle: {title}\nCode: {code}\nStatus: {status}\nDirection links: {profession_links}\nProfessional cabinet links: {cabinet_links}\nVacancy links: {vacancy_links}",
+        "pt": "Competência\n\nTítulo: {title}\nCódigo: {code}\nEstado: {status}\nVínculos com direções: {profession_links}\nVínculos com gabinetes profissionais: {cabinet_links}\nVínculos com vagas: {vacancy_links}",
     },
     "admin_dict_skill_rename_btn": {
         "ru": "✏️ Переименовать",
@@ -8544,9 +8582,9 @@ translations = {
         "pt": "Digite o código ou título da competência principal que deve receber este duplicado.",
     },
     "admin_dict_skill_merge_done": {
-        "ru": "Дубли объединены.\n\nПеренесено связей с направлениями: {moved_profession_links}\nУдалено дублей связей с направлениями: {removed_duplicate_profession_links}\nПеренесено связей с пользователями: {moved_user_links}\nУдалено дублей связей с пользователями: {removed_duplicate_user_links}",
-        "en": "Duplicates merged.\n\nMoved direction links: {moved_profession_links}\nRemoved duplicate direction links: {removed_duplicate_profession_links}\nMoved user links: {moved_user_links}\nRemoved duplicate user links: {removed_duplicate_user_links}",
-        "pt": "Duplicados unidos.\n\nVínculos com direções movidos: {moved_profession_links}\nVínculos duplicados com direções removidos: {removed_duplicate_profession_links}\nVínculos com usuários movidos: {moved_user_links}\nVínculos duplicados com usuários removidos: {removed_duplicate_user_links}",
+        "ru": "Дубли объединены.\n\nПеренесено связей с направлениями: {moved_profession_links}\nУдалено дублей связей с направлениями: {removed_duplicate_profession_links}\nПеренесено связей с профессиональными кабинетами: {moved_cabinet_links}\nУдалено дублей связей с профессиональными кабинетами: {removed_duplicate_cabinet_links}",
+        "en": "Duplicates merged.\n\nMoved direction links: {moved_profession_links}\nRemoved duplicate direction links: {removed_duplicate_profession_links}\nMoved professional cabinet links: {moved_cabinet_links}\nRemoved duplicate professional cabinet links: {removed_duplicate_cabinet_links}",
+        "pt": "Duplicados unidos.\n\nVínculos com direções movidos: {moved_profession_links}\nVínculos duplicados com direções removidos: {removed_duplicate_profession_links}\nVínculos com gabinetes profissionais movidos: {moved_cabinet_links}\nVínculos duplicados com gabinetes profissionais removidos: {removed_duplicate_cabinet_links}",
     },
     "admin_dict_skill_merge_empty": {
         "ru": "Введите код или название основного навыка.",
@@ -8564,9 +8602,9 @@ translations = {
         "pt": "Uma competência não pode ser unida a si mesma. Escolha outra competência principal.",
     },
     "admin_dict_skill_merge_confirm_text": {
-        "ru": "Подтвердите объединение навыков.\n\nДубль: {source_title}\nКод дубля: {source_code}\nСвязи дубля: направления {source_profession_links}, пользователи {source_user_links}\n\nОсновной навык: {target_title}\nКод основного навыка: {target_code}\n\nПосле подтверждения дубль будет скрыт, а связи будут перенесены в основной навык.",
-        "en": "Confirm skill merge.\n\nDuplicate: {source_title}\nDuplicate code: {source_code}\nDuplicate links: directions {source_profession_links}, users {source_user_links}\n\nMain skill: {target_title}\nMain skill code: {target_code}\n\nAfter confirmation, the duplicate will be hidden and links will be moved to the main skill.",
-        "pt": "Confirme a união das competências.\n\nDuplicado: {source_title}\nCódigo do duplicado: {source_code}\nVínculos do duplicado: direções {source_profession_links}, usuários {source_user_links}\n\nCompetência principal: {target_title}\nCódigo da competência principal: {target_code}\n\nApós a confirmação, o duplicado será ocultado e os vínculos serão movidos para a competência principal.",
+        "ru": "Подтвердите объединение навыков.\n\nДубль: {source_title}\nКод дубля: {source_code}\nСвязи дубля: направления {source_profession_links}, профессиональные кабинеты {source_cabinet_links}\n\nОсновной навык: {target_title}\nКод основного навыка: {target_code}\n\nПосле подтверждения дубль будет скрыт, а связи будут перенесены в основной навык.",
+        "en": "Confirm skill merge.\n\nDuplicate: {source_title}\nDuplicate code: {source_code}\nDuplicate links: directions {source_profession_links}, professional cabinets {source_cabinet_links}\n\nMain skill: {target_title}\nMain skill code: {target_code}\n\nAfter confirmation, the duplicate will be hidden and its links will be moved to the main skill.",
+        "pt": "Confirme a união das competências.\n\nDuplicado: {source_title}\nCódigo do duplicado: {source_code}\nVínculos do duplicado: direções {source_profession_links}, gabinetes profissionais {source_cabinet_links}\n\nCompetência principal: {target_title}\nCódigo da competência principal: {target_code}\n\nApós a confirmação, o duplicado será ocultado e seus vínculos serão movidos para a competência principal.",
     },
     "admin_dict_skill_merge_confirm_btn": {
         "ru": "✅ Подтвердить объединение",
@@ -8694,9 +8732,9 @@ translations = {
         "pt": "Nenhum país encontrado.",
     },
     "admin_dict_country_row": {
-        "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nГородов: {cities} | Специалистов: {specialists}",
-        "en": "{number}. {title}\nCode: {code}\nStatus: {status}\nCities: {cities} | Specialists: {specialists}",
-        "pt": "{number}. {title}\nCódigo: {code}\nEstado: {status}\nCidades: {cities} | Especialistas: {specialists}",
+        "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nГородов: {cities} | Профессиональных кабинетов: {professional_cabinets}",
+        "en": "{number}. {title}\nCode: {code}\nStatus: {status}\nCities: {cities} | Professional cabinets: {professional_cabinets}",
+        "pt": "{number}. {title}\nCódigo: {code}\nEstado: {status}\nCidades: {cities} | Gabinetes profissionais: {professional_cabinets}",
     },
     "admin_dict_country_open_btn": {
         "ru": "🔍 Открыть страну",
@@ -8714,9 +8752,9 @@ translations = {
         "pt": "Número inválido. Digite um número de 1 a {count}.",
     },
     "admin_dict_country_card": {
-        "ru": "Страна\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nЯзык по умолчанию: {default_language}\nВалюта: {default_currency}\nТелефонный код: {phone_code}\nГородов: {cities}\nСпециалистов: {specialists}",
-        "en": "Country\n\nTitle: {title}\nCode: {code}\nStatus: {status}\nDefault language: {default_language}\nCurrency: {default_currency}\nPhone code: {phone_code}\nCities: {cities}\nSpecialists: {specialists}",
-        "pt": "País\n\nTítulo: {title}\nCódigo: {code}\nEstado: {status}\nIdioma padrão: {default_language}\nMoeda: {default_currency}\nCódigo telefônico: {phone_code}\nCidades: {cities}\nEspecialistas: {specialists}",
+        "ru": "Страна\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nЯзык по умолчанию: {default_language}\nВалюта: {default_currency}\nТелефонный код: {phone_code}\nГородов: {cities}\nПрофессиональных кабинетов: {professional_cabinets}",
+        "en": "Country\n\nTitle: {title}\nCode: {code}\nStatus: {status}\nDefault language: {default_language}\nCurrency: {default_currency}\nPhone code: {phone_code}\nCities: {cities}\nProfessional cabinets: {professional_cabinets}",
+        "pt": "País\n\nTítulo: {title}\nCódigo: {code}\nEstado: {status}\nIdioma padrão: {default_language}\nMoeda: {default_currency}\nCódigo telefônico: {phone_code}\nCidades: {cities}\nGabinetes profissionais: {professional_cabinets}",
     },
     "admin_dict_country_cities_btn": {
         "ru": "🏙 Города страны",
@@ -8734,9 +8772,9 @@ translations = {
         "pt": "Nenhuma cidade encontrada.",
     },
     "admin_dict_city_row": {
-        "ru": "{number}. {title}\nСтатус: {status}\nЧасовой пояс: {timezone}\nСпециалистов: {specialists}",
-        "en": "{number}. {title}\nStatus: {status}\nTimezone: {timezone}\nSpecialists: {specialists}",
-        "pt": "{number}. {title}\nEstado: {status}\nFuso horário: {timezone}\nEspecialistas: {specialists}",
+        "ru": "{number}. {title}\nСтатус: {status}\nЧасовой пояс: {timezone}\nПрофессиональных кабинетов: {professional_cabinets}",
+        "en": "{number}. {title}\nStatus: {status}\nTimezone: {timezone}\nProfessional cabinets: {professional_cabinets}",
+        "pt": "{number}. {title}\nEstado: {status}\nFuso horário: {timezone}\nGabinetes profissionais: {professional_cabinets}",
     },
     "admin_dict_city_open_btn": {
         "ru": "🔍 Открыть город",
@@ -8754,9 +8792,9 @@ translations = {
         "pt": "Número inválido. Digite um número de 1 a {count}.",
     },
     "admin_dict_city_card": {
-        "ru": "Город\n\nНазвание: {title}\nСтрана: {country}\nСтатус: {status}\nЧасовой пояс: {timezone}\nКоординаты: {coordinates}\nСпециалистов: {specialists}",
-        "en": "City\n\nTitle: {title}\nCountry: {country}\nStatus: {status}\nTimezone: {timezone}\nCoordinates: {coordinates}\nSpecialists: {specialists}",
-        "pt": "Cidade\n\nTítulo: {title}\nPaís: {country}\nEstado: {status}\nFuso horário: {timezone}\nCoordenadas: {coordinates}\nEspecialistas: {specialists}",
+        "ru": "Город\n\nНазвание: {title}\nСтрана: {country}\nСтатус: {status}\nЧасовой пояс: {timezone}\nКоординаты: {coordinates}\nПрофессиональных кабинетов: {professional_cabinets}",
+        "en": "City\n\nTitle: {title}\nCountry: {country}\nStatus: {status}\nTimezone: {timezone}\nCoordinates: {coordinates}\nProfessional cabinets: {professional_cabinets}",
+        "pt": "Cidade\n\nTítulo: {title}\nPaís: {country}\nEstado: {status}\nFuso horário: {timezone}\nCoordenadas: {coordinates}\nGabinetes profissionais: {professional_cabinets}",
     },
     "admin_dict_country_toggle_btn": {
         "ru": "👁 Скрыть / показать",
@@ -9190,31 +9228,36 @@ translations = {
     },
     "admin_dict_specialist_move_done": {
         "ru": (
-            "Перенос завершён.\n\n"
-            "Направление: {target_profession}\n"
+            "Операция с профессиональными кабинетами завершена.\n\n"
+            "Профессия: {target_profession}\n"
             "Категория: {target_category}\n"
-            "Перенесено: {moved_count}\n"
-            "Уже были связаны с направлением: {duplicate_count}\n"
-            "Основных направлений синхронизировано: {synchronized_count}\n"
-            "Не найдено: {missing_count}"
+            "Создано новых кабинетов: {moved_count}\n"
+            "Использовано существующих кабинетов: "
+            "{duplicate_count}\n"
+            "Активных кабинетов синхронизировано: "
+            "{synchronized_count}\n"
+            "Специалистов не найдено: {missing_count}"
         ),
         "en": (
-            "Transfer completed.\n\n"
+            "Professional cabinet operation completed.\n\n"
             "Profession: {target_profession}\n"
             "Category: {target_category}\n"
-            "Moved: {moved_count}\n"
-            "Already linked to the profession: {duplicate_count}\n"
-            "Primary professions synchronized: {synchronized_count}\n"
-            "Not found: {missing_count}"
+            "New cabinets created: {moved_count}\n"
+            "Existing cabinets used: {duplicate_count}\n"
+            "Active cabinets synchronized: "
+            "{synchronized_count}\n"
+            "Specialists not found: {missing_count}"
         ),
         "pt": (
-            "Transferência concluída.\n\n"
+            "Operação com gabinetes profissionais concluída.\n\n"
             "Profissão: {target_profession}\n"
             "Categoria: {target_category}\n"
-            "Transferidos: {moved_count}\n"
-            "Já vinculados à profissão: {duplicate_count}\n"
-            "Profissões principais sincronizadas: {synchronized_count}\n"
-            "Não encontrados: {missing_count}"
+            "Novos gabinetes criados: {moved_count}\n"
+            "Gabinetes existentes utilizados: "
+            "{duplicate_count}\n"
+            "Gabinetes ativos sincronizados: "
+            "{synchronized_count}\n"
+            "Especialistas não encontrados: {missing_count}"
         ),
     },
     "admin_dict_specialist_move_select_page_prompt": {
@@ -9286,34 +9329,42 @@ translations = {
     },
     "admin_dict_category_specialist_move_done": {
         "ru": (
-            "Перенос из категории завершён.\n\n"
-            "Направление: {target_profession}\n"
+            "Операция с кабинетами категории завершена.\n\n"
+            "Профессия: {target_profession}\n"
             "Категория: {target_category}\n"
-            "Перенесено специалистов: {moved_count}\n"
-            "Уже имели целевое направление: {duplicate_count}\n"
-            "Архивировано дополнительных связей: {extra_links_count}\n"
-            "Основных направлений синхронизировано: {synchronized_count}\n"
-            "Не найдено: {missing_count}"
+            "Создано новых кабинетов: {moved_count}\n"
+            "Использовано существующих кабинетов: "
+            "{duplicate_count}\n"
+            "Архивировано дополнительных кабинетов: "
+            "{extra_cabinets_count}\n"
+            "Активных кабинетов синхронизировано: "
+            "{synchronized_count}\n"
+            "Специалистов не найдено: {missing_count}"
         ),
         "en": (
-            "Category transfer completed.\n\n"
+            "Category cabinet operation completed.\n\n"
             "Profession: {target_profession}\n"
             "Category: {target_category}\n"
-            "Specialists moved: {moved_count}\n"
-            "Already had the target profession: {duplicate_count}\n"
-            "Additional relations archived: {extra_links_count}\n"
-            "Primary professions synchronized: {synchronized_count}\n"
-            "Not found: {missing_count}"
+            "New cabinets created: {moved_count}\n"
+            "Existing cabinets used: {duplicate_count}\n"
+            "Additional cabinets archived: "
+            "{extra_cabinets_count}\n"
+            "Active cabinets synchronized: "
+            "{synchronized_count}\n"
+            "Specialists not found: {missing_count}"
         ),
         "pt": (
-            "Transferência da categoria concluída.\n\n"
+            "Operação com gabinetes da categoria concluída.\n\n"
             "Profissão: {target_profession}\n"
             "Categoria: {target_category}\n"
-            "Especialistas transferidos: {moved_count}\n"
-            "Já tinham a profissão de destino: {duplicate_count}\n"
-            "Relações adicionais arquivadas: {extra_links_count}\n"
-            "Profissões principais sincronizadas: {synchronized_count}\n"
-            "Não encontrados: {missing_count}"
+            "Novos gabinetes criados: {moved_count}\n"
+            "Gabinetes existentes utilizados: "
+            "{duplicate_count}\n"
+            "Gabinetes adicionais arquivados: "
+            "{extra_cabinets_count}\n"
+            "Gabinetes ativos sincronizados: "
+            "{synchronized_count}\n"
+            "Especialistas não encontrados: {missing_count}"
         ),
     },
     "admin_dict_move_target_category_prompt": {
@@ -9512,42 +9563,45 @@ translations = {
     },
     "admin_dict_multi_move_done": {
         "ru": (
-            "Перенос завершён.\n\n"
+            "Операция с кабинетами завершена.\n\n"
             "Категория: {target_category}\n"
-            "Направления: {target_professions}\n"
+            "Профессии: {target_professions}\n"
             "Режим: {mode}\n"
             "Специалистов: {specialists_count}\n"
-            "Создано связей: {created_count}\n"
-            "Возобновлено связей: {reactivated_count}\n"
-            "Уже существовало: {existing_count}\n"
-            "Удалено старых связей: {deleted_count}\n"
-            "Основных направлений синхронизировано: {synchronized_count}\n"
-            "Не найдено специалистов: {missing_count}"
+            "Создано кабинетов: {created_count}\n"
+            "Восстановлено кабинетов: {reactivated_count}\n"
+            "Уже существовало кабинетов: {existing_count}\n"
+            "Архивировано старых кабинетов: {archived_count}\n"
+            "Активных кабинетов синхронизировано: "
+            "{synchronized_count}\n"
+            "Специалистов не найдено: {missing_count}"
         ),
         "en": (
-            "Transfer completed.\n\n"
+            "Cabinet operation completed.\n\n"
             "Category: {target_category}\n"
             "Professions: {target_professions}\n"
             "Mode: {mode}\n"
             "Specialists: {specialists_count}\n"
-            "Relations created: {created_count}\n"
-            "Relations reactivated: {reactivated_count}\n"
-            "Already existed: {existing_count}\n"
-            "Old relations deleted: {deleted_count}\n"
-            "Primary professions synchronized: {synchronized_count}\n"
+            "Cabinets created: {created_count}\n"
+            "Cabinets restored: {reactivated_count}\n"
+            "Cabinets already existing: {existing_count}\n"
+            "Old cabinets archived: {archived_count}\n"
+            "Active cabinets synchronized: "
+            "{synchronized_count}\n"
             "Specialists not found: {missing_count}"
         ),
         "pt": (
-            "Transferência concluída.\n\n"
+            "Operação com gabinetes concluída.\n\n"
             "Categoria: {target_category}\n"
             "Profissões: {target_professions}\n"
             "Modo: {mode}\n"
             "Especialistas: {specialists_count}\n"
-            "Relações criadas: {created_count}\n"
-            "Relações reativadas: {reactivated_count}\n"
-            "Já existentes: {existing_count}\n"
-            "Relações antigas removidas: {deleted_count}\n"
-            "Profissões principais sincronizadas: {synchronized_count}\n"
+            "Gabinetes criados: {created_count}\n"
+            "Gabinetes restaurados: {reactivated_count}\n"
+            "Gabinetes já existentes: {existing_count}\n"
+            "Gabinetes antigos arquivados: {archived_count}\n"
+            "Gabinetes ativos sincronizados: "
+            "{synchronized_count}\n"
             "Especialistas não encontrados: {missing_count}"
         ),
     },
@@ -10029,11 +10083,11 @@ translations = {
     "super_admin_impersonation_specialist_cabinet": {
         "ru": (
             "Режим просмотра от имени пользователя\n\n"
-            "Кабинет специалиста\n"
+            "Профессиональный кабинет\n"
             "Пользователь: {user_number}\n"
             "Имя: {display_name}\n"
-            "Направления: {professions}\n"
-            "Статус профиля: {status}\n"
+            "Профессия: {profession}\n"
+            "Статус кабинета: {status}\n"
             "Доступность: {availability}\n\n"
             "Непрочитанные сообщения: {dialogs_unread}\n\n"
             "Режим: только просмотр. "
@@ -10041,22 +10095,21 @@ translations = {
         ),
         "en": (
             "View as user mode\n\n"
-            "Specialist cabinet\n"
+            "Professional cabinet\n"
             "User: {user_number}\n"
             "Name: {display_name}\n"
-            "Professions: {professions}\n"
-            "Profile status: {status}\n"
+            "Profession: {profession}\n"
+            "Cabinet status: {status}\n"
             "Availability: {availability}\n\n"
             "Unread messages: {dialogs_unread}\n\n"
             "Read-only mode. Changes are disabled."
         ),
         "pt": (
             "Modo de visualizacao como utilizador\n\n"
-            "Gabinete do especialista\n"
+            "Gabinete profissional\n"
             "Utilizador: {user_number}\n"
-            "Nome: {display_name}\n"
-            "Especialidades: {professions}\n"
-            "Estado do perfil: {status}\n"
+            "Profissao: {profession}\n"
+            "Estado do gabinete: {status}\n"
             "Disponibilidade: {availability}\n\n"
             "Mensagens nao lidas: {dialogs_unread}\n\n"
             "Modo apenas de leitura. Alteracoes desativadas."
@@ -10722,32 +10775,32 @@ translations = {
 },
 "super_admin_ro_specialist_profile": {
     "ru": (
-        "Профиль специалиста\n\n"
+        "Профессиональный кабинет\n\n"
         "Имя: {display_name}\n"
-        "Направления: {professions}\n"
+        "Профессия: {profession}\n"
         "Локация: {location}\n"
         "Описание: {description}\n"
-        "Статус профиля: {status}\n"
+        "Статус кабинета: {status}\n"
         "Доступность: {availability}\n\n"
         "Режим: только просмотр. Изменение данных недоступно."
     ),
     "en": (
-        "Specialist profile\n\n"
+        "Professional cabinet\n\n"
         "Name: {display_name}\n"
-        "Professions: {professions}\n"
+        "Profession: {profession}\n"
         "Location: {location}\n"
         "Description: {description}\n"
-        "Profile status: {status}\n"
+        "Cabinet status: {status}\n"
         "Availability: {availability}\n\n"
         "Read-only mode. Changes are unavailable."
     ),
     "pt": (
-        "Perfil do especialista\n\n"
+        "Gabinete profissional\n\n"
         "Nome: {display_name}\n"
-        "Especialidades: {professions}\n"
+        "Profissao: {profession}\n"
         "Localizacao: {location}\n"
         "Descricao: {description}\n"
-        "Status do perfil: {status}\n"
+        "Estado do gabinete: {status}\n"
         "Disponibilidade: {availability}\n\n"
         "Modo somente leitura. Alteracoes indisponiveis."
     ),

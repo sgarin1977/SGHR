@@ -3,14 +3,68 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import SavedSpecialist, Specialist
+from database.models import (
+    ProfessionalCabinet,
+    SavedSpecialist,
+    Specialist,
+    User,
+)
 from database.repositories.search import (
-    PUBLIC_SPECIALIST_STATUSES,
+    PUBLIC_CABINET_MODERATION_STATUSES,
 )
 
 class FavoriteRepository:
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+    ):
         self.session = session
+
+    async def _get_public_specialist(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+    ) -> Specialist | None:
+        result = await self.session.execute(
+            select(
+                Specialist
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Specialist.active_professional_cabinet_id,
+            )
+            .where(
+                Specialist.id == specialist_id,
+                Specialist.tenant_id == tenant_id,
+                Specialist.status
+                != "deleted",
+                User.tenant_id == tenant_id,
+                User.status.notin_(
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
+                ),
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status.in_(
+                    PUBLIC_CABINET_MODERATION_STATUSES
+                ),
+            )
+        )
+
+        return result.scalar_one_or_none()
 
     async def get_saved_specialist(
         self,
@@ -73,13 +127,15 @@ class FavoriteRepository:
         user_id: UUID,
         specialist_id: UUID,
     ) -> bool:
-        specialist = await self.session.get(Specialist, specialist_id)
-        if (
-            not specialist
-            or specialist.tenant_id != tenant_id
-            or specialist.status not in PUBLIC_SPECIALIST_STATUSES
-        ):
-            raise ValueError("Specialist is not available.")
+        specialist = await self._get_public_specialist(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+        )
+
+        if not specialist:
+            raise ValueError(
+                "Specialist is not available."
+            )
 
         saved = await self.get_saved_specialist(
             tenant_id=tenant_id,
@@ -107,9 +163,15 @@ class FavoriteRepository:
         user_id: UUID,
         specialist_id: UUID,
     ) -> bool:
-        specialist = await self.session.get(Specialist, specialist_id)
-        if not specialist or specialist.tenant_id != tenant_id or specialist.status not in PUBLIC_SPECIALIST_STATUSES:
-            raise ValueError("Specialist is not available.")
+        specialist = await self._get_public_specialist(
+            tenant_id=tenant_id,
+            specialist_id=specialist_id,
+        )
+
+        if not specialist:
+            raise ValueError(
+                "Specialist is not available."
+            )
 
         saved = await self.get_saved_specialist(
             tenant_id=tenant_id,
@@ -147,24 +209,61 @@ class FavoriteRepository:
         offset: int = 0,
     ) -> list[Specialist]:
         result = await self.session.execute(
-            select(Specialist)
+            select(
+                Specialist
+            )
             .join(
                 SavedSpecialist,
-                SavedSpecialist.specialist_id == Specialist.id,
+                SavedSpecialist.specialist_id
+                == Specialist.id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Specialist.active_professional_cabinet_id,
             )
             .where(
-                SavedSpecialist.tenant_id == tenant_id,
-                SavedSpecialist.user_id == user_id,
-                Specialist.tenant_id == tenant_id,
-                Specialist.status.in_(
-                    PUBLIC_SPECIALIST_STATUSES
+                SavedSpecialist.tenant_id
+                == tenant_id,
+                SavedSpecialist.user_id
+                == user_id,
+                Specialist.tenant_id
+                == tenant_id,
+                Specialist.status
+                != "deleted",
+                User.tenant_id
+                == tenant_id,
+                User.status.notin_(
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
+                ),
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status.in_(
+                    PUBLIC_CABINET_MODERATION_STATUSES
                 ),
             )
-            .order_by(SavedSpecialist.created_at.desc())
+            .order_by(
+                SavedSpecialist.created_at.desc()
+            )
             .limit(limit)
             .offset(offset)
         )
-        return list(result.scalars().all())
+
+        return list(
+            result.scalars().all()
+        )
 
     async def remove_specialist(
         self,

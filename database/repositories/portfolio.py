@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
     FileStorageObject,
+    Profession,
+    ProfessionalCabinet,
     Specialist,
     SpecialistPortfolioItem,
     UserRoleMapping,
@@ -307,6 +309,8 @@ class PortfolioRepository:
         tuple[
             SpecialistPortfolioItem,
             FileStorageObject,
+            ProfessionalCabinet,
+            Profession,
         ]
     ]:
         await self.require_moderator(
@@ -314,24 +318,50 @@ class PortfolioRepository:
             user_id=moderator_user_id,
         )
 
-        normalized_limit = max(1, min(int(limit), 20))
-        normalized_offset = max(0, int(offset))
+        normalized_limit = max(
+            1,
+            min(
+                int(limit),
+                20,
+            ),
+        )
+        normalized_offset = max(
+            0,
+            int(offset),
+        )
 
         result = await self.session.execute(
             select(
                 SpecialistPortfolioItem,
                 FileStorageObject,
+                ProfessionalCabinet,
+                Profession,
             )
             .join(
                 FileStorageObject,
                 FileStorageObject.id
                 == SpecialistPortfolioItem.file_id,
             )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == SpecialistPortfolioItem
+                .professional_cabinet_id,
+            )
+            .join(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
             .where(
-                SpecialistPortfolioItem.tenant_id == tenant_id,
+                SpecialistPortfolioItem.tenant_id
+                == tenant_id,
                 SpecialistPortfolioItem.status
                 == "pending_moderation",
-                FileStorageObject.tenant_id == tenant_id,
+                FileStorageObject.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
                 FileStorageObject.owner_user_id
                 != moderator_user_id,
             )
@@ -339,11 +369,17 @@ class PortfolioRepository:
                 SpecialistPortfolioItem.created_at.asc(),
                 SpecialistPortfolioItem.id.asc(),
             )
-            .offset(normalized_offset)
-            .limit(normalized_limit)
+            .offset(
+                normalized_offset
+            )
+            .limit(
+                normalized_limit
+            )
         )
 
-        return list(result.tuples().all())
+        return list(
+            result.tuples().all()
+        )
     
     async def list_rejected_items(
         self,
@@ -351,28 +387,73 @@ class PortfolioRepository:
         tenant_id: UUID,
         moderator_user_id: UUID,
         limit: int = 20,
-    ) -> list[tuple[SpecialistPortfolioItem, FileStorageObject]]:
+    ) -> list[
+        tuple[
+            SpecialistPortfolioItem,
+            FileStorageObject,
+            ProfessionalCabinet,
+            Profession,
+        ]
+    ]:
         await self.require_moderator(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
         )
 
-        result = await self.session.execute(
-            select(SpecialistPortfolioItem, FileStorageObject)
-            .join(
-                FileStorageObject,
-                FileStorageObject.id == SpecialistPortfolioItem.file_id,
-            )
-            .where(
-                SpecialistPortfolioItem.tenant_id == tenant_id,
-                SpecialistPortfolioItem.status == "rejected",
-                FileStorageObject.tenant_id == tenant_id,
-            )
-            .order_by(SpecialistPortfolioItem.created_at.desc())
-            .limit(max(1, min(int(limit), 50)))
+        normalized_limit = max(
+            1,
+            min(
+                int(limit),
+                50,
+            ),
         )
 
-        return list(result.tuples().all())
+        result = await self.session.execute(
+            select(
+                SpecialistPortfolioItem,
+                FileStorageObject,
+                ProfessionalCabinet,
+                Profession,
+            )
+            .join(
+                FileStorageObject,
+                FileStorageObject.id
+                == SpecialistPortfolioItem.file_id,
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == SpecialistPortfolioItem
+                .professional_cabinet_id,
+            )
+            .join(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
+            .where(
+                SpecialistPortfolioItem.tenant_id
+                == tenant_id,
+                SpecialistPortfolioItem.status
+                == "rejected",
+                FileStorageObject.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+            )
+            .order_by(
+                SpecialistPortfolioItem.created_at.desc(),
+                SpecialistPortfolioItem.id.asc(),
+            )
+            .limit(
+                normalized_limit
+            )
+        )
+
+        return list(
+            result.tuples().all()
+        )
+
 
     async def moderate_item(
         self,
@@ -454,6 +535,78 @@ class PortfolioRepository:
 
         return item, storage_object, before_status
     
+    async def restore_rejected_item(
+        self,
+        *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+        item_id: UUID,
+    ) -> tuple[
+        SpecialistPortfolioItem,
+        FileStorageObject,
+        str,
+    ]:
+        await self.require_moderator(
+            tenant_id=tenant_id,
+            user_id=moderator_user_id,
+        )
+
+        result = await self.session.execute(
+            select(
+                SpecialistPortfolioItem,
+                FileStorageObject,
+                Specialist.user_id,
+            )
+            .join(
+                FileStorageObject,
+                FileStorageObject.id
+                == SpecialistPortfolioItem.file_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == SpecialistPortfolioItem.specialist_id,
+            )
+            .where(
+                SpecialistPortfolioItem.id
+                == item_id,
+                SpecialistPortfolioItem.tenant_id
+                == tenant_id,
+                FileStorageObject.tenant_id
+                == tenant_id,
+                Specialist.tenant_id
+                == tenant_id,
+            )
+            .with_for_update()
+        )
+
+        row = result.first()
+
+        if not row:
+            raise PortfolioRepositoryError(
+                "Portfolio item not found."
+            )
+
+        item, storage_object, owner_user_id = row
+
+        if owner_user_id == moderator_user_id:
+            raise PortfolioRepositoryError(
+                "You cannot moderate your own portfolio item."
+            )
+
+        if item.status != "rejected":
+            raise PortfolioRepositoryError(
+                "Portfolio item is no longer rejected."
+            )
+
+        before_status = item.status
+        item.status = "active"
+        storage_object.retention_until = None
+
+        await self.session.flush()
+
+        return item, storage_object, before_status
+
     async def mark_owner_item_deleted(
         self,
         *,

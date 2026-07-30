@@ -20,6 +20,9 @@ class ReviewModerationCard:
     review: Review
     author_label: str
     target_name: str | None
+    professional_cabinet_id: UUID
+    cabinet_title: str
+    profession_name: str
 
 @dataclass(frozen=True)
 class PublicReviewPage:
@@ -158,33 +161,76 @@ class ReviewService:
         tenant_id: UUID,
         moderator_user_id: UUID,
         review_id: UUID,
+        language: str = "ru",
     ) -> ReviewModerationCard:
         try:
-            review = await self.repository.get_pending_review_for_moderation(
-                tenant_id=tenant_id,
-                moderator_user_id=moderator_user_id,
-                review_id=review_id,
+            details = await (
+                self.repository
+                .get_pending_review_for_moderation(
+                    tenant_id=tenant_id,
+                    moderator_user_id=(
+                        moderator_user_id
+                    ),
+                    review_id=review_id,
+                )
             )
 
-            target_name = await self.repository.get_review_target_name(
-                tenant_id=tenant_id,
-                target_type=review.target_type,
-                target_id=review.target_id,
+            review = details.review
+            profession = details.profession
+            professional_cabinet = (
+                details.professional_cabinet
+            )
+            specialist = details.specialist
+
+            profession_name = (
+                getattr(
+                    profession,
+                    f"name_{language}",
+                    None,
+                )
+                or profession.name_ru
+                or profession.name_en
+                or profession.name_pt
+                or profession.name
+                or "-"
+            )
+
+            cabinet_title = (
+                professional_cabinet.title
+                or profession_name
             )
 
             author_token = str(
                 review.reviewer_user_id
-            ).replace("-", "")[:8]
+            ).replace(
+                "-",
+                "",
+            )[:8]
 
             return ReviewModerationCard(
                 review=review,
-                author_label=f"user-{author_token}",
-                target_name=target_name,
+                author_label=(
+                    f"user-{author_token}"
+                ),
+                target_name=(
+                    specialist.display_name
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet.id
+                ),
+                cabinet_title=(
+                    cabinet_title
+                ),
+                profession_name=(
+                    profession_name
+                ),
             )
 
         except ReviewError as exc:
-            raise ReviewServiceError(str(exc)) from exc
-        
+            raise ReviewServiceError(
+                str(exc)
+            ) from exc
+
     async def moderate_review(
         self,
         *,

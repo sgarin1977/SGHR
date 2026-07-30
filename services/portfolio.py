@@ -3,7 +3,12 @@ import os
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
-from database.models import FileStorageObject, SpecialistPortfolioItem
+from database.models import (
+    FileStorageObject,
+    Profession,
+    ProfessionalCabinet,
+    SpecialistPortfolioItem,
+)
 from database.repositories.event import EventRepository
 from database.repositories.moderation import (
     ModerationAccessError,
@@ -36,6 +41,9 @@ class PortfolioItemView:
     item: SpecialistPortfolioItem
     storage_object: FileStorageObject
     signed_url: str | None
+    professional_cabinet_id: UUID | None = None
+    cabinet_title: str | None = None
+    profession_name: str | None = None
 
 @dataclass(frozen=True)
 class OwnerPortfolioPage:
@@ -357,26 +365,54 @@ class PortfolioService:
         moderator_user_id: UUID,
         page: int = 0,
         page_size: int = 5,
+        language: str = "ru",
     ) -> list[PortfolioItemView]:
-        normalized_page = max(int(page), 0)
+        normalized_page = max(
+            int(page),
+            0,
+        )
         normalized_page_size = max(
             1,
-            min(int(page_size), 10),
+            min(
+                int(page_size),
+                10,
+            ),
         )
 
         try:
-            rows = await self.repository.list_pending_items(
-                tenant_id=tenant_id,
-                moderator_user_id=moderator_user_id,
-                limit=normalized_page_size + 1,
-                offset=normalized_page * normalized_page_size,
+            rows = await (
+                self.repository
+                .list_pending_items(
+                    tenant_id=tenant_id,
+                    moderator_user_id=(
+                        moderator_user_id
+                    ),
+                    limit=(
+                        normalized_page_size
+                        + 1
+                    ),
+                    offset=(
+                        normalized_page
+                        * normalized_page_size
+                    ),
+                )
             )
-            return await self._create_views(rows)
+
+            return await (
+                self._create_moderation_views(
+                    rows,
+                    language=language,
+                )
+            )
+
         except (
             PortfolioRepositoryError,
             PortfolioStorageError,
         ) as exc:
-            raise PortfolioServiceError(str(exc)) from exc
+            raise PortfolioServiceError(
+                str(exc)
+            ) from exc
+
         
     async def list_rejected_items(
         self,
@@ -384,16 +420,34 @@ class PortfolioService:
         tenant_id: UUID,
         moderator_user_id: UUID,
         limit: int = 20,
+        language: str = "ru",
     ) -> list[PortfolioItemView]:
         try:
-            rows = await self.repository.list_rejected_items(
-                tenant_id=tenant_id,
-                moderator_user_id=moderator_user_id,
-                limit=limit,
+            rows = await (
+                self.repository
+                .list_rejected_items(
+                    tenant_id=tenant_id,
+                    moderator_user_id=(
+                        moderator_user_id
+                    ),
+                    limit=limit,
+                )
             )
-            return await self._create_views(rows)
-        except (PortfolioRepositoryError, PortfolioStorageError) as exc:
-            raise PortfolioServiceError(str(exc)) from exc
+
+            return await (
+                self._create_moderation_views(
+                    rows,
+                    language=language,
+                )
+            )
+
+        except (
+            PortfolioRepositoryError,
+            PortfolioStorageError,
+        ) as exc:
+            raise PortfolioServiceError(
+                str(exc)
+            ) from exc
 
     async def approve_item(
         self,
@@ -426,6 +480,68 @@ class PortfolioService:
             status="rejected",
             reason=reason,
         )
+
+    async def restore_rejected_item(
+        self,
+        *,
+        tenant_id: UUID,
+        moderator_user_id: UUID,
+        item_id: UUID,
+    ) -> SpecialistPortfolioItem:
+        try:
+            (
+                item,
+                _storage_object,
+                before_status,
+            ) = await self.repository.restore_rejected_item(
+                tenant_id=tenant_id,
+                moderator_user_id=moderator_user_id,
+                item_id=item_id,
+            )
+
+            moderation_repository = ModerationRepository(
+                self.repository.session
+            )
+
+            await moderation_repository.log_admin_action(
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                action_type="restore_portfolio_item",
+                target_type="specialist_portfolio_item",
+                target_id=item.id,
+                before_state={
+                    "status": before_status,
+                },
+                after_state={
+                    "status": item.status,
+                },
+                reason=(
+                    "portfolio restored after repeated review"
+                ),
+            )
+
+            await moderation_repository.log_event(
+                tenant_id=tenant_id,
+                user_id=moderator_user_id,
+                event_type="portfolio_item_restored",
+                entity_type="specialist_portfolio_item",
+                entity_id=item.id,
+                payload={
+                    "previous_status": before_status,
+                    "status": item.status,
+                },
+            )
+
+            await self.repository.session.commit()
+            return item
+
+        except (
+            PortfolioRepositoryError,
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            await self.repository.session.rollback()
+            raise PortfolioServiceError(str(exc)) from exc
 
     async def reject_forbidden_item(
         self,
@@ -629,6 +745,86 @@ class PortfolioService:
             await self.repository.session.rollback()
             raise PortfolioServiceError(str(exc)) from exc
         
+
+    async def _create_moderation_views(
+        self,
+        rows: list[
+            tuple[
+                SpecialistPortfolioItem,
+                FileStorageObject,
+                ProfessionalCabinet,
+                Profession,
+            ]
+        ],
+        *,
+        language: str,
+    ) -> list[PortfolioItemView]:
+        localized_field = {
+            "ru": "name_ru",
+            "en": "name_en",
+            "pt": "name_pt",
+        }.get(
+            language,
+            "name_ru",
+        )
+
+        views: list[
+            PortfolioItemView
+        ] = []
+
+        for (
+            item,
+            storage_object,
+            professional_cabinet,
+            profession,
+        ) in rows:
+            signed_url = await (
+                self.storage
+                .create_signed_url(
+                    storage_path=(
+                        storage_object.storage_path
+                    ),
+                    expires_in=(
+                        self.signed_url_ttl
+                    ),
+                )
+            )
+
+            profession_name = str(
+                getattr(
+                    profession,
+                    localized_field,
+                    None,
+                )
+                or profession.name_ru
+                or profession.name_en
+                or profession.name_pt
+                or profession.name
+            )
+
+            views.append(
+                PortfolioItemView(
+                    item=item,
+                    storage_object=(
+                        storage_object
+                    ),
+                    signed_url=signed_url,
+                    professional_cabinet_id=(
+                        professional_cabinet.id
+                    ),
+                    cabinet_title=(
+                        professional_cabinet.title
+                        or profession_name
+                    ),
+                    profession_name=(
+                        profession_name
+                    ),
+                )
+            )
+
+        return views
+
+
     async def _create_views(
         self,
         rows: list[

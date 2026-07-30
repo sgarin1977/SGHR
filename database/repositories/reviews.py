@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -6,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
     ContactRequest,
+    Profession,
+    ProfessionalCabinet,
     ReputationScore,
     Review,
     ServiceOrder,
@@ -22,6 +25,13 @@ REVIEW_MODERATION_ROLES = {
     "admin",
     "super_admin",
 }
+
+@dataclass(frozen=True)
+class PendingReviewModerationDetails:
+    review: Review
+    professional_cabinet: ProfessionalCabinet
+    profession: Profession
+    specialist: Specialist
 
 class ReviewRepository:
     def __init__(self, session: AsyncSession):
@@ -370,27 +380,69 @@ class ReviewRepository:
         tenant_id: UUID,
         moderator_user_id: UUID,
         review_id: UUID,
-    ) -> Review:
+    ) -> PendingReviewModerationDetails:
         await self.require_moderator(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
         )
 
         result = await self.session.execute(
-            select(Review).where(
+            select(
+                Review,
+                ProfessionalCabinet,
+                Profession,
+                Specialist,
+            )
+            .select_from(Review)
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Review.professional_cabinet_id,
+            )
+            .join(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .where(
                 Review.id == review_id,
                 Review.tenant_id == tenant_id,
-                Review.status == "pending_moderation",
+                Review.status
+                == "pending_moderation",
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id
+                == tenant_id,
             )
         )
-        review = result.scalar_one_or_none()
 
-        if not review:
+        row = result.one_or_none()
+
+        if not row:
             raise ReviewError(
                 "Review is no longer pending moderation."
             )
 
-        return review
+        (
+            review,
+            professional_cabinet,
+            profession,
+            specialist,
+        ) = row
+
+        return PendingReviewModerationDetails(
+            review=review,
+            professional_cabinet=(
+                professional_cabinet
+            ),
+            profession=profession,
+            specialist=specialist,
+        )
 
     async def get_review_target_name(
         self,

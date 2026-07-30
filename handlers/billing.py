@@ -171,6 +171,58 @@ async def clear_cross_feature_messages(
         last_menu_message_id=None,
     )
 
+async def replace_billing_callback_screen(
+    *,
+    callback: CallbackQuery,
+    state: FSMContext,
+    text: str,
+    reply_markup: (
+        InlineKeyboardMarkup | None
+    ) = None,
+    callback_answered: bool = False,
+) -> Message:
+    if not callback_answered:
+        await callback.answer()
+
+    data = await state.get_data()
+    current_message_id = (
+        callback.message.message_id
+    )
+    tracked_message_id = data.get(
+        "last_menu_message_id"
+    )
+
+    if (
+        tracked_message_id
+        and tracked_message_id
+        != current_message_id
+    ):
+        await delete_telegram_messages(
+            bot=callback.bot,
+            chat_id=callback.message.chat.id,
+            message_ids=[
+                tracked_message_id,
+            ],
+        )
+
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=text,
+            reply_markup=reply_markup,
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
+
+    return menu_message
+
+
+
 async def replace_billing_input_screen(
     *,
     message: Message,
@@ -880,7 +932,7 @@ def professional_cabinets_keyboard(
                     "billing_back",
                     language,
                 ),
-                callback_data="M_SPECIALIST",
+                callback_data="GLOBAL_MAIN_MENU",
             )
         ]
     )
@@ -1018,10 +1070,9 @@ async def show_professional_cabinets(
         )
         return
 
-    await callback.answer()
-
-    menu_message = await edit_or_replace_menu_message(
+    await replace_billing_callback_screen(
         callback=callback,
+        state=state,
         text=format_professional_cabinets_text(
             options,
             language,
@@ -1032,12 +1083,6 @@ async def show_professional_cabinets(
                 language,
             )
         ),
-    )
-
-    await state.update_data(
-        last_menu_message_id=(
-            menu_message.message_id
-        )
     )
 
 
@@ -1193,10 +1238,9 @@ async def start_professional_cabinet_creation(
         professional_cabinet_category_page=0,
     )
 
-    await callback.answer()
-
-    menu_message = await edit_or_replace_menu_message(
+    await replace_billing_callback_screen(
         callback=callback,
+        state=state,
         text=t(
             "professional_cabinet_choose_category",
             language,
@@ -1217,10 +1261,6 @@ async def start_professional_cabinet_creation(
                 ),
             )
         ),
-    )
-
-    await state.update_data(
-        last_menu_message_id=menu_message.message_id
     )
 
 
@@ -1266,10 +1306,9 @@ async def change_professional_cabinet_category_page(
             limit=50,
         )
 
-    await callback.answer()
-
-    menu_message = await edit_or_replace_menu_message(
+    await replace_billing_callback_screen(
         callback=callback,
+        state=state,
         text=t(
             "professional_cabinet_choose_category",
             language,
@@ -1298,9 +1337,7 @@ async def change_professional_cabinet_category_page(
             for item in categories
         ],
         professional_cabinet_category_page=page,
-        last_menu_message_id=menu_message.message_id,
     )
-
 
 @billing_router.callback_query(
     StateFilter(
@@ -7750,6 +7787,7 @@ async def block_legacy_specialist_profile_pause(
         show_alert=True,
     )
 
+
 @billing_router.callback_query(
     F.data == "CAB_PROFILE_VISIBILITY"
 )
@@ -7762,10 +7800,12 @@ async def show_specialist_profile_visibility(
         callback.from_user.language_code,
     )
 
-    user, specialist, tenant_id = (
-        await get_current_specialist_for_telegram(
-            callback.from_user.id
-        )
+    (
+        user,
+        specialist,
+        tenant_id,
+    ) = await get_current_specialist_for_telegram(
+        callback.from_user.id
     )
 
     if not user:
@@ -7778,7 +7818,7 @@ async def show_specialist_profile_visibility(
         )
         return
 
-    if not specialist:
+    if not specialist or not tenant_id:
         await callback.answer(
             t(
                 "cabinet_profile_not_found",
@@ -7787,15 +7827,25 @@ async def show_specialist_profile_visibility(
             show_alert=True,
         )
         return
+
     try:
         async with get_session() as session:
-            availability_status = await (
-                SpecialistService(
-                    SpecialistRepository(session)
-                ).get_active_cabinet_availability(
+            service = SpecialistService(
+                SpecialistRepository(session)
+            )
+
+            moderation_status = await (
+                service
+                .get_active_cabinet_moderation_status(
                     tenant_id=tenant_id,
                     user_id=user.id,
                     specialist_id=specialist.id,
+                )
+            )
+
+            current_visibility = await (
+                service.get_profile_visibility(
+                    user_id=user.id,
                 )
             )
 
@@ -7808,19 +7858,13 @@ async def show_specialist_profile_visibility(
             show_alert=True,
         )
         return
-    async with get_session() as session:
-        current_visibility = await SpecialistService(
-            SpecialistRepository(session)
-        ).get_profile_visibility(
-            user_id=user.id,
-        )
 
     await callback.answer()
 
     menu_message = await edit_or_replace_menu_message(
         callback=callback,
         text=specialist_profile_publication_notice(
-            status=specialist.status,
+            status=moderation_status,
             visibility=current_visibility,
             language=language,
         ),
@@ -7832,39 +7876,87 @@ async def show_specialist_profile_visibility(
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 
 @billing_router.callback_query(F.data.startswith("CAB_PROFILE_VISIBILITY_SET:"))
-async def set_specialist_profile_visibility(callback: CallbackQuery, state: FSMContext):
+async def set_specialist_profile_visibility(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = await get_billing_interface_language(
         callback.from_user.id,
         callback.from_user.language_code,
     )
-    user, specialist, tenant_id = await get_current_specialist_for_telegram(
+
+    (
+        user,
+        specialist,
+        tenant_id,
+    ) = await get_current_specialist_for_telegram(
         callback.from_user.id
     )
 
     if not user:
-        await callback.answer(t("billing_start_required", language), show_alert=True)
+        await callback.answer(
+            t(
+                "billing_start_required",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    if not specialist:
-        await callback.answer(t("cabinet_profile_not_found", language), show_alert=True)
+    if not specialist or not tenant_id:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    visibility = (callback.data or "").split(":", 1)[1]
+    try:
+        visibility = (
+            callback.data or ""
+        ).split(
+            ":",
+            1,
+        )[1]
+    except IndexError:
+        await callback.answer(
+            t(
+                "cabinet_profile_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
 
     try:
         async with get_session() as session:
-            await SpecialistService(
+            service = SpecialistService(
                 SpecialistRepository(session)
-            ).update_profile_visibility(
+            )
+
+            await service.update_profile_visibility(
                 tenant_id=tenant_id,
                 user_id=user.id,
                 specialist_id=specialist.id,
                 visibility=visibility,
+            )
+
+            moderation_status = await (
+                service
+                .get_active_cabinet_moderation_status(
+                    tenant_id=tenant_id,
+                    user_id=user.id,
+                    specialist_id=specialist.id,
+                )
             )
 
     except (
@@ -7892,7 +7984,7 @@ async def set_specialist_profile_visibility(callback: CallbackQuery, state: FSMC
     menu_message = await edit_or_replace_menu_message(
         callback=callback,
         text=specialist_profile_publication_notice(
-            status=specialist.status,
+            status=moderation_status,
             visibility=visibility,
             language=language,
         ),
@@ -7904,7 +7996,9 @@ async def set_specialist_profile_visibility(callback: CallbackQuery, state: FSMC
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 @billing_router.callback_query(

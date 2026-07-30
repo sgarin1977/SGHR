@@ -309,11 +309,13 @@ class SpecialistSearchRepository:
                 ProfessionalCabinet.moderation_status.in_(
                     PUBLIC_CABINET_MODERATION_STATUSES
                 ),
-                Specialist.status.in_(
-                    PUBLIC_SPECIALIST_STATUSES
-                ),
+                Specialist.status
+                != "deleted",
                 User.status.notin_(
-                    ["blocked", "deleted"]
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
                 ),
             )
         )
@@ -795,11 +797,13 @@ class SpecialistSearchRepository:
                 Specialist.tenant_id == tenant_id,
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
-                Specialist.status.in_(
-                    PUBLIC_SPECIALIST_STATUSES
-                ),
+                Specialist.status
+                != "deleted",
                 User.status.notin_(
-                    ["blocked", "deleted"]
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
                 ),
                 ProfessionalCabinet.is_active.is_(
                     True
@@ -811,7 +815,7 @@ class SpecialistSearchRepository:
         )
         if filters.status:
             stmt = stmt.where(
-                Specialist.status
+                ProfessionalCabinet.moderation_status
                 == filters.status
             )
         if filters.city_id:
@@ -1150,11 +1154,13 @@ class SpecialistSearchRepository:
                 Specialist.tenant_id == tenant_id,
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
-                Specialist.status.in_(
-                    PUBLIC_SPECIALIST_STATUSES
-                ),
+                Specialist.status
+                != "deleted",
                 User.status.notin_(
-                    ["blocked", "deleted"]
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
                 ),
                 ProfessionalCabinet.is_active.is_(
                     True

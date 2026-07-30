@@ -14,8 +14,10 @@ from database.models import (
     InvoiceItem,
     PaidFeature,
     Payment,
+    ProfessionalCabinet,
     Specialist,
     SpecialistPromotion,
+    User,
     UserRoleMapping,
 )
 
@@ -180,28 +182,62 @@ class BillingRepository:
 
         return feature
 
-    async def get_approved_specialist_for_user(
+    async def get_approved_specialist_cabinet_for_user(
         self,
         *,
         user_id: UUID,
         tenant_id: UUID,
-    ) -> Specialist:
-        specialist = (
-            await self.session.execute(
-                select(Specialist).where(
-                    Specialist.user_id == user_id,
-                    Specialist.tenant_id == tenant_id,
-                    Specialist.status == "approved",
-                )
+    ) -> tuple[
+        Specialist,
+        ProfessionalCabinet,
+    ]:
+        result = await self.session.execute(
+            select(
+                Specialist,
+                ProfessionalCabinet,
             )
-        ).scalar_one_or_none()
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Specialist.active_professional_cabinet_id,
+            )
+            .where(
+                Specialist.user_id == user_id,
+                Specialist.tenant_id == tenant_id,
+                Specialist.status != "deleted",
+                User.tenant_id == tenant_id,
+                User.status.notin_(
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
+                ),
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+                ProfessionalCabinet.moderation_status
+                == "approved",
+            )
+        )
 
-        if not specialist:
+        row = result.first()
+
+        if not row:
             raise BillingNotFoundError(
-                "Approved specialist profile not found."
+                "Approved active professional "
+                "cabinet not found."
             )
 
-        return specialist
+        specialist, cabinet = row
+        return specialist, cabinet
     
     async def create_manual_invoice(
         self,

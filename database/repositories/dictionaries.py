@@ -11,12 +11,12 @@ from database.models import (
     Language,
     Profession,
     ProfessionSkill,
+    ProfessionalCabinet,
+    ProfessionalCabinetSkill,
     Skill,
     Specialist,
     SpecialistCategory,
     SpecialistLanguage,
-    SpecialistProfession,
-    UserSkill,
 )
 
 
@@ -69,15 +69,15 @@ class AdminSkillDictionaryRow:
     name_pt: str | None
     is_active: bool
     profession_links_count: int
-    user_links_count: int
+    cabinet_links_count: int
     vacancy_links_count: int
 
 @dataclass(frozen=True)
 class AdminSkillMergeResult:
     moved_profession_links: int
     removed_duplicate_profession_links: int
-    moved_user_links: int
-    removed_duplicate_user_links: int
+    moved_cabinet_links: int
+    removed_duplicate_cabinet_links: int
 
 @dataclass(frozen=True)
 class AdminLanguageDictionaryRow:
@@ -101,7 +101,7 @@ class AdminCountryDictionaryRow:
     is_active: bool
     metadata: dict
     cities_count: int
-    specialists_count: int
+    professional_cabinets_count: int
 
 @dataclass(frozen=True)
 class AdminDictionaryImportResult:
@@ -125,10 +125,10 @@ class AdminSpecialistMoveResult:
 class AdminMultiProfessionMoveResult:
     requested_specialists_count: int
     selected_professions_count: int
-    created_links_count: int
-    reactivated_links_count: int
-    existing_links_count: int
-    deleted_old_links_count: int
+    created_cabinets_count: int
+    reactivated_cabinets_count: int
+    existing_cabinets_count: int
+    archived_old_cabinets_count: int
     synchronized_primary_count: int
     missing_specialists_count: int
     target_category_id: UUID
@@ -140,7 +140,7 @@ class AdminCategorySpecialistMoveResult:
     requested_count: int
     moved_count: int
     archived_duplicate_count: int
-    archived_extra_links_count: int
+    archived_extra_cabinets_count: int
     synchronized_primary_count: int
     missing_count: int
     source_category_id: UUID
@@ -163,7 +163,7 @@ class AdminCityDictionaryRow:
     timezone: str | None
     is_active: bool
     metadata: dict
-    specialists_count: int
+    professional_cabinets_count: int
 
 class DictionaryRepository:
     def __init__(self, session: AsyncSession):
@@ -186,19 +186,25 @@ class DictionaryRepository:
 
         specialist_counts = (
             select(
-                SpecialistProfession.category_id.label("category_id"),
-                func.count(func.distinct(SpecialistProfession.specialist_id)).label(
+                ProfessionalCabinet.category_id.label(
+                    "category_id"
+                ),
+                func.count(
+                    func.distinct(
+                        ProfessionalCabinet.specialist_id
+                    )
+                ).label(
                     "specialists_count"
                 ),
             )
-            .join(
-                Specialist,
-                Specialist.id == SpecialistProfession.specialist_id,
-            )
             .where(
-                SpecialistProfession.status == "active",
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
-            .group_by(SpecialistProfession.category_id)
+            .group_by(
+                ProfessionalCabinet.category_id
+            )
             .subquery()
         )
 
@@ -276,20 +282,27 @@ class DictionaryRepository:
 
         specialist_counts = (
             select(
-                SpecialistProfession.category_id.label("category_id"),
-                func.count(func.distinct(SpecialistProfession.specialist_id)).label(
+                ProfessionalCabinet.category_id.label(
+                    "category_id"
+                ),
+                func.count(
+                    func.distinct(
+                        ProfessionalCabinet.specialist_id
+                    )
+                ).label(
                     "specialists_count"
                 ),
             )
-            .join(
-                Specialist,
-                Specialist.id == SpecialistProfession.specialist_id,
-            )
             .where(
-                SpecialistProfession.category_id == category_id,
-                SpecialistProfession.status == "active",
+                ProfessionalCabinet.category_id
+                == category_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
-            .group_by(SpecialistProfession.category_id)
+            .group_by(
+                ProfessionalCabinet.category_id
+            )
             .subquery()
         )
 
@@ -626,20 +639,24 @@ class DictionaryRepository:
     ) -> list[UUID]:
         result = await self.session.execute(
             select(
-                SpecialistProfession.specialist_id
+                ProfessionalCabinet.specialist_id
             )
             .where(
-                SpecialistProfession.category_id
+                ProfessionalCabinet.category_id
                 == category_id,
-                SpecialistProfession.status == "active",
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
             .distinct()
             .order_by(
-                SpecialistProfession.specialist_id
+                ProfessionalCabinet.specialist_id
             )
         )
 
-        return list(result.scalars().all())
+        return list(
+            result.scalars().all()
+        )
 
     async def list_category_specialists_for_admin(
         self,
@@ -654,30 +671,43 @@ class DictionaryRepository:
                 Specialist.display_name,
                 Specialist.status,
                 func.string_agg(
-                    func.distinct(Profession.name),
+                    func.distinct(
+                        Profession.name
+                    ),
                     ", ",
-                ).label("profession_names"),
+                ).label(
+                    "profession_names"
+                ),
                 Specialist.is_verified,
-                Specialist.is_available,
+                func.bool_or(
+                    ProfessionalCabinet.availability_status
+                    == "available"
+                ).label(
+                    "is_available"
+                ),
             )
             .join(
-                SpecialistProfession,
-                SpecialistProfession.specialist_id == Specialist.id,
+                ProfessionalCabinet,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
             )
             .join(
                 Profession,
-                Profession.id == SpecialistProfession.profession_id,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
             )
             .where(
-                SpecialistProfession.category_id == category_id,
-                SpecialistProfession.status == "active",
+                ProfessionalCabinet.category_id
+                == category_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
             .group_by(
                 Specialist.id,
                 Specialist.display_name,
                 Specialist.status,
                 Specialist.is_verified,
-                Specialist.is_available,
             )
             .order_by(
                 Specialist.display_name,
@@ -692,9 +722,15 @@ class DictionaryRepository:
                 specialist_id=specialist_id,
                 display_name=display_name,
                 status=status,
-                profession_names=profession_names or "-",
-                is_verified=bool(is_verified),
-                is_available=bool(is_available),
+                profession_names=(
+                    profession_names or "-"
+                ),
+                is_verified=bool(
+                    is_verified
+                ),
+                is_available=bool(
+                    is_available
+                ),
             )
             for (
                 specialist_id,
@@ -705,6 +741,7 @@ class DictionaryRepository:
                 is_available,
             ) in result.all()
         ]
+
     
     async def list_professions_by_category_for_admin(
         self,
@@ -748,13 +785,25 @@ class DictionaryRepository:
     ) -> list[AdminProfessionDictionaryRow]:
         specialist_counts = (
             select(
-                SpecialistProfession.profession_id.label("profession_id"),
-                func.count(func.distinct(SpecialistProfession.specialist_id)).label(
+                ProfessionalCabinet.profession_id.label(
+                    "profession_id"
+                ),
+                func.count(
+                    func.distinct(
+                        ProfessionalCabinet.specialist_id
+                    )
+                ).label(
                     "specialists_count"
                 ),
             )
-            .where(SpecialistProfession.status == "active")
-            .group_by(SpecialistProfession.profession_id)
+            .where(
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.profession_id
+            )
             .subquery()
         )
 
@@ -830,16 +879,27 @@ class DictionaryRepository:
     ) -> AdminProfessionDictionaryRow | None:
         specialist_counts = (
             select(
-                SpecialistProfession.profession_id.label("profession_id"),
-                func.count(func.distinct(SpecialistProfession.specialist_id)).label(
+                ProfessionalCabinet.profession_id.label(
+                    "profession_id"
+                ),
+                func.count(
+                    func.distinct(
+                        ProfessionalCabinet.specialist_id
+                    )
+                ).label(
                     "specialists_count"
                 ),
             )
             .where(
-                SpecialistProfession.profession_id == profession_id,
-                SpecialistProfession.status == "active",
+                ProfessionalCabinet.profession_id
+                == profession_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
-            .group_by(SpecialistProfession.profession_id)
+            .group_by(
+                ProfessionalCabinet.profession_id
+            )
             .subquery()
         )
 
@@ -1083,7 +1143,10 @@ class DictionaryRepository:
         profession_id: UUID,
         category_id: UUID,
     ) -> AdminProfessionDictionaryRow | None:
-        profession = await self.session.get(Profession, profession_id)
+        profession = await self.session.get(
+            Profession,
+            profession_id,
+        )
 
         if not profession:
             return None
@@ -1091,14 +1154,21 @@ class DictionaryRepository:
         profession.category_id = category_id
 
         await self.session.execute(
-            update(SpecialistProfession)
-            .where(SpecialistProfession.profession_id == profession_id)
-            .values(category_id=category_id)
+            update(ProfessionalCabinet)
+            .where(
+                ProfessionalCabinet.profession_id
+                == profession_id
+            )
+            .values(
+                category_id=category_id
+            )
         )
 
         await self.session.flush()
 
-        return await self.get_profession_for_admin(profession_id)
+        return await self.get_profession_for_admin(
+            profession_id
+        )
     
     async def set_profession_visibility_for_admin(
         self,
@@ -1164,15 +1234,25 @@ class DictionaryRepository:
         profession_id: UUID,
     ) -> list[UUID]:
         result = await self.session.execute(
-            select(SpecialistProfession.specialist_id)
-            .where(
-                SpecialistProfession.profession_id == profession_id,
-                SpecialistProfession.status == "active",
+            select(
+                ProfessionalCabinet.specialist_id
             )
-            .order_by(SpecialistProfession.specialist_id)
+            .where(
+                ProfessionalCabinet.profession_id
+                == profession_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .distinct()
+            .order_by(
+                ProfessionalCabinet.specialist_id
+            )
         )
 
-        return list(result.scalars().all())
+        return list(
+            result.scalars().all()
+        )
 
     async def move_specialists_to_multiple_professions_for_admin(
         self,
@@ -1185,10 +1265,14 @@ class DictionaryRepository:
         mode: str,
     ) -> AdminMultiProfessionMoveResult:
         unique_specialist_ids = list(
-            dict.fromkeys(specialist_ids)
+            dict.fromkeys(
+                specialist_ids
+            )
         )
         unique_target_profession_ids = list(
-            dict.fromkeys(target_profession_ids)
+            dict.fromkeys(
+                target_profession_ids
+            )
         )
 
         if (
@@ -1202,15 +1286,17 @@ class DictionaryRepository:
                 selected_professions_count=len(
                     unique_target_profession_ids
                 ),
-                created_links_count=0,
-                reactivated_links_count=0,
-                existing_links_count=0,
-                deleted_old_links_count=0,
+                created_cabinets_count=0,
+                reactivated_cabinets_count=0,
+                existing_cabinets_count=0,
+                archived_old_cabinets_count=0,
                 synchronized_primary_count=0,
                 missing_specialists_count=len(
                     unique_specialist_ids
                 ),
-                target_category_id=target_category_id,
+                target_category_id=(
+                    target_category_id
+                ),
                 target_profession_ids=tuple(
                     unique_target_profession_ids
                 ),
@@ -1218,97 +1304,121 @@ class DictionaryRepository:
             )
 
         specialist_result = await self.session.execute(
-            select(Specialist).where(
+            select(
+                Specialist
+            ).where(
                 Specialist.id.in_(
                     unique_specialist_ids
                 )
             )
         )
+
         specialists_by_id = {
             specialist.id: specialist
             for specialist
             in specialist_result.scalars().all()
         }
 
-        source_statement = select(
-            SpecialistProfession
-        ).where(
-            SpecialistProfession.specialist_id.in_(
-                unique_specialist_ids
-            ),
-            SpecialistProfession.status == "active",
+        profession_result = await self.session.execute(
+            select(
+                Profession
+            ).where(
+                Profession.id.in_(
+                    unique_target_profession_ids
+                )
+            )
+        )
+
+        target_professions_by_id = {
+            profession.id: profession
+            for profession
+            in profession_result.scalars().all()
+        }
+
+        source_statement = (
+            select(
+                ProfessionalCabinet
+            )
+            .where(
+                ProfessionalCabinet.specialist_id.in_(
+                    unique_specialist_ids
+                ),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
         )
 
         if source_type == "category":
-            source_statement = source_statement.where(
-                SpecialistProfession.category_id == source_id
+            source_statement = (
+                source_statement.where(
+                    ProfessionalCabinet.category_id
+                    == source_id
+                )
             )
         else:
-            source_statement = source_statement.where(
-                SpecialistProfession.profession_id == source_id
+            source_statement = (
+                source_statement.where(
+                    ProfessionalCabinet.profession_id
+                    == source_id
+                )
             )
 
         source_result = await self.session.execute(
             source_statement.order_by(
-                SpecialistProfession.specialist_id,
-                SpecialistProfession.is_primary.desc(),
-                SpecialistProfession.created_at,
-                SpecialistProfession.id,
+                ProfessionalCabinet.specialist_id,
+                ProfessionalCabinet.created_at,
+                ProfessionalCabinet.id,
             )
         )
 
-        source_links_by_specialist = {}
+        source_cabinets_by_specialist: dict[
+            UUID,
+            list[ProfessionalCabinet],
+        ] = {}
 
-        for link in source_result.scalars().all():
-            source_links_by_specialist.setdefault(
-                link.specialist_id,
+        for cabinet in source_result.scalars().all():
+            source_cabinets_by_specialist.setdefault(
+                cabinet.specialist_id,
                 [],
-            ).append(link)
+            ).append(
+                cabinet
+            )
 
         target_result = await self.session.execute(
-            select(SpecialistProfession).where(
-                SpecialistProfession.specialist_id.in_(
+            select(
+                ProfessionalCabinet
+            ).where(
+                ProfessionalCabinet.specialist_id.in_(
                     unique_specialist_ids
                 ),
-                SpecialistProfession.profession_id.in_(
+                ProfessionalCabinet.profession_id.in_(
                     unique_target_profession_ids
                 ),
-                SpecialistProfession.status.in_(
-                    {"active", "paused"}
-                ),
             )
         )
 
-        target_links = {
+        target_cabinets: dict[
+            tuple[UUID, UUID],
+            ProfessionalCabinet,
+        ] = {
             (
-                link.specialist_id,
-                link.profession_id,
-            ): link
-            for link in target_result.scalars().all()
+                cabinet.specialist_id,
+                cabinet.profession_id,
+            ): cabinet
+            for cabinet
+            in target_result.scalars().all()
         }
 
-        active_result = await self.session.execute(
-            select(SpecialistProfession).where(
-                SpecialistProfession.specialist_id.in_(
-                    unique_specialist_ids
-                ),
-                SpecialistProfession.status == "active",
-            )
-        )
-
-        active_links_by_specialist = {}
-
-        for link in active_result.scalars().all():
-            active_links_by_specialist.setdefault(
-                link.specialist_id,
-                [],
-            ).append(link)
-
-        created_links_count = 0
-        reactivated_links_count = 0
-        existing_links_count = 0
-        deleted_old_links_count = 0
+        created_cabinets_count = 0
+        reactivated_cabinets_count = 0
+        existing_cabinets_count = 0
+        archived_old_cabinets_count = 0
         missing_specialists_count = 0
+        active_replacements: dict[
+            UUID,
+            ProfessionalCabinet,
+        ] = {}
 
         for specialist_id in unique_specialist_ids:
             specialist = specialists_by_id.get(
@@ -1319,97 +1429,154 @@ class DictionaryRepository:
                 missing_specialists_count += 1
                 continue
 
-            source_links = source_links_by_specialist.get(
-                specialist_id,
-                [],
-            )
-            active_links = active_links_by_specialist.get(
-                specialist_id,
-                [],
-            )
-            selected_target_links = []
+            selected_target_cabinets: list[
+                ProfessionalCabinet
+            ] = []
 
-            for profession_id in unique_target_profession_ids:
+            for profession_id in (
+                unique_target_profession_ids
+            ):
+                profession = (
+                    target_professions_by_id.get(
+                        profession_id
+                    )
+                )
+
+                if not profession:
+                    continue
+
                 key = (
                     specialist_id,
                     profession_id,
                 )
-                target_link = target_links.get(key)
+                target_cabinet = (
+                    target_cabinets.get(
+                        key
+                    )
+                )
 
-                if target_link:
-                    target_link.category_id = (
+                if target_cabinet:
+                    target_cabinet.category_id = (
                         target_category_id
                     )
 
-                    if target_link.status == "paused":
-                        target_link.status = "active"
-                        target_link.updated_at = func.now()
-                        reactivated_links_count += 1
+                    if target_cabinet.is_active:
+                        existing_cabinets_count += 1
                     else:
-                        existing_links_count += 1
+                        target_cabinet.is_active = True
+                        reactivated_cabinets_count += 1
 
-                else:
-                    target_link = SpecialistProfession(
-                        specialist_id=specialist_id,
-                        category_id=target_category_id,
-                        profession_id=profession_id,
-                        is_primary=False,
-                        status="active",
+                    target_cabinet.updated_at = (
+                        func.now()
                     )
-                    self.session.add(target_link)
-                    target_links[key] = target_link
-                    active_links.append(target_link)
-                    created_links_count += 1
+                else:
+                    target_cabinet = (
+                        ProfessionalCabinet(
+                            tenant_id=(
+                                specialist.tenant_id
+                            ),
+                            specialist_id=(
+                                specialist.id
+                            ),
+                            category_id=(
+                                target_category_id
+                            ),
+                            profession_id=(
+                                profession_id
+                            ),
+                            title=profession.name,
+                            description=None,
+                            country_id=None,
+                            city_id=None,
+                            work_format="mixed",
+                            availability_status=(
+                                "available"
+                            ),
+                            moderation_status=(
+                                "approved"
+                            ),
+                            is_active=True,
+                        )
+                    )
+                    self.session.add(
+                        target_cabinet
+                    )
+                    target_cabinets[
+                        key
+                    ] = target_cabinet
+                    created_cabinets_count += 1
 
-                selected_target_links.append(
-                    target_link
+                selected_target_cabinets.append(
+                    target_cabinet
                 )
 
-            primary_was_removed = False
-
-            if mode == "replace":
-                for source_link in source_links:
-                    if (
-                        source_link.profession_id
-                        in unique_target_profession_ids
-                    ):
-                        continue
-
-                    if source_link.is_primary:
-                        primary_was_removed = True
-
-                    source_link.status = "deleted"
-                    source_link.is_primary = False
-                    source_link.updated_at = func.now()
-                    deleted_old_links_count += 1
-
-            active_primary_links = [
-                link
-                for link in active_links
-                if link.status == "active"
-                and link.is_primary
-            ]
-
             if (
-                primary_was_removed
-                or not active_primary_links
+                mode != "replace"
+                or not selected_target_cabinets
             ):
-                new_primary_link = selected_target_links[0]
+                continue
 
-                for link in active_links:
-                    if link.status == "active":
-                        link.is_primary = (
-                            link is new_primary_link
-                        )
+            selected_target_cabinet_ids = {
+                cabinet.id
+                for cabinet
+                in selected_target_cabinets
+                if cabinet.id is not None
+            }
+            active_source_was_archived = False
 
-                new_primary_link.is_primary = True
+            for source_cabinet in (
+                source_cabinets_by_specialist.get(
+                    specialist_id,
+                    [],
+                )
+            ):
+                if (
+                    source_cabinet.id
+                    in selected_target_cabinet_ids
+                ):
+                    continue
+
+                if (
+                    specialist.active_professional_cabinet_id
+                    == source_cabinet.id
+                ):
+                    active_source_was_archived = True
+
+                source_cabinet.is_active = False
+                source_cabinet.updated_at = func.now()
+                archived_old_cabinets_count += 1
+
+            if active_source_was_archived:
+                active_replacements[
+                    specialist_id
+                ] = selected_target_cabinets[0]
+
+        await self.session.flush()
+
+        for (
+            specialist_id,
+            target_cabinet,
+        ) in active_replacements.items():
+            specialist = specialists_by_id.get(
+                specialist_id
+            )
+
+            if not specialist:
+                continue
+
+            specialist.active_professional_cabinet_id = (
+                target_cabinet.id
+            )
+            specialist.updated_at = func.now()
 
         await self.session.flush()
 
         synchronized_primary_count = (
             await self
             .sync_specialist_primary_professions_for_admin(
-                specialist_ids=unique_specialist_ids,
+                specialist_ids=(
+                    unique_specialist_ids
+                ),
             )
         )
 
@@ -1420,13 +1587,17 @@ class DictionaryRepository:
             selected_professions_count=len(
                 unique_target_profession_ids
             ),
-            created_links_count=created_links_count,
-            reactivated_links_count=(
-                reactivated_links_count
+            created_cabinets_count=(
+                created_cabinets_count
             ),
-            existing_links_count=existing_links_count,
-            deleted_old_links_count=(
-                deleted_old_links_count
+            reactivated_cabinets_count=(
+                reactivated_cabinets_count
+            ),
+            existing_cabinets_count=(
+                existing_cabinets_count
+            ),
+            archived_old_cabinets_count=(
+                archived_old_cabinets_count
             ),
             synchronized_primary_count=(
                 synchronized_primary_count
@@ -1434,7 +1605,9 @@ class DictionaryRepository:
             missing_specialists_count=(
                 missing_specialists_count
             ),
-            target_category_id=target_category_id,
+            target_category_id=(
+                target_category_id
+            ),
             target_profession_ids=tuple(
                 unique_target_profession_ids
             ),
@@ -1447,63 +1620,95 @@ class DictionaryRepository:
         specialist_ids: list[UUID],
     ) -> int:
         unique_specialist_ids = list(
-            dict.fromkeys(specialist_ids)
+            dict.fromkeys(
+                specialist_ids
+            )
         )
 
         if not unique_specialist_ids:
             return 0
 
-        primary_result = await self.session.execute(
-            select(SpecialistProfession)
+        cabinet_result = await self.session.execute(
+            select(
+                ProfessionalCabinet
+            )
             .where(
-                SpecialistProfession.specialist_id.in_(
+                ProfessionalCabinet.specialist_id.in_(
                     unique_specialist_ids
                 ),
-                SpecialistProfession.status == "active",
-                SpecialistProfession.is_primary.is_(True),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
             .order_by(
-                SpecialistProfession.specialist_id,
-                SpecialistProfession.updated_at.desc(),
-                SpecialistProfession.id,
+                ProfessionalCabinet.specialist_id,
+                ProfessionalCabinet.created_at,
+                ProfessionalCabinet.id,
             )
         )
 
-        primary_links = {}
+        cabinets_by_specialist: dict[
+            UUID,
+            list[ProfessionalCabinet],
+        ] = {}
 
-        for link in primary_result.scalars().all():
-            primary_links.setdefault(
-                link.specialist_id,
-                link,
+        for cabinet in cabinet_result.scalars().all():
+            cabinets_by_specialist.setdefault(
+                cabinet.specialist_id,
+                [],
+            ).append(
+                cabinet
             )
 
         specialist_result = await self.session.execute(
-            select(Specialist).where(
-                Specialist.id.in_(unique_specialist_ids)
+            select(
+                Specialist
+            ).where(
+                Specialist.id.in_(
+                    unique_specialist_ids
+                )
             )
         )
 
         synchronized_count = 0
 
         for specialist in specialist_result.scalars().all():
-            primary_link = primary_links.get(
-                specialist.id
+            cabinets = cabinets_by_specialist.get(
+                specialist.id,
+                [],
             )
 
-            if not primary_link:
+            if not cabinets:
                 continue
 
+            active_cabinet = next(
+                (
+                    cabinet
+                    for cabinet in cabinets
+                    if cabinet.id
+                    == specialist.active_professional_cabinet_id
+                ),
+                cabinets[0],
+            )
+
             if (
-                specialist.category_id
-                == primary_link.category_id
+                specialist.active_professional_cabinet_id
+                == active_cabinet.id
+                and specialist.category_id
+                == active_cabinet.category_id
                 and specialist.profession_id
-                == primary_link.profession_id
+                == active_cabinet.profession_id
             ):
                 continue
 
-            specialist.category_id = primary_link.category_id
+            specialist.active_professional_cabinet_id = (
+                active_cabinet.id
+            )
+            specialist.category_id = (
+                active_cabinet.category_id
+            )
             specialist.profession_id = (
-                primary_link.profession_id
+                active_cabinet.profession_id
             )
             specialist.updated_at = func.now()
             synchronized_count += 1
@@ -1520,129 +1725,263 @@ class DictionaryRepository:
         target_category_id: UUID,
         specialist_ids: list[UUID],
     ) -> AdminCategorySpecialistMoveResult:
-        unique_specialist_ids = list(dict.fromkeys(specialist_ids))
+        unique_specialist_ids = list(
+            dict.fromkeys(
+                specialist_ids
+            )
+        )
 
         if not unique_specialist_ids:
             return AdminCategorySpecialistMoveResult(
                 requested_count=0,
                 moved_count=0,
                 archived_duplicate_count=0,
-                archived_extra_links_count=0,
+                archived_extra_cabinets_count=0,
                 synchronized_primary_count=0,
                 missing_count=0,
-                source_category_id=source_category_id,
-                target_profession_id=target_profession_id,
-                target_category_id=target_category_id,
+                source_category_id=(
+                    source_category_id
+                ),
+                target_profession_id=(
+                    target_profession_id
+                ),
+                target_category_id=(
+                    target_category_id
+                ),
             )
+
+        target_profession = await self.session.get(
+            Profession,
+            target_profession_id,
+        )
+
+        if not target_profession:
+            return AdminCategorySpecialistMoveResult(
+                requested_count=len(
+                    unique_specialist_ids
+                ),
+                moved_count=0,
+                archived_duplicate_count=0,
+                archived_extra_cabinets_count=0,
+                synchronized_primary_count=0,
+                missing_count=len(
+                    unique_specialist_ids
+                ),
+                source_category_id=(
+                    source_category_id
+                ),
+                target_profession_id=(
+                    target_profession_id
+                ),
+                target_category_id=(
+                    target_category_id
+                ),
+            )
+
+        specialist_result = await self.session.execute(
+            select(
+                Specialist
+            ).where(
+                Specialist.id.in_(
+                    unique_specialist_ids
+                )
+            )
+        )
+
+        specialists_by_id = {
+            specialist.id: specialist
+            for specialist
+            in specialist_result.scalars().all()
+        }
 
         source_result = await self.session.execute(
-            select(SpecialistProfession)
-            .where(
-                SpecialistProfession.category_id
+            select(
+                ProfessionalCabinet
+            ).where(
+                ProfessionalCabinet.category_id
                 == source_category_id,
-                SpecialistProfession.specialist_id.in_(
+                ProfessionalCabinet.specialist_id.in_(
                     unique_specialist_ids
                 ),
-                SpecialistProfession.status == "active",
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
             .order_by(
-                SpecialistProfession.specialist_id,
-                SpecialistProfession.is_primary.desc(),
-                SpecialistProfession.created_at,
-                SpecialistProfession.id,
+                ProfessionalCabinet.specialist_id,
+                ProfessionalCabinet.created_at,
+                ProfessionalCabinet.id,
             )
         )
 
-        source_links_by_specialist = {}
+        source_cabinets_by_specialist: dict[
+            UUID,
+            list[ProfessionalCabinet],
+        ] = {}
 
-        for link in source_result.scalars().all():
-            source_links_by_specialist.setdefault(
-                link.specialist_id,
+        for cabinet in source_result.scalars().all():
+            source_cabinets_by_specialist.setdefault(
+                cabinet.specialist_id,
                 [],
-            ).append(link)
+            ).append(
+                cabinet
+            )
 
         target_result = await self.session.execute(
-            select(SpecialistProfession.specialist_id).where(
-                SpecialistProfession.profession_id
+            select(
+                ProfessionalCabinet
+            ).where(
+                ProfessionalCabinet.profession_id
                 == target_profession_id,
-                SpecialistProfession.specialist_id.in_(
+                ProfessionalCabinet.specialist_id.in_(
                     unique_specialist_ids
                 ),
-                SpecialistProfession.status == "active",
             )
         )
 
-        target_specialist_ids = set(
-            target_result.scalars().all()
-        )
+        target_cabinets_by_specialist = {
+            cabinet.specialist_id: cabinet
+            for cabinet
+            in target_result.scalars().all()
+        }
 
         moved_count = 0
         archived_duplicate_count = 0
-        archived_extra_links_count = 0
+        archived_extra_cabinets_count = 0
         missing_count = 0
+        active_replacements: dict[
+            UUID,
+            ProfessionalCabinet,
+        ] = {}
 
         for specialist_id in unique_specialist_ids:
-            source_links = source_links_by_specialist.get(
-                specialist_id,
-                [],
+            specialist = specialists_by_id.get(
+                specialist_id
+            )
+            source_cabinets = (
+                source_cabinets_by_specialist.get(
+                    specialist_id,
+                    [],
+                )
             )
 
-            if not source_links:
+            if (
+                not specialist
+                or not source_cabinets
+            ):
                 missing_count += 1
                 continue
 
-            if specialist_id in target_specialist_ids:
+            target_cabinet = (
+                target_cabinets_by_specialist.get(
+                    specialist_id
+                )
+            )
+
+            if target_cabinet:
+                target_cabinet.category_id = (
+                    target_category_id
+                )
+                target_cabinet.is_active = True
+                target_cabinet.updated_at = func.now()
                 archived_duplicate_count += 1
+            else:
+                target_cabinet = ProfessionalCabinet(
+                    tenant_id=specialist.tenant_id,
+                    specialist_id=specialist.id,
+                    category_id=target_category_id,
+                    profession_id=(
+                        target_profession_id
+                    ),
+                    title=target_profession.name,
+                    description=None,
+                    country_id=None,
+                    city_id=None,
+                    work_format="mixed",
+                    availability_status="available",
+                    moderation_status="approved",
+                    is_active=True,
+                )
+                self.session.add(
+                    target_cabinet
+                )
+                target_cabinets_by_specialist[
+                    specialist_id
+                ] = target_cabinet
+                moved_count += 1
 
-                for link in source_links:
-                    if (
-                        link.profession_id
-                        == target_profession_id
-                    ):
-                        continue
+            for source_cabinet in source_cabinets:
+                if (
+                    source_cabinet.id
+                    == target_cabinet.id
+                ):
+                    continue
 
-                    link.status = "deleted"
-                    link.updated_at = func.now()
-                    archived_extra_links_count += 1
+                if (
+                    specialist.active_professional_cabinet_id
+                    == source_cabinet.id
+                ):
+                    active_replacements[
+                        specialist_id
+                    ] = target_cabinet
 
+                source_cabinet.is_active = False
+                source_cabinet.updated_at = func.now()
+                archived_extra_cabinets_count += 1
+
+        await self.session.flush()
+
+        for (
+            specialist_id,
+            target_cabinet,
+        ) in active_replacements.items():
+            specialist = specialists_by_id.get(
+                specialist_id
+            )
+
+            if not specialist:
                 continue
 
-            primary_link = source_links[0]
-            primary_link.category_id = target_category_id
-            primary_link.profession_id = target_profession_id
-            primary_link.updated_at = func.now()
-            moved_count += 1
-
-            for extra_link in source_links[1:]:
-                extra_link.status = "deleted"
-                extra_link.updated_at = func.now()
-                archived_extra_links_count += 1
+            specialist.active_professional_cabinet_id = (
+                target_cabinet.id
+            )
+            specialist.updated_at = func.now()
 
         await self.session.flush()
 
         synchronized_primary_count = (
             await self
             .sync_specialist_primary_professions_for_admin(
-                specialist_ids=unique_specialist_ids,
+                specialist_ids=(
+                    unique_specialist_ids
+                ),
             )
         )
 
         return AdminCategorySpecialistMoveResult(
-            requested_count=len(unique_specialist_ids),
+            requested_count=len(
+                unique_specialist_ids
+            ),
             moved_count=moved_count,
             archived_duplicate_count=(
                 archived_duplicate_count
             ),
-            archived_extra_links_count=(
-                archived_extra_links_count
+            archived_extra_cabinets_count=(
+                archived_extra_cabinets_count
             ),
             synchronized_primary_count=(
                 synchronized_primary_count
             ),
             missing_count=missing_count,
-            source_category_id=source_category_id,
-            target_profession_id=target_profession_id,
-            target_category_id=target_category_id,
+            source_category_id=(
+                source_category_id
+            ),
+            target_profession_id=(
+                target_profession_id
+            ),
+            target_category_id=(
+                target_category_id
+            ),
         )
 
     async def move_specialists_to_profession_for_admin(
@@ -1653,79 +1992,235 @@ class DictionaryRepository:
         target_category_id: UUID,
         specialist_ids: list[UUID],
     ) -> AdminSpecialistMoveResult:
-        if not specialist_ids:
+        unique_specialist_ids = list(
+            dict.fromkeys(
+                specialist_ids
+            )
+        )
+
+        if not unique_specialist_ids:
             return AdminSpecialistMoveResult(
                 requested_count=0,
                 moved_count=0,
                 archived_duplicate_count=0,
                 synchronized_primary_count=0,
                 missing_count=0,
-                source_profession_id=source_profession_id,
-                target_profession_id=target_profession_id,
-                target_category_id=target_category_id,
+                source_profession_id=(
+                    source_profession_id
+                ),
+                target_profession_id=(
+                    target_profession_id
+                ),
+                target_category_id=(
+                    target_category_id
+                ),
             )
+
+        target_profession = await self.session.get(
+            Profession,
+            target_profession_id,
+        )
+
+        if not target_profession:
+            return AdminSpecialistMoveResult(
+                requested_count=len(
+                    unique_specialist_ids
+                ),
+                moved_count=0,
+                archived_duplicate_count=0,
+                synchronized_primary_count=0,
+                missing_count=len(
+                    unique_specialist_ids
+                ),
+                source_profession_id=(
+                    source_profession_id
+                ),
+                target_profession_id=(
+                    target_profession_id
+                ),
+                target_category_id=(
+                    target_category_id
+                ),
+            )
+
+        specialist_result = await self.session.execute(
+            select(
+                Specialist
+            ).where(
+                Specialist.id.in_(
+                    unique_specialist_ids
+                )
+            )
+        )
+
+        specialists_by_id = {
+            specialist.id: specialist
+            for specialist
+            in specialist_result.scalars().all()
+        }
 
         source_result = await self.session.execute(
-            select(SpecialistProfession).where(
-                SpecialistProfession.profession_id == source_profession_id,
-                SpecialistProfession.specialist_id.in_(specialist_ids),
-                SpecialistProfession.status == "active",
+            select(
+                ProfessionalCabinet
+            ).where(
+                ProfessionalCabinet.profession_id
+                == source_profession_id,
+                ProfessionalCabinet.specialist_id.in_(
+                    unique_specialist_ids
+                ),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
         )
-        source_links = list(source_result.scalars().all())
+
+        source_cabinets = list(
+            source_result.scalars().all()
+        )
 
         target_result = await self.session.execute(
-            select(SpecialistProfession.specialist_id).where(
-                SpecialistProfession.profession_id == target_profession_id,
-                SpecialistProfession.specialist_id.in_(specialist_ids),
-                SpecialistProfession.status == "active",
+            select(
+                ProfessionalCabinet
+            ).where(
+                ProfessionalCabinet.profession_id
+                == target_profession_id,
+                ProfessionalCabinet.specialist_id.in_(
+                    unique_specialist_ids
+                ),
             )
         )
-        target_specialist_ids = {
-            specialist_id
-            for specialist_id in target_result.scalars().all()
+
+        target_cabinets_by_specialist = {
+            cabinet.specialist_id: cabinet
+            for cabinet
+            in target_result.scalars().all()
         }
 
         moved_count = 0
         archived_duplicate_count = 0
+        processed_specialist_ids: set[UUID] = set()
+        active_replacements: dict[
+            UUID,
+            ProfessionalCabinet,
+        ] = {}
 
-        for link in source_links:
-            if link.specialist_id in target_specialist_ids:
-                link.status = "deleted"
-                link.updated_at = func.now()
-                archived_duplicate_count += 1
+        for source_cabinet in source_cabinets:
+            specialist = specialists_by_id.get(
+                source_cabinet.specialist_id
+            )
+
+            if not specialist:
                 continue
 
-            link.category_id = target_category_id
-            link.profession_id = target_profession_id
-            link.updated_at = func.now()
-            moved_count += 1
+            target_cabinet = (
+                target_cabinets_by_specialist.get(
+                    specialist.id
+                )
+            )
+
+            if target_cabinet:
+                target_cabinet.category_id = (
+                    target_category_id
+                )
+                target_cabinet.is_active = True
+                target_cabinet.updated_at = func.now()
+                archived_duplicate_count += 1
+            else:
+                target_cabinet = ProfessionalCabinet(
+                    tenant_id=specialist.tenant_id,
+                    specialist_id=specialist.id,
+                    category_id=target_category_id,
+                    profession_id=(
+                        target_profession_id
+                    ),
+                    title=target_profession.name,
+                    description=None,
+                    country_id=None,
+                    city_id=None,
+                    work_format="mixed",
+                    availability_status="available",
+                    moderation_status="approved",
+                    is_active=True,
+                )
+                self.session.add(
+                    target_cabinet
+                )
+                target_cabinets_by_specialist[
+                    specialist.id
+                ] = target_cabinet
+                moved_count += 1
+
+            if (
+                specialist.active_professional_cabinet_id
+                == source_cabinet.id
+            ):
+                active_replacements[
+                    specialist.id
+                ] = target_cabinet
+
+            source_cabinet.is_active = False
+            source_cabinet.updated_at = func.now()
+
+            processed_specialist_ids.add(
+                specialist.id
+            )
+
+        await self.session.flush()
+
+        for (
+            specialist_id,
+            target_cabinet,
+        ) in active_replacements.items():
+            specialist = specialists_by_id.get(
+                specialist_id
+            )
+
+            if not specialist:
+                continue
+
+            specialist.active_professional_cabinet_id = (
+                target_cabinet.id
+            )
+            specialist.updated_at = func.now()
 
         await self.session.flush()
 
         synchronized_primary_count = (
             await self
             .sync_specialist_primary_professions_for_admin(
-                specialist_ids=specialist_ids,
+                specialist_ids=(
+                    unique_specialist_ids
+                ),
             )
         )
 
-        processed_count = moved_count + archived_duplicate_count
-        missing_count = max(len(set(specialist_ids)) - processed_count, 0)
+        missing_count = (
+            len(unique_specialist_ids)
+            - len(processed_specialist_ids)
+        )
 
         return AdminSpecialistMoveResult(
-            requested_count=len(set(specialist_ids)),
+            requested_count=len(
+                unique_specialist_ids
+            ),
             moved_count=moved_count,
-            archived_duplicate_count=archived_duplicate_count,
+            archived_duplicate_count=(
+                archived_duplicate_count
+            ),
             synchronized_primary_count=(
                 synchronized_primary_count
             ),
             missing_count=missing_count,
-            source_profession_id=source_profession_id,
-            target_profession_id=target_profession_id,
-            target_category_id=target_category_id,
+            source_profession_id=(
+                source_profession_id
+            ),
+            target_profession_id=(
+                target_profession_id
+            ),
+            target_category_id=(
+                target_category_id
+            ),
         )
-
 
     async def list_profession_specialists_for_admin(
         self,
@@ -1740,30 +2235,43 @@ class DictionaryRepository:
                 Specialist.display_name,
                 Specialist.status,
                 func.string_agg(
-                    func.distinct(Profession.name),
+                    func.distinct(
+                        Profession.name
+                    ),
                     ", ",
-                ).label("profession_names"),
+                ).label(
+                    "profession_names"
+                ),
                 Specialist.is_verified,
-                Specialist.is_available,
+                func.bool_or(
+                    ProfessionalCabinet.availability_status
+                    == "available"
+                ).label(
+                    "is_available"
+                ),
             )
             .join(
-                SpecialistProfession,
-                SpecialistProfession.specialist_id == Specialist.id,
+                ProfessionalCabinet,
+                ProfessionalCabinet.specialist_id
+                == Specialist.id,
             )
             .join(
                 Profession,
-                Profession.id == SpecialistProfession.profession_id,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
             )
             .where(
-                SpecialistProfession.profession_id == profession_id,
-                SpecialistProfession.status == "active",
+                ProfessionalCabinet.profession_id
+                == profession_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
             )
             .group_by(
                 Specialist.id,
                 Specialist.display_name,
                 Specialist.status,
                 Specialist.is_verified,
-                Specialist.is_available,
             )
             .order_by(
                 Specialist.display_name,
@@ -1778,9 +2286,15 @@ class DictionaryRepository:
                 specialist_id=specialist_id,
                 display_name=display_name,
                 status=status,
-                profession_names=profession_names or "-",
-                is_verified=bool(is_verified),
-                is_available=bool(is_available),
+                profession_names=(
+                    profession_names or "-"
+                ),
+                is_verified=bool(
+                    is_verified
+                ),
+                is_available=bool(
+                    is_available
+                ),
             )
             for (
                 specialist_id,
@@ -1800,19 +2314,35 @@ class DictionaryRepository:
     ) -> list[AdminSkillDictionaryRow]:
         profession_counts = (
             select(
-                ProfessionSkill.skill_id.label("skill_id"),
-                func.count(ProfessionSkill.id).label("profession_links_count"),
+                ProfessionSkill.skill_id.label(
+                    "skill_id"
+                ),
+                func.count(
+                    ProfessionSkill.id
+                ).label(
+                    "profession_links_count"
+                ),
             )
-            .group_by(ProfessionSkill.skill_id)
+            .group_by(
+                ProfessionSkill.skill_id
+            )
             .subquery()
         )
 
-        user_counts = (
+        cabinet_counts = (
             select(
-                UserSkill.skill_id.label("skill_id"),
-                func.count(UserSkill.id).label("user_links_count"),
+                ProfessionalCabinetSkill.skill_id.label(
+                    "skill_id"
+                ),
+                func.count(
+                    ProfessionalCabinetSkill.id
+                ).label(
+                    "cabinet_links_count"
+                ),
             )
-            .group_by(UserSkill.skill_id)
+            .group_by(
+                ProfessionalCabinetSkill.skill_id
+            )
             .subquery()
         )
 
@@ -1825,17 +2355,27 @@ class DictionaryRepository:
                 Skill.name_en,
                 Skill.name_pt,
                 Skill.is_active,
-                func.coalesce(profession_counts.c.profession_links_count, 0),
-                func.coalesce(user_counts.c.user_links_count, 0),
+                func.coalesce(
+                    profession_counts
+                    .c
+                    .profession_links_count,
+                    0,
+                ),
+                func.coalesce(
+                    cabinet_counts.c.cabinet_links_count,
+                    0,
+                ),
                 literal(0),
             )
             .outerjoin(
                 profession_counts,
-                profession_counts.c.skill_id == Skill.id,
+                profession_counts.c.skill_id
+                == Skill.id,
             )
             .outerjoin(
-                user_counts,
-                user_counts.c.skill_id == Skill.id,
+                cabinet_counts,
+                cabinet_counts.c.skill_id
+                == Skill.id,
             )
             .order_by(
                 Skill.name,
@@ -1854,9 +2394,15 @@ class DictionaryRepository:
                 name_en=name_en,
                 name_pt=name_pt,
                 is_active=is_active,
-                profession_links_count=int(profession_links_count or 0),
-                user_links_count=int(user_links_count or 0),
-                vacancy_links_count=int(vacancy_links_count or 0),
+                profession_links_count=int(
+                    profession_links_count or 0
+                ),
+                cabinet_links_count=int(
+                    cabinet_links_count or 0
+                ),
+                vacancy_links_count=int(
+                    vacancy_links_count or 0
+                ),
             )
             for (
                 skill_id,
@@ -1867,7 +2413,7 @@ class DictionaryRepository:
                 name_pt,
                 is_active,
                 profession_links_count,
-                user_links_count,
+                cabinet_links_count,
                 vacancy_links_count,
             ) in result.all()
         ]
@@ -1878,21 +2424,43 @@ class DictionaryRepository:
     ) -> AdminSkillDictionaryRow | None:
         profession_counts = (
             select(
-                ProfessionSkill.skill_id.label("skill_id"),
-                func.count(ProfessionSkill.id).label("profession_links_count"),
+                ProfessionSkill.skill_id.label(
+                    "skill_id"
+                ),
+                func.count(
+                    ProfessionSkill.id
+                ).label(
+                    "profession_links_count"
+                ),
             )
-            .where(ProfessionSkill.skill_id == skill_id)
-            .group_by(ProfessionSkill.skill_id)
+            .where(
+                ProfessionSkill.skill_id
+                == skill_id
+            )
+            .group_by(
+                ProfessionSkill.skill_id
+            )
             .subquery()
         )
 
-        user_counts = (
+        cabinet_counts = (
             select(
-                UserSkill.skill_id.label("skill_id"),
-                func.count(UserSkill.id).label("user_links_count"),
+                ProfessionalCabinetSkill.skill_id.label(
+                    "skill_id"
+                ),
+                func.count(
+                    ProfessionalCabinetSkill.id
+                ).label(
+                    "cabinet_links_count"
+                ),
             )
-            .where(UserSkill.skill_id == skill_id)
-            .group_by(UserSkill.skill_id)
+            .where(
+                ProfessionalCabinetSkill.skill_id
+                == skill_id
+            )
+            .group_by(
+                ProfessionalCabinetSkill.skill_id
+            )
             .subquery()
         )
 
@@ -1905,19 +2473,31 @@ class DictionaryRepository:
                 Skill.name_en,
                 Skill.name_pt,
                 Skill.is_active,
-                func.coalesce(profession_counts.c.profession_links_count, 0),
-                func.coalesce(user_counts.c.user_links_count, 0),
+                func.coalesce(
+                    profession_counts
+                    .c
+                    .profession_links_count,
+                    0,
+                ),
+                func.coalesce(
+                    cabinet_counts.c.cabinet_links_count,
+                    0,
+                ),
                 literal(0),
             )
             .outerjoin(
                 profession_counts,
-                profession_counts.c.skill_id == Skill.id,
+                profession_counts.c.skill_id
+                == Skill.id,
             )
             .outerjoin(
-                user_counts,
-                user_counts.c.skill_id == Skill.id,
+                cabinet_counts,
+                cabinet_counts.c.skill_id
+                == Skill.id,
             )
-            .where(Skill.id == skill_id)
+            .where(
+                Skill.id == skill_id
+            )
         )
 
         row = result.one_or_none()
@@ -1934,7 +2514,7 @@ class DictionaryRepository:
             name_pt,
             is_active,
             profession_links_count,
-            user_links_count,
+            cabinet_links_count,
             vacancy_links_count,
         ) = row
 
@@ -1946,10 +2526,17 @@ class DictionaryRepository:
             name_en=name_en,
             name_pt=name_pt,
             is_active=is_active,
-            profession_links_count=int(profession_links_count or 0),
-            user_links_count=int(user_links_count or 0),
-            vacancy_links_count=int(vacancy_links_count or 0),
+            profession_links_count=int(
+                profession_links_count or 0
+            ),
+            cabinet_links_count=int(
+                cabinet_links_count or 0
+            ),
+            vacancy_links_count=int(
+                vacancy_links_count or 0
+            ),
         )
+
 
     async def get_skill_by_code_or_title_for_admin(
         self,
@@ -2080,71 +2667,127 @@ class DictionaryRepository:
         source_skill_id: UUID,
         target_skill_id: UUID,
     ) -> AdminSkillMergeResult:
-        target_profession_ids_result = await self.session.execute(
-            select(ProfessionSkill.profession_id).where(
-                ProfessionSkill.skill_id == target_skill_id
+        target_profession_ids_result = (
+            await self.session.execute(
+                select(
+                    ProfessionSkill.profession_id
+                ).where(
+                    ProfessionSkill.skill_id
+                    == target_skill_id
+                )
             )
         )
-        target_profession_ids = set(target_profession_ids_result.scalars().all())
+        target_profession_ids = set(
+            target_profession_ids_result
+            .scalars()
+            .all()
+        )
 
-        source_profession_links_result = await self.session.execute(
-            select(ProfessionSkill).where(
-                ProfessionSkill.skill_id == source_skill_id
+        source_profession_links_result = (
+            await self.session.execute(
+                select(
+                    ProfessionSkill
+                ).where(
+                    ProfessionSkill.skill_id
+                    == source_skill_id
+                )
             )
         )
-        source_profession_links = list(source_profession_links_result.scalars().all())
+        source_profession_links = list(
+            source_profession_links_result
+            .scalars()
+            .all()
+        )
 
         moved_profession_links = 0
         removed_duplicate_profession_links = 0
 
         for link in source_profession_links:
-            if link.profession_id in target_profession_ids:
+            if (
+                link.profession_id
+                in target_profession_ids
+            ):
                 await self.session.delete(link)
                 removed_duplicate_profession_links += 1
             else:
                 link.skill_id = target_skill_id
-                target_profession_ids.add(link.profession_id)
+                target_profession_ids.add(
+                    link.profession_id
+                )
                 moved_profession_links += 1
 
-        target_user_ids_result = await self.session.execute(
-            select(UserSkill.user_id).where(
-                UserSkill.skill_id == target_skill_id
+        target_cabinet_ids_result = (
+            await self.session.execute(
+                select(
+                    ProfessionalCabinetSkill
+                    .professional_cabinet_id
+                ).where(
+                    ProfessionalCabinetSkill.skill_id
+                    == target_skill_id
+                )
             )
         )
-        target_user_ids = set(target_user_ids_result.scalars().all())
+        target_cabinet_ids = set(
+            target_cabinet_ids_result
+            .scalars()
+            .all()
+        )
 
-        source_user_links_result = await self.session.execute(
-            select(UserSkill).where(
-                UserSkill.skill_id == source_skill_id
+        source_cabinet_links_result = (
+            await self.session.execute(
+                select(
+                    ProfessionalCabinetSkill
+                ).where(
+                    ProfessionalCabinetSkill.skill_id
+                    == source_skill_id
+                )
             )
         )
-        source_user_links = list(source_user_links_result.scalars().all())
+        source_cabinet_links = list(
+            source_cabinet_links_result
+            .scalars()
+            .all()
+        )
 
-        moved_user_links = 0
-        removed_duplicate_user_links = 0
+        moved_cabinet_links = 0
+        removed_duplicate_cabinet_links = 0
 
-        for link in source_user_links:
-            if link.user_id in target_user_ids:
+        for link in source_cabinet_links:
+            if (
+                link.professional_cabinet_id
+                in target_cabinet_ids
+            ):
                 await self.session.delete(link)
-                removed_duplicate_user_links += 1
+                removed_duplicate_cabinet_links += 1
             else:
                 link.skill_id = target_skill_id
-                target_user_ids.add(link.user_id)
-                moved_user_links += 1
+                target_cabinet_ids.add(
+                    link.professional_cabinet_id
+                )
+                moved_cabinet_links += 1
 
-        source_skill = await self.session.get(Skill, source_skill_id)
+        source_skill = await self.session.get(
+            Skill,
+            source_skill_id,
+        )
         if source_skill:
             source_skill.is_active = False
 
         await self.session.flush()
 
         return AdminSkillMergeResult(
-            moved_profession_links=moved_profession_links,
-            removed_duplicate_profession_links=removed_duplicate_profession_links,
-            moved_user_links=moved_user_links,
-            removed_duplicate_user_links=removed_duplicate_user_links,
+            moved_profession_links=(
+                moved_profession_links
+            ),
+            removed_duplicate_profession_links=(
+                removed_duplicate_profession_links
+            ),
+            moved_cabinet_links=moved_cabinet_links,
+            removed_duplicate_cabinet_links=(
+                removed_duplicate_cabinet_links
+            ),
         )
-    
+
     async def list_languages_for_admin(
         self,
         *,
@@ -2368,20 +3011,43 @@ class DictionaryRepository:
     ) -> list[AdminCountryDictionaryRow]:
         city_counts = (
             select(
-                City.country_id.label("country_id"),
-                func.count(City.id).label("cities_count"),
+                City.country_id.label(
+                    "country_id"
+                ),
+                func.count(
+                    City.id
+                ).label(
+                    "cities_count"
+                ),
             )
-            .group_by(City.country_id)
+            .group_by(
+                City.country_id
+            )
             .subquery()
         )
 
-        specialist_counts = (
+        cabinet_counts = (
             select(
-                Specialist.country_id.label("country_id"),
-                func.count(Specialist.id).label("specialists_count"),
+                ProfessionalCabinet.country_id.label(
+                    "country_id"
+                ),
+                func.count(
+                    ProfessionalCabinet.id
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .where(Specialist.country_id.is_not(None))
-            .group_by(Specialist.country_id)
+            .where(
+                ProfessionalCabinet.country_id.is_not(
+                    None
+                ),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.country_id
+            )
             .subquery()
         )
 
@@ -2398,20 +3064,33 @@ class DictionaryRepository:
                 Country.phone_code,
                 Country.is_active,
                 Country.extra_metadata,
-                func.coalesce(city_counts.c.cities_count, 0).label(
+                func.coalesce(
+                    city_counts.c.cities_count,
+                    0,
+                ).label(
                     "cities_count"
                 ),
                 func.coalesce(
-                    specialist_counts.c.specialists_count,
+                    cabinet_counts.c.professional_cabinets_count,
                     0,
-                ).label("specialists_count"),
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .outerjoin(city_counts, city_counts.c.country_id == Country.id)
             .outerjoin(
-                specialist_counts,
-                specialist_counts.c.country_id == Country.id,
+                city_counts,
+                city_counts.c.country_id
+                == Country.id,
             )
-            .order_by(Country.is_active.desc(), Country.name)
+            .outerjoin(
+                cabinet_counts,
+                cabinet_counts.c.country_id
+                == Country.id,
+            )
+            .order_by(
+                Country.is_active.desc(),
+                Country.name,
+            )
             .offset(offset)
             .limit(limit)
         )
@@ -2424,13 +3103,23 @@ class DictionaryRepository:
                 name_ru=row.name_ru,
                 name_en=row.name_en,
                 name_pt=row.name_pt,
-                default_language=row.default_language,
-                default_currency=row.default_currency,
+                default_language=(
+                    row.default_language
+                ),
+                default_currency=(
+                    row.default_currency
+                ),
                 phone_code=row.phone_code,
                 is_active=row.is_active,
-                metadata=row.extra_metadata or {},
-                cities_count=row.cities_count,
-                specialists_count=row.specialists_count,
+                metadata=(
+                    row.extra_metadata or {}
+                ),
+                cities_count=(
+                    row.cities_count
+                ),
+                professional_cabinets_count=(
+                    row.professional_cabinets_count
+                ),
             )
             for row in result
         ]
@@ -2441,21 +3130,45 @@ class DictionaryRepository:
     ) -> AdminCountryDictionaryRow | None:
         city_counts = (
             select(
-                City.country_id.label("country_id"),
-                func.count(City.id).label("cities_count"),
+                City.country_id.label(
+                    "country_id"
+                ),
+                func.count(
+                    City.id
+                ).label(
+                    "cities_count"
+                ),
             )
-            .where(City.country_id == country_id)
-            .group_by(City.country_id)
+            .where(
+                City.country_id == country_id
+            )
+            .group_by(
+                City.country_id
+            )
             .subquery()
         )
 
-        specialist_counts = (
+        cabinet_counts = (
             select(
-                Specialist.country_id.label("country_id"),
-                func.count(Specialist.id).label("specialists_count"),
+                ProfessionalCabinet.country_id.label(
+                    "country_id"
+                ),
+                func.count(
+                    ProfessionalCabinet.id
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .where(Specialist.country_id == country_id)
-            .group_by(Specialist.country_id)
+            .where(
+                ProfessionalCabinet.country_id
+                == country_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.country_id
+            )
             .subquery()
         )
 
@@ -2472,20 +3185,32 @@ class DictionaryRepository:
                 Country.phone_code,
                 Country.is_active,
                 Country.extra_metadata,
-                func.coalesce(city_counts.c.cities_count, 0).label(
+                func.coalesce(
+                    city_counts.c.cities_count,
+                    0,
+                ).label(
                     "cities_count"
                 ),
                 func.coalesce(
-                    specialist_counts.c.specialists_count,
+                    cabinet_counts.c.professional_cabinets_count,
                     0,
-                ).label("specialists_count"),
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .outerjoin(city_counts, city_counts.c.country_id == Country.id)
             .outerjoin(
-                specialist_counts,
-                specialist_counts.c.country_id == Country.id,
+                city_counts,
+                city_counts.c.country_id
+                == Country.id,
             )
-            .where(Country.id == country_id)
+            .outerjoin(
+                cabinet_counts,
+                cabinet_counts.c.country_id
+                == Country.id,
+            )
+            .where(
+                Country.id == country_id
+            )
         )
 
         row = result.first()
@@ -2500,13 +3225,21 @@ class DictionaryRepository:
             name_ru=row.name_ru,
             name_en=row.name_en,
             name_pt=row.name_pt,
-            default_language=row.default_language,
-            default_currency=row.default_currency,
+            default_language=(
+                row.default_language
+            ),
+            default_currency=(
+                row.default_currency
+            ),
             phone_code=row.phone_code,
             is_active=row.is_active,
-            metadata=row.extra_metadata or {},
+            metadata=(
+                row.extra_metadata or {}
+            ),
             cities_count=row.cities_count,
-            specialists_count=row.specialists_count,
+            professional_cabinets_count=(
+                row.professional_cabinets_count
+            ),
         )
 
     async def set_country_visibility_for_admin(
@@ -2664,13 +3397,28 @@ class DictionaryRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[AdminCityDictionaryRow]:
-        specialist_counts = (
+        cabinet_counts = (
             select(
-                Specialist.city_id.label("city_id"),
-                func.count(Specialist.id).label("specialists_count"),
+                ProfessionalCabinet.city_id.label(
+                    "city_id"
+                ),
+                func.count(
+                    ProfessionalCabinet.id
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .where(Specialist.city_id.is_not(None))
-            .group_by(Specialist.city_id)
+            .where(
+                ProfessionalCabinet.city_id.is_not(
+                    None
+                ),
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.city_id
+            )
             .subquery()
         )
 
@@ -2678,7 +3426,9 @@ class DictionaryRepository:
             select(
                 City.id,
                 City.country_id,
-                Country.name.label("country_name"),
+                Country.name.label(
+                    "country_name"
+                ),
                 City.name,
                 City.name_ru,
                 City.name_en,
@@ -2689,14 +3439,28 @@ class DictionaryRepository:
                 City.is_active,
                 City.extra_metadata,
                 func.coalesce(
-                    specialist_counts.c.specialists_count,
+                    cabinet_counts.c.professional_cabinets_count,
                     0,
-                ).label("specialists_count"),
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .join(Country, Country.id == City.country_id)
-            .outerjoin(specialist_counts, specialist_counts.c.city_id == City.id)
-            .where(City.country_id == country_id)
-            .order_by(City.is_active.desc(), City.name)
+            .join(
+                Country,
+                Country.id == City.country_id,
+            )
+            .outerjoin(
+                cabinet_counts,
+                cabinet_counts.c.city_id
+                == City.id,
+            )
+            .where(
+                City.country_id == country_id
+            )
+            .order_by(
+                City.is_active.desc(),
+                City.name,
+            )
             .offset(offset)
             .limit(limit)
         )
@@ -2710,29 +3474,54 @@ class DictionaryRepository:
                 name_ru=row.name_ru,
                 name_en=row.name_en,
                 name_pt=row.name_pt,
-                latitude=float(row.latitude) if row.latitude is not None else None,
+                latitude=(
+                    float(row.latitude)
+                    if row.latitude is not None
+                    else None
+                ),
                 longitude=(
-                    float(row.longitude) if row.longitude is not None else None
+                    float(row.longitude)
+                    if row.longitude is not None
+                    else None
                 ),
                 timezone=row.timezone,
                 is_active=row.is_active,
-                metadata=row.extra_metadata or {},
-                specialists_count=row.specialists_count,
+                metadata=(
+                    row.extra_metadata or {}
+                ),
+                professional_cabinets_count=(
+                    row.professional_cabinets_count
+                ),
             )
             for row in result
         ]
+
 
     async def get_city_for_admin(
         self,
         city_id: UUID,
     ) -> AdminCityDictionaryRow | None:
-        specialist_counts = (
+        cabinet_counts = (
             select(
-                Specialist.city_id.label("city_id"),
-                func.count(Specialist.id).label("specialists_count"),
+                ProfessionalCabinet.city_id.label(
+                    "city_id"
+                ),
+                func.count(
+                    ProfessionalCabinet.id
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .where(Specialist.city_id == city_id)
-            .group_by(Specialist.city_id)
+            .where(
+                ProfessionalCabinet.city_id
+                == city_id,
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.city_id
+            )
             .subquery()
         )
 
@@ -2740,7 +3529,9 @@ class DictionaryRepository:
             select(
                 City.id,
                 City.country_id,
-                Country.name.label("country_name"),
+                Country.name.label(
+                    "country_name"
+                ),
                 City.name,
                 City.name_ru,
                 City.name_en,
@@ -2751,13 +3542,24 @@ class DictionaryRepository:
                 City.is_active,
                 City.extra_metadata,
                 func.coalesce(
-                    specialist_counts.c.specialists_count,
+                    cabinet_counts.c.professional_cabinets_count,
                     0,
-                ).label("specialists_count"),
+                ).label(
+                    "professional_cabinets_count"
+                ),
             )
-            .join(Country, Country.id == City.country_id)
-            .outerjoin(specialist_counts, specialist_counts.c.city_id == City.id)
-            .where(City.id == city_id)
+            .join(
+                Country,
+                Country.id == City.country_id,
+            )
+            .outerjoin(
+                cabinet_counts,
+                cabinet_counts.c.city_id
+                == City.id,
+            )
+            .where(
+                City.id == city_id
+            )
         )
 
         row = result.first()
@@ -2773,12 +3575,24 @@ class DictionaryRepository:
             name_ru=row.name_ru,
             name_en=row.name_en,
             name_pt=row.name_pt,
-            latitude=float(row.latitude) if row.latitude is not None else None,
-            longitude=float(row.longitude) if row.longitude is not None else None,
+            latitude=(
+                float(row.latitude)
+                if row.latitude is not None
+                else None
+            ),
+            longitude=(
+                float(row.longitude)
+                if row.longitude is not None
+                else None
+            ),
             timezone=row.timezone,
             is_active=row.is_active,
-            metadata=row.extra_metadata or {},
-            specialists_count=row.specialists_count,
+            metadata=(
+                row.extra_metadata or {}
+            ),
+            professional_cabinets_count=(
+                row.professional_cabinets_count
+            ),
         )
     
     async def set_city_visibility_for_admin(

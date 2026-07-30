@@ -164,13 +164,14 @@ class ClientReadOnlyCabinet:
 @dataclass(frozen=True)
 class SpecialistReadOnlyCabinet:
     specialist_id: UUID
+    professional_cabinet_id: UUID
     user_number: str
     display_name: str
-    professions: tuple[str, ...]
-    status: str
+    profession_name: str
+    moderation_status: str
     dialogs_unread: int
     new_requests: int
-    is_available: bool
+    availability_status: str
 
 @dataclass(frozen=True)
 class SupportReadOnlyCabinet:
@@ -191,7 +192,7 @@ class AdminMenuSummary:
 @dataclass(frozen=True)
 class SuperAdminMenuSummary:
     users: int
-    specialists: int
+    professional_cabinets: int
     tickets: int
     complaints: int
     global_blacklist: int
@@ -222,6 +223,7 @@ class ModeratorSpecialistCard:
     profession_name: str
     city_name: str | None
     status: str
+    is_active: bool
     description: str
     masked_contact: str
     service_titles: tuple[str, ...]
@@ -593,89 +595,134 @@ class ModerationService:
                 self.repository.session
             )
             active_roles = (
-                await user_service.repository.list_active_roles(
+                await user_service.repository
+                .list_active_roles(
                     target_user_id
                 )
             )
 
             if "specialist" not in active_roles:
                 raise ImpersonationRoleUnavailableError(
-                    "Selected user does not have this active role."
+                    "Selected user does not have "
+                    "this active role."
                 )
 
-            specialist_repository = SpecialistRepository(
-                self.repository.session
+            specialist_repository = (
+                SpecialistRepository(
+                    self.repository.session
+                )
             )
             specialist = (
-                await specialist_repository.get_by_user_id(
+                await specialist_repository
+                .get_by_user_id(
                     target_user_id
                 )
             )
 
             if (
                 not specialist
-                or specialist.tenant_id != tenant_id
+                or specialist.tenant_id
+                != tenant_id
             ):
                 raise ImpersonationRoleUnavailableError(
-                    "Selected user does not have a specialist cabinet."
+                    "Selected user does not have "
+                    "a specialist cabinet."
                 )
 
-            profession_links = (
-                await specialist_repository
-                .list_active_specialist_professions(
-                    specialist.id
+            professional_cabinet = await (
+                specialist_repository
+                .get_active_professional_cabinet(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist.id,
                 )
             )
+
+            if not professional_cabinet:
+                raise ImpersonationRoleUnavailableError(
+                    "Selected specialist does not have "
+                    "an active professional cabinet."
+                )
+
+            profession = await (
+                specialist_repository
+                .get_active_profession(
+                    professional_cabinet.profession_id
+                )
+            )
+
+            if not profession:
+                raise ImpersonationRoleUnavailableError(
+                    "Active professional cabinet "
+                    "profession is unavailable."
+                )
 
             localized_field = {
                 "ru": "name_ru",
                 "en": "name_en",
                 "pt": "name_pt",
-            }.get(language, "name_ru")
+            }.get(
+                language,
+                "name_ru",
+            )
 
-            professions = tuple(
-                str(
-                    getattr(
-                        item.Profession,
-                        localized_field,
-                        None,
-                    )
-                    or item.Profession.name_ru
-                    or item.Profession.name_en
-                    or item.Profession.name_pt
-                    or item.Profession.name
+            profession_name = str(
+                getattr(
+                    profession,
+                    localized_field,
+                    None,
                 )
-                for item in profession_links
+                or profession.name_ru
+                or profession.name_en
+                or profession.name_pt
+                or profession.name
             )
 
             unread_counts = (
-                await user_service.repository.get_role_unread_counts(
+                await user_service.repository
+                .get_role_unread_counts(
                     target_user_id
                 )
             )
 
-            new_requests = (
-                await ContactChatRepository(
+            new_requests = await (
+                ContactChatRepository(
                     self.repository.session
-                ).count_new_requests_for_specialist(
+                )
+                .count_new_requests_for_specialist(
                     specialist_id=specialist.id,
                 )
             )
 
             return SpecialistReadOnlyCabinet(
                 specialist_id=specialist.id,
-                user_number=f"user-{target_user_id.hex[:8]}",
+                professional_cabinet_id=(
+                    professional_cabinet.id
+                ),
+                user_number=(
+                    f"user-{target_user_id.hex[:8]}"
+                ),
                 display_name=(
                     specialist.display_name
                     or f"user-{target_user_id.hex[:8]}"
                 ),
-                professions=professions,
-                status=specialist.status,
-                dialogs_unread=int(
-                    unread_counts.get("specialist", 0)
+                profession_name=profession_name,
+                moderation_status=(
+                    professional_cabinet
+                    .moderation_status
                 ),
-                new_requests=int(new_requests),
-                is_available=bool(specialist.is_available),
+                dialogs_unread=int(
+                    unread_counts.get(
+                        "specialist",
+                        0,
+                    )
+                ),
+                new_requests=int(
+                    new_requests
+                ),
+                availability_status=(
+                    professional_cabinet
+                    .availability_status
+                ),
             )
 
         except ImpersonationRoleUnavailableError:
@@ -685,7 +732,9 @@ class ModerationService:
             ModerationAccessError,
             ModerationNotFoundError,
         ) as exc:
-            raise ModerationError(str(exc)) from exc
+            raise ModerationError(
+                str(exc)
+            ) from exc
 
     async def get_support_read_only_cabinet(
         self,
@@ -1854,72 +1903,108 @@ class ModerationService:
         page: int = 0,
         page_size: int = 5,
     ) -> AdminSpecialistPage:
-        allowed_statuses = {
-            "all",
+        moderation_statuses = {
             "draft",
             "pending_moderation",
             "approved",
             "rejected",
             "hidden",
         }
+        allowed_filters = (
+            moderation_statuses
+            | {
+                "all",
+                "archived",
+            }
+        )
 
         normalized_status = (
             status or "approved"
         ).strip().lower()
 
-        if normalized_status not in allowed_statuses:
+        if normalized_status not in allowed_filters:
             raise ModerationError(
                 "Unsupported professional cabinet status."
             )
 
-        normalized_page = max(int(page), 0)
+        normalized_page = max(
+            int(page),
+            0,
+        )
         normalized_page_size = max(
             1,
-            min(int(page_size), 10),
+            min(
+                int(page_size),
+                10,
+            ),
         )
 
-        statuses = (
-            allowed_statuses - {"all"}
-            if normalized_status == "all"
-            else {normalized_status}
-        )
+        if normalized_status == "all":
+            statuses = moderation_statuses
+            is_active = None
+        elif normalized_status == "archived":
+            statuses = moderation_statuses
+            is_active = False
+        else:
+            statuses = {
+                normalized_status
+            }
+            is_active = True
 
         try:
-            rows = await self.repository.list_admin_specialists(
-                admin_user_id=admin_user_id,
-                tenant_id=tenant_id,
-                statuses=statuses,
-                limit=normalized_page_size + 1,
-                offset=(
-                    normalized_page
-                    * normalized_page_size
-                ),
+            rows = await (
+                self.repository
+                .list_admin_specialists(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    statuses=statuses,
+                    is_active=is_active,
+                    limit=normalized_page_size + 1,
+                    offset=(
+                        normalized_page
+                        * normalized_page_size
+                    ),
+                )
             )
 
-            visible_rows = rows[:normalized_page_size]
-            has_next = len(rows) > normalized_page_size
+            visible_rows = rows[
+                :normalized_page_size
+            ]
+            has_next = (
+                len(rows)
+                > normalized_page_size
+            )
 
             await self.repository.log_event(
                 tenant_id=tenant_id,
                 user_id=admin_user_id,
                 event_type="admin_specialists",
-                entity_type="specialist",
+                entity_type=(
+                    "professional_cabinet"
+                ),
                 entity_id=admin_user_id,
                 payload={
                     "status": normalized_status,
                     "page": normalized_page,
-                    "visible_count": len(visible_rows),
+                    "visible_count": len(
+                        visible_rows
+                    ),
                     "has_next": has_next,
                 },
             )
 
             await self.repository.session.commit()
+
         except ModerationAccessError as exc:
             await self.repository.session.rollback()
-            raise ModerationError(str(exc)) from exc
+            raise ModerationError(
+                str(exc)
+            ) from exc
 
         return AdminSpecialistPage(
-            items=tuple(visible_rows),
+            items=tuple(
+                visible_rows
+            ),
             page=normalized_page,
             status=normalized_status,
             has_next=has_next,
@@ -2014,6 +2099,7 @@ class ModerationService:
             ),
             city_name=details.city_name,
             status=details.status,
+            is_active=details.is_active,
             description=details.description,
             masked_contact=masked_contact,
             service_titles=(
@@ -3271,18 +3357,27 @@ class ModerationService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         selected_code: str | None = None,
     ) -> SuperAdminSmokeTestRunCard:
         try:
-            roles = await self.repository.get_admin_roles(admin_user_id)
+            roles = await self.repository.get_admin_roles(
+                admin_user_id
+            )
 
             if "super_admin" not in roles:
-                raise ModerationAccessError("Super Admin access required.")
+                raise ModerationAccessError(
+                    "Super Admin access required."
+                )
 
-            definitions = self.list_super_admin_smoke_definitions()
+            definitions = (
+                self.list_super_admin_smoke_definitions()
+            )
 
             if selected_code:
-                normalized_code = selected_code.strip().lower()
+                normalized_code = (
+                    selected_code.strip().lower()
+                )
                 definitions = tuple(
                     item
                     for item in definitions
@@ -3290,7 +3385,9 @@ class ModerationService:
                 )
 
             if not definitions:
-                raise ModerationNotFoundError("Smoke test not found.")
+                raise ModerationNotFoundError(
+                    "Smoke test not found."
+                )
 
             results = []
 
@@ -3299,6 +3396,7 @@ class ModerationService:
                     await self._run_super_admin_smoke_check(
                         definition,
                         admin_user_id=admin_user_id,
+                        tenant_id=tenant_id,
                     )
                 )
 
@@ -3310,18 +3408,22 @@ class ModerationService:
             failed = len(results) - passed
 
             await self.repository.log_event(
-                tenant_id=None,
+                tenant_id=tenant_id,
                 user_id=admin_user_id,
                 event_type="smoke_test_run",
                 entity_type="smoke_test",
                 entity_id=admin_user_id,
                 payload={
-                    "selected_code": selected_code or "all",
+                    "selected_code": (
+                        selected_code or "all"
+                    ),
                     "total": len(results),
                     "passed": passed,
                     "failed": failed,
                     "destructive": False,
-                    "source": "super_admin_smoke_tests",
+                    "source": (
+                        "super_admin_smoke_tests"
+                    ),
                     "checks": [
                         {
                             "code": item.code,
@@ -3331,6 +3433,7 @@ class ModerationService:
                     ],
                 },
             )
+
             await self.repository.session.commit()
 
         except (
@@ -3338,7 +3441,9 @@ class ModerationService:
             ModerationNotFoundError,
         ) as exc:
             await self.repository.session.rollback()
-            raise ModerationError(str(exc)) from exc
+            raise ModerationError(
+                str(exc)
+            ) from exc
 
         return SuperAdminSmokeTestRunCard(
             results=tuple(results),
@@ -3400,30 +3505,50 @@ class ModerationService:
         definition: SuperAdminSmokeTestResultCard,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
     ) -> SuperAdminSmokeTestResultCard:
         checks = {
             "start": self._smoke_check_start,
-            "registration": self._smoke_check_registration,
+            "registration": (
+                self._smoke_check_registration
+            ),
             "search": self._smoke_check_search,
             "request": self._smoke_check_request,
             "dialogs": self._smoke_check_dialogs,
             "support": self._smoke_check_support,
-            "moderation": self._smoke_check_moderation,
-            "admin_access": self._smoke_check_admin_access,
+            "moderation": (
+                self._smoke_check_moderation
+            ),
+            "admin_access": (
+                self._smoke_check_admin_access
+            ),
         }
 
-        checker = checks.get(definition.code)
+        checker = checks.get(
+            definition.code
+        )
 
         if not checker:
             return SuperAdminSmokeTestResultCard(
                 code=definition.code,
                 title=definition.title,
                 status="failed",
-                detail="Smoke check is not implemented.",
+                detail=(
+                    "Smoke check is not implemented."
+                ),
             )
 
         try:
-            detail = await checker(admin_user_id=admin_user_id)
+            if definition.code == "search":
+                detail = await checker(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                )
+            else:
+                detail = await checker(
+                    admin_user_id=admin_user_id
+                )
+
         except Exception as exc:
             return SuperAdminSmokeTestResultCard(
                 code=definition.code,
@@ -3532,6 +3657,7 @@ class ModerationService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
     ) -> str:
         counts = await self._require_tables(
             "specialists",
@@ -3543,10 +3669,11 @@ class ModerationService:
         public_cabinets_count = (
             await self.repository
             .count_professional_cabinets_by_status(
+                tenant_id=tenant_id,
                 statuses={
                     "approved",
                     "pending_moderation",
-                }
+                },
             )
         )
 

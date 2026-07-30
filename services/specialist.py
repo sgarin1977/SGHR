@@ -119,16 +119,6 @@ class SpecialistProfileUpdateResult:
     changed: bool
 
 @dataclass(frozen=True)
-class SpecialistReadOnlyPublicProfile:
-    display_name: str
-    professions: tuple[str, ...]
-    location: str
-    short_description: str | None
-    status: str
-    is_available: bool
-    work_format: str | None
-
-@dataclass(frozen=True)
 class SpecialistActiveCabinetProfile:
     specialist_id: UUID
     professional_cabinet_id: UUID
@@ -1350,84 +1340,6 @@ class SpecialistService:
                 else 0
             ),
         )
-
-
-    async def get_read_only_public_profile(
-        self,
-        *,
-        user_id: UUID,
-        language: str,
-    ) -> SpecialistReadOnlyPublicProfile | None:
-        specialist = await self.repository.get_by_user_id(
-            user_id
-        )
-        if not specialist:
-            return None
-
-        cabinet = (
-            await self.repository
-            .get_active_professional_cabinet(
-                tenant_id=specialist.tenant_id,
-                specialist_id=specialist.id,
-            )
-        )
-        if not cabinet:
-            return None
-
-        profession = await self.repository.get_active_profession(
-            cabinet.profession_id
-        )
-
-        city, country = await (
-            self.repository
-            .get_active_cabinet_location_parts(
-                tenant_id=specialist.tenant_id,
-                specialist_id=specialist.id,
-            )
-        )
-
-        location_parts = [
-            _localized_model_name(
-                item,
-                language,
-            )
-            for item in (
-                city,
-                country,
-            )
-            if item
-        ]
-
-        profession_name = (
-            _localized_model_name(
-                profession,
-                language,
-            )
-            or "-"
-        )
-
-        return SpecialistReadOnlyPublicProfile(
-            display_name=(
-                specialist.display_name or "-"
-            ),
-            professions=(
-                profession_name,
-            ),
-            location=(
-                ", ".join(location_parts)
-                or "-"
-            ),
-            short_description=(
-                cabinet.description
-            ),
-            status=specialist.status,
-            is_available=(
-                cabinet.availability_status
-                == "available"
-            ),
-            work_format=cabinet.work_format,
-        )
-
     
     async def get_profile_profession_selections(
         self,
@@ -2420,6 +2332,43 @@ class SpecialistService:
 
         return cabinet.availability_status
 
+    async def get_active_cabinet_moderation_status(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+    ) -> str:
+        specialist = await self.repository.get_by_user_id(
+            user_id
+        )
+
+        if (
+            not specialist
+            or specialist.id != specialist_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistRegistrationError(
+                "Specialist profile not found."
+            )
+
+        cabinet = await (
+            self.repository
+            .get_active_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+            )
+        )
+
+        if not cabinet:
+            raise SpecialistRegistrationError(
+                "Active professional cabinet not found."
+            )
+
+        return (
+            cabinet.moderation_status
+            or "draft"
+        )
 
     async def update_availability(
         self,
