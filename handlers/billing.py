@@ -64,6 +64,9 @@ from services.geo_service import GeoServiceError
 from services.rate_limit import RateLimitError
 from database.repositories.portfolio import PortfolioRepository
 from database.repositories.favorites import FavoriteRepository
+from database.repositories.moderation import (
+    ModerationRepository,
+)
 from database.repositories.search import SpecialistSearchRepository
 from services.geo_search import GeoSearchService, SpecialistPublicCard
 from services.portfolio import PortfolioService, PortfolioServiceError
@@ -74,6 +77,10 @@ from io import BytesIO
 from database.repositories.contact import ContactChatRepository
 from services.contact_chat import ContactChatError, ContactChatService
 from services.favorites import FavoriteService
+from services.moderation import (
+    ModerationError,
+    ModerationService,
+)
 
 billing_router = Router()
 logger = logging.getLogger(__name__)
@@ -1743,36 +1750,73 @@ def favorite_list_card_keyboard(
         ]
     )
 
-def favorite_card_keyboard(language: str) -> InlineKeyboardMarkup:
+def favorite_card_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("contact", language),
-                    callback_data="search_contact_pending",
+                    text=t(
+                        "contact",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_contact_pending"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("favorite_remove_btn", language),
+                    text=t(
+                        "search_report_cabinet_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_report_pending"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_report_user_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_report_user_pending"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "favorite_remove_btn",
+                        language,
+                    ),
                     callback_data="CAB_FAV_REMOVE",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("billing_back", language),
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
                     callback_data="CAB_FAVORITES",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_menu", language),
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
                     callback_data="BILL_MENU",
                 )
             ],
         ]
     )
-
 
 def favorite_work_format_label(value: str | None, language: str) -> str:
     labels = {
@@ -3571,6 +3615,11 @@ def message_thread_keyboard(
         if role == "client"
         else "SPEC_DIALOGS"
     )
+    report_callback = (
+        "search_report_thread_pending"
+        if role == "client"
+        else "SPEC_THREAD_REPORT"
+    )
 
     rows = [
         [
@@ -3605,7 +3654,7 @@ def message_thread_keyboard(
                         "contact_chat_report_btn",
                         language,
                     ),
-                    callback_data="SPEC_THREAD_REPORT",
+                    callback_data=report_callback,
                 )
             ],
             [
@@ -4432,36 +4481,110 @@ async def confirm_thread_completion_from_notification(
     )
     await callback.answer()
 
-@billing_router.callback_query(F.data == "SPEC_THREAD_REPORT")
-async def report_specialist_thread(callback: CallbackQuery, state: FSMContext):
-    language = await get_billing_interface_language(
-        callback.from_user.id,
-        callback.from_user.language_code,
+@billing_router.callback_query(
+    F.data == "SPEC_THREAD_REPORT"
+)
+async def report_specialist_thread(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = (
+        await get_billing_interface_language(
+            callback.from_user.id,
+            callback.from_user.language_code,
+        )
     )
     data = await state.get_data()
-    thread_id = data.get("active_thread_id")
+    thread_id = data.get(
+        "active_thread_id"
+    )
 
     if not thread_id:
-        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
+        await callback.answer(
+            t(
+                "contact_thread_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    reporter_user_id, tenant_id = (
+        await get_billing_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if not reporter_user_id or not tenant_id:
+        await callback.answer(
+            t(
+                "auth_required_start",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            (
+                target_type,
+                target_id,
+                conversation_thread_id,
+            ) = await ModerationService(
+                ModerationRepository(session)
+            ).resolve_thread_complaint_target(
+                tenant_id=tenant_id,
+                reporter_user_id=(
+                    reporter_user_id
+                ),
+                thread_id=UUID(thread_id),
+            )
+    except (
+        ModerationError,
+        ValueError,
+    ):
+        await callback.answer(
+            t(
+                "contact_thread_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     await state.update_data(
-        pending_report_target_type="thread",
-        pending_report_target_id=thread_id,
-        selected_specialist_id=thread_id,
+        pending_report_target_type=(
+            target_type
+        ),
+        pending_report_target_id=str(
+            target_id
+        ),
+        pending_report_conversation_thread_id=str(
+            conversation_thread_id
+        ),
+        pending_report_target_summary=None,
+        pending_report_reason=None,
+        pending_report_comment=None,
         user_language=language,
     )
-    await state.set_state(SpecialistSearchFSM.viewing_results)
+    await state.set_state(
+        SpecialistSearchFSM.viewing_results
+    )
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "complaint_reason_prompt",
-            language,
-        ),
-        reply_markup=complaint_reason_keyboard(
-            language
-        ),
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "complaint_reason_prompt",
+                language,
+            ),
+            reply_markup=(
+                complaint_reason_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
@@ -6502,7 +6625,8 @@ async def submit_specialist_cabinet_for_moderation(
     )
 
 @billing_router.callback_query(
-    F.data.startswith("CAB_FAVORITES:")
+    (F.data == "CAB_FAVORITES")
+    | F.data.startswith("CAB_FAVORITES:")
 )
 async def show_favorites(
     callback: CallbackQuery,
@@ -6569,15 +6693,24 @@ async def show_favorites(
         str(card.specialist_id)
         for card in cards
     ]
+    professional_cabinet_ids = [
+        str(card.professional_cabinet_id)
+        for card in cards
+    ]
 
     await state.update_data(
         user_language=language,
-        cabinet_favorite_ids=specialist_ids,
+        cabinet_favorite_ids=(
+            professional_cabinet_ids
+        ),
         cabinet_favorites_page=page,
         result_specialist_ids=specialist_ids,
+        result_professional_cabinet_ids=(
+            professional_cabinet_ids
+        ),
         result_distances=[
             None
-        ] * len(specialist_ids),
+        ] * len(cards),
         results_page=0,
         profession_id=None,
     )
@@ -6674,31 +6807,66 @@ async def show_favorites(
     if not callback_answered:
         await callback.answer()
 
-@billing_router.callback_query(F.data.startswith("CAB_FAV_VIEW:"))
-async def show_favorite_card(callback: CallbackQuery, state: FSMContext):
+@billing_router.callback_query(
+    F.data.startswith("CAB_FAV_VIEW:")
+)
+async def show_favorite_card(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = await get_billing_interface_language(
         callback.from_user.id,
         callback.from_user.language_code,
     )
     data = await state.get_data()
-    ids = data.get("cabinet_favorite_ids") or []
+    professional_cabinet_ids = (
+        data.get("cabinet_favorite_ids")
+        or []
+    )
 
     try:
-        index = int((callback.data or "").split(":", 1)[1])
+        index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
     except (IndexError, ValueError):
         await callback.answer()
         return
 
-    if index < 0 or index >= len(ids):
-        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+    if (
+        index < 0
+        or index
+        >= len(professional_cabinet_ids)
+    ):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
+    user_id, tenant_id = (
+        await get_billing_user_context(
+            callback.from_user.id
+        )
+    )
     if not user_id or not tenant_id:
-        await callback.answer(t("billing_start_required", language), show_alert=True)
+        await callback.answer(
+            t(
+                "billing_start_required",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    specialist_id = ids[index]
+    professional_cabinet_id = (
+        professional_cabinet_ids[index]
+    )
 
     async with get_session() as session:
         card = await FavoriteService(
@@ -6706,14 +6874,20 @@ async def show_favorite_card(callback: CallbackQuery, state: FSMContext):
         ).get_saved_public_card(
             tenant_id=tenant_id,
             user_id=user_id,
-            specialist_id=UUID(
-                specialist_id
+            professional_cabinet_id=UUID(
+                professional_cabinet_id
             ),
             language=language,
         )
 
     if not card:
-        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     await delete_telegram_messages(
@@ -6749,7 +6923,12 @@ async def show_favorite_card(callback: CallbackQuery, state: FSMContext):
     )
 
     await state.update_data(
-        selected_specialist_id=specialist_id,
+        selected_specialist_id=str(
+            card.specialist_id
+        ),
+        selected_professional_cabinet_id=str(
+            card.professional_cabinet_id
+        ),
         selected_specialist_distance=None,
         results_page=0,
         user_language=language,
@@ -6759,43 +6938,79 @@ async def show_favorite_card(callback: CallbackQuery, state: FSMContext):
         ),
     )
 
-
-@billing_router.callback_query(F.data == "CAB_FAV_REMOVE")
-async def remove_favorite_from_cabinet(callback: CallbackQuery, state: FSMContext):
+@billing_router.callback_query(
+    F.data == "CAB_FAV_REMOVE"
+)
+async def remove_favorite_from_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     language = await get_billing_interface_language(
         callback.from_user.id,
         callback.from_user.language_code,
     )
     data = await state.get_data()
-    page = int(data.get("cabinet_favorites_page") or 0)
-    specialist_id = data.get("selected_specialist_id")
+    page = int(
+        data.get("cabinet_favorites_page")
+        or 0
+    )
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
 
-    if not specialist_id:
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+    if not professional_cabinet_id:
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    user_id, tenant_id = await get_billing_user_context(callback.from_user.id)
+    user_id, tenant_id = (
+        await get_billing_user_context(
+            callback.from_user.id
+        )
+    )
     if not user_id or not tenant_id:
-        await callback.answer(t("billing_start_required", language), show_alert=True)
+        await callback.answer(
+            t(
+                "billing_start_required",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     async with get_session() as session:
         removed = await FavoriteService(
             FavoriteRepository(session)
-        ).remove_specialist(
+        ).remove_professional_cabinet(
             tenant_id=tenant_id,
             user_id=user_id,
-            specialist_id=UUID(
-                specialist_id
+            professional_cabinet_id=UUID(
+                professional_cabinet_id
             ),
             source="favorites",
         )
 
-    text_key = "favorite_removed" if removed else "favorites_not_found"
-    await callback.answer(t(text_key, language), show_alert=True)
+    text_key = (
+        "favorite_removed"
+        if removed
+        else "favorites_not_found"
+    )
+    await callback.answer(
+        t(
+            text_key,
+            language,
+        ),
+        show_alert=True,
+    )
 
     await state.update_data(
         selected_specialist_id=None,
+        selected_professional_cabinet_id=None,
     )
 
     callback.data = (
@@ -6807,7 +7022,6 @@ async def remove_favorite_from_cabinet(callback: CallbackQuery, state: FSMContex
         state,
         callback_answered=True,
     )
-
 
 @billing_router.callback_query(
     F.data.in_(

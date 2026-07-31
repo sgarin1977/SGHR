@@ -198,20 +198,33 @@ class PendingSpecialistDetails:
 @dataclass(frozen=True)
 class ComplaintQueueItem:
     complaint_id: UUID
-    reporter_user_id: UUID
+    reporter_user_id: UUID | None
     target_type: str
     target_id: UUID
+    professional_cabinet_id: (
+        UUID | None
+    )
+    conversation_thread_id: (
+        UUID | None
+    )
     reason: str
     status: str
     created_at: datetime
     reviewed_by: UUID | None
 
+
 @dataclass(frozen=True)
 class ComplaintModerationDetails:
     complaint_id: UUID
-    reporter_user_id: UUID
+    reporter_user_id: UUID | None
     target_type: str
     target_id: UUID
+    professional_cabinet_id: (
+        UUID | None
+    )
+    conversation_thread_id: (
+        UUID | None
+    )
     target_label: str
     reason: str
     comment: str | None
@@ -219,7 +232,17 @@ class ComplaintModerationDetails:
     created_at: datetime
     reviewed_by: UUID | None
     requires_admin_escalation: bool
-    history: tuple[tuple[str, datetime], ...]
+    history: tuple[
+        tuple[str, datetime],
+        ...
+    ]
+
+@dataclass(frozen=True)
+class ComplaintThreadParticipants:
+    conversation_thread_id: UUID
+    client_user_id: UUID
+    specialist_id: UUID
+    specialist_user_id: UUID
 
 @dataclass(frozen=True)
 class ScopedBlacklistQueueItem:
@@ -3315,9 +3338,12 @@ class ModerationRepository:
             select(func.count())
             .select_from(Complaint)
             .where(
-                Complaint.tenant_id == tenant_id,
-                Complaint.target_type == "specialist",
-                Complaint.target_id == specialist.id,
+                Complaint.tenant_id
+                == tenant_id,
+                Complaint.target_type
+                == "professional_cabinet",
+                Complaint.professional_cabinet_id
+                == cabinet.id,
             )
         )
         complaints_count = int(
@@ -3821,6 +3847,71 @@ class ModerationRepository:
         await self.session.flush()
         return cabinet
 
+    async def get_complaint_thread_participants(
+        self,
+        *,
+        tenant_id: UUID,
+        thread_id: UUID,
+        reporter_user_id: UUID,
+    ) -> ComplaintThreadParticipants:
+        result = await self.session.execute(
+            select(
+                ConversationThread.id.label(
+                    "conversation_thread_id"
+                ),
+                ConversationThread.client_user_id,
+                Specialist.id.label(
+                    "specialist_id"
+                ),
+                Specialist.user_id.label(
+                    "specialist_user_id"
+                ),
+            )
+            .select_from(
+                ConversationThread
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ConversationThread.specialist_id,
+            )
+            .where(
+                ConversationThread.id
+                == thread_id,
+                ConversationThread.tenant_id
+                == tenant_id,
+                Specialist.tenant_id
+                == tenant_id,
+                or_(
+                    ConversationThread.client_user_id
+                    == reporter_user_id,
+                    Specialist.user_id
+                    == reporter_user_id,
+                ),
+            )
+        )
+        row = result.one_or_none()
+
+        if not row:
+            raise ModerationNotFoundError(
+                "Conversation thread not found."
+            )
+
+        return ComplaintThreadParticipants(
+            conversation_thread_id=(
+                row.conversation_thread_id
+            ),
+            client_user_id=(
+                row.client_user_id
+            ),
+            specialist_id=(
+                row.specialist_id
+            ),
+            specialist_user_id=(
+                row.specialist_user_id
+            ),
+        )
+
     async def has_active_complaint(
         self,
         *,
@@ -3828,22 +3919,50 @@ class ModerationRepository:
         reporter_user_id: UUID,
         target_type: str,
         target_id: UUID,
+        professional_cabinet_id: (
+            UUID | None
+        ) = None,
         reason: str,
     ) -> bool:
-        result = await self.session.execute(
+        stmt = (
             select(Complaint.id)
             .where(
-                Complaint.tenant_id == tenant_id,
-                Complaint.reporter_user_id == reporter_user_id,
-                Complaint.target_type == target_type,
-                Complaint.target_id == target_id,
-                Complaint.reason == reason,
-                Complaint.status.in_(COMPLAINT_OPEN_STATUSES),
+                Complaint.tenant_id
+                == tenant_id,
+                Complaint.reporter_user_id
+                == reporter_user_id,
+                Complaint.target_type
+                == target_type,
+                Complaint.reason
+                == reason,
+                Complaint.status.in_(
+                    COMPLAINT_OPEN_STATUSES
+                ),
             )
-            .limit(1)
         )
-        return result.scalar_one_or_none() is not None
 
+        if (
+            target_type
+            == "professional_cabinet"
+        ):
+            stmt = stmt.where(
+                Complaint.professional_cabinet_id
+                == professional_cabinet_id
+            )
+        else:
+            stmt = stmt.where(
+                Complaint.target_id
+                == target_id
+            )
+
+        result = await self.session.execute(
+            stmt.limit(1)
+        )
+
+        return (
+            result.scalar_one_or_none()
+            is not None
+        )
 
     async def create_complaint(
         self,
@@ -3852,14 +3971,28 @@ class ModerationRepository:
         reporter_user_id: UUID,
         target_type: str,
         target_id: UUID,
+        professional_cabinet_id: (
+            UUID | None
+        ),
+        conversation_thread_id: (
+            UUID | None
+        ),
         reason: str,
         comment: str | None = None,
     ) -> Complaint:
         complaint = Complaint(
             tenant_id=tenant_id,
-            reporter_user_id=reporter_user_id,
+            reporter_user_id=(
+                reporter_user_id
+            ),
             target_type=target_type,
             target_id=target_id,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
+            conversation_thread_id=(
+                conversation_thread_id
+            ),
             reason=reason,
             comment=comment,
             status="new",
@@ -3871,13 +4004,30 @@ class ModerationRepository:
             tenant_id=tenant_id,
             entity_type=target_type,
             entity_id=target_id,
-            flag_code=f"complaint_{reason}",
+            flag_code=(
+                f"complaint_{reason}"
+            ),
             severity="medium",
             status="open",
             details={
-                "complaint_id": str(complaint.id),
-                "reporter_user_id": str(reporter_user_id),
-                "comment": comment,
+                "complaint_id": str(
+                    complaint.id
+                ),
+                "professional_cabinet_id": (
+                    str(
+                        professional_cabinet_id
+                    )
+                    if professional_cabinet_id
+                    else None
+                ),
+                "conversation_thread_id": (
+                    str(
+                        conversation_thread_id
+                    )
+                    if conversation_thread_id
+                    else None
+                ),
+                "reason": reason,
             },
         )
         self.session.add(risk_flag)
@@ -3889,11 +4039,28 @@ class ModerationRepository:
             entity_type=target_type,
             entity_id=target_id,
             payload={
-                "complaint_id": str(complaint.id),
+                "complaint_id": str(
+                    complaint.id
+                ),
+                "professional_cabinet_id": (
+                    str(
+                        professional_cabinet_id
+                    )
+                    if professional_cabinet_id
+                    else None
+                ),
+                "conversation_thread_id": (
+                    str(
+                        conversation_thread_id
+                    )
+                    if conversation_thread_id
+                    else None
+                ),
                 "reason": reason,
             },
         )
         await self.session.flush()
+
         return complaint
 
     async def confirm_complaint(
@@ -3958,8 +4125,10 @@ class ModerationRepository:
             "resolved",
             "rejected",
         }
-        normalized_statuses = set(statuses).intersection(
-            allowed_statuses
+        normalized_statuses = (
+            set(statuses).intersection(
+                allowed_statuses
+            )
         )
 
         if not normalized_statuses:
@@ -3970,7 +4139,10 @@ class ModerationRepository:
 
         normalized_limit = max(
             1,
-            min(int(limit), 20),
+            min(
+                int(limit),
+                20,
+            ),
         )
         normalized_offset = max(
             0,
@@ -3983,29 +4155,46 @@ class ModerationRepository:
                 Complaint.reporter_user_id,
                 Complaint.target_type,
                 Complaint.target_id,
+                Complaint.professional_cabinet_id,
+                Complaint.conversation_thread_id,
                 Complaint.reason,
                 Complaint.status,
                 Complaint.created_at,
                 Complaint.reviewed_by,
             )
             .where(
-                Complaint.tenant_id == tenant_id,
-                Complaint.status.in_(normalized_statuses),
+                Complaint.tenant_id
+                == tenant_id,
+                Complaint.status.in_(
+                    normalized_statuses
+                ),
             )
             .order_by(
                 Complaint.created_at.asc(),
                 Complaint.id.asc(),
             )
-            .offset(normalized_offset)
-            .limit(normalized_limit)
+            .offset(
+                normalized_offset
+            )
+            .limit(
+                normalized_limit
+            )
         )
 
         return [
             ComplaintQueueItem(
                 complaint_id=row.id,
-                reporter_user_id=row.reporter_user_id,
+                reporter_user_id=(
+                    row.reporter_user_id
+                ),
                 target_type=row.target_type,
                 target_id=row.target_id,
+                professional_cabinet_id=(
+                    row.professional_cabinet_id
+                ),
+                conversation_thread_id=(
+                    row.conversation_thread_id
+                ),
                 reason=row.reason,
                 status=row.status,
                 created_at=row.created_at,
@@ -4013,13 +4202,15 @@ class ModerationRepository:
             )
             for row in result.all()
         ]
-
     async def get_complaint_target_context(
         self,
         *,
         tenant_id: UUID,
         target_type: str,
         target_id: UUID,
+        professional_cabinet_id: (
+            UUID | None
+        ) = None,
     ) -> tuple[str, bool]:
         owner_user_id = None
         target_label = target_type.replace("_", " ").title()
@@ -4039,6 +4230,81 @@ class ModerationRepository:
             if row:
                 target_label = row.display_name
                 owner_user_id = row.user_id
+
+        elif (
+            target_type
+            == "professional_cabinet"
+        ):
+            if not professional_cabinet_id:
+                raise ModerationNotFoundError(
+                    "Professional cabinet "
+                    "complaint target not found."
+                )
+
+            result = await self.session.execute(
+                select(
+                    ProfessionalCabinet.title.label(
+                        "cabinet_title"
+                    ),
+                    Profession.name.label(
+                        "profession_name"
+                    ),
+                    Specialist.user_id.label(
+                        "owner_user_id"
+                    ),
+                )
+                .select_from(
+                    ProfessionalCabinet
+                )
+                .join(
+                    Specialist,
+                    Specialist.id
+                    == ProfessionalCabinet.specialist_id,
+                )
+                .join(
+                    Profession,
+                    Profession.id
+                    == ProfessionalCabinet.profession_id,
+                )
+                .where(
+                    ProfessionalCabinet.id
+                    == professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                )
+            )
+            row = result.one_or_none()
+
+            if row:
+                cabinet_title = (
+                    row.cabinet_title
+                    or row.profession_name
+                    or "Professional cabinet"
+                )
+                profession_name = (
+                    row.profession_name
+                    or ""
+                )
+
+                if (
+                    profession_name
+                    and profession_name
+                    != cabinet_title
+                ):
+                    target_label = (
+                        f"{cabinet_title} / "
+                        f"{profession_name}"
+                    )
+                else:
+                    target_label = (
+                        cabinet_title
+                    )
+
+                owner_user_id = (
+                    row.owner_user_id
+                )
 
         elif target_type == "user":
             result = await self.session.execute(
@@ -4167,8 +4433,14 @@ class ModerationRepository:
             requires_admin_escalation,
         ) = await self.get_complaint_target_context(
             tenant_id=tenant_id,
-            target_type=complaint.target_type,
+            target_type=(
+                complaint.target_type
+            ),
             target_id=complaint.target_id,
+            professional_cabinet_id=(
+                complaint
+                .professional_cabinet_id
+            ),
         )
 
         history_result = await self.session.execute(
@@ -4195,6 +4467,14 @@ class ModerationRepository:
             reporter_user_id=complaint.reporter_user_id,
             target_type=complaint.target_type,
             target_id=complaint.target_id,
+            professional_cabinet_id=(
+                complaint
+                .professional_cabinet_id
+            ),
+            conversation_thread_id=(
+                complaint
+                .conversation_thread_id
+            ),
             target_label=target_label,
             reason=complaint.reason,
             comment=complaint.comment,
@@ -4244,11 +4524,56 @@ class ModerationRepository:
         elif complaint.target_type == "specialist":
             result = await self.session.execute(
                 select(Specialist.user_id).where(
-                    Specialist.id == complaint.target_id,
-                    Specialist.tenant_id == tenant_id,
+                    Specialist.id
+                    == complaint.target_id,
+                    Specialist.tenant_id
+                    == tenant_id,
                 )
             )
-            target_user_id = result.scalar_one_or_none()
+            target_user_id = (
+                result.scalar_one_or_none()
+            )
+
+        elif (
+            complaint.target_type
+            == "professional_cabinet"
+        ):
+            if not (
+                complaint
+                .professional_cabinet_id
+            ):
+                raise ModerationNotFoundError(
+                    "Professional cabinet "
+                    "complaint target not found."
+                )
+
+            result = await self.session.execute(
+                select(
+                    Specialist.user_id
+                )
+                .select_from(
+                    ProfessionalCabinet
+                )
+                .join(
+                    Specialist,
+                    Specialist.id
+                    == ProfessionalCabinet.specialist_id,
+                )
+                .where(
+                    ProfessionalCabinet.id
+                    == (
+                        complaint
+                        .professional_cabinet_id
+                    ),
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                )
+            )
+            target_user_id = (
+                result.scalar_one_or_none()
+            )
 
         elif complaint.target_type == "portfolio_item":
             result = await self.session.execute(
@@ -4339,8 +4664,16 @@ class ModerationRepository:
         _, requires_admin_escalation = (
             await self.get_complaint_target_context(
                 tenant_id=tenant_id,
-                target_type=complaint.target_type,
-                target_id=complaint.target_id,
+                target_type=(
+                    complaint.target_type
+                ),
+                target_id=(
+                    complaint.target_id
+                ),
+                professional_cabinet_id=(
+                    complaint
+                    .professional_cabinet_id
+                ),
             )
         )
 
@@ -5460,15 +5793,51 @@ class ModerationRepository:
             "is_available": bool(specialist.is_available),
         }
 
-    def _complaint_audit_state(self, complaint: Complaint) -> dict:
+    def _complaint_audit_state(
+        self,
+        complaint: Complaint,
+    ) -> dict:
         return {
-            "id": str(complaint.id),
-            "reporter_user_id": str(complaint.reporter_user_id),
-            "target_type": complaint.target_type,
-            "target_id": str(complaint.target_id),
+            "id": str(
+                complaint.id
+            ),
+            "reporter_user_id": (
+                str(
+                    complaint
+                    .reporter_user_id
+                )
+                if (
+                    complaint
+                    .reporter_user_id
+                )
+                else None
+            ),
+            "target_type": (
+                complaint.target_type
+            ),
+            "target_id": str(
+                complaint.target_id
+            ),
+            "professional_cabinet_id": (
+                str(
+                    complaint
+                    .professional_cabinet_id
+                )
+                if (
+                    complaint
+                    .professional_cabinet_id
+                )
+                else None
+            ),
             "reason": complaint.reason,
             "status": complaint.status,
-            "reviewed_by": str(complaint.reviewed_by) if complaint.reviewed_by else None,
+            "reviewed_by": (
+                str(
+                    complaint.reviewed_by
+                )
+                if complaint.reviewed_by
+                else None
+            ),
         }
 
     def _user_audit_state(self, user: User) -> dict:

@@ -4490,6 +4490,36 @@ translations = {
         "en": "Specialist",
         "pt": "Especialista",
     },
+    "complaint_target_professional_cabinet": {
+        "ru": "Профессиональный кабинет",
+        "en": "Professional cabinet",
+        "pt": "Gabinete profissional",
+        "ua": "Професійний кабінет",
+    },
+    "search_report_cabinet_btn": {
+        "ru": "🚩 Пожаловаться на кабинет",
+        "en": "🚩 Report cabinet",
+        "pt": "🚩 Denunciar gabinete",
+        "ua": "🚩 Поскаржитися на кабінет",
+    },
+    "search_report_user_btn": {
+        "ru": "👤 Пожаловаться на пользователя",
+        "en": "👤 Report user",
+        "pt": "👤 Denunciar usuário",
+        "ua": "👤 Поскаржитися на користувача",
+    },
+    "complaint_target_user": {
+        "ru": "Пользователь",
+        "en": "User",
+        "pt": "Usuário",
+        "ua": "Користувач",
+    },
+    "complaint_target_contact_request": {
+        "ru": "Обращение к специалисту",
+        "en": "Contact request",
+        "pt": "Solicitação de contato",
+        "ua": "Звернення до спеціаліста",
+    },
     "complaint_target_review": {
         "ru": "Отзыв",
         "en": "Review",
@@ -5178,6 +5208,12 @@ translations = {
         "ru": "Требуется эскалация Admin",
         "en": "Admin escalation required",
         "pt": "Requer encaminhamento ao Admin",
+    },
+    "moderator_complaint_conversation_context": {
+        "ru": "Контекст: переписка",
+        "en": "Context: conversation",
+        "pt": "Contexto: conversa",
+        "ua": "Контекст: листування",
     },
     "moderator_complaint_filter_btn": {
         "ru": "Фильтр",

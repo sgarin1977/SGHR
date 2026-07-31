@@ -695,10 +695,21 @@ async def resume_post_auth_action(
 ) -> bool:
     data = await state.get_data()
     action = data.get("post_auth_action")
-    specialist_id = data.get("selected_specialist_id")
+    specialist_id = data.get(
+        "selected_specialist_id"
+    )
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
     profession_id = data.get("profession_id")
 
     if not action or not specialist_id:
+        return False
+
+    if (
+        action == "favorite"
+        and not professional_cabinet_id
+    ):
         return False
 
     user_id, tenant_id = await get_requester_context(
@@ -813,11 +824,11 @@ async def resume_post_auth_action(
             async with get_session() as session:
                 is_saved = await FavoriteService(
                     FavoriteRepository(session)
-                ).toggle_specialist(
+                ).toggle_professional_cabinet(
                     tenant_id=tenant_id,
                     user_id=user_id,
-                    specialist_id=UUID(
-                        specialist_id
+                    professional_cabinet_id=UUID(
+                        professional_cabinet_id
                     ),
                 )
 
@@ -830,12 +841,13 @@ async def resume_post_auth_action(
                 text_key,
                 language,
             )
-        except Exception as exc:
+        except Exception:
             logger.exception(
                 "post_auth_favorite_toggle_failed "
-                "telegram_id=%s specialist_id=%s",
+                "telegram_id=%s "
+                "professional_cabinet_id=%s",
                 message.from_user.id,
-                specialist_id,
+                professional_cabinet_id,
             )
             result_text = t(
                 "favorite_action_error",
@@ -1213,8 +1225,6 @@ def profession_selection_text(
         f"{t('search_selected_professions_count', language).format(count=selected_count)}"
     )
 
-
-
 def result_card_keyboard(
     index: int,
     language: str,
@@ -1225,28 +1235,55 @@ def result_card_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("search_result_details_btn", language),
-                    callback_data=f"search_result:{index}",
+                    text=t(
+                        "search_result_details_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        f"search_result:{index}"
+                    ),
                 ),
                 InlineKeyboardButton(
-                    text=t("search_result_message_btn", language),
-                    callback_data=f"search_result_contact:{index}",
+                    text=t(
+                        "search_result_message_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        f"search_result_contact:"
+                        f"{index}"
+                    ),
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=t(
-                        "search_result_saved_btn"
-                        if is_saved
-                        else "search_result_save_btn",
+                        (
+                            "search_result_saved_btn"
+                            if is_saved
+                            else "search_result_save_btn"
+                        ),
                         language,
                     ),
-                    callback_data=f"search_result_favorite:{index}",
+                    callback_data=(
+                        f"search_result_favorite:"
+                        f"{index}"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_report_cabinet_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        f"search_result_report:"
+                        f"{index}"
+                    ),
                 )
             ],
         ]
     )
-
 
 def results_navigation_keyboard(
     page: int,
@@ -1298,7 +1335,9 @@ def card_keyboard(
                         "contact",
                         language,
                     ),
-                    callback_data="search_contact_pending",
+                    callback_data=(
+                        "search_contact_pending"
+                    ),
                 ),
                 InlineKeyboardButton(
                     text=t(
@@ -1309,7 +1348,9 @@ def card_keyboard(
                         ),
                         language,
                     ),
-                    callback_data="search_favorite_pending",
+                    callback_data=(
+                        "search_favorite_pending"
+                    ),
                 ),
             ],
             [
@@ -1318,15 +1359,41 @@ def card_keyboard(
                         "specialist_profile_portfolio_btn",
                         language,
                     ),
-                    callback_data="search_portfolio_pending",
+                    callback_data=(
+                        "search_portfolio_pending"
+                    ),
                 ),
                 InlineKeyboardButton(
                     text=t(
                         "specialist_profile_reviews_btn",
                         language,
                     ),
-                    callback_data="search_reviews_pending",
+                    callback_data=(
+                        "search_reviews_pending"
+                    ),
                 ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_report_cabinet_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_report_pending"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_report_user_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_report_user_pending"
+                    ),
+                )
             ],
             [
                 InlineKeyboardButton(
@@ -1751,6 +1818,10 @@ async def store_complaint_target_summary(
             "complaint_target_specialist",
             language,
         ),
+        "professional_cabinet": t(
+            "complaint_target_professional_cabinet",
+            language,
+        ),
         "review": t(
             "complaint_target_review",
             language,
@@ -1772,35 +1843,73 @@ async def store_complaint_target_summary(
         target_type,
         target_type,
     )
-    _, tenant_id = await get_requester_context(
-        telegram_id
-    )
-    specialist_name = None
 
-    if specialist_id and tenant_id:
-        async with get_session() as session:
-            card = await GeoSearchService(
-                SpecialistSearchRepository(session)
-            ).get_public_card(
-                specialist_id=UUID(
-                    specialist_id
-                ),
-                professional_cabinet_id=(
-                    UUID(professional_cabinet_id)
-                    if professional_cabinet_id
-                    else None
-                ),
-                tenant_id=tenant_id,
-                log_event=False,
-                language=language,
+    target_name = None
+
+    if (
+        target_type
+        in {
+            "specialist",
+            "professional_cabinet",
+        }
+        and specialist_id
+    ):
+        _, tenant_id = (
+            await get_requester_context(
+                telegram_id
             )
+        )
 
-        if card:
-            specialist_name = card.display_name
+        if tenant_id:
+            async with get_session() as session:
+                card = await GeoSearchService(
+                    SpecialistSearchRepository(
+                        session
+                    )
+                ).get_public_card(
+                    specialist_id=UUID(
+                        specialist_id
+                    ),
+                    professional_cabinet_id=(
+                        UUID(
+                            professional_cabinet_id
+                        )
+                        if professional_cabinet_id
+                        else None
+                    ),
+                    tenant_id=tenant_id,
+                    log_event=False,
+                    language=language,
+                )
+
+            if card:
+                if (
+                    target_type
+                    == "professional_cabinet"
+                ):
+                    target_parts = [
+                        part
+                        for part in {
+                            "display_name": (
+                                card.display_name
+                            ),
+                            "profession_name": (
+                                card.profession_name
+                            ),
+                        }.values()
+                        if part
+                    ]
+                    target_name = " / ".join(
+                        target_parts
+                    )
+                else:
+                    target_name = (
+                        card.display_name
+                    )
 
     target_summary = (
-        f"{target_label}: {specialist_name}"
-        if specialist_name
+        f"{target_label}: {target_name}"
+        if target_name
         else target_label
     )
 
@@ -1809,7 +1918,6 @@ async def store_complaint_target_summary(
             target_summary
         ),
     )
-
 
 def complaint_reason_label(reason: str, language: str) -> str:
     labels = {
@@ -1821,34 +1929,88 @@ def complaint_reason_label(reason: str, language: str) -> str:
     return labels.get(reason, reason)
 
 
-def complaint_draft_text(data: dict, language: str) -> str:
-    target_type = data.get("pending_report_target_type") or "specialist"
+def complaint_draft_text(
+    data: dict,
+    language: str,
+) -> str:
+    target_type = (
+        data.get(
+            "pending_report_target_type"
+        )
+        or "specialist"
+    )
+
     target_labels = {
-        "specialist": t("complaint_target_specialist", language),
-        "review": t("complaint_target_review", language),
-        "portfolio_item": t("complaint_target_portfolio", language),
-        "thread": t("complaint_target_dialog", language),
-        "message": t("complaint_target_message", language),
+        "specialist": t(
+            "complaint_target_specialist",
+            language,
+        ),
+        "professional_cabinet": t(
+            "complaint_target_professional_cabinet",
+            language,
+        ),
+        "user": t(
+            "complaint_target_user",
+            language,
+        ),
+        "review": t(
+            "complaint_target_review",
+            language,
+        ),
+        "portfolio_item": t(
+            "complaint_target_portfolio",
+            language,
+        ),
+        "thread": t(
+            "complaint_target_dialog",
+            language,
+        ),
+        "message": t(
+            "complaint_target_message",
+            language,
+        ),
+        "contact_request": t(
+            "complaint_target_contact_request",
+            language,
+        ),
     }
 
-    reason = data.get("pending_report_reason") or "-"
-    comment = data.get("pending_report_comment") or t(
-        "complaint_comment_not_set",
-        language,
+    reason = (
+        data.get("pending_report_reason")
+        or "-"
+    )
+    comment = (
+        data.get("pending_report_comment")
+        or t(
+            "complaint_comment_not_set",
+            language,
+        )
     )
 
     target_summary = (
-        data.get("pending_report_target_summary")
-        or target_labels.get(target_type, target_type)
+        data.get(
+            "pending_report_target_summary"
+        )
+        or target_labels.get(
+            target_type,
+            target_type.replace(
+                "_",
+                " ",
+            ).title(),
+        )
     )
 
-    return t("complaint_draft", language).format(
+    return t(
+        "complaint_draft",
+        language,
+    ).format(
         target=target_summary,
-        reason=complaint_reason_label(reason, language),
+        reason=complaint_reason_label(
+            reason,
+            language,
+        ),
         comment=comment,
     )
-
-
 def complaint_draft_keyboard(language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -1962,7 +2124,7 @@ def contact_thread_keyboard(
                         "contact_chat_report_btn",
                         language,
                     ),
-                    callback_data="search_report_pending",
+                    callback_data="search_report_thread_pending",
                 )
             ],
             [
@@ -2305,7 +2467,7 @@ def client_contact_chat_keyboard(
             [
                 InlineKeyboardButton(
                     text=t("contact_chat_report_btn", language),
-                    callback_data="search_report_pending",
+                    callback_data="search_report_thread_pending",
                 )
             ],
             [
@@ -3825,23 +3987,32 @@ async def render_results(
     has_next = (page + 1) * PER_PAGE < total_count
     visible_results = results[:PER_PAGE]
 
-    saved_specialist_ids: set[UUID] = set()
+    saved_professional_cabinet_ids: set[
+        UUID
+    ] = set()
 
     if (
         requester_user_id
         and tenant_id
         and visible_results
     ):
+        professional_cabinet_ids = [
+            result.professional_cabinet.id
+            for result in visible_results
+            if result.professional_cabinet
+        ]
+
         async with get_session() as session:
-            saved_specialist_ids = await FavoriteService(
-                FavoriteRepository(session)
-            ).list_saved_specialist_ids(
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                specialist_ids=[
-                    result.specialist.id
-                    for result in visible_results
-                ],
+            saved_professional_cabinet_ids = (
+                await FavoriteService(
+                    FavoriteRepository(session)
+                ).list_saved_professional_cabinet_ids(
+                    tenant_id=tenant_id,
+                    user_id=requester_user_id,
+                    professional_cabinet_ids=(
+                        professional_cabinet_ids
+                    ),
+                )
             )
 
     if requester_user_id and tenant_id:
@@ -3989,8 +4160,13 @@ async def render_results(
                     index,
                     language,
                     is_saved=(
-                        result.specialist.id
-                        in saved_specialist_ids
+                        bool(
+                            result.professional_cabinet
+                        )
+                        and (
+                            result.professional_cabinet.id
+                            in saved_professional_cabinet_ids
+                        )
                     ),
                 ),
                 )
@@ -4033,8 +4209,13 @@ async def render_results(
                     index,
                     language,
                     is_saved=(
-                        result.specialist.id
-                        in saved_specialist_ids
+                        bool(
+                            result.professional_cabinet
+                        )
+                        and (
+                            result.professional_cabinet.id
+                            in saved_professional_cabinet_ids
+                        )
                     ),
                 ),
                 )
@@ -7080,11 +7261,11 @@ async def favorite_pending(
         state,
         callback,
     )
-    specialist_id = data.get(
-        "selected_specialist_id"
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
     )
 
-    if not specialist_id:
+    if not professional_cabinet_id:
         await callback.answer(
             t(
                 "search_contact_no_specialist",
@@ -7105,26 +7286,28 @@ async def favorite_pending(
             language=language,
         )
         return
-    
+
     await callback.answer()
 
     try:
         async with get_session() as session:
             is_saved = await FavoriteService(
                 FavoriteRepository(session)
-            ).toggle_specialist(
+            ).toggle_professional_cabinet(
                 tenant_id=tenant_id,
                 user_id=user_id,
-                specialist_id=UUID(
-                    specialist_id
+                professional_cabinet_id=UUID(
+                    professional_cabinet_id
                 ),
             )
     except ValueError as exc:
         logger.warning(
             "favorite_toggle_failed "
-            "telegram_id=%s specialist_id=%s error=%s",
+            "telegram_id=%s "
+            "professional_cabinet_id=%s "
+            "error=%s",
             callback.from_user.id,
-            specialist_id,
+            professional_cabinet_id,
             exc,
         )
         menu_message = await show_callback_message(
@@ -7167,10 +7350,11 @@ async def favorite_pending(
     logger.info(
         "favorite_toggled "
         "telegram_id=%s user_id=%s "
-        "specialist_id=%s is_saved=%s",
+        "professional_cabinet_id=%s "
+        "is_saved=%s",
         callback.from_user.id,
         user_id,
-        specialist_id,
+        professional_cabinet_id,
         is_saved,
     )
 
@@ -7179,7 +7363,10 @@ async def favorite_pending(
     )
 
     try:
-        if callback.data == "search_favorite_pending":
+        if (
+            callback.data
+            == "search_favorite_pending"
+        ):
             results_page = int(
                 data.get("results_page") or 0
             )
@@ -7208,9 +7395,114 @@ async def favorite_pending(
         pass
 
 @search_router.callback_query(
-    F.data == "search_report_pending"
+    F.data == "search_report_thread_pending"
 )
-async def report_pending(
+async def report_thread_pending(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    data = await state.get_data()
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    thread_id = data.get(
+        "active_thread_id"
+    )
+
+    if not thread_id:
+        await callback.answer(
+            t(
+                "contact_thread_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    reporter_user_id, tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
+    if not reporter_user_id or not tenant_id:
+        await callback.answer(
+            t(
+                "auth_required_start",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            (
+                target_type,
+                target_id,
+                conversation_thread_id,
+            ) = await ModerationService(
+                ModerationRepository(session)
+            ).resolve_thread_complaint_target(
+                tenant_id=tenant_id,
+                reporter_user_id=(
+                    reporter_user_id
+                ),
+                thread_id=UUID(thread_id),
+            )
+    except (
+        ModerationError,
+        ValueError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+
+    await state.update_data(
+        pending_report_target_type=(
+            target_type
+        ),
+        pending_report_target_id=str(
+            target_id
+        ),
+        pending_report_conversation_thread_id=str(
+            conversation_thread_id
+        ),
+        pending_report_reason=None,
+        pending_report_comment=None,
+    )
+
+    await store_complaint_target_summary(
+        state,
+        language,
+        callback.from_user.id,
+    )
+
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "complaint_reason_prompt",
+            language,
+        ),
+        complaint_reason_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
+
+@search_router.callback_query(
+    F.data == "search_report_user_pending"
+)
+async def report_user_pending(
     callback: CallbackQuery,
     state: FSMContext,
 ):
@@ -7240,6 +7532,75 @@ async def report_pending(
         pending_report_target_id=specialist_id,
         pending_report_reason=None,
         pending_report_comment=None,
+        pending_report_conversation_thread_id=None,
+    )
+
+    await store_complaint_target_summary(
+        state,
+        language,
+        callback.from_user.id,
+    )
+
+    await collapse_search_results_to_callback_message(
+        callback=callback,
+        state=state,
+    )
+
+    menu_message = await show_callback_message(
+        callback,
+        t(
+            "complaint_reason_prompt",
+            language,
+        ),
+        complaint_reason_keyboard(
+            language
+        ),
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        ),
+    )
+
+@search_router.callback_query(
+    F.data == "search_report_pending"
+)
+async def report_pending(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    data = await state.get_data()
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    professional_cabinet_id = data.get(
+        "selected_professional_cabinet_id"
+    )
+
+    if not professional_cabinet_id:
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+
+    await state.update_data(
+        pending_report_target_type=(
+            "professional_cabinet"
+        ),
+        pending_report_target_id=(
+            professional_cabinet_id
+        ),
+        pending_report_reason=None,
+        pending_report_comment=None,
+        pending_report_conversation_thread_id=None,
     )
 
     await store_complaint_target_summary(
@@ -7280,8 +7641,16 @@ async def choose_report_reason(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    if not data.get("selected_specialist_id"):
-        await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
+    if not data.get(
+        "pending_report_target_id"
+    ):
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     await state.update_data(
@@ -7358,13 +7727,21 @@ async def send_report(callback: CallbackQuery, state: FSMContext):
         comment=comment,
     )
 
-@search_router.callback_query(F.data == "search_report_cancel")
+@search_router.callback_query(
+    F.data == "search_report_cancel"
+)
 async def cancel_report(
     callback: CallbackQuery,
     state: FSMContext,
 ):
     data = await state.get_data()
-    language = await get_search_language(state, callback)
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    target_type = data.get(
+        "pending_report_target_type"
+    )
 
     await state.update_data(
         pending_report_reason=None,
@@ -7372,15 +7749,45 @@ async def cancel_report(
         pending_report_target_type=None,
         pending_report_target_id=None,
         pending_report_target_summary=None,
+        pending_report_conversation_thread_id=None,
     )
 
-    if data.get("active_thread_id"):
+    if (
+        target_type
+        in {
+            "professional_cabinet",
+            "specialist",
+        }
+        and data.get(
+            "selected_specialist_id"
+        )
+    ):
+        await state.set_state(
+            SpecialistSearchFSM.viewing_results
+        )
+        await back_to_selected_specialist_card(
+            callback,
+            state,
+        )
+        return
+
+    if (
+        target_type
+        in {
+            "thread",
+            "message",
+        }
+        and data.get("active_thread_id")
+    ):
         await state.set_state(
             SpecialistSearchFSM.entering_thread_message
         )
         back_callback = (
             "SPEC_DIALOGS"
-            if data.get("active_thread_role") == "specialist"
+            if (
+                data.get("active_thread_role")
+                == "specialist"
+            )
             else "CLIENT_DIALOGS"
         )
         back_text = t(
@@ -7410,7 +7817,9 @@ async def cancel_report(
                 [
                     InlineKeyboardButton(
                         text=back_text,
-                        callback_data=back_callback,
+                        callback_data=(
+                            back_callback
+                        ),
                     )
                 ],
                 [
@@ -7419,7 +7828,9 @@ async def cancel_report(
                             "search_menu",
                             language,
                         ),
-                        callback_data="search_menu",
+                        callback_data=(
+                            "search_menu"
+                        ),
                     )
                 ],
             ]
@@ -7427,9 +7838,10 @@ async def cancel_report(
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
-
 @search_router.message(
     SpecialistSearchFSM.entering_report_comment
 )
@@ -7516,6 +7928,9 @@ async def create_search_complaint(
     specialist_id = data.get("selected_specialist_id")
     target_type = data.get("pending_report_target_type") or "specialist"
     target_id = data.get("pending_report_target_id") or specialist_id
+    conversation_thread_id = data.get(
+        "pending_report_conversation_thread_id"
+    )
 
     if not target_id:
         if isinstance(event, CallbackQuery):
@@ -7576,6 +7991,13 @@ async def create_search_complaint(
                 target_id=UUID(target_id),
                 reason=reason,
                 comment=comment,
+                conversation_thread_id=(
+                    UUID(
+                        conversation_thread_id
+                    )
+                    if conversation_thread_id
+                    else None
+                ),
             )
             await moderation_service.confirm_complaint(
                 reporter_user_id=reporter_user_id,
@@ -7630,6 +8052,7 @@ async def create_search_complaint(
         pending_report_target_type=None,
         pending_report_target_id=None,
         pending_report_target_summary=None,
+        pending_report_conversation_thread_id=None,
         page=data.get("page") or 0,
     )
     await state.set_state(SpecialistSearchFSM.viewing_results)

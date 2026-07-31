@@ -38,34 +38,40 @@ class FavoriteService:
             repository.session
         )
 
-    async def list_saved_specialist_ids(
+    async def list_saved_professional_cabinet_ids(
         self,
         *,
         tenant_id: UUID,
         user_id: UUID,
-        specialist_ids: list[UUID],
+        professional_cabinet_ids: list[UUID],
     ) -> set[UUID]:
-        return await self.repository.list_saved_specialist_ids(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            specialist_ids=specialist_ids,
+        return await (
+            self.repository
+            .list_saved_professional_cabinet_ids(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_ids=(
+                    professional_cabinet_ids
+                ),
+            )
         )
 
-
-    async def save_specialist(
+    async def save_professional_cabinet(
         self,
         *,
         tenant_id: UUID,
         user_id: UUID,
-        specialist_id: UUID,
+        professional_cabinet_id: UUID,
     ) -> bool:
         try:
-            saved = (
-                await self.repository
-                .save_specialist(
+            saved = await (
+                self.repository
+                .save_professional_cabinet(
                     tenant_id=tenant_id,
                     user_id=user_id,
-                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
                 )
             )
 
@@ -77,20 +83,22 @@ class FavoriteService:
 
         return saved
 
-    async def toggle_specialist(
+    async def toggle_professional_cabinet(
         self,
         *,
         tenant_id: UUID,
         user_id: UUID,
-        specialist_id: UUID,
+        professional_cabinet_id: UUID,
     ) -> bool:
         try:
-            is_saved = (
-                await self.repository
-                .toggle_specialist(
+            is_saved = await (
+                self.repository
+                .toggle_professional_cabinet(
                     tenant_id=tenant_id,
                     user_id=user_id,
-                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
                 )
             )
 
@@ -102,21 +110,23 @@ class FavoriteService:
 
         return is_saved
 
-    async def remove_specialist(
+    async def remove_professional_cabinet(
         self,
         *,
         tenant_id: UUID,
         user_id: UUID,
-        specialist_id: UUID,
+        professional_cabinet_id: UUID,
         source: str = "favorites",
     ) -> bool:
         try:
-            removed = (
-                await self.repository
-                .remove_specialist(
+            removed = await (
+                self.repository
+                .remove_professional_cabinet(
                     tenant_id=tenant_id,
                     user_id=user_id,
-                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
                 )
             )
 
@@ -125,8 +135,12 @@ class FavoriteService:
                     event_type="favorite_removed",
                     tenant_id=tenant_id,
                     user_id=user_id,
-                    entity_type="specialist",
-                    entity_id=specialist_id,
+                    entity_type=(
+                        "professional_cabinet"
+                    ),
+                    entity_id=(
+                        professional_cabinet_id
+                    ),
                     payload={
                         "source": source,
                     },
@@ -150,18 +164,23 @@ class FavoriteService:
         page_size: int,
         language: str,
     ) -> FavoriteCardsPage:
-        normalized_page = max(0, page)
+        normalized_page = max(
+            0,
+            page,
+        )
         normalized_page_size = max(
             1,
             page_size,
         )
 
-        specialists = (
-            await self.repository
-            .list_saved_specialists(
+        saved_cabinets = await (
+            self.repository
+            .list_saved_professional_cabinets(
                 tenant_id=tenant_id,
                 user_id=user_id,
-                limit=normalized_page_size + 1,
+                limit=(
+                    normalized_page_size + 1
+                ),
                 offset=(
                     normalized_page
                     * normalized_page_size
@@ -170,20 +189,29 @@ class FavoriteService:
         )
 
         has_next = (
-            len(specialists)
+            len(saved_cabinets)
             > normalized_page_size
         )
-        visible_specialists = specialists[
+        visible_cabinets = saved_cabinets[
             :normalized_page_size
         ]
 
-        cards: list[SpecialistPublicCard] = []
+        cards: list[
+            SpecialistPublicCard
+        ] = []
 
-        for specialist in visible_specialists:
-            card = (
-                await self.card_service
+        for saved in visible_cabinets:
+            card = await (
+                self.card_service
                 .get_public_card(
-                    specialist_id=specialist.id,
+                    specialist_id=(
+                        saved.specialist.id
+                    ),
+                    professional_cabinet_id=(
+                        saved
+                        .professional_cabinet
+                        .id
+                    ),
                     requester_user_id=user_id,
                     tenant_id=tenant_id,
                     distance_km=None,
@@ -200,7 +228,9 @@ class FavoriteService:
                 event_type="favorites_opened",
                 tenant_id=tenant_id,
                 user_id=user_id,
-                entity_type="saved_specialist",
+                entity_type=(
+                    "saved_professional_cabinet"
+                ),
                 payload={
                     "page": normalized_page,
                     "items_count": len(cards),
@@ -219,31 +249,56 @@ class FavoriteService:
             has_next=has_next,
             page=normalized_page,
         )
-    
+
     async def get_saved_public_card(
         self,
         *,
         tenant_id: UUID,
         user_id: UUID,
-        specialist_id: UUID,
+        professional_cabinet_id: UUID,
         language: str,
     ) -> SpecialistPublicCard | None:
-        is_saved = await self.repository.is_saved(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            specialist_id=specialist_id,
+        is_saved = await (
+            self.repository.is_saved(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
         )
 
         if not is_saved:
             return None
 
-        card = await self.card_service.get_public_card(
-            specialist_id=specialist_id,
-            requester_user_id=user_id,
-            tenant_id=tenant_id,
-            distance_km=None,
-            log_event=False,
-            language=language,
+        context = await (
+            self.repository
+            .get_public_professional_cabinet(
+                tenant_id=tenant_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        if not context:
+            return None
+
+        specialist, cabinet = context
+
+        card = await (
+            self.card_service
+            .get_public_card(
+                specialist_id=specialist.id,
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+                requester_user_id=user_id,
+                tenant_id=tenant_id,
+                distance_km=None,
+                log_event=False,
+                language=language,
+            )
         )
 
         if not card:
@@ -251,13 +306,20 @@ class FavoriteService:
 
         try:
             await self.events.create_event(
-                event_type="specialist_viewed",
+                event_type=(
+                    "professional_cabinet_viewed"
+                ),
                 tenant_id=tenant_id,
                 user_id=user_id,
-                entity_type="specialist",
-                entity_id=specialist_id,
+                entity_type=(
+                    "professional_cabinet"
+                ),
+                entity_id=cabinet.id,
                 payload={
                     "source": "favorites",
+                    "specialist_id": str(
+                        specialist.id
+                    ),
                 },
                 platform="telegram",
             )
@@ -266,10 +328,15 @@ class FavoriteService:
                 event_type="favorite_viewed",
                 tenant_id=tenant_id,
                 user_id=user_id,
-                entity_type="specialist",
-                entity_id=specialist_id,
+                entity_type=(
+                    "professional_cabinet"
+                ),
+                entity_id=cabinet.id,
                 payload={
                     "source": "favorites",
+                    "specialist_id": str(
+                        specialist.id
+                    ),
                 },
                 platform="telegram",
             )

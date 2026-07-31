@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -13,6 +14,13 @@ from database.repositories.search import (
     PUBLIC_CABINET_MODERATION_STATUSES,
 )
 
+
+@dataclass(frozen=True)
+class SavedProfessionalCabinetRow:
+    specialist: Specialist
+    professional_cabinet: ProfessionalCabinet
+
+
 class FavoriteRepository:
     def __init__(
         self,
@@ -20,217 +28,43 @@ class FavoriteRepository:
     ):
         self.session = session
 
-    async def _get_public_specialist(
+    async def get_public_professional_cabinet(
         self,
         *,
         tenant_id: UUID,
-        specialist_id: UUID,
-    ) -> Specialist | None:
+        professional_cabinet_id: UUID,
+    ) -> tuple[
+        Specialist,
+        ProfessionalCabinet,
+    ] | None:
         result = await self.session.execute(
             select(
-                Specialist
+                Specialist,
+                ProfessionalCabinet,
+            )
+            .select_from(
+                ProfessionalCabinet
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
             )
             .join(
                 User,
                 User.id == Specialist.user_id,
             )
-            .join(
-                ProfessionalCabinet,
-                ProfessionalCabinet.id
-                == Specialist.active_professional_cabinet_id,
-            )
             .where(
-                Specialist.id == specialist_id,
-                Specialist.tenant_id == tenant_id,
-                Specialist.status
-                != "deleted",
-                User.tenant_id == tenant_id,
-                User.status.notin_(
-                    [
-                        "blocked",
-                        "deleted",
-                    ]
-                ),
+                ProfessionalCabinet.id
+                == professional_cabinet_id,
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
-                ProfessionalCabinet.specialist_id
-                == Specialist.id,
                 ProfessionalCabinet.is_active.is_(
                     True
                 ),
                 ProfessionalCabinet.moderation_status.in_(
                     PUBLIC_CABINET_MODERATION_STATUSES
                 ),
-            )
-        )
-
-        return result.scalar_one_or_none()
-
-    async def get_saved_specialist(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-        specialist_id: UUID,
-    ) -> SavedSpecialist | None:
-        result = await self.session.execute(
-            select(SavedSpecialist).where(
-                SavedSpecialist.tenant_id == tenant_id,
-                SavedSpecialist.user_id == user_id,
-                SavedSpecialist.specialist_id == specialist_id,
-            )
-        )
-        return result.scalar_one_or_none()
-
-    async def is_saved(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-        specialist_id: UUID,
-    ) -> bool:
-        saved = await self.get_saved_specialist(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            specialist_id=specialist_id,
-        )
-        return saved is not None
-
-    async def list_saved_specialist_ids(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-        specialist_ids: list[UUID],
-    ) -> set[UUID]:
-        if not specialist_ids:
-            return set()
-
-        result = await self.session.execute(
-            select(
-                SavedSpecialist.specialist_id
-            ).where(
-                SavedSpecialist.tenant_id == tenant_id,
-                SavedSpecialist.user_id == user_id,
-                SavedSpecialist.specialist_id.in_(
-                    specialist_ids
-                ),
-            )
-        )
-
-        return set(result.scalars().all())
-
-    async def save_specialist(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-        specialist_id: UUID,
-    ) -> bool:
-        specialist = await self._get_public_specialist(
-            tenant_id=tenant_id,
-            specialist_id=specialist_id,
-        )
-
-        if not specialist:
-            raise ValueError(
-                "Specialist is not available."
-            )
-
-        saved = await self.get_saved_specialist(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            specialist_id=specialist_id,
-        )
-        if saved:
-            return False
-
-        self.session.add(
-            SavedSpecialist(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                specialist_id=specialist_id,
-            )
-        )
-        await self.session.flush()
-
-        return True
-
-    async def toggle_specialist(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-        specialist_id: UUID,
-    ) -> bool:
-        specialist = await self._get_public_specialist(
-            tenant_id=tenant_id,
-            specialist_id=specialist_id,
-        )
-
-        if not specialist:
-            raise ValueError(
-                "Specialist is not available."
-            )
-
-        saved = await self.get_saved_specialist(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            specialist_id=specialist_id,
-        )
-
-        if saved:
-            await self.session.execute(
-                delete(SavedSpecialist).where(
-                    SavedSpecialist.id == saved.id
-                )
-            )
-            await self.session.flush()
-
-            return False
-
-        self.session.add(
-            SavedSpecialist(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                specialist_id=specialist_id,
-            )
-        )
-        await self.session.flush()
-
-        return True
-    
-    async def list_saved_specialists(
-        self,
-        *,
-        tenant_id: UUID,
-        user_id: UUID,
-        limit: int = 10,
-        offset: int = 0,
-    ) -> list[Specialist]:
-        result = await self.session.execute(
-            select(
-                Specialist
-            )
-            .join(
-                SavedSpecialist,
-                SavedSpecialist.specialist_id
-                == Specialist.id,
-            )
-            .join(
-                User,
-                User.id == Specialist.user_id,
-            )
-            .join(
-                ProfessionalCabinet,
-                ProfessionalCabinet.id
-                == Specialist.active_professional_cabinet_id,
-            )
-            .where(
-                SavedSpecialist.tenant_id
-                == tenant_id,
-                SavedSpecialist.user_id
-                == user_id,
                 Specialist.tenant_id
                 == tenant_id,
                 Specialist.status
@@ -243,15 +77,254 @@ class FavoriteRepository:
                         "deleted",
                     ]
                 ),
+            )
+        )
+
+        row = result.first()
+
+        if not row:
+            return None
+
+        specialist, cabinet = row
+        return specialist, cabinet
+
+    async def get_saved_professional_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> SavedSpecialist | None:
+        result = await self.session.execute(
+            select(
+                SavedSpecialist
+            ).where(
+                SavedSpecialist.tenant_id
+                == tenant_id,
+                SavedSpecialist.user_id
+                == user_id,
+                SavedSpecialist.professional_cabinet_id
+                == professional_cabinet_id,
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def is_saved(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> bool:
+        saved = await (
+            self.get_saved_professional_cabinet(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        return saved is not None
+
+    async def list_saved_professional_cabinet_ids(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_ids: list[UUID],
+    ) -> set[UUID]:
+        if not professional_cabinet_ids:
+            return set()
+
+        result = await self.session.execute(
+            select(
+                SavedSpecialist
+                .professional_cabinet_id
+            ).where(
+                SavedSpecialist.tenant_id
+                == tenant_id,
+                SavedSpecialist.user_id
+                == user_id,
+                SavedSpecialist
+                .professional_cabinet_id.in_(
+                    professional_cabinet_ids
+                ),
+            )
+        )
+
+        return set(
+            result.scalars().all()
+        )
+
+    async def save_professional_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> bool:
+        context = await (
+            self.get_public_professional_cabinet(
+                tenant_id=tenant_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        if not context:
+            raise ValueError(
+                "Professional cabinet is not available."
+            )
+
+        specialist, cabinet = context
+
+        saved = await (
+            self.get_saved_professional_cabinet(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+            )
+        )
+
+        if saved:
+            return False
+
+        self.session.add(
+            SavedSpecialist(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+                specialist_id=specialist.id,
+            )
+        )
+        await self.session.flush()
+
+        return True
+
+    async def toggle_professional_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> bool:
+        context = await (
+            self.get_public_professional_cabinet(
+                tenant_id=tenant_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        if not context:
+            raise ValueError(
+                "Professional cabinet is not available."
+            )
+
+        specialist, cabinet = context
+
+        saved = await (
+            self.get_saved_professional_cabinet(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+            )
+        )
+
+        if saved:
+            await self.session.execute(
+                delete(
+                    SavedSpecialist
+                ).where(
+                    SavedSpecialist.id
+                    == saved.id
+                )
+            )
+            await self.session.flush()
+            return False
+
+        self.session.add(
+            SavedSpecialist(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+                specialist_id=specialist.id,
+            )
+        )
+        await self.session.flush()
+
+        return True
+
+    async def list_saved_professional_cabinets(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[
+        SavedProfessionalCabinetRow
+    ]:
+        result = await self.session.execute(
+            select(
+                Specialist,
+                ProfessionalCabinet,
+            )
+            .select_from(
+                SavedSpecialist
+            )
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == SavedSpecialist
+                .professional_cabinet_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
+            .where(
+                SavedSpecialist.tenant_id
+                == tenant_id,
+                SavedSpecialist.user_id
+                == user_id,
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
-                ProfessionalCabinet.specialist_id
-                == Specialist.id,
                 ProfessionalCabinet.is_active.is_(
                     True
                 ),
                 ProfessionalCabinet.moderation_status.in_(
                     PUBLIC_CABINET_MODERATION_STATUSES
+                ),
+                Specialist.tenant_id
+                == tenant_id,
+                Specialist.status
+                != "deleted",
+                User.tenant_id
+                == tenant_id,
+                User.status.notin_(
+                    [
+                        "blocked",
+                        "deleted",
+                    ]
                 ),
             )
             .order_by(
@@ -261,29 +334,41 @@ class FavoriteRepository:
             .offset(offset)
         )
 
-        return list(
-            result.scalars().all()
-        )
+        return [
+            SavedProfessionalCabinetRow(
+                specialist=specialist,
+                professional_cabinet=cabinet,
+            )
+            for specialist, cabinet
+            in result.all()
+        ]
 
-    async def remove_specialist(
+    async def remove_professional_cabinet(
         self,
         *,
         tenant_id: UUID,
         user_id: UUID,
-        specialist_id: UUID,
+        professional_cabinet_id: UUID,
     ) -> bool:
-        saved = await self.get_saved_specialist(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            specialist_id=specialist_id,
+        saved = await (
+            self.get_saved_professional_cabinet(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
         )
 
         if not saved:
             return False
 
         await self.session.execute(
-            delete(SavedSpecialist).where(
-                SavedSpecialist.id == saved.id
+            delete(
+                SavedSpecialist
+            ).where(
+                SavedSpecialist.id
+                == saved.id
             )
         )
         await self.session.flush()

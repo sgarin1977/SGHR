@@ -1422,13 +1422,26 @@ def format_complaint_queue_item(
         else ""
     )
 
+    conversation_context = (
+        "\n"
+        + t(
+            "moderator_complaint_conversation_context",
+            language,
+        )
+        if card.has_conversation_context
+        else ""
+    )
+
     return t(
         "moderator_complaint_queue_item",
         language,
     ).format(
         number=number,
         reporter=card.reporter_label,
-        target=card.target_label,
+        target=(
+            card.target_label
+            + conversation_context
+        ),
         reason=card.reason,
         status=card.status,
         date=created_at,
@@ -4912,7 +4925,10 @@ def format_complaint_card(
 ) -> str:
     comment = (
         card.comment
-        or t("admin_no_comment", language)
+        or t(
+            "admin_no_comment",
+            language,
+        )
     )
 
     history = (
@@ -4922,6 +4938,73 @@ def format_complaint_card(
             "moderator_complaint_history_empty",
             language,
         )
+    )
+
+    target_type_labels = {
+        "specialist": t(
+            "complaint_target_specialist",
+            language,
+        ),
+        "professional_cabinet": t(
+            "complaint_target_professional_cabinet",
+            language,
+        ),
+        "user": t(
+            "complaint_target_user",
+            language,
+        ),
+        "message": t(
+            "complaint_target_message",
+            language,
+        ),
+        "thread": t(
+            "complaint_target_dialog",
+            language,
+        ),
+        "contact_request": t(
+            "complaint_target_contact_request",
+            language,
+        ),
+        "review": t(
+            "complaint_target_review",
+            language,
+        ),
+        "portfolio_item": t(
+            "complaint_target_portfolio",
+            language,
+        ),
+    }
+    target_type_label = (
+        target_type_labels.get(
+            card.target_type,
+            card.target_type.replace(
+                "_",
+                " ",
+            ).title(),
+        )
+    )
+
+    reason_labels = {
+        "fake": t(
+            "complaint_reason_fake",
+            language,
+        ),
+        "contact": t(
+            "complaint_reason_contact",
+            language,
+        ),
+        "abuse": t(
+            "complaint_reason_abuse",
+            language,
+        ),
+        "other": t(
+            "complaint_reason_other",
+            language,
+        ),
+    }
+    reason_label = reason_labels.get(
+        card.reason,
+        card.reason,
     )
 
     escalation = ""
@@ -4934,7 +5017,15 @@ def format_complaint_card(
                 language,
             )
         )
-
+    conversation_context = (
+        "\n"
+        + t(
+            "moderator_complaint_conversation_context",
+            language,
+        )
+        if card.has_conversation_context
+        else ""
+    )
     return t(
         "moderator_complaint_card",
         language,
@@ -4942,15 +5033,21 @@ def format_complaint_card(
         index=index + 1,
         total=total,
         reporter=card.reporter_label,
-        target=card.target_label,
-        target_type=card.target_type,
+        target=(
+            card.target_label
+            + conversation_context
+        ),
+        target_type=target_type_label,
         status=card.status,
-        reason=card.reason,
+        reason=reason_label,
         comment=comment,
-        date=card.created_at.strftime("%Y-%m-%d"),
+        date=card.created_at.strftime(
+            "%Y-%m-%d"
+        ),
         history=history,
         escalation=escalation,
     )
+
 def format_review_card(
     card: ReviewModerationCard,
     *,

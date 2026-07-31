@@ -239,6 +239,7 @@ class ModeratorComplaintQueueCard:
     status: str
     created_at: object
     is_assigned: bool
+    has_conversation_context: bool
     requires_admin_escalation: bool
 
 @dataclass(frozen=True)
@@ -355,6 +356,7 @@ class ModeratorComplaintCard:
     comment: str | None
     status: str
     created_at: object
+    has_conversation_context: bool
     requires_admin_escalation: bool
     history: tuple[str, ...]
 
@@ -2355,6 +2357,54 @@ class ModerationService:
             message=message,
         )
 
+    async def resolve_thread_complaint_target(
+        self,
+        *,
+        tenant_id: UUID,
+        reporter_user_id: UUID,
+        thread_id: UUID,
+    ) -> tuple[str, UUID, UUID]:
+        try:
+            participants = await (
+                self.repository
+                .get_complaint_thread_participants(
+                    tenant_id=tenant_id,
+                    thread_id=thread_id,
+                    reporter_user_id=(
+                        reporter_user_id
+                    ),
+                )
+            )
+        except ModerationNotFoundError as exc:
+            raise ModerationError(
+                str(exc)
+            ) from exc
+
+        if (
+            reporter_user_id
+            == participants.client_user_id
+        ):
+            return (
+                "specialist",
+                participants.specialist_id,
+                participants.conversation_thread_id,
+            )
+
+        if (
+            reporter_user_id
+            == participants.specialist_user_id
+        ):
+            return (
+                "user",
+                participants.client_user_id,
+                participants.conversation_thread_id,
+            )
+
+        raise ModerationError(
+            "Complaint reporter is not a "
+            "conversation participant."
+        )
+
     async def create_complaint(
         self,
         *,
@@ -2364,49 +2414,124 @@ class ModerationService:
         target_id: UUID,
         reason: str,
         comment: str | None = None,
+        conversation_thread_id: (
+            UUID | None
+        ) = None,
     ) -> Complaint:
-        normalized_reason = self._require_reason(reason)
-        normalized_target_type = self._normalize_target_type(target_type)
-        normalized_comment = (comment or "").strip() or None
+        normalized_reason = (
+            self._require_reason(
+                reason
+            )
+        )
+        normalized_target_type = (
+            self._normalize_target_type(
+                target_type
+            )
+        )
+        normalized_comment = (
+            (comment or "").strip()
+            or None
+        )
 
-        if normalized_reason == "other" and not normalized_comment:
+        professional_cabinet_id = (
+            target_id
+            if (
+                normalized_target_type
+                == "professional_cabinet"
+            )
+            else None
+        )
+        if (
+            conversation_thread_id
+            and normalized_target_type
+            not in {
+                "user",
+                "specialist",
+            }
+        ):
             raise ModerationError(
-                "Comment is required for the other complaint reason."
+                "Conversation context is only "
+                "allowed for user complaints."
+            )
+        if (
+            normalized_reason == "other"
+            and not normalized_comment
+        ):
+            raise ModerationError(
+                "Comment is required for the "
+                "other complaint reason."
             )
 
         if self.rate_limit_service is not None:
             try:
-                await self.rate_limit_service.ensure_complaint_allowed(
-                    tenant_id=tenant_id,
-                    user_id=reporter_user_id,
+                await (
+                    self.rate_limit_service
+                    .ensure_complaint_allowed(
+                        tenant_id=tenant_id,
+                        user_id=(
+                            reporter_user_id
+                        ),
+                    )
                 )
             except RateLimitError as exc:
-                raise ModerationError(str(exc)) from exc
+                raise ModerationError(
+                    str(exc)
+                ) from exc
 
-        has_duplicate = await self.repository.has_active_complaint(
-            tenant_id=tenant_id,
-            reporter_user_id=reporter_user_id,
-            target_type=normalized_target_type,
-            target_id=target_id,
-            reason=normalized_reason,
+        has_duplicate = await (
+            self.repository
+            .has_active_complaint(
+                tenant_id=tenant_id,
+                reporter_user_id=(
+                    reporter_user_id
+                ),
+                target_type=(
+                    normalized_target_type
+                ),
+                target_id=target_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+
+                reason=normalized_reason,
+            )
         )
         if has_duplicate:
             raise ModerationError(
-                "An active complaint with this reason already exists."
+                "An active complaint with this "
+                "reason already exists."
             )
 
         try:
-            complaint = await self.repository.create_complaint(
-                tenant_id=tenant_id,
-                reporter_user_id=reporter_user_id,
-                target_type=normalized_target_type,
-                target_id=target_id,
-                reason=normalized_reason,
-                comment=normalized_comment,
+            complaint = await (
+                self.repository
+                .create_complaint(
+                    tenant_id=tenant_id,
+                    reporter_user_id=(
+                        reporter_user_id
+                    ),
+                    target_type=(
+                        normalized_target_type
+                    ),
+                    target_id=target_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                    conversation_thread_id=(
+                        conversation_thread_id
+                    ),
+                    reason=normalized_reason,
+                    comment=normalized_comment,
+                )
             )
-            await self.repository.session.commit()
+            await (
+                self.repository.session.commit()
+            )
+
         except Exception:
-            await self.repository.session.rollback()
+            await (
+                self.repository.session.rollback()
+            )
             raise
 
         return complaint
@@ -2463,10 +2588,21 @@ class ModerationService:
 
             for item in items:
                 target_label, requires_admin_escalation = (
-                    await self.repository.get_complaint_target_context(
-                        tenant_id=tenant_id,
-                        target_type=item.target_type,
-                        target_id=item.target_id,
+                    await (
+                        self.repository
+                        .get_complaint_target_context(
+                            tenant_id=tenant_id,
+                            target_type=(
+                                item.target_type
+                            ),
+                            target_id=(
+                                item.target_id
+                            ),
+                            professional_cabinet_id=(
+                                item
+                                .professional_cabinet_id
+                            ),
+                        )
                     )
                 )
 
@@ -2486,6 +2622,10 @@ class ModerationService:
                         created_at=item.created_at,
                         is_assigned=(
                             item.reviewed_by is not None
+                        ),
+                        has_conversation_context=(
+                            item.conversation_thread_id
+                            is not None
                         ),
                         requires_admin_escalation=(
                             requires_admin_escalation
@@ -2582,6 +2722,10 @@ class ModerationService:
             comment=details.comment,
             status=details.status,
             created_at=details.created_at,
+            has_conversation_context=(
+                details.conversation_thread_id
+                is not None
+            ),
             requires_admin_escalation=(
                 details.requires_admin_escalation
             ),
@@ -4103,16 +4247,26 @@ class ModerationService:
             raise ModerationError("Reason is required.")
         return normalized[:500]
 
-    def _normalize_target_type(self, target_type: str) -> str:
-        normalized = (target_type or "").strip().lower()
+    def _normalize_target_type(
+        self,
+        target_type: str,
+    ) -> str:
+        normalized = (
+            target_type
+            or ""
+        ).strip().lower()
+
         if normalized not in {
             "specialist",
+            "professional_cabinet",
             "user",
             "message",
-            "thread",
             "contact_request",
             "review",
             "portfolio_item",
         }:
-            raise ModerationError("Unsupported complaint target type.")
+            raise ModerationError(
+                "Unsupported complaint target type."
+            )
+
         return normalized

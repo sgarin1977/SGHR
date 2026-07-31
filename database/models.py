@@ -593,12 +593,56 @@ class SpecialistLocation(Base):
 
 class SavedSpecialist(Base):
     __tablename__ = "saved_specialists"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "user_id",
+            "professional_cabinet_id",
+            name=(
+                "saved_specialists_"
+                "tenant_user_cabinet_key"
+            ),
+        ),
+    )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id", ondelete="CASCADE"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    professional_cabinet_id: Mapped[
+        uuid.UUID
+    ] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    specialist_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "specialists.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
 
 class Language(Base):
     __tablename__ = "languages"
@@ -963,18 +1007,80 @@ class AbuseEvent(Base):
 class Complaint(Base):
     __tablename__ = "complaints"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
-    reporter_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    target_type: Mapped[str] = mapped_column(Text, nullable=False)
-    target_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
-    reason: Mapped[str] = mapped_column(Text, nullable=False)
-    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(Text, default="new")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    reporter_user_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+    target_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    target_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    professional_cabinet_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    conversation_thread_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "conversation_threads.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    reason: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    comment: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="new",
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+    reviewed_by: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+    reviewed_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
 class Review(Base):
     __tablename__ = "reviews"
 
