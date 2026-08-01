@@ -267,19 +267,44 @@ class BillingService:
             await self.repository.session.rollback()
             raise
 
-    def get_manual_payment_instructions(self, language: str) -> str:
-        normalized_language = language if language in {"ru", "en", "pt"} else "ru"
-        env_key = f"MANUAL_PAYMENT_INSTRUCTIONS_{normalized_language.upper()}"
+    def get_manual_payment_instructions(
+        self,
+        language: str,
+    ) -> str:
+        normalized_language = (
+            language
+            if language in {
+                "ru",
+                "en",
+                "pt",
+                "uk",
+            }
+            else "ru"
+        )
 
-        value = (os.getenv(env_key) or "").strip()
+        env_key = (
+            "MANUAL_PAYMENT_INSTRUCTIONS_"
+            f"{normalized_language.upper()}"
+        )
+
+        value = (
+            os.getenv(env_key) or ""
+        ).strip()
+
         if value:
             return value
 
-        fallback = (os.getenv("MANUAL_PAYMENT_INSTRUCTIONS_RU") or "").strip()
+        fallback = (
+            os.getenv(
+                "MANUAL_PAYMENT_INSTRUCTIONS_RU"
+            )
+            or ""
+        ).strip()
+
         if fallback:
             return fallback
 
-        return {
+        default_instructions = {
             "ru": (
                 "Реквизиты оплаты пока не настроены. "
                 "Свяжитесь с администратором SGHR Beta."
@@ -292,7 +317,15 @@ class BillingService:
                 "As instruções de pagamento manual ainda não estão configuradas. "
                 "Entre em contato com o administrador do SGHR Beta."
             ),
-        }[normalized_language]
+            "uk": (
+                "Реквізити для оплати ще не налаштовані. "
+                "Зверніться до адміністратора SGHR Beta."
+            ),
+        }
+
+        return default_instructions[
+            normalized_language
+        ]
 
     def get_manual_payment_approval_threshold_eur(self) -> Decimal:
         raw_value = (os.getenv("MANUAL_PAYMENT_APPROVAL_THRESHOLD_EUR") or "100").strip()

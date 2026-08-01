@@ -2674,6 +2674,7 @@ class SpecialistService:
             "ru",
             "en",
             "pt",
+            "uk",
         }
 
         normalized_code = (
@@ -2754,33 +2755,75 @@ class SpecialistService:
         specialist_id: UUID,
         language_codes: list[str],
     ):
+        allowed_codes = {
+            "ru",
+            "en",
+            "pt",
+            "uk",
+        }
+
         selected = [
             item.strip().lower()
             for item in language_codes
-            if item and item.strip().lower() in {"ru", "en", "pt"}
+            if (
+                item
+                and item.strip().lower()
+                in allowed_codes
+            )
         ]
 
-        selected = list(dict.fromkeys(selected))
-
-        if not selected:
-            raise SpecialistRegistrationError("At least one language is required.")
-
-        specialist = await self.repository.get_by_user_id(user_id)
-        if not specialist or specialist.id != specialist_id:
-            raise SpecialistRegistrationError("Specialist profile not found.")
-
-        before_languages = await self.repository.list_specialist_language_codes(
-            specialist_id=specialist_id,
+        selected = list(
+            dict.fromkeys(selected)
         )
 
-        if sorted(before_languages) == sorted(selected):
-            return before_languages, selected, False
+        if not selected:
+            raise SpecialistRegistrationError(
+                "At least one language is required."
+            )
+
+        specialist = await (
+            self.repository
+            .get_by_user_id(
+                user_id
+            )
+        )
+
+        if (
+            not specialist
+            or specialist.id
+            != specialist_id
+        ):
+            raise SpecialistRegistrationError(
+                "Specialist profile not found."
+            )
+
+        before_languages = await (
+            self.repository
+            .list_specialist_language_codes(
+                specialist_id=specialist_id,
+            )
+        )
+
+        if (
+            sorted(before_languages)
+            == sorted(selected)
+        ):
+            return (
+                before_languages,
+                selected,
+                False,
+            )
 
         try:
-            await self.repository.replace_specialist_languages(
-                user_id=user_id,
-                specialist_id=specialist_id,
-                language_codes=selected,
+            await (
+                self.repository
+                .replace_specialist_languages(
+                    user_id=user_id,
+                    specialist_id=(
+                        specialist_id
+                    ),
+                    language_codes=selected,
+                )
             )
 
             await EventRepository(
@@ -2793,19 +2836,33 @@ class SpecialistService:
                 entity_id=specialist_id,
                 payload={
                     "field": "languages",
-                    "before": before_languages,
+                    "before": (
+                        before_languages
+                    ),
                     "after": selected,
                 },
                 platform="telegram",
             )
 
-            await self.repository.session.commit()
+            await (
+                self.repository
+                .session
+                .commit()
+            )
 
         except Exception:
-            await self.repository.session.rollback()
+            await (
+                self.repository
+                .session
+                .rollback()
+            )
             raise
 
-        return before_languages, selected, True
+        return (
+            before_languages,
+            selected,
+            True,
+        )
 
     async def get_skills_for_editing(
         self,

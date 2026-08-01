@@ -22,34 +22,72 @@ def translation_settings_keyboard(
     show_original_button: bool,
 ) -> InlineKeyboardMarkup:
     original_text = (
-        t("settings_show_original_on", language)
+        t(
+            "settings_show_original_on",
+            language,
+        )
         if show_original_button
-        else t("settings_show_original_off", language)
+        else t(
+            "settings_show_original_off",
+            language,
+        )
     )
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("settings_interface_language_label", language),
+                    text=t(
+                        "settings_interface_language_label",
+                        language,
+                    ),
                     callback_data="SET_NOOP",
                 )
-            ],
-            [
-                InlineKeyboardButton(text="RU", callback_data="SET_UI_LANG:ru"),
-                InlineKeyboardButton(text="EN", callback_data="SET_UI_LANG:en"),
-                InlineKeyboardButton(text="PT", callback_data="SET_UI_LANG:pt"),
             ],
             [
                 InlineKeyboardButton(
-                    text=t("settings_message_language_label", language),
+                    text="RU",
+                    callback_data="SET_UI_LANG:ru",
+                ),
+                InlineKeyboardButton(
+                    text="EN",
+                    callback_data="SET_UI_LANG:en",
+                ),
+                InlineKeyboardButton(
+                    text="PT",
+                    callback_data="SET_UI_LANG:pt",
+                ),
+                InlineKeyboardButton(
+                    text="UK",
+                    callback_data="SET_UI_LANG:uk",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "settings_message_language_label",
+                        language,
+                    ),
                     callback_data="SET_NOOP",
                 )
             ],
             [
-                InlineKeyboardButton(text="RU", callback_data="SET_MSG_LANG:ru"),
-                InlineKeyboardButton(text="EN", callback_data="SET_MSG_LANG:en"),
-                InlineKeyboardButton(text="PT", callback_data="SET_MSG_LANG:pt"),
+                InlineKeyboardButton(
+                    text="RU",
+                    callback_data="SET_MSG_LANG:ru",
+                ),
+                InlineKeyboardButton(
+                    text="EN",
+                    callback_data="SET_MSG_LANG:en",
+                ),
+                InlineKeyboardButton(
+                    text="PT",
+                    callback_data="SET_MSG_LANG:pt",
+                ),
+                InlineKeyboardButton(
+                    text="UK",
+                    callback_data="SET_MSG_LANG:uk",
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -59,13 +97,19 @@ def translation_settings_keyboard(
             ],
             [
                 InlineKeyboardButton(
-                    text=t("billing_back", language),
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
                     callback_data="M_SETTINGS",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_menu", language),
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
                     callback_data="SET_MAIN_MENU",
                 )
             ],

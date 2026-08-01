@@ -227,7 +227,15 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-        }.get(language) or row.name_ru or row.name_en or row.name_pt or row.name
+            "uk": row.name_ru,
+        }.get(
+            language
+        ) or (
+            row.name_ru
+            or row.name_en
+            or row.name_pt
+            or row.name
+        )
 
         release = None
         if row.metadata:
@@ -248,6 +256,11 @@ class DictionaryService:
                 "active": "Ativa",
                 "hidden": "Oculta",
                 "archived": "Arquivada",
+            },
+            "uk": {
+                "active": "Активна",
+                "hidden": "Прихована",
+                "archived": "Архів",
             },
         }
 
@@ -1098,10 +1111,43 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-        }.get(language) or row.name
+            "uk": row.name_ru,
+        }.get(
+            language
+        ) or row.name
 
-        status_code = "active" if row.is_active else "hidden"
-        status = "Активна" if row.is_active else "Скрыта"
+        status_code = (
+            "active"
+            if row.is_active
+            else "hidden"
+        )
+
+        status_labels = {
+            "ru": {
+                "active": "Активна",
+                "hidden": "Скрыта",
+            },
+            "en": {
+                "active": "Active",
+                "hidden": "Hidden",
+            },
+            "pt": {
+                "active": "Ativa",
+                "hidden": "Oculta",
+            },
+            "uk": {
+                "active": "Активна",
+                "hidden": "Прихована",
+            },
+        }
+
+        status = status_labels.get(
+            language,
+            status_labels["ru"],
+        ).get(
+            status_code,
+            status_code,
+        )
 
         return AdminCountryDictionaryCard(
             country_id=row.country_id,
@@ -1465,10 +1511,43 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-        }.get(language) or row.name
+            "uk": row.name_ru,
+        }.get(
+            language
+        ) or row.name
 
-        status_code = "active" if row.is_active else "hidden"
-        status = "Активен" if row.is_active else "Скрыт"
+        status_code = (
+            "active"
+            if row.is_active
+            else "hidden"
+        )
+
+        status_labels = {
+            "ru": {
+                "active": "Активен",
+                "hidden": "Скрыт",
+            },
+            "en": {
+                "active": "Active",
+                "hidden": "Hidden",
+            },
+            "pt": {
+                "active": "Ativa",
+                "hidden": "Oculta",
+            },
+            "uk": {
+                "active": "Активне",
+                "hidden": "Приховане",
+            },
+        }
+
+        status = status_labels.get(
+            language,
+            status_labels["ru"],
+        ).get(
+            status_code,
+            status_code,
+        )
 
         return AdminCityDictionaryCard(
             city_id=row.city_id,
@@ -1983,7 +2062,15 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-        }.get(language) or row.name_ru or row.name_en or row.name_pt or row.name
+            "uk": row.name_ru,
+        }.get(
+            language
+        ) or (
+            row.name_ru
+            or row.name_en
+            or row.name_pt
+            or row.name
+        )
 
         release = None
         if row.metadata:
@@ -2009,6 +2096,11 @@ class DictionaryService:
                 "active": "Ativo",
                 "hidden": "Oculto",
                 "archived": "Arquivado",
+            },
+            "uk": {
+                "active": "Активна",
+                "hidden": "Прихована",
+                "archived": "Архів",
             },
         }
 
@@ -3297,7 +3389,15 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-        }.get(language) or row.name_ru or row.name_en or row.name_pt or row.name
+            "uk": row.name_ru,
+        }.get(
+            language
+        ) or (
+            row.name_ru
+            or row.name_en
+            or row.name_pt
+            or row.name
+        )
 
         status_code = "active" if row.is_active else "hidden"
 
@@ -3313,6 +3413,10 @@ class DictionaryService:
             "pt": {
                 "active": "Ativo",
                 "hidden": "Oculto",
+            },
+            "uk": {
+                "active": "Активна",
+                "hidden": "Прихована",
             },
         }
 

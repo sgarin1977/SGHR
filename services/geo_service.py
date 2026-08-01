@@ -214,5 +214,20 @@ class GeoService:
             await self.repository.session.rollback()
             raise
 
-    def _normalize_language(self, language: str | None) -> str:
-        return language if language in {"ru", "en", "pt"} else "ru"
+    def _normalize_language(
+        self,
+        language: str | None,
+    ) -> str:
+        normalized_language = (
+            language or ""
+        ).strip().lower()
+
+        if normalized_language in {
+            "ru",
+            "en",
+            "pt",
+            "uk",
+        }:
+            return normalized_language
+
+        return "ru"

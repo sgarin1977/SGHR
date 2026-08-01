@@ -25,8 +25,17 @@ CB_SPECIALIST_START_CONFIRM = "SS_START_CONFIRM"
 CB_SPECIALIST_START_CANCEL = "SS_START_CANCEL"
 
 def normalize_language(language_code: str | None) -> str:
-    if language_code in {"ru", "en", "pt"}:
-        return language_code
+    normalized_language = (
+        language_code or ""
+    ).strip().lower()
+
+    if normalized_language in {
+        "ru",
+        "en",
+        "pt",
+        "uk",
+    }:
+        return normalized_language
 
     return "ru"
 

@@ -16,7 +16,12 @@ from database.models import (
 )
 
 
-SUPPORTED_TRANSLATION_LANGUAGES = {"ru", "en", "pt"}
+SUPPORTED_TRANSLATION_LANGUAGES = {
+    "ru",
+    "en",
+    "pt",
+    "uk",
+}
 
 
 def normalize_translation_language(language: str | None) -> str:

@@ -17,8 +17,17 @@ start_router = Router()
 
 
 def normalize_language(language_code: str | None) -> str:
-    if language_code in {"ru", "en", "pt"}:
-        return language_code
+    normalized_language = (
+        language_code or ""
+    ).strip().lower()
+
+    if normalized_language in {
+        "ru",
+        "en",
+        "pt",
+        "uk",
+    }:
+        return normalized_language
 
     return "ru"
 
@@ -264,6 +273,7 @@ def get_main_menu_keyboard(
     *,
     show_role_switch: bool = False,
     show_admin: bool = False,
+    dialogs_callback_data: str = "CLIENT_DIALOGS",
 ) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -281,8 +291,13 @@ def get_main_menu_keyboard(
             ],
             [
                 InlineKeyboardButton(
-                    text=t("menu_dialogs", language),
-                    callback_data="CLIENT_DIALOGS",
+                    text=t(
+                        "menu_dialogs",
+                        language,
+                    ),
+                    callback_data=(
+                        dialogs_callback_data
+                    ),
                 )
             ],
             [
@@ -342,17 +357,45 @@ async def get_main_menu_keyboard_for_user(
 ) -> InlineKeyboardMarkup:
     async with get_session() as session:
         service = UserService(session)
-        context = await service.get_role_switch_context(telegram_id)
+        context = (
+            await service.get_role_switch_context(
+                telegram_id
+            )
+        )
 
-    available_roles = set(context.available_roles) if context else set()
+    available_roles = (
+        set(context.available_roles)
+        if context
+        else set()
+    )
+    dialogs_callback_data = (
+        "SPEC_DIALOGS"
+        if (
+            context
+            and context.active_role
+            == "specialist"
+        )
+        else "CLIENT_DIALOGS"
+    )
 
     return get_main_menu_keyboard(
         language,
         show_role_switch=bool(
-            context and len(context.available_roles) > 1
+            context
+            and len(
+                context.available_roles
+            ) > 1
         ),
         show_admin=bool(
-            available_roles.intersection({"admin", "super_admin"})
+            available_roles.intersection(
+                {
+                    "admin",
+                    "super_admin",
+                }
+            )
+        ),
+        dialogs_callback_data=(
+            dialogs_callback_data
         ),
     )
 
@@ -664,7 +707,9 @@ def all_services_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-@start_router.callback_query(F.data == "M_ALL_SERVICES")
+@start_router.callback_query(
+    F.data == "M_ALL_SERVICES"
+)
 async def open_all_services(
     callback: CallbackQuery,
     state: FSMContext,
@@ -673,21 +718,52 @@ async def open_all_services(
         callback.from_user.language_code
     )
 
+    async with get_session() as session:
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            callback.from_user.id
+        )
+
+        if user:
+            settings = await (
+                TranslationRepository(
+                    session
+                )
+                .get_language_settings(
+                    user.id
+                )
+            )
+
+            language = normalize_language(
+                settings.interface_language
+                or user.language_code
+            )
+
+            await session.commit()
+
     await callback.answer()
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=(
-            f"{t('all_services_title', language)}\n\n"
-            f"{t('all_services_hint', language)}"
-        ),
-        reply_markup=all_services_keyboard(
-            language
-        ),
+    menu_message = await (
+        edit_or_replace_menu_message(
+            callback=callback,
+            text=(
+                f"{t('all_services_title', language)}"
+                "\n\n"
+                f"{t('all_services_hint', language)}"
+            ),
+            reply_markup=(
+                all_services_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 @start_router.callback_query(F.data == "M_SPECIALIST")

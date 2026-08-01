@@ -303,14 +303,28 @@ class UserService:
         user_id: uuid.UUID,
         language_code: str,
     ) -> User:
-        normalized_language = (language_code or "ru").strip().lower()
+        normalized_language = (
+            language_code or "ru"
+        ).strip().lower()
 
-        if normalized_language not in {"ru", "en", "pt"}:
-            raise ValueError("Unsupported language.")
+        if normalized_language not in {
+            "ru",
+            "en",
+            "pt",
+            "uk",
+        }:
+            raise ValueError(
+                "Unsupported language."
+            )
 
-        return await self.repository.update_language_code(
-            user_id=user_id,
-            language_code=normalized_language,
+        return await (
+            self.repository
+            .update_language_code(
+                user_id=user_id,
+                language_code=(
+                    normalized_language
+                ),
+            )
         )
 
     async def get_role_switch_context(

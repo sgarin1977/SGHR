@@ -2387,33 +2387,65 @@ def profile_languages_keyboard(
     language: str,
 ) -> InlineKeyboardMarkup:
     def marker(code: str) -> str:
-        return "✓ " if code in selected else ""
+        return (
+            "✓ "
+            if code in selected
+            else ""
+        )
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{marker('ru')}RU",
-                    callback_data="CAB_LANG_TOGGLE:ru",
+                    text=(
+                        f"{marker('ru')}RU"
+                    ),
+                    callback_data=(
+                        "CAB_LANG_TOGGLE:ru"
+                    ),
                 ),
                 InlineKeyboardButton(
-                    text=f"{marker('en')}EN",
-                    callback_data="CAB_LANG_TOGGLE:en",
+                    text=(
+                        f"{marker('en')}EN"
+                    ),
+                    callback_data=(
+                        "CAB_LANG_TOGGLE:en"
+                    ),
                 ),
                 InlineKeyboardButton(
-                    text=f"{marker('pt')}PT",
-                    callback_data="CAB_LANG_TOGGLE:pt",
+                    text=(
+                        f"{marker('pt')}PT"
+                    ),
+                    callback_data=(
+                        "CAB_LANG_TOGGLE:pt"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=(
+                        f"{marker('uk')}UK"
+                    ),
+                    callback_data=(
+                        "CAB_LANG_TOGGLE:uk"
+                    ),
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=t("spec_profession_done_btn", language),
-                    callback_data="CAB_LANG_DONE",
+                    text=t(
+                        "spec_profession_done_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "CAB_LANG_DONE"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("billing_back", language),
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
                     callback_data="M_SPECIALIST",
                 )
             ],
@@ -2425,10 +2457,24 @@ def format_profile_languages_text(
     language: str,
 ) -> str:
     language_names = {
-        "ru": t("search_language_ru", language),
-        "en": t("search_language_en", language),
-        "pt": t("search_language_pt", language),
+        "ru": t(
+            "search_language_ru",
+            language,
+        ),
+        "en": t(
+            "search_language_en",
+            language,
+        ),
+        "pt": t(
+            "search_language_pt",
+            language,
+        ),
+        "uk": t(
+            "search_language_uk",
+            language,
+        ),
     }
+
     selected_text = ", ".join(
         language_names[code]
         for code in selected
@@ -2436,8 +2482,14 @@ def format_profile_languages_text(
     )
 
     lines = [
-        t("specialist_languages_title", language),
-        t("specialist_languages_hint", language),
+        t(
+            "specialist_languages_title",
+            language,
+        ),
+        t(
+            "specialist_languages_hint",
+            language,
+        ),
     ]
 
     if selected_text:
@@ -2447,7 +2499,9 @@ def format_profile_languages_text(
                 t(
                     "specialist_languages_selected",
                     language,
-                ).format(languages=selected_text),
+                ).format(
+                    languages=selected_text,
+                ),
             ]
         )
 
@@ -3375,37 +3429,69 @@ def format_features_text(features: list[PaidFeature], language: str) -> str:
 
     return "\n".join(lines).strip()
 
-def billing_status_label(status: str | None, language: str) -> str:
+def billing_status_label(
+    status: str | None,
+    language: str,
+) -> str:
     labels = {
         "pending": {
             "ru": "Ожидает оплаты",
             "en": "Waiting for payment",
             "pt": "Aguardando pagamento",
+            "uk": "Очікує оплати",
         },
         "claimed": {
-            "ru": "Оплата отправлена на проверку",
-            "en": "Payment sent for review",
-            "pt": "Pagamento enviado para revisão",
+            "ru": (
+                "Оплата отправлена на проверку"
+            ),
+            "en": (
+                "Payment sent for review"
+            ),
+            "pt": (
+                "Pagamento enviado para revisão"
+            ),
+            "uk": (
+                "Оплату надіслано на перевірку"
+            ),
         },
         "paid": {
             "ru": "Оплачено",
             "en": "Paid",
             "pt": "Pago",
+            "uk": "Оплачено",
         },
         "cancelled": {
             "ru": "Отменено",
             "en": "Cancelled",
             "pt": "Cancelado",
+            "uk": "Скасовано",
         },
         "failed": {
             "ru": "Не удалось оплатить",
             "en": "Payment failed",
             "pt": "Falha no pagamento",
+            "uk": "Не вдалося оплатити",
         },
     }
 
-    normalized_language = language if language in {"ru", "en", "pt"} else "ru"
-    return labels.get(status or "", {}).get(normalized_language, "")
+    normalized_language = (
+        language
+        if language in {
+            "ru",
+            "en",
+            "pt",
+            "uk",
+        }
+        else "ru"
+    )
+
+    return labels.get(
+        status or "",
+        {},
+    ).get(
+        normalized_language,
+        "",
+    )
 
 def format_invoice_text(
     invoice: Invoice,
@@ -5837,50 +5923,112 @@ def specialist_language_settings_keyboard(
     show_original_button: bool,
 ) -> InlineKeyboardMarkup:
     original_text = (
-        t("settings_show_original_on", language)
+        t(
+            "settings_show_original_on",
+            language,
+        )
         if show_original_button
-        else t("settings_show_original_off", language)
+        else t(
+            "settings_show_original_off",
+            language,
+        )
     )
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("settings_interface_language_label", language),
+                    text=t(
+                        "settings_interface_language_label",
+                        language,
+                    ),
                     callback_data="SET_NOOP",
                 )
-            ],
-            [
-                InlineKeyboardButton(text="RU", callback_data="SPEC_SET_UI_LANG:ru"),
-                InlineKeyboardButton(text="EN", callback_data="SPEC_SET_UI_LANG:en"),
-                InlineKeyboardButton(text="PT", callback_data="SPEC_SET_UI_LANG:pt"),
             ],
             [
                 InlineKeyboardButton(
-                    text=t("settings_message_language_label", language),
+                    text="RU",
+                    callback_data=(
+                        "SPEC_SET_UI_LANG:ru"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="EN",
+                    callback_data=(
+                        "SPEC_SET_UI_LANG:en"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="PT",
+                    callback_data=(
+                        "SPEC_SET_UI_LANG:pt"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="UK",
+                    callback_data=(
+                        "SPEC_SET_UI_LANG:uk"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "settings_message_language_label",
+                        language,
+                    ),
                     callback_data="SET_NOOP",
                 )
             ],
             [
-                InlineKeyboardButton(text="RU", callback_data="SPEC_SET_MSG_LANG:ru"),
-                InlineKeyboardButton(text="EN", callback_data="SPEC_SET_MSG_LANG:en"),
-                InlineKeyboardButton(text="PT", callback_data="SPEC_SET_MSG_LANG:pt"),
+                InlineKeyboardButton(
+                    text="RU",
+                    callback_data=(
+                        "SPEC_SET_MSG_LANG:ru"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="EN",
+                    callback_data=(
+                        "SPEC_SET_MSG_LANG:en"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="PT",
+                    callback_data=(
+                        "SPEC_SET_MSG_LANG:pt"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="UK",
+                    callback_data=(
+                        "SPEC_SET_MSG_LANG:uk"
+                    ),
+                ),
             ],
             [
                 InlineKeyboardButton(
                     text=original_text,
-                    callback_data="SPEC_SET_SHOW_ORIGINAL",
+                    callback_data=(
+                        "SPEC_SET_SHOW_ORIGINAL"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("billing_back", language),
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
                     callback_data="SPEC_SETTINGS",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_menu", language),
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
                     callback_data="BILL_MENU",
                 )
             ],

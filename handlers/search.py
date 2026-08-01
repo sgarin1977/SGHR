@@ -34,8 +34,10 @@ from services.geo_service import GeoService, GeoServiceError
 from services.moderation import ModerationError, ModerationService
 from services.rate_limit import RateLimitError
 from services.specialist import (
+    SpecialistRegistrationError,
     SpecialistSearchSelectionService,
     SpecialistSearchTextService,
+    SpecialistService,
 )
 from services.translation import TranslationError, TranslationService
 from ui.texts import t
@@ -104,22 +106,48 @@ async def get_interface_language(
 
     return normalize_language(resolved_language)
 
-async def get_search_language(state: FSMContext, event: CallbackQuery | Message) -> str:
+async def get_search_language(
+    state: FSMContext,
+    event: CallbackQuery | Message,
+) -> str:
     data = await state.get_data()
-    stored_language = data.get("user_language")
+    stored_language = data.get(
+        "user_language"
+    )
 
-    if stored_language in {"ru", "en", "pt"}:
+    if stored_language in {
+        "ru",
+        "en",
+        "pt",
+        "uk",
+    }:
         return stored_language
 
-    fallback_language = event.from_user.language_code if event.from_user else None
-    telegram_id = event.from_user.id if event.from_user else None
+    fallback_language = (
+        event.from_user.language_code
+        if event.from_user
+        else None
+    )
+    telegram_id = (
+        event.from_user.id
+        if event.from_user
+        else None
+    )
 
     if telegram_id is None:
-        return normalize_language(fallback_language)
+        return normalize_language(
+            fallback_language
+        )
 
-    language = await get_interface_language(telegram_id, fallback_language)
-    await state.update_data(user_language=language)
+    language = await get_interface_language(
+        telegram_id,
+        fallback_language,
+    )
+    await state.update_data(
+        user_language=language
+    )
     return language
+
 
 def item_name(item, language: str = "ru") -> str:
     localized = getattr(item, f"name_{language}", None)
@@ -137,15 +165,41 @@ def work_format_label(value: str | None, language: str) -> str:
     return labels.get(value, value or t("search_filter_any", language))
 
 
-def language_filter_label(value: str | None, language: str) -> str:
+def language_filter_label(
+    value: str | None,
+    language: str,
+) -> str:
     labels = {
-        None: t("search_filter_any", language),
-        "ru": t("search_language_ru", language),
-        "pt": t("search_language_pt", language),
-        "en": t("search_language_en", language),
+        None: t(
+            "search_filter_any",
+            language,
+        ),
+        "ru": t(
+            "search_language_ru",
+            language,
+        ),
+        "en": t(
+            "search_language_en",
+            language,
+        ),
+        "pt": t(
+            "search_language_pt",
+            language,
+        ),
+        "uk": t(
+            "search_language_uk",
+            language,
+        ),
     }
-    return labels.get(value, value or t("search_filter_any", language))
 
+    return labels.get(
+        value,
+        value
+        or t(
+            "search_filter_any",
+            language,
+        ),
+    )
 
 def sort_label(value: str | None, language: str) -> str:
     labels = {
@@ -2188,6 +2242,54 @@ def contact_thread_keyboard_for_role(
 
     return contact_thread_keyboard(language)
 
+
+def contact_message_notification_keyboard(
+    *,
+    thread_id: UUID,
+    receiver_role: str,
+    language: str,
+) -> InlineKeyboardMarkup:
+    back_callback = (
+        "SPEC_DIALOGS"
+        if receiver_role == "specialist"
+        else "CLIENT_DIALOGS"
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "messages_open_chat",
+                        language,
+                    ),
+                    callback_data=(
+                        f"CONTACT_THREAD_OPEN:{thread_id}"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "contact_chat_back_btn",
+                        language,
+                    ),
+                    callback_data=back_callback,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "main_menu",
+                        language,
+                    ),
+                    callback_data="GLOBAL_MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+
 def contact_completed_keyboard(contact_request_id: str, language: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -2806,6 +2908,144 @@ async def show_client_contact_chat(
         language=language,
     )
 
+@search_router.callback_query(
+    F.data.startswith("CONTACT_THREAD_OPEN:")
+)
+async def open_contact_thread_from_notification(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
+        callback,
+    )
+
+    try:
+        thread_id = UUID(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t(
+                "contact_thread_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    (
+        receiver_user_id,
+        tenant_id,
+    ) = await get_requester_context(
+        callback.from_user.id
+    )
+
+    if not receiver_user_id or not tenant_id:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            context = await ContactChatService(
+                ContactChatRepository(session)
+            ).get_thread_notification_context(
+                thread_id=thread_id,
+                receiver_user_id=(
+                    receiver_user_id
+                ),
+                language=language,
+            )
+
+            if (
+                context.receiver_role
+                == "specialist"
+            ):
+                await SpecialistService(
+                    SpecialistRepository(session)
+                ).switch_active_professional_cabinet(
+                    tenant_id=tenant_id,
+                    user_id=receiver_user_id,
+                    specialist_id=(
+                        context.specialist_id
+                    ),
+                    professional_cabinet_id=(
+                        context
+                        .professional_cabinet_id
+                    ),
+                )
+
+            await UserService(
+                session
+            ).switch_active_role(
+                callback.from_user.id,
+                context.receiver_role,
+            )
+
+    except (
+        ContactChatError,
+        SpecialistRegistrationError,
+        ValueError,
+    ):
+        logger.exception(
+            "contact_notification_open_failed "
+            "telegram_id=%s",
+            callback.from_user.id,
+        )
+        await callback.answer(
+            t(
+                "contact_thread_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        active_contact_request_id=(
+            str(context.contact_request_id)
+            if context.contact_request_id
+            else None
+        ),
+        active_thread_id=str(
+            context.thread_id
+        ),
+        active_thread_role=(
+            context.receiver_role
+        ),
+        pending_contact_message=None,
+    )
+    await state.set_state(
+        SpecialistSearchFSM
+        .entering_thread_message
+    )
+
+    await callback.answer()
+
+    await show_contact_chat(
+        message=callback.message,
+        state=state,
+        thread_id=str(
+            context.thread_id
+        ),
+        user_id=receiver_user_id,
+        viewer_role=context.receiver_role,
+        language=language,
+    )
+
 async def translate_message_for_notification(
     *,
     session,
@@ -3055,19 +3295,82 @@ def search_work_format_keyboard(language: str) -> InlineKeyboardMarkup:
     )
 
 
-def search_language_keyboard(language: str) -> InlineKeyboardMarkup:
+def search_language_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=t("search_filter_any", language), callback_data="search_lang:any"),
-                InlineKeyboardButton(text=t("search_language_ru", language), callback_data="search_lang:ru"),
+                InlineKeyboardButton(
+                    text=t(
+                        "search_filter_any",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_lang:any"
+                    ),
+                )
             ],
             [
-                InlineKeyboardButton(text=t("search_language_pt", language), callback_data="search_lang:pt"),
-                InlineKeyboardButton(text=t("search_language_en", language), callback_data="search_lang:en"),
+                InlineKeyboardButton(
+                    text=t(
+                        "search_language_ru",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_lang:ru"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=t(
+                        "search_language_en",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_lang:en"
+                    ),
+                ),
             ],
-            [InlineKeyboardButton(text=t("search_back_to_filters_btn", language), callback_data="search_filters")],
-            [InlineKeyboardButton(text=t("search_menu", language), callback_data="search_menu")],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_language_pt",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_lang:pt"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=t(
+                        "search_language_uk",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_lang:uk"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_back_to_filters_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_filters"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
+                    callback_data="search_menu",
+                )
+            ],
         ]
     )
 
@@ -5963,23 +6266,54 @@ async def open_language_filter(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@search_router.callback_query(F.data.startswith("search_lang:"))
-async def choose_language_filter(callback: CallbackQuery, state: FSMContext):
-    value = (callback.data or "").split(":", 1)[1]
-    language_code = None if value == "any" else value
+@search_router.callback_query(
+    F.data.startswith("search_lang:")
+)
+async def choose_language_filter(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    value = (
+        callback.data or ""
+    ).split(
+        ":",
+        1,
+    )[1]
 
-    if language_code not in {None, "ru", "pt", "en"}:
+    language_code = (
+        None
+        if value == "any"
+        else value
+    )
+
+    if language_code not in {
+        None,
+        "ru",
+        "en",
+        "pt",
+        "uk",
+    }:
         await callback.answer()
         return
 
-    await state.update_data(language_code=language_code, page=0)
+    await state.update_data(
+        language_code=language_code,
+        page=0,
+    )
+
     await log_search_filters_changed(
         callback,
         filter_name="language",
-        value=language_code or "any",
+        value=(
+            language_code or "any"
+        ),
     )
-    await render_results(event=callback, state=state, page=0)
 
+    await render_results(
+        event=callback,
+        state=state,
+        page=0,
+    )
 
 @search_router.callback_query(F.data == "search_filter_availability")
 async def open_availability_filter(callback: CallbackQuery, state: FSMContext):
@@ -7033,12 +7367,14 @@ async def receive_thread_message(message: Message, state: FSMContext):
     receiver_notification_message = message_text
     receiver_used_translation = False
     receiver_translation_status = "not_needed"
+    receiver_notification_context = None
 
     try:
         async with get_session() as session:
-            result = await ContactChatService(
+            contact_service = ContactChatService(
                 ContactChatRepository(session)
-            ).send_thread_message(
+            )
+            result = await contact_service.send_thread_message(
                 thread_id=UUID(thread_id),
                 sender_user_id=sender_user_id,
                 text=message_text,
@@ -7053,29 +7389,44 @@ async def receive_thread_message(message: Message, state: FSMContext):
             )
 
             if delivery_context.language_code:
-                receiver_language = (
-                    normalize_language(
-                        delivery_context.language_code
-                    )
+                receiver_language = normalize_language(
+                    delivery_context.language_code
                 )
 
             receiver_platform_user_id = (
                 delivery_context.platform_user_id
             )
 
-            receiver_notification_message, receiver_used_translation, receiver_translation_status = await translate_message_for_notification(
+            try:
+                receiver_notification_context = (
+                    await contact_service
+                    .get_thread_notification_context(
+                        thread_id=result.thread_id,
+                        receiver_user_id=(
+                            result.receiver_user_id
+                        ),
+                        language=receiver_language,
+                    )
+                )
+            except ContactChatError:
+                logger.exception(
+                    "contact_notification_context_failed "
+                    "thread_id=%s receiver_user_id=%s",
+                    result.thread_id,
+                    result.receiver_user_id,
+                )
+
+            (
+                receiver_notification_message,
+                receiver_used_translation,
+                receiver_translation_status,
+            ) = await translate_message_for_notification(
                 session=session,
                 message_id=result.message_id,
-                receiver_user_id=result.receiver_user_id,
+                receiver_user_id=(
+                    result.receiver_user_id
+                ),
             )
-
-        logger.info(
-            "contact_thread_message_sent telegram_id=%s thread_id=%s message_id=%s receiver_user_id=%s",
-            message.from_user.id,
-            result.thread_id,
-            result.message_id,
-            result.receiver_user_id,
-        )
 
     except ContactChatError as exc:
         error_text = str(exc)
@@ -7172,20 +7523,72 @@ async def receive_thread_message(message: Message, state: FSMContext):
 
     receiver_chat_id = telegram_chat_id(receiver_platform_user_id)
 
+    receiver_role = (
+        receiver_notification_context.receiver_role
+        if receiver_notification_context
+        else (
+            "client"
+            if data.get("active_thread_role")
+            == "specialist"
+            else "specialist"
+        )
+    )
+    sender_role = (
+        receiver_notification_context.sender_role
+        if receiver_notification_context
+        else str(
+            data.get("active_thread_role")
+            or "specialist"
+        )
+    )
+    sender_role_label = t(
+        f"contact_thread_sender_role_{sender_role}",
+        receiver_language,
+    )
+    sender_name = (
+        receiver_notification_context.sender_name
+        if receiver_notification_context
+        else t(
+            "client_dialog_unknown_user",
+            receiver_language,
+        )
+    )
+    profession_name = (
+        receiver_notification_context.profession_name
+        if (
+            receiver_notification_context
+            and receiver_notification_context
+            .profession_name
+        )
+        else "-"
+    )
+
     receiver_notification_key = (
-        "contact_translated_message_received"
+        "contact_thread_translated_notification"
         if receiver_used_translation
-        else "contact_thread_message_received"
+        else "contact_thread_message_notification"
     )
     if receiver_translation_status == "failed":
-        receiver_notification_key = "contact_translation_failed_original_shown"
+        receiver_notification_key = (
+            "contact_thread_translation_failed_notification"
+        )
 
     if receiver_chat_id:
         receiver_notification_text = t(
             receiver_notification_key,
             receiver_language,
         ).format(
+            sender=sender_name,
+            sender_role=sender_role_label,
+            profession=profession_name,
             message=receiver_notification_message,
+        )
+        receiver_keyboard = (
+            contact_message_notification_keyboard(
+                thread_id=result.thread_id,
+                receiver_role=receiver_role,
+                language=receiver_language,
+            )
         )
 
         if attachment:
@@ -7198,27 +7601,22 @@ async def receive_thread_message(message: Message, state: FSMContext):
                     chat_id=receiver_chat_id,
                     photo=attachment["file_id"],
                     caption=attachment_caption,
-                    reply_markup=contact_thread_keyboard(
-                        receiver_language
-                    ),
+                    reply_markup=receiver_keyboard,
                 )
             else:
                 await message.bot.send_document(
                     chat_id=receiver_chat_id,
                     document=attachment["file_id"],
                     caption=attachment_caption,
-                    reply_markup=contact_thread_keyboard(
-                        receiver_language
-                    ),
+                    reply_markup=receiver_keyboard,
                 )
         else:
             await message.bot.send_message(
                 chat_id=receiver_chat_id,
                 text=receiver_notification_text,
-                reply_markup=contact_thread_keyboard(
-                    receiver_language
-                ),
+                reply_markup=receiver_keyboard,
             )
+
     await state.update_data(
         active_thread_id=str(result.thread_id)
     )

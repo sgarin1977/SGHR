@@ -22,7 +22,9 @@ from database.models import (
     UserAccount,
     UserRoleMapping,
 )
-from database.repositories.translation import TranslationRepository
+from database.repositories.translation import (
+    TranslationRepository,
+)
 from database.repositories.search import (
     PUBLIC_CABINET_MODERATION_STATUSES,
 )
@@ -49,9 +51,6 @@ class ContactChatRepository:
             .limit(1)
         )
         return result.scalar_one_or_none() is not None
-
-    def _normalize_translation_language(self, language: str | None) -> str:
-        return language if language in {"ru", "en", "pt"} else "ru"
 
     async def _create_translation_job_if_needed(
         self,
@@ -1106,7 +1105,11 @@ class ContactChatRepository:
             "ru": Profession.name_ru,
             "en": Profession.name_en,
             "pt": Profession.name_pt,
-        }.get(language, Profession.name_ru)
+            "uk": Profession.name_ru,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
 
         last_message_text = (
             select(Message.original_text)
@@ -1325,7 +1328,11 @@ class ContactChatRepository:
             "ru": Profession.name_ru,
             "en": Profession.name_en,
             "pt": Profession.name_pt,
-        }.get(language, Profession.name_ru)
+            "uk": Profession.name_ru,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
 
         result = await self.session.execute(
             select(
@@ -1375,7 +1382,11 @@ class ContactChatRepository:
             "ru": Profession.name_ru,
             "en": Profession.name_en,
             "pt": Profession.name_pt,
-        }.get(language, Profession.name_ru)
+            "uk": Profession.name_ru,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
 
         result = await self.session.execute(
             select(
@@ -1425,7 +1436,11 @@ class ContactChatRepository:
             "ru": Profession.name_ru,
             "en": Profession.name_en,
             "pt": Profession.name_pt,
-        }.get(language, Profession.name_ru)
+            "uk": Profession.name_ru,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
 
         result = await self.session.execute(
             select(
@@ -1486,7 +1501,11 @@ class ContactChatRepository:
             "ru": Profession.name_ru,
             "en": Profession.name_en,
             "pt": Profession.name_pt,
-        }.get(language, Profession.name_ru)
+            "uk": Profession.name_ru,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
 
         result = await self.session.execute(
             select(
@@ -1536,7 +1555,11 @@ class ContactChatRepository:
             "ru": Profession.name_ru,
             "en": Profession.name_en,
             "pt": Profession.name_pt,
-        }.get(language, Profession.name_ru)
+            "uk": Profession.name_ru,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
 
         result = await self.session.execute(
             select(
@@ -1662,19 +1685,9 @@ class ContactChatRepository:
             receiver_user_id = specialist.user_id
 
         elif sender_user_id == specialist.user_id:
-            if (
-                not specialist
-                .active_professional_cabinet_id
-                or specialist
-                .active_professional_cabinet_id
-                != thread.professional_cabinet_id
-            ):
-                raise ValueError(
-                    "Conversation belongs to another "
-                    "professional cabinet."
-                )
-
-            receiver_user_id = thread.client_user_id
+            receiver_user_id = (
+                thread.client_user_id
+            )
 
         else:
             raise ValueError(

@@ -171,6 +171,18 @@ class ContactThreadDetail:
     active_order_created_by: UUID | None
     messages: list[ContactThreadMessageItem]
 
+@dataclass(frozen=True)
+class ContactThreadNotificationContext:
+    thread_id: UUID
+    contact_request_id: UUID | None
+    specialist_id: UUID
+    professional_cabinet_id: UUID
+    receiver_role: str
+    sender_role: str
+    sender_name: str
+    profession_name: str | None
+
+
 @dataclass
 class ContactRequestListItem:
     contact_request_id: UUID
@@ -357,8 +369,20 @@ class ContactChatService:
             currency=currency,
         )
 
-    def _normalize_language(self, language: str | None) -> str:
-        return language if language in {"ru", "en", "pt"} else "ru"
+    def _normalize_language(
+        self,
+        language: str | None,
+    ) -> str:
+        return (
+            language
+            if language in {
+                "ru",
+                "en",
+                "pt",
+                "uk",
+            }
+            else "ru"
+        )
 
     def _validate_contact_message(self, message: str) -> str:
         normalized = (message or "").strip()
@@ -1282,6 +1306,72 @@ class ContactChatService:
             ],
         )
 
+    async def get_thread_notification_context(
+        self,
+        *,
+        thread_id: UUID,
+        receiver_user_id: UUID,
+        language: str = "ru",
+    ) -> ContactThreadNotificationContext:
+        if self.repository is None:
+            raise ContactChatError(
+                "Contact repository is not configured."
+            )
+
+        thread = await self.repository.get_thread_for_user(
+            thread_id=thread_id,
+            user_id=receiver_user_id,
+        )
+        if not thread:
+            raise ContactChatError(
+                "Conversation thread not found."
+            )
+
+        detail = await self.get_thread_detail(
+            thread_id=thread_id,
+            user_id=receiver_user_id,
+            language=language,
+        )
+
+        receiver_role = (
+            "client"
+            if thread.client_user_id
+            == receiver_user_id
+            else "specialist"
+        )
+        sender_role = (
+            "specialist"
+            if receiver_role == "client"
+            else "client"
+        )
+        sender_name = (
+            detail.specialist_name
+            if sender_role == "specialist"
+            else detail.client_name
+        )
+
+        return ContactThreadNotificationContext(
+            thread_id=thread.id,
+            contact_request_id=(
+                detail.contact_request_id
+            ),
+            specialist_id=(
+                thread.specialist_id
+            ),
+            professional_cabinet_id=(
+                thread.professional_cabinet_id
+            ),
+            receiver_role=receiver_role,
+            sender_role=sender_role,
+            sender_name=(
+                sender_name
+                or "User"
+            ),
+            profession_name=(
+                detail.profession_name
+            ),
+        )
+
     async def get_thread_detail_for_viewer(
         self,
         *,
@@ -1308,23 +1398,30 @@ class ContactChatService:
             )
 
         effective_tenant_id = thread.tenant_id
-        if participant_role == "specialist":
-            professional_cabinet_id = (
-                await self
-                ._get_active_specialist_cabinet_id(
-                    user_id=user_id,
-                )
+
+        if participant_role not in {
+            "client",
+            "specialist",
+        }:
+            raise ContactChatError(
+                "Unsupported conversation role."
             )
 
-            if (
-                not professional_cabinet_id
-                or thread.professional_cabinet_id
-                != professional_cabinet_id
-            ):
-                raise ContactChatError(
-                    "Conversation belongs to another "
-                    "professional cabinet."
-                )
+        if (
+            participant_role == "client"
+            and thread.client_user_id != user_id
+        ):
+            raise ContactChatError(
+                "Conversation thread not found."
+            )
+
+        if (
+            participant_role == "specialist"
+            and thread.client_user_id == user_id
+        ):
+            raise ContactChatError(
+                "Conversation thread not found."
+            )
 
         detail = await self.get_thread_detail(
             thread_id=thread_id,

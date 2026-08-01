@@ -121,7 +121,11 @@ class UserRepository:
             "ru": City.name_ru,
             "en": City.name_en,
             "pt": City.name_pt,
-        }.get(language, City.name_ru)
+            "uk": City.name_ru,
+        }.get(
+            language,
+            City.name_ru,
+        )
 
         result = await self.session.execute(
             select(
@@ -188,7 +192,11 @@ class UserRepository:
             "ru": Profession.name_ru,
             "en": Profession.name_en,
             "pt": Profession.name_pt,
-        }.get(language, Profession.name_ru)
+            "uk": Profession.name_ru,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
 
         stmt = (
             select(

@@ -457,7 +457,11 @@ class SpecialistSearchRepository:
             "en": Skill.name_en,
             "pt": Skill.name_pt,
             "es": Skill.name_es,
-        }.get(language, Skill.name_ru)
+            "uk": Skill.name_ru,
+        }.get(
+            language,
+            Skill.name_ru,
+        )
 
         result = await self.session.execute(
             select(
@@ -498,7 +502,11 @@ class SpecialistSearchRepository:
             "en": Skill.name_en,
             "pt": Skill.name_pt,
             "es": Skill.name_es,
-        }.get(language, Skill.name_ru)
+            "uk": Skill.name_ru,
+        }.get(
+            language,
+            Skill.name_ru,
+        )
 
         result = await self.session.execute(
             select(func.coalesce(name_field, Skill.name_ru, Skill.name))
