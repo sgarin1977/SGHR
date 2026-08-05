@@ -1746,13 +1746,14 @@ class ContactChatService:
         offset: int = 0,
         language: str = "ru",
         search_query: str | None = None,
+        professional_cabinet_id: UUID | None = None,
     ) -> list[ContactThreadListItem]:
-        professional_cabinet_id = (
-            await self
-            ._get_active_specialist_cabinet_id(
-                user_id=user_id,
+        if professional_cabinet_id is None:
+            professional_cabinet_id = await (
+                self._get_active_specialist_cabinet_id(
+                    user_id=user_id,
+                )
             )
-        )
 
         if not professional_cabinet_id:
             return []

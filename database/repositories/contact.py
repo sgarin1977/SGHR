@@ -196,11 +196,22 @@ class ContactChatRepository:
         self,
         *,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
     ) -> int:
+        conditions = [
+            ContactRequest.specialist_id == specialist_id,
+            ContactRequest.status == "new",
+        ]
+
+        if professional_cabinet_id is not None:
+            conditions.append(
+                ContactRequest.professional_cabinet_id
+                == professional_cabinet_id
+            )
+
         result = await self.session.execute(
             select(func.count(ContactRequest.id)).where(
-                ContactRequest.specialist_id == specialist_id,
-                ContactRequest.status == "new",
+                *conditions
             )
         )
         return int(result.scalar_one() or 0)

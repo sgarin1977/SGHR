@@ -506,6 +506,30 @@ async def send_global_main_menu(
                 )
                 or []
             ),
+            *[
+                message_id
+                for state_key in (
+                    "super_admin_ro_moderator_blacklist_message_ids",
+                    "super_admin_ro_admin_audit_message_ids",
+                    "super_admin_ro_admin_global_blacklist_message_ids",
+                    "super_admin_ro_admin_support_message_ids",
+                    "super_admin_ro_admin_user_message_ids",
+                    "super_admin_ro_admin_user_history_message_ids",
+                    "super_admin_ro_client_dialog_message_ids",
+                    "super_admin_ro_specialist_dialog_message_ids",
+                    "super_admin_ro_support_ticket_message_ids",
+                    "admin_user_message_ids",
+                    "admin_user_history_message_ids",
+                    "admin_audit_message_ids",
+                    "super_admin_audit_message_ids",
+                    "admin_escalated_ticket_message_ids",
+                    "support_staff_ticket_message_ids",
+                )
+                for message_id in (
+                    previous_data.get(state_key)
+                    or []
+                )
+            ],
         ]
 
         previous_menu_message_id = (

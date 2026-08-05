@@ -1252,6 +1252,7 @@ class SpecialistService:
         user_id: UUID,
         specialist_id: UUID,
         language: str,
+        professional_cabinet_id: UUID | None = None,
     ) -> SpecialistActiveCabinetProfile | None:
         specialist = await self.repository.get_by_user_id(
             user_id
@@ -1263,25 +1264,48 @@ class SpecialistService:
         ):
             return None
 
-        cabinet = (
-            await self.repository
-            .get_active_professional_cabinet(
-                tenant_id=tenant_id,
-                specialist_id=specialist_id,
+        if professional_cabinet_id:
+            cabinet_context = await (
+                self.repository
+                .get_professional_cabinet(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                )
             )
-        )
-        if not cabinet:
-            return None
 
-        profession = await self.repository.get_active_profession(
-            cabinet.profession_id
-        )
+            if not cabinet_context:
+                return None
+
+            cabinet, profession = cabinet_context
+        else:
+            cabinet = await (
+                self.repository
+                .get_active_professional_cabinet(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                )
+            )
+
+            if not cabinet:
+                return None
+
+            profession = await (
+                self.repository.get_active_profession(
+                    cabinet.profession_id
+                )
+            )
 
         city, country = await (
             self.repository
             .get_active_cabinet_location_parts(
                 tenant_id=tenant_id,
                 specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
             )
         )
 

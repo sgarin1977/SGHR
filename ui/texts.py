@@ -8446,16 +8446,16 @@ translations = {
         ),
     },
     "super_admin_impersonation_client_btn": {
-        "ru": "Клиент",
-        "en": "Client",
-        "pt": "Cliente",
-        "uk": "Клієнт",
+        "ru": "👤 Кабинет пользователя",
+        "en": "👤 User cabinet",
+        "pt": "👤 Gabinete do utilizador",
+        "uk": "👤 Кабінет користувача",
     },
     "super_admin_impersonation_specialist_btn": {
-        "ru": "Специалист",
-        "en": "Specialist",
-        "pt": "Especialista",
-        "uk": "Спеціаліст",
+        "ru": "🧰 Кабинеты специалиста",
+        "en": "🧰 Specialist cabinets",
+        "pt": "🧰 Gabinetes do especialista",
+        "uk": "🧰 Кабінети спеціаліста",
     },
     "super_admin_impersonation_support_btn": {
         "ru": "Поддержка",
@@ -14005,6 +14005,78 @@ translations = {
             "Показано оригінал:\n\n"
             "{message}"
         ),
+    },
+    "super_admin_ro_specialist_cabinets_btn": {
+        "ru": "🧰 Выбрать кабинет специалиста",
+        "en": "🧰 Choose specialist cabinet",
+        "pt": "🧰 Escolher gabinete do especialista",
+        "uk": "🧰 Обрати кабінет спеціаліста",
+    },
+    "super_admin_ro_specialist_cabinets_title": {
+        "ru": (
+            "Профессиональные кабинеты специалиста\n"
+            "Страница: {page}\n"
+            "Всего: {count}\n\n"
+            "Выберите кабинет для просмотра."
+        ),
+        "en": (
+            "Specialist professional cabinets\n"
+            "Page: {page}\n"
+            "Total: {count}\n\n"
+            "Choose a cabinet to view."
+        ),
+        "pt": (
+            "Gabinetes profissionais do especialista\n"
+            "Pagina: {page}\n"
+            "Total: {count}\n\n"
+            "Escolha um gabinete para ver."
+        ),
+        "uk": (
+            "Професійні кабінети спеціаліста\n"
+            "Сторінка: {page}\n"
+            "Усього: {count}\n\n"
+            "Оберіть кабінет для перегляду."
+        ),
+    },
+    "super_admin_ro_specialist_cabinets_empty": {
+        "ru": "У специалиста нет профессиональных кабинетов.",
+        "en": "This specialist has no professional cabinets.",
+        "pt": "Este especialista nao tem gabinetes profissionais.",
+        "uk": "У спеціаліста немає професійних кабінетів.",
+    },
+    "super_admin_ro_specialist_cabinet_item": {
+        "ru": (
+            "{number}. {profession}\n"
+            "Название: {title}\n"
+            "Статус: {status}"
+        ),
+        "en": (
+            "{number}. {profession}\n"
+            "Title: {title}\n"
+            "Status: {status}"
+        ),
+        "pt": (
+            "{number}. {profession}\n"
+            "Titulo: {title}\n"
+            "Estado: {status}"
+        ),
+        "uk": (
+            "{number}. {profession}\n"
+            "Назва: {title}\n"
+            "Статус: {status}"
+        ),
+    },
+    "super_admin_ro_specialist_open_cabinet_btn": {
+        "ru": "Открыть кабинет №{number}",
+        "en": "Open cabinet #{number}",
+        "pt": "Abrir gabinete n.º {number}",
+        "uk": "Відкрити кабінет №{number}",
+    },
+    "super_admin_ro_specialist_cabinets_back_btn": {
+        "ru": "⬅️ К кабинету специалиста",
+        "en": "⬅️ Back to specialist cabinet",
+        "pt": "⬅️ Voltar ao gabinete do especialista",
+        "uk": "⬅️ До кабінету спеціаліста",
     },
     }
 def t(key: str, lang: str = "ru") -> str:

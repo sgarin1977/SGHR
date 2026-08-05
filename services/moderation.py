@@ -174,6 +174,14 @@ class SpecialistReadOnlyCabinet:
     availability_status: str
 
 @dataclass(frozen=True)
+class SpecialistReadOnlyCabinetOption:
+    professional_cabinet_id: UUID
+    title: str | None
+    profession_name: str
+    moderation_status: str
+    is_active: bool
+
+@dataclass(frozen=True)
 class SupportReadOnlyCabinet:
     user_number: str
     open_tickets: int
@@ -579,6 +587,107 @@ class ModerationService:
         ) as exc:
             raise ModerationError(str(exc)) from exc
 
+    async def list_specialist_read_only_cabinet_options(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        target_user_id: UUID,
+        language: str,
+    ) -> tuple[
+        SpecialistReadOnlyCabinetOption,
+        ...,
+    ]:
+        try:
+            await self.repository.require_admin_role(
+                admin_user_id,
+                {"super_admin"},
+            )
+
+            user_service = UserService(
+                self.repository.session
+            )
+            active_roles = (
+                await user_service.repository
+                .list_active_roles(
+                    target_user_id
+                )
+            )
+
+            if "specialist" not in active_roles:
+                raise ImpersonationRoleUnavailableError(
+                    "Selected user does not have "
+                    "this active role."
+                )
+
+            specialist_repository = SpecialistRepository(
+                self.repository.session
+            )
+            specialist = (
+                await specialist_repository.get_by_user_id(
+                    target_user_id
+                )
+            )
+
+            if (
+                not specialist
+                or specialist.tenant_id != tenant_id
+            ):
+                raise ImpersonationRoleUnavailableError(
+                    "Selected user does not have "
+                    "a specialist cabinet."
+                )
+
+            localized_field = {
+                "ru": "name_ru",
+                "en": "name_en",
+                "pt": "name_pt",
+                "uk": "name_ru",
+            }.get(
+                language,
+                "name_ru",
+            )
+
+            cabinets = await (
+                specialist_repository
+                .list_professional_cabinets(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist.id,
+                )
+            )
+
+            return tuple(
+                SpecialistReadOnlyCabinetOption(
+                    professional_cabinet_id=cabinet.id,
+                    title=cabinet.title,
+                    profession_name=str(
+                        getattr(
+                            profession,
+                            localized_field,
+                            None,
+                        )
+                        or profession.name_ru
+                        or profession.name_en
+                        or profession.name_pt
+                        or profession.name
+                    ),
+                    moderation_status=(
+                        cabinet.moderation_status
+                    ),
+                    is_active=cabinet.is_active,
+                )
+                for cabinet, profession in cabinets
+            )
+
+        except ImpersonationRoleUnavailableError:
+            raise
+
+        except (
+            ModerationAccessError,
+            ModerationNotFoundError,
+        ) as exc:
+            raise ModerationError(str(exc)) from exc
+
     async def get_specialist_read_only_cabinet(
         self,
         *,
@@ -586,6 +695,7 @@ class ModerationService:
         tenant_id: UUID,
         target_user_id: UUID,
         language: str,
+        professional_cabinet_id: UUID | None = None,
     ) -> SpecialistReadOnlyCabinet:
         try:
             await self.repository.require_admin_role(
@@ -631,32 +741,55 @@ class ModerationService:
                     "a specialist cabinet."
                 )
 
-            professional_cabinet = await (
-                specialist_repository
-                .get_active_professional_cabinet(
-                    tenant_id=tenant_id,
-                    specialist_id=specialist.id,
-                )
-            )
-
-            if not professional_cabinet:
-                raise ImpersonationRoleUnavailableError(
-                    "Selected specialist does not have "
-                    "an active professional cabinet."
+            if professional_cabinet_id:
+                professional_cabinet_context = await (
+                    specialist_repository
+                    .get_professional_cabinet(
+                        tenant_id=tenant_id,
+                        specialist_id=specialist.id,
+                        professional_cabinet_id=(
+                            professional_cabinet_id
+                        ),
+                    )
                 )
 
-            profession = await (
-                specialist_repository
-                .get_active_profession(
-                    professional_cabinet.profession_id
-                )
-            )
+                if not professional_cabinet_context:
+                    raise ImpersonationRoleUnavailableError(
+                        "Selected professional cabinet "
+                        "is unavailable."
+                    )
 
-            if not profession:
-                raise ImpersonationRoleUnavailableError(
-                    "Active professional cabinet "
-                    "profession is unavailable."
+                (
+                    professional_cabinet,
+                    profession,
+                ) = professional_cabinet_context
+            else:
+                professional_cabinet = await (
+                    specialist_repository
+                    .get_active_professional_cabinet(
+                        tenant_id=tenant_id,
+                        specialist_id=specialist.id,
+                    )
                 )
+
+                if not professional_cabinet:
+                    raise ImpersonationRoleUnavailableError(
+                        "Selected specialist does not have "
+                        "an active professional cabinet."
+                    )
+
+                profession = await (
+                    specialist_repository
+                    .get_active_profession(
+                        professional_cabinet.profession_id
+                    )
+                )
+
+                if not profession:
+                    raise ImpersonationRoleUnavailableError(
+                        "Active professional cabinet "
+                        "profession is unavailable."
+                    )
 
             localized_field = {
                 "ru": "name_ru",
@@ -680,19 +813,28 @@ class ModerationService:
                 or profession.name
             )
 
-            unread_counts = (
-                await user_service.repository
-                .get_role_unread_counts(
-                    target_user_id
+            contact_repository = ContactChatRepository(
+                self.repository.session
+            )
+
+            dialogs_unread = await (
+                contact_repository
+                .count_unread_messages_for_user(
+                    user_id=target_user_id,
+                    participant_role="specialist",
+                    professional_cabinet_id=(
+                        professional_cabinet.id
+                    ),
                 )
             )
 
             new_requests = await (
-                ContactChatRepository(
-                    self.repository.session
-                )
+                contact_repository
                 .count_new_requests_for_specialist(
                     specialist_id=specialist.id,
+                    professional_cabinet_id=(
+                        professional_cabinet.id
+                    ),
                 )
             )
 
@@ -714,10 +856,7 @@ class ModerationService:
                     .moderation_status
                 ),
                 dialogs_unread=int(
-                    unread_counts.get(
-                        "specialist",
-                        0,
-                    )
+                    dialogs_unread
                 ),
                 new_requests=int(
                     new_requests

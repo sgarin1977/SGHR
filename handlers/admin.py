@@ -1,7 +1,6 @@
 import logging
 from uuid import UUID
 from aiogram import Bot, F, Router
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -220,6 +219,7 @@ READ_ONLY_MODERATION_TARGET_ROLES = {
     "admin",
 }
 READ_ONLY_CLIENT_PAGE_SIZE = 5
+READ_ONLY_SPECIALIST_CABINETS_PAGE_SIZE = 5
 def effective_panel_roles(
     roles: set[str],
     active_role: str | None,
@@ -299,11 +299,7 @@ class AdminModerationFSM(StatesGroup):
     entering_admin_profession_rename = State()
     entering_admin_profession_move = State()
     entering_admin_specialist_move_numbers = State()
-    entering_admin_specialist_move_target = State()
-    confirming_admin_specialist_move = State()
     entering_admin_category_specialist_move_numbers = State()
-    entering_admin_category_specialist_move_target = State()
-    confirming_admin_category_specialist_move = State()
     entering_admin_move_target_professions = State()
     choosing_admin_move_mode = State()
     confirming_admin_multi_move = State()
@@ -9388,6 +9384,17 @@ def super_admin_read_only_specialist_menu_keyboard(
             [
                 InlineKeyboardButton(
                     text=t(
+                        "super_admin_ro_specialist_cabinets_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        "SA_RO_SPECIALIST_CABINETS:0"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
                         "super_admin_ro_specialist_profile_btn",
                         language,
                     ),
@@ -9424,6 +9431,89 @@ def super_admin_read_only_specialist_menu_keyboard(
         ]
     )
 
+def super_admin_read_only_specialist_cabinets_keyboard(
+    *,
+    items_count: int,
+    page: int,
+    has_next: bool,
+    language: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+
+    start_number = (
+        page
+        * READ_ONLY_SPECIALIST_CABINETS_PAGE_SIZE
+        + 1
+    )
+
+    for index in range(items_count):
+        number = start_number + index
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "super_admin_ro_specialist_open_cabinet_btn",
+                        language,
+                    ).format(
+                        number=number,
+                    ),
+                    callback_data=(
+                        "SA_RO_SPECIALIST_CABINET:"
+                        f"{index}"
+                    ),
+                )
+            ]
+        )
+
+    navigation: list[InlineKeyboardButton] = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t(
+                    "admin_previous_page",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_SPECIALIST_CABINETS:"
+                    f"{page - 1}"
+                ),
+            )
+        )
+
+    if has_next:
+        navigation.append(
+            InlineKeyboardButton(
+                text=t(
+                    "admin_next_page",
+                    language,
+                ),
+                callback_data=(
+                    "SA_RO_SPECIALIST_CABINETS:"
+                    f"{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        rows.append(navigation)
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "super_admin_ro_specialist_cabinets_back_btn",
+                    language,
+                ),
+                callback_data="SA_RO_SPECIALIST_HOME",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows,
+    )
 
 def super_admin_read_only_specialist_dialogs_keyboard(
     *,
@@ -10402,6 +10492,59 @@ def super_admin_read_only_moderator_reviews_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+async def clear_admin_message_group(
+    *,
+    callback: CallbackQuery,
+    state: FSMContext,
+    state_key: str,
+    preserve_current: bool = False,
+) -> None:
+    data = await state.get_data()
+    current_message_id = (
+        callback.message.message_id
+    )
+    tracked_message_ids = (
+        data.get(state_key)
+        or []
+    )
+
+    candidate_message_ids = [
+        *tracked_message_ids,
+        *(
+            []
+            if preserve_current
+            else [current_message_id]
+        ),
+    ]
+
+    message_ids = list(
+        dict.fromkeys(
+            message_id
+            for message_id
+            in candidate_message_ids
+            if (
+                isinstance(message_id, int)
+                and (
+                    not preserve_current
+                    or message_id
+                    != current_message_id
+                )
+            )
+        )
+    )
+
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=message_ids,
+    )
+
+    await state.update_data(
+        **{
+            state_key: []
+        }
+    )
+
 def super_admin_read_only_moderator_blacklist_keyboard(
     *,
     view: str,
@@ -11335,6 +11478,286 @@ def super_admin_preview_availability_label(
         language,
     )
 
+async def show_super_admin_specialist_read_only_cabinets(
+    callback: CallbackQuery,
+    state: FSMContext,
+    *,
+    page: int,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    target_user_id_raw = data.get(
+        "super_admin_impersonation_target_user_id"
+    )
+
+    if (
+        not target_user_id_raw
+        or not data.get(
+            "super_admin_impersonation_read_only"
+        )
+        or data.get(
+            "super_admin_impersonation_target_role"
+        )
+        != "specialist"
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        target_user_id = UUID(
+            str(target_user_id_raw)
+        )
+    except (TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(callback.from_user.id)
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        async with get_session() as session:
+            options = await ModerationService(
+                ModerationRepository(session)
+            ).list_specialist_read_only_cabinet_options(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                target_user_id=target_user_id,
+                language=language,
+            )
+
+    except ImpersonationRoleUnavailableError:
+        await callback.answer(
+            t(
+                "super_admin_impersonation_role_unavailable",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except ModerationError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    normalized_page = max(0, page)
+    start = (
+        normalized_page
+        * READ_ONLY_SPECIALIST_CABINETS_PAGE_SIZE
+    )
+
+    if options and start >= len(options):
+        normalized_page = (
+            len(options) - 1
+        ) // READ_ONLY_SPECIALIST_CABINETS_PAGE_SIZE
+        start = (
+            normalized_page
+            * READ_ONLY_SPECIALIST_CABINETS_PAGE_SIZE
+        )
+
+    visible_options = options[
+        start:
+        start + READ_ONLY_SPECIALIST_CABINETS_PAGE_SIZE
+    ]
+    has_next = (
+        start
+        + READ_ONLY_SPECIALIST_CABINETS_PAGE_SIZE
+        < len(options)
+    )
+
+    await state.update_data(
+        super_admin_impersonation_specialist_cabinet_ids=[
+            str(option.professional_cabinet_id)
+            for option in visible_options
+        ],
+    )
+
+    header = t(
+        "super_admin_ro_specialist_cabinets_title",
+        language,
+    ).format(
+        page=normalized_page + 1,
+        count=len(options),
+    )
+
+    if visible_options:
+        rendered_options = [
+            t(
+                "super_admin_ro_specialist_cabinet_item",
+                language,
+            ).format(
+                number=start + index + 1,
+                title=(
+                    option.title
+                    or t(
+                        "super_admin_value_not_specified",
+                        language,
+                    )
+                ),
+                profession=option.profession_name,
+                status=super_admin_preview_status_label(
+                    option.moderation_status,
+                    language,
+                ),
+            )
+            for index, option in enumerate(
+                visible_options
+            )
+        ]
+
+        text = "\n\n".join(
+            [
+                header,
+                *rendered_options,
+            ]
+        )
+    else:
+        text = (
+            f"{header}\n\n"
+            f"{t(
+                'super_admin_ro_specialist_cabinets_empty',
+                language,
+            )}"
+        )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=text,
+        reply_markup=(
+            super_admin_read_only_specialist_cabinets_keyboard(
+                items_count=len(visible_options),
+                page=normalized_page,
+                has_next=has_next,
+                language=language,
+            )
+        ),
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith(
+        "SA_RO_SPECIALIST_CABINETS:"
+    )
+)
+async def super_admin_read_only_specialist_cabinets(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    try:
+        page = max(
+            0,
+            int(
+                callback.data.split(":", 1)[1]
+            ),
+        )
+    except (IndexError, TypeError, ValueError):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await show_super_admin_specialist_read_only_cabinets(
+        callback,
+        state,
+        page=page,
+    )
+
+
+@admin_router.callback_query(
+    F.data.startswith(
+        "SA_RO_SPECIALIST_CABINET:"
+    )
+)
+async def super_admin_read_only_specialist_cabinet_open(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    data = await state.get_data()
+
+    if (
+        not data.get(
+            "super_admin_impersonation_read_only"
+        )
+        or data.get(
+            "super_admin_impersonation_target_role"
+        )
+        != "specialist"
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        index = int(
+            callback.data.split(":", 1)[1]
+        )
+        professional_cabinet_id = UUID(
+            str(
+                (
+                    data.get(
+                        "super_admin_impersonation_"
+                        "specialist_cabinet_ids"
+                    )
+                    or []
+                )[index]
+            )
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t("admin_item_not_found", language),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        super_admin_impersonation_professional_cabinet_id=(
+            str(professional_cabinet_id)
+        ),
+    )
+
+    await show_super_admin_specialist_read_only_cabinet(
+        callback,
+        state,
+    )
+
 async def show_super_admin_specialist_read_only_cabinet(
     callback: CallbackQuery,
     state: FSMContext,
@@ -11346,6 +11769,9 @@ async def show_super_admin_specialist_read_only_cabinet(
     data = await state.get_data()
     target_user_id_raw = data.get(
         "super_admin_impersonation_target_user_id"
+    )
+    selected_professional_cabinet_id_raw = data.get(
+        "super_admin_impersonation_professional_cabinet_id"
     )
     target_role = data.get(
         "super_admin_impersonation_target_role"
@@ -11367,6 +11793,15 @@ async def show_super_admin_specialist_read_only_cabinet(
 
     try:
         target_user_id = UUID(str(target_user_id_raw))
+        professional_cabinet_id = (
+            UUID(
+                str(
+                    selected_professional_cabinet_id_raw
+                )
+            )
+            if selected_professional_cabinet_id_raw
+            else None
+        )
     except (TypeError, ValueError):
         await callback.answer(
             t("admin_item_not_found", language),
@@ -11398,6 +11833,9 @@ async def show_super_admin_specialist_read_only_cabinet(
                 tenant_id=tenant_id,
                 target_user_id=target_user_id,
                 language=language,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
 
     except ImpersonationRoleUnavailableError:
@@ -11704,6 +12142,16 @@ async def super_admin_read_only_moderator_home(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_moderator_"
+            "blacklist_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await show_super_admin_moderator_read_only_cabinet(
         callback,
         state,
@@ -12434,19 +12882,24 @@ async def super_admin_read_only_moderator_portfolio(
         ),
     )
 
-    await callback.message.answer(
-        t(
-            "super_admin_ro_moderator_portfolio_title",
-            language,
-        ).format(
-            page=page + 1,
-            count=len(visible_items),
-        )
-    )
-
     if not visible_items:
-        await callback.message.answer(
-            t("admin_no_pending_portfolio", language),
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=(
+                t(
+                    "super_admin_ro_moderator_portfolio_title",
+                    language,
+                ).format(
+                    page=page + 1,
+                    count=0,
+                )
+                + "\n\n"
+                + t(
+                    "admin_no_pending_portfolio",
+                    language,
+                )
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -12455,7 +12908,9 @@ async def super_admin_read_only_moderator_portfolio(
                                 "super_admin_ro_moderator_back_btn",
                                 language,
                             ),
-                            callback_data="SA_RO_MOD_HOME",
+                            callback_data=(
+                                "SA_RO_MOD_HOME"
+                            ),
                         )
                     ],
                     [
@@ -12464,13 +12919,14 @@ async def super_admin_read_only_moderator_portfolio(
                                 "super_admin_impersonation_stop_btn",
                                 language,
                             ),
-                            callback_data="SA_IMPERSONATE_STOP",
+                            callback_data=(
+                                "SA_IMPERSONATE_STOP"
+                            ),
                         )
                     ],
                 ]
             ),
         )
-        await callback.answer()
         return
 
     await show_super_admin_read_only_portfolio_item(
@@ -12619,11 +13075,21 @@ async def show_super_admin_read_only_portfolio_item(
         )
         return
 
-    text = format_portfolio_moderation_card(
-        view,
-        index=index,
-        page=page,
-        language=language,
+    text = (
+        t(
+            "super_admin_ro_moderator_portfolio_title",
+            language,
+        ).format(
+            page=page + 1,
+            count=len(portfolio_ids),
+        )
+        + "\n\n"
+        + format_portfolio_moderation_card(
+            view,
+            index=index,
+            page=page,
+            language=language,
+        )
     )
     keyboard = (
         super_admin_read_only_moderator_portfolio_keyboard(
@@ -12636,19 +13102,24 @@ async def show_super_admin_read_only_portfolio_item(
         )
     )
 
-    if view.storage_object.file_type == "photo":
-        await callback.message.answer_photo(
+    if (
+        view.storage_object.file_type
+        == "photo"
+    ):
+        await replace_admin_photo_screen(
+            callback=callback,
+            state=state,
             photo=view.signed_url,
             caption=text,
             reply_markup=keyboard,
         )
     else:
-        await callback.message.answer(
-            text,
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=text,
             reply_markup=keyboard,
         )
-
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "SA_RO_MOD_REVIEWS")
 @admin_router.callback_query(
@@ -12752,19 +13223,24 @@ async def super_admin_read_only_moderator_reviews(
         ),
     )
 
-    await callback.message.answer(
-        t(
-            "super_admin_ro_moderator_reviews_title",
-            language,
-        ).format(
-            page=page + 1,
-            count=len(reviews),
-        )
-    )
-
     if not reviews:
-        await callback.message.answer(
-            t("admin_no_pending_reviews", language),
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=(
+                t(
+                    "super_admin_ro_moderator_reviews_title",
+                    language,
+                ).format(
+                    page=page + 1,
+                    count=0,
+                )
+                + "\n\n"
+                + t(
+                    "admin_no_pending_reviews",
+                    language,
+                )
+            ),
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -12773,7 +13249,9 @@ async def super_admin_read_only_moderator_reviews(
                                 "super_admin_ro_moderator_back_btn",
                                 language,
                             ),
-                            callback_data="SA_RO_MOD_HOME",
+                            callback_data=(
+                                "SA_RO_MOD_HOME"
+                            ),
                         )
                     ],
                     [
@@ -12782,13 +13260,14 @@ async def super_admin_read_only_moderator_reviews(
                                 "super_admin_impersonation_stop_btn",
                                 language,
                             ),
-                            callback_data="SA_IMPERSONATE_STOP",
+                            callback_data=(
+                                "SA_IMPERSONATE_STOP"
+                            ),
                         )
                     ],
                 ]
             ),
         )
-        await callback.answer()
         return
 
     await show_super_admin_read_only_review(
@@ -12796,7 +13275,6 @@ async def super_admin_read_only_moderator_reviews(
         state,
         index=0,
     )
-
 
 @admin_router.callback_query(
     F.data.startswith("SA_RO_MOD_REV_VIEW:")
@@ -12918,12 +13396,24 @@ async def show_super_admin_read_only_review(
         )
         return
 
-    await callback.message.answer(
-        format_review_card(
-            card,
-            index=index,
-            total=len(review_ids),
-            language=language,
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            t(
+                "super_admin_ro_moderator_reviews_title",
+                language,
+            ).format(
+                page=page + 1,
+                count=len(review_ids),
+            )
+            + "\n\n"
+            + format_review_card(
+                card,
+                index=index,
+                total=len(review_ids),
+                language=language,
+            )
         ),
         reply_markup=(
             super_admin_read_only_moderator_reviews_keyboard(
@@ -12935,7 +13425,6 @@ async def show_super_admin_read_only_review(
             )
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("SA_RO_MOD_BLACKLIST:")
@@ -13041,7 +13530,18 @@ async def super_admin_read_only_moderator_blacklist(
         language,
     )
 
-    await callback.message.answer(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_moderator_"
+            "blacklist_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "super_admin_ro_moderator_blacklist_title",
             language,
@@ -13051,34 +13551,75 @@ async def super_admin_read_only_moderator_blacklist(
             count=len(visible_cards),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if visible_cards:
-        start_number = page * MODERATOR_PROFILE_PAGE_SIZE + 1
-
-        for offset, card in enumerate(visible_cards):
-            await callback.message.answer(
-                format_scoped_blacklist_card(
-                    card,
-                    number=start_number + offset,
-                    language=language,
-                )
-            )
-    else:
-        await callback.message.answer(
-            t("moderator_blacklist_empty", language)
+        start_number = (
+            page
+            * MODERATOR_PROFILE_PAGE_SIZE
+            + 1
         )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
-        reply_markup=(
-            super_admin_read_only_moderator_blacklist_keyboard(
-                view=view,
-                page=page,
-                has_next=has_next,
-                language=language,
+        for offset, card in enumerate(
+            visible_cards
+        ):
+            card_message = (
+                await callback.message.answer(
+                    format_scoped_blacklist_card(
+                        card,
+                        number=(
+                            start_number
+                            + offset
+                        ),
+                        language=language,
+                    )
+                )
             )
-        ),
+            rendered_message_ids.append(
+                card_message.message_id
+            )
+    else:
+        empty_message = (
+            await callback.message.answer(
+                t(
+                    "moderator_blacklist_empty",
+                    language,
+                )
+            )
+        )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+    navigation_message = (
+        await callback.message.answer(
+            t(
+                "super_admin_ro_read_only_label",
+                language,
+            ),
+            reply_markup=(
+                super_admin_read_only_moderator_blacklist_keyboard(
+                    view=view,
+                    page=page,
+                    has_next=has_next,
+                    language=language,
+                )
+            ),
+        )
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_moderator_blacklist_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 async def show_super_admin_admin_read_only_cabinet(
@@ -13187,6 +13728,56 @@ async def super_admin_read_only_admin_home(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "audit_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_global_"
+            "blacklist_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "support_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "user_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_user_"
+            "history_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await show_super_admin_admin_read_only_cabinet(
         callback,
         state,
@@ -13289,7 +13880,18 @@ async def super_admin_read_only_admin_audit_queue(
         super_admin_impersonation_admin_audit_page=result.page,
     )
 
-    await callback.message.answer(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "audit_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "super_admin_ro_admin_audit_title",
             language,
@@ -13299,9 +13901,12 @@ async def super_admin_read_only_admin_audit_queue(
             count=len(result.items),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not result.items:
-        await callback.message.answer(
+        empty_message = await callback.message.answer(
             t("admin_audit_empty", language),
             reply_markup=admin_audit_queue_keyboard(
                 target_type=result.target_type,
@@ -13312,13 +13917,27 @@ async def super_admin_read_only_admin_audit_queue(
                 back_callback="SA_RO_ADMIN_HOME",
             ),
         )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            super_admin_ro_admin_audit_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         await callback.answer()
         return
 
-    start_number = result.page * ADMIN_AUDIT_PAGE_SIZE + 1
+    start_number = (
+        result.page
+        * ADMIN_AUDIT_PAGE_SIZE
+        + 1
+    )
 
     for index, card in enumerate(result.items):
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_admin_audit_card(
                 card,
                 number=start_number + index,
@@ -13333,16 +13952,23 @@ async def super_admin_read_only_admin_audit_queue(
                                 language,
                             ),
                             callback_data=(
-                                f"SA_RO_ADMIN_AUDIT_OPEN:{index}"
+                                "SA_RO_ADMIN_AUDIT_OPEN:"
+                                f"{index}"
                             ),
                         )
                     ]
                 ]
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
         reply_markup=admin_audit_queue_keyboard(
             target_type=result.target_type,
             page=result.page,
@@ -13352,6 +13978,17 @@ async def super_admin_read_only_admin_audit_queue(
             back_callback="SA_RO_ADMIN_HOME",
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_admin_audit_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 
@@ -13379,15 +14016,29 @@ async def super_admin_read_only_admin_audit_filter(
         )
         return
 
-    await callback.message.answer(
-        t("admin_audit_filter_title", language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "audit_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_audit_filter_title",
+            language,
+        ),
         reply_markup=(
             super_admin_read_only_admin_audit_filter_keyboard(
                 language
             )
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -13489,8 +14140,23 @@ async def super_admin_read_only_admin_audit_open(
         ) or 0
     )
 
-    await callback.message.answer(
-        t("admin_audit_details", language).format(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "audit_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_audit_details",
+            language,
+        ).format(
             date=card.date,
             actor=card.actor,
             action=card.action,
@@ -13519,13 +14185,14 @@ async def super_admin_read_only_admin_audit_open(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("SA_RO_ADMIN_GLOBAL_BLACKLIST:")
@@ -13628,7 +14295,18 @@ async def super_admin_read_only_admin_global_blacklist(
         language,
     )
 
-    await callback.message.answer(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_global_"
+            "blacklist_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "super_admin_ro_admin_global_blacklist_title",
             language,
@@ -13638,28 +14316,44 @@ async def super_admin_read_only_admin_global_blacklist(
             count=len(result.items),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if result.items:
         start_number = (
-            result.page * ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE
+            result.page
+            * ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE
             + 1
         )
 
         for offset, card in enumerate(result.items):
-            await callback.message.answer(
+            card_message = await callback.message.answer(
                 format_global_blacklist_card(
                     card,
                     number=start_number + offset,
                     language=language,
                 )
             )
+            rendered_message_ids.append(
+                card_message.message_id
+            )
     else:
-        await callback.message.answer(
-            t("admin_global_blacklist_empty", language)
+        empty_message = await callback.message.answer(
+            t(
+                "admin_global_blacklist_empty",
+                language,
+            )
+        )
+        rendered_message_ids.append(
+            empty_message.message_id
         )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
         reply_markup=(
             super_admin_read_only_admin_global_blacklist_keyboard(
                 view=result.view,
@@ -13669,6 +14363,17 @@ async def super_admin_read_only_admin_global_blacklist(
             )
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_admin_global_blacklist_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 @admin_router.callback_query(
@@ -13765,16 +14470,36 @@ async def super_admin_read_only_admin_support(
         ),
     )
 
-    await callback.message.answer(
-        t("admin_escalated_tickets_header", language).format(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "support_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
+        t(
+            "admin_escalated_tickets_header",
+            language,
+        ).format(
             page=ticket_page.page + 1,
             count=len(ticket_page.tickets),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not ticket_page.tickets:
-        await callback.message.answer(
-            t("admin_escalated_tickets_empty", language),
+        empty_message = await callback.message.answer(
+            t(
+                "admin_escalated_tickets_empty",
+                language,
+            ),
             reply_markup=(
                 super_admin_read_only_admin_support_keyboard(
                     page=ticket_page.page,
@@ -13783,10 +14508,22 @@ async def super_admin_read_only_admin_support(
                 )
             ),
         )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            super_admin_ro_admin_support_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         await callback.answer()
         return
 
-    for index, ticket in enumerate(ticket_page.tickets):
+    for index, ticket in enumerate(
+        ticket_page.tickets
+    ):
         number = (
             ticket_page.page
             * ADMIN_ESCALATED_TICKET_PAGE_SIZE
@@ -13794,7 +14531,7 @@ async def super_admin_read_only_admin_support(
             + 1
         )
 
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_admin_escalated_ticket(
                 ticket,
                 number=number,
@@ -13804,18 +14541,28 @@ async def super_admin_read_only_admin_support(
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text=t("admin_user_open_btn", language),
+                            text=t(
+                                "admin_user_open_btn",
+                                language,
+                            ),
                             callback_data=(
-                                f"SA_RO_ADMIN_SUPPORT_OPEN:{index}"
+                                "SA_RO_ADMIN_SUPPORT_OPEN:"
+                                f"{index}"
                             ),
                         )
                     ]
                 ]
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
         reply_markup=(
             super_admin_read_only_admin_support_keyboard(
                 page=ticket_page.page,
@@ -13824,6 +14571,17 @@ async def super_admin_read_only_admin_support(
             )
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_admin_support_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 
@@ -13921,8 +14679,20 @@ async def super_admin_read_only_admin_support_open(
         ) or 0
     )
 
-    await callback.message.answer(
-        format_support_ticket_card(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "support_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_support_ticket_card(
             ticket_view,
             index=index,
             total=len(ticket_ids),
@@ -13937,7 +14707,8 @@ async def super_admin_read_only_admin_support_open(
                             language,
                         ),
                         callback_data=(
-                            f"SA_RO_ADMIN_SUPPORT:{page}"
+                            "SA_RO_ADMIN_SUPPORT:"
+                            f"{page}"
                         ),
                     )
                 ],
@@ -13947,13 +14718,14 @@ async def super_admin_read_only_admin_support_open(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith(
@@ -14142,13 +14914,25 @@ async def super_admin_read_only_admin_users_start(
         )
         return
 
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "user_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await state.set_state(
         AdminModerationFSM
         .entering_super_admin_impersonation_admin_user_search
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "super_admin_ro_admin_user_search_prompt",
             language,
         ),
@@ -14158,7 +14942,6 @@ async def super_admin_read_only_admin_users_start(
             )
         ),
     )
-    await callback.answer()
 
 
 @admin_router.message(
@@ -14182,15 +14965,29 @@ async def super_admin_read_only_admin_users_receive(
         ) != "admin"
     ):
         await state.set_state(None)
-        await message.answer(t("admin_access_denied", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
     if not query:
-        await message.answer(
-            t(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
                 "super_admin_ro_admin_user_search_prompt",
                 language,
-            )
+            ),
+            reply_markup=(
+                super_admin_read_only_admin_user_search_keyboard(
+                    language
+                )
+            ),
         )
         return
 
@@ -14204,7 +15001,14 @@ async def super_admin_read_only_admin_users_receive(
         )
     except (TypeError, ValueError):
         await state.set_state(None)
-        await message.answer(t("admin_item_not_found", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+        )
         return
 
     admin_user_id, tenant_id, roles = (
@@ -14217,7 +15021,14 @@ async def super_admin_read_only_admin_users_receive(
         or "super_admin" not in roles
     ):
         await state.set_state(None)
-        await message.answer(t("admin_access_denied", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
     try:
@@ -14230,10 +15041,20 @@ async def super_admin_read_only_admin_users_receive(
                 query=query,
             )
     except ModerationError as exc:
-        await message.answer(
-            t("admin_user_search_error", language).format(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_search_error",
+                language,
+            ).format(
                 error=str(exc),
-            )
+            ),
+            reply_markup=(
+                super_admin_read_only_admin_user_search_keyboard(
+                    language
+                )
+            ),
         )
         return
 
@@ -14246,8 +15067,13 @@ async def super_admin_read_only_admin_users_receive(
     )
 
     if not cards:
-        await message.answer(
-            t("admin_user_search_empty", language),
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_search_empty",
+                language,
+            ),
             reply_markup=(
                 super_admin_read_only_admin_user_search_keyboard(
                     language
@@ -14256,14 +15082,31 @@ async def super_admin_read_only_admin_users_receive(
         )
         return
 
-    await message.answer(
-        t("admin_user_search_results", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_user_search_results",
+            language,
+        ).format(
             count=len(cards),
-        )
+        ),
     )
 
+    screen_data = await state.get_data()
+    rendered_message_ids: list[int] = []
+
+    header_message_id = screen_data.get(
+        "last_menu_message_id"
+    )
+
+    if isinstance(header_message_id, int):
+        rendered_message_ids.append(
+            header_message_id
+        )
+
     for index, card in enumerate(cards):
-        await message.answer(
+        card_message = await message.answer(
             format_admin_user_search_card(
                 card,
                 number=index + 1,
@@ -14278,21 +15121,38 @@ async def super_admin_read_only_admin_users_receive(
                                 language,
                             ),
                             callback_data=(
-                                f"SA_RO_ADMIN_USER_OPEN:{index}"
+                                "SA_RO_ADMIN_USER_OPEN:"
+                                f"{index}"
                             ),
                         )
                     ]
                 ]
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await message.answer(
-        t("super_admin_ro_read_only_label", language),
+    navigation_message = await message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
         reply_markup=(
             super_admin_read_only_admin_user_search_keyboard(
                 language
             )
         ),
+    )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_admin_user_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
     )
 
 
@@ -14384,8 +15244,33 @@ async def super_admin_read_only_admin_user_open(
         )
         return
 
-    await callback.message.answer(
-        format_admin_user_details(card, language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "user_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_user_"
+            "history_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_user_details(
+            card,
+            language,
+        ),
         reply_markup=(
             super_admin_read_only_admin_user_details_keyboard(
                 index=index,
@@ -14393,7 +15278,6 @@ async def super_admin_read_only_admin_user_open(
             )
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -14484,8 +15368,13 @@ async def super_admin_read_only_admin_user_roles(
         )
         return
 
-    await callback.message.answer(
-        format_admin_user_roles(card, language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_user_roles(
+            card,
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -14495,7 +15384,8 @@ async def super_admin_read_only_admin_user_roles(
                             language,
                         ),
                         callback_data=(
-                            f"SA_RO_ADMIN_USER_OPEN:{index}"
+                            "SA_RO_ADMIN_USER_OPEN:"
+                            f"{index}"
                         ),
                     )
                 ],
@@ -14505,13 +15395,14 @@ async def super_admin_read_only_admin_user_roles(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -14603,29 +15494,75 @@ async def super_admin_read_only_admin_user_history(
         )
         return
 
-    await callback.message.answer(
-        t("admin_user_history_title", language).format(
-            user_number=f"user-{selected_user_id.hex[:8]}",
-            count=len(history),
-        )
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_user_"
+            "history_message_ids"
+        ),
+        preserve_current=True,
     )
 
-    if history:
-        for number, card in enumerate(history, start=1):
-            await callback.message.answer(
-                format_admin_user_history_item(
-                    card,
-                    number=number,
-                    language=language,
-                )
-            )
-    else:
-        await callback.message.answer(
-            t("admin_user_history_empty", language)
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_history_title",
+            language,
+        ).format(
+            user_number=(
+                f"user-{selected_user_id.hex[:8]}"
+            ),
+            count=len(history),
+        ),
+    )
+
+    screen_data = await state.get_data()
+    rendered_message_ids: list[int] = []
+
+    header_message_id = screen_data.get(
+        "last_menu_message_id"
+    )
+
+    if isinstance(header_message_id, int):
+        rendered_message_ids.append(
+            header_message_id
         )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
+    if history:
+        for number, card in enumerate(
+            history,
+            start=1,
+        ):
+            history_message = (
+                await callback.message.answer(
+                    format_admin_user_history_item(
+                        card,
+                        number=number,
+                        language=language,
+                    )
+                )
+            )
+            rendered_message_ids.append(
+                history_message.message_id
+            )
+    else:
+        empty_message = await callback.message.answer(
+            t(
+                "admin_user_history_empty",
+                language,
+            )
+        )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -14635,7 +15572,8 @@ async def super_admin_read_only_admin_user_history(
                             language,
                         ),
                         callback_data=(
-                            f"SA_RO_ADMIN_USER_OPEN:{index}"
+                            "SA_RO_ADMIN_USER_OPEN:"
+                            f"{index}"
                         ),
                     )
                 ],
@@ -14645,13 +15583,24 @@ async def super_admin_read_only_admin_user_history(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_admin_user_history_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
 
 @admin_router.callback_query(
     F.data == "SA_RO_ADMIN_MODERATION"
@@ -14687,6 +15636,16 @@ async def super_admin_read_only_client_home(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_client_"
+            "dialog_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await show_super_admin_client_read_only_cabinet(
         callback,
         state,
@@ -14803,7 +15762,18 @@ async def super_admin_read_only_client_dialogs(
         super_admin_impersonation_client_dialogs_page=page,
     )
 
-    await callback.message.answer(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_client_"
+            "dialog_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "super_admin_ro_client_dialogs_title",
             language,
@@ -14812,10 +15782,16 @@ async def super_admin_read_only_client_dialogs(
             count=len(visible_items),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not visible_items:
-        await callback.message.answer(
-            t("client_dialogs_empty", language),
+        empty_message = await callback.message.answer(
+            t(
+                "client_dialogs_empty",
+                language,
+            ),
             reply_markup=(
                 super_admin_read_only_client_dialogs_keyboard(
                     page=page,
@@ -14824,15 +15800,29 @@ async def super_admin_read_only_client_dialogs(
                 )
             ),
         )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            super_admin_ro_client_dialog_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         await callback.answer()
         return
 
-    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
+    start_number = (
+        page
+        * READ_ONLY_CLIENT_PAGE_SIZE
+        + 1
+    )
 
     for index, item in enumerate(visible_items):
         number = start_number + index
 
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_super_admin_read_only_client_dialog(
                 item,
                 number=number,
@@ -14845,18 +15835,27 @@ async def super_admin_read_only_client_dialogs(
                             text=t(
                                 "super_admin_ro_client_open_dialog_btn",
                                 language,
-                            ).format(number=number),
+                            ).format(
+                                number=number
+                            ),
                             callback_data=(
-                                f"SA_RO_CLIENT_DIALOG_OPEN:{index}"
+                                "SA_RO_CLIENT_DIALOG_OPEN:"
+                                f"{index}"
                             ),
                         )
                     ]
                 ]
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
         reply_markup=(
             super_admin_read_only_client_dialogs_keyboard(
                 page=page,
@@ -14865,6 +15864,17 @@ async def super_admin_read_only_client_dialogs(
             )
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_client_dialog_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 
@@ -14958,10 +15968,24 @@ async def super_admin_read_only_client_dialog_open(
         ) or 0
     )
 
-    await callback.message.answer(
-        format_super_admin_read_only_client_dialog_detail(
-            detail,
-            language=language,
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_client_"
+            "dialog_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            format_super_admin_read_only_client_dialog_detail(
+                detail,
+                language=language,
+            )
         ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -14972,7 +15996,8 @@ async def super_admin_read_only_client_dialog_open(
                             language,
                         ),
                         callback_data=(
-                            f"SA_RO_CLIENT_DIALOGS:{page}"
+                            "SA_RO_CLIENT_DIALOGS:"
+                            f"{page}"
                         ),
                     )
                 ],
@@ -14982,13 +16007,14 @@ async def super_admin_read_only_client_dialog_open(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data == "SA_RO_SPECIALIST_PROFILE"
@@ -15026,7 +16052,9 @@ async def super_admin_read_only_specialist_profile(
     specialist_id_raw = data.get(
         "super_admin_impersonation_specialist_id"
     )
-
+    professional_cabinet_id_raw = data.get(
+        "super_admin_impersonation_professional_cabinet_id"
+    )
     try:
         target_user_id = UUID(
             str(
@@ -15037,6 +16065,15 @@ async def super_admin_read_only_specialist_profile(
             str(
                 specialist_id_raw
             )
+        )
+        professional_cabinet_id = (
+            UUID(
+                str(
+                    professional_cabinet_id_raw
+                )
+            )
+            if professional_cabinet_id_raw
+            else None
         )
     except (TypeError, ValueError):
         await callback.answer(
@@ -15080,6 +16117,9 @@ async def super_admin_read_only_specialist_profile(
             user_id=target_user_id,
             specialist_id=specialist_id,
             language=language,
+            professional_cabinet_id=(
+                professional_cabinet_id
+            ),
         )
 
     if not profile:
@@ -15148,6 +16188,16 @@ async def super_admin_read_only_specialist_home(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_specialist_"
+            "dialog_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await show_super_admin_specialist_read_only_cabinet(
         callback,
         state,
@@ -15199,6 +16249,21 @@ async def super_admin_read_only_specialist_dialogs(
                 )
             )
         )
+        professional_cabinet_id = (
+            UUID(
+                str(
+                    data.get(
+                        "super_admin_impersonation_"
+                        "professional_cabinet_id"
+                    )
+                )
+            )
+            if data.get(
+                "super_admin_impersonation_"
+                "professional_cabinet_id"
+            )
+            else None
+        )
     except (TypeError, ValueError):
         await callback.answer(
             t("admin_item_not_found", language),
@@ -15227,6 +16292,9 @@ async def super_admin_read_only_specialist_dialogs(
                 limit=READ_ONLY_CLIENT_PAGE_SIZE + 1,
                 offset=page * READ_ONLY_CLIENT_PAGE_SIZE,
                 language=language,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
             )
     except ContactChatError as exc:
         await callback.answer(
@@ -15246,7 +16314,18 @@ async def super_admin_read_only_specialist_dialogs(
         super_admin_impersonation_specialist_dialogs_page=page,
     )
 
-    await callback.message.answer(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_specialist_"
+            "dialog_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "super_admin_ro_specialist_dialogs_title",
             language,
@@ -15255,10 +16334,16 @@ async def super_admin_read_only_specialist_dialogs(
             count=len(visible_items),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not visible_items:
-        await callback.message.answer(
-            t("client_dialogs_empty", language),
+        empty_message = await callback.message.answer(
+            t(
+                "client_dialogs_empty",
+                language,
+            ),
             reply_markup=(
                 super_admin_read_only_specialist_dialogs_keyboard(
                     page=page,
@@ -15267,15 +16352,29 @@ async def super_admin_read_only_specialist_dialogs(
                 )
             ),
         )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            super_admin_ro_specialist_dialog_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         await callback.answer()
         return
 
-    start_number = page * READ_ONLY_CLIENT_PAGE_SIZE + 1
+    start_number = (
+        page
+        * READ_ONLY_CLIENT_PAGE_SIZE
+        + 1
+    )
 
     for index, item in enumerate(visible_items):
         number = start_number + index
 
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_super_admin_read_only_specialist_dialog(
                 item,
                 number=number,
@@ -15288,7 +16387,9 @@ async def super_admin_read_only_specialist_dialogs(
                             text=t(
                                 "super_admin_ro_specialist_open_dialog_btn",
                                 language,
-                            ).format(number=number),
+                            ).format(
+                                number=number
+                            ),
                             callback_data=(
                                 "SA_RO_SPECIALIST_DIALOG_OPEN:"
                                 f"{index}"
@@ -15298,9 +16399,15 @@ async def super_admin_read_only_specialist_dialogs(
                 ]
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
         reply_markup=(
             super_admin_read_only_specialist_dialogs_keyboard(
                 page=page,
@@ -15309,6 +16416,17 @@ async def super_admin_read_only_specialist_dialogs(
             )
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_specialist_dialog_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 
@@ -15402,10 +16520,24 @@ async def super_admin_read_only_specialist_dialog_open(
         ) or 0
     )
 
-    await callback.message.answer(
-        format_super_admin_read_only_specialist_dialog_detail(
-            detail,
-            language=language,
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_specialist_"
+            "dialog_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            format_super_admin_read_only_specialist_dialog_detail(
+                detail,
+                language=language,
+            )
         ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -15416,7 +16548,8 @@ async def super_admin_read_only_specialist_dialog_open(
                             language,
                         ),
                         callback_data=(
-                            f"SA_RO_SPECIALIST_DIALOGS:{page}"
+                            "SA_RO_SPECIALIST_DIALOGS:"
+                            f"{page}"
                         ),
                     )
                 ],
@@ -15426,19 +16559,30 @@ async def super_admin_read_only_specialist_dialog_open(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "SA_RO_SUPPORT_HOME")
 async def super_admin_read_only_support_home(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_support_"
+            "ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await show_super_admin_support_read_only_cabinet(
         callback,
         state,
@@ -15547,23 +16691,46 @@ async def super_admin_read_only_support_list(
         super_admin_impersonation_support_page=page,
     )
 
-    await callback.message.answer(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_support_"
+            "ticket_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         t(
             "super_admin_ro_support_list_title",
             language,
         ).format(
-            view=support_staff_view_label(view, language),
+            view=support_staff_view_label(
+                view,
+                language,
+            ),
             page=page + 1,
             count=len(visible_tickets),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
-    start_number = page * SUPPORT_STAFF_PAGE_SIZE + 1
+    start_number = (
+        page
+        * SUPPORT_STAFF_PAGE_SIZE
+        + 1
+    )
 
-    for index, ticket in enumerate(visible_tickets):
+    for index, ticket in enumerate(
+        visible_tickets
+    ):
         number = start_number + index
 
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_super_admin_read_only_support_ticket(
                 ticket,
                 number=number,
@@ -15576,25 +16743,47 @@ async def super_admin_read_only_support_list(
                             text=t(
                                 "super_admin_ro_support_open_ticket_btn",
                                 language,
-                            ).format(number=number),
+                            ).format(
+                                number=number
+                            ),
                             callback_data=(
-                                f"SA_RO_SUPPORT_OPEN:{index}"
+                                "SA_RO_SUPPORT_OPEN:"
+                                f"{index}"
                             ),
                         )
                     ]
                 ]
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("super_admin_ro_read_only_label", language),
-        reply_markup=super_admin_read_only_support_list_keyboard(
-            view=view,
-            page=page,
-            has_next=has_next,
-            language=language,
+    navigation_message = await callback.message.answer(
+        t(
+            "super_admin_ro_read_only_label",
+            language,
+        ),
+        reply_markup=(
+            super_admin_read_only_support_list_keyboard(
+                view=view,
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_ro_support_ticket_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 
@@ -15698,11 +16887,25 @@ async def super_admin_read_only_support_open_ticket(
     )
     number = page * SUPPORT_STAFF_PAGE_SIZE + index + 1
 
-    await callback.message.answer(
-        format_super_admin_read_only_support_ticket_detail(
-            ticket_view,
-            number=number,
-            language=language,
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_support_"
+            "ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            format_super_admin_read_only_support_ticket_detail(
+                ticket_view,
+                number=number,
+                language=language,
+            )
         ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -15713,7 +16916,8 @@ async def super_admin_read_only_support_open_ticket(
                             language,
                         ),
                         callback_data=(
-                            f"SA_RO_SUPPORT_LIST:{view}:{page}"
+                            "SA_RO_SUPPORT_LIST:"
+                            f"{view}:{page}"
                         ),
                     )
                 ],
@@ -15723,13 +16927,14 @@ async def super_admin_read_only_support_open_ticket(
                             "super_admin_impersonation_stop_btn",
                             language,
                         ),
-                        callback_data="SA_IMPERSONATE_STOP",
+                        callback_data=(
+                            "SA_IMPERSONATE_STOP"
+                        ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 async def show_super_admin_client_read_only_cabinet(
     callback: CallbackQuery,
@@ -16042,9 +17247,10 @@ async def super_admin_impersonation_role(
         )
         return
     if preview.target_role == "specialist":
-        await show_super_admin_specialist_read_only_cabinet(
+        await show_super_admin_specialist_read_only_cabinets(
             callback,
             state,
+            page=0,
         )
         return
     if preview.target_role == "support":
@@ -16143,8 +17349,101 @@ async def super_admin_impersonation_stop(
             )
 
     except ModerationError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_moderator_"
+            "blacklist_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "audit_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_global_"
+            "blacklist_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "support_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_"
+            "user_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_admin_user_"
+            "history_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_client_"
+            "dialog_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_specialist_"
+            "dialog_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_ro_support_"
+            "ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
 
     await state.update_data(
         super_admin_impersonation_reason=None,
@@ -16290,56 +17589,32 @@ def moderator_menu_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 async def show_admin_panel(
-    message_or_callback,
-    state: FSMContext | None = None,
+    callback: CallbackQuery,
+    state: FSMContext,
     *,
     callback_answered: bool = False,
 ):
-    user = message_or_callback.from_user
+    user = callback.from_user
     language = normalize_language(user.language_code)
 
-    target_message = (
-        message_or_callback.message
-        if isinstance(message_or_callback, CallbackQuery)
-        else message_or_callback
-    )
-    
     async def send_panel(
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
     ) -> Message:
-        if isinstance(
-            message_or_callback,
-            CallbackQuery,
-        ):
-            menu_message = (
-                await edit_or_replace_menu_message(
-                    callback=message_or_callback,
-                    text=text,
-                    reply_markup=reply_markup,
-                )
-            )
-
-            if state:
-                await state.update_data(
-                    last_menu_message_id=(
-                        menu_message.message_id
-                    )
-                )
-
-            return menu_message
-
-        return await target_message.answer(
-            text,
+        menu_message = await edit_or_replace_menu_message(
+            callback=callback,
+            text=text,
             reply_markup=reply_markup,
         )
 
+        await state.update_data(
+            last_menu_message_id=menu_message.message_id,
+        )
 
-    if (
-        isinstance(message_or_callback, CallbackQuery)
-        and not callback_answered
-    ):
-        await message_or_callback.answer()
+        return menu_message
+
+    if not callback_answered:
+        await callback.answer()
         callback_answered = True
 
     admin_user_id, tenant_id, roles = await get_admin_user_context(
@@ -16351,41 +17626,34 @@ async def show_admin_panel(
         )
         return
 
-    if state:
-        state_data = await state.get_data()
+    state_data = await state.get_data()
 
-        if isinstance(
-            message_or_callback,
-            CallbackQuery,
-        ):
-            await delete_telegram_messages(
-                bot=message_or_callback.bot,
-                chat_id=(
-                    message_or_callback.message.chat.id
-                ),
-                message_ids=[
-                    *(
-                        state_data.get(
-                            "admin_scope_list_message_ids"
-                        )
-                        or []
-                    ),
-                    *(
-                        state_data.get(
-                            "admin_global_blacklist_message_ids"
-                        )
-                        or []
-                    ),
-                    *(
-                        state_data.get(
-                            "admin_scoped_blacklist_message_ids"
-                        )
-                        or []
-                    ),
-                ],
-            )
+    await delete_telegram_messages(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        message_ids=[
+            *(
+                state_data.get(
+                    "admin_scope_list_message_ids"
+                )
+                or []
+            ),
+            *(
+                state_data.get(
+                    "admin_global_blacklist_message_ids"
+                )
+                or []
+            ),
+            *(
+                state_data.get(
+                    "admin_scoped_blacklist_message_ids"
+                )
+                or []
+            ),
+        ],
+    )
 
-        await state.clear()
+    await state.clear()
 
     async with get_session() as session:
         role_context = await UserService(session).get_role_switch_context(user.id)
@@ -16560,41 +17828,111 @@ async def show_admin_panel(
         ),
     )
 
-@admin_router.message(Command("admin"))
-async def admin_command(message: Message, state: FSMContext):
-    await show_admin_panel(message, state)
-
-
 @admin_router.callback_query(F.data == "ADM_PANEL")
-async def admin_panel_callback(callback: CallbackQuery, state: FSMContext):
-    await show_admin_panel(callback, state)
-
-@admin_router.callback_query(F.data == "ADM_DICT")
-async def admin_dictionaries_menu(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+async def admin_panel_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key="admin_audit_message_ids",
+        preserve_current=True,
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_audit_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_escalated_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key="admin_user_message_ids",
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_user_history_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await show_admin_panel(
+        callback,
+        state,
+    )
+
+@admin_router.callback_query(F.data == "ADM_DICT")
+async def admin_dictionaries_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
-            t("admin_access_denied", language),
+            t(
+                "admin_access_denied",
+                language,
+            ),
             show_alert=True,
         )
         return
 
-    await callback.message.answer(
-        t("admin_dict_menu_title", language),
-        reply_markup=admin_dictionaries_keyboard(language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_menu_title",
+            language,
+        ),
+        reply_markup=admin_dictionaries_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_DICT_CATEGORIES")
 @admin_router.callback_query(F.data.startswith("ADM_DICT_CATEGORIES:"))
 async def admin_categories_dictionary(callback: CallbackQuery, state: FSMContext):
     language = normalize_language(callback.from_user.language_code)
-
+    await state.set_state(None)
     page = 0
     if callback.data and ":" in callback.data:
         try:
@@ -16633,8 +17971,10 @@ async def admin_categories_dictionary(callback: CallbackQuery, state: FSMContext
         admin_category_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_categories_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_categories_list(
             visible_items,
             language,
             page=page,
@@ -16645,7 +17985,6 @@ async def admin_categories_dictionary(callback: CallbackQuery, state: FSMContext
             has_next=has_next,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_CAT_CREATE")
 async def admin_category_create_prompt(
@@ -16665,11 +18004,33 @@ async def admin_category_create_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_category_create)
-    await callback.message.answer(
-        t("admin_dict_category_create_prompt", language)
+    await state.set_state(
+        AdminModerationFSM.entering_admin_category_create
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_category_create_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_CATEGORIES"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_category_create)
@@ -16677,15 +18038,27 @@ async def admin_category_create_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
     try:
@@ -16701,20 +18074,57 @@ async def admin_category_create_receive(
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_category_create_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "admin_panel_back",
+                                language,
+                            ),
+                            callback_data=(
+                                "ADM_DICT_CATEGORIES"
+                            ),
+                        )
+                    ]
+                ]
+            ),
+        )
         return
 
     await state.update_data(
-        admin_selected_category_id=str(item.category_id),
+        admin_selected_category_id=str(
+            item.category_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_category_create_done", language),
-    )
-    await message.answer(
-        format_admin_category_card(item, language),
-        reply_markup=admin_category_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_category_create_done',
+                language,
+            )}\n\n"
+            f"{format_admin_category_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_category_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_CAT_OPEN_STUB")
@@ -16726,7 +18136,10 @@ async def admin_category_open_prompt(
 
     data = await state.get_data()
     category_ids = data.get("admin_category_ids") or []
-
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
     if not category_ids:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -16734,14 +18147,39 @@ async def admin_category_open_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_category_number)
-
-    await callback.message.answer(
-        t("admin_dict_category_open_prompt", language).format(
-            count=len(category_ids),
-        )
+    await state.set_state(
+        AdminModerationFSM.entering_admin_category_number
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{callback.message.text or ''}\n\n"
+            f"{t(
+                'admin_dict_category_open_prompt',
+                language,
+            ).format(
+                count=len(category_ids),
+            )}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_CATEGORIES:"
+                            f"{category_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 @admin_router.callback_query(
     F.data.in_(
@@ -16922,6 +18360,7 @@ def admin_countries_keyboard(
 
 async def read_admin_csv_payload_from_message(
     message: Message,
+    state: FSMContext,
     bot: Bot,
     language: str,
 ) -> str | None:
@@ -16929,26 +18368,65 @@ async def read_admin_csv_payload_from_message(
         return message.text
 
     if not message.document:
-        await message.answer(t("admin_dict_import_file_required", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_import_file_required",
+                language,
+            ),
+        )
         return None
 
-    file_name = message.document.file_name or ""
+    file_name = (
+        message.document.file_name
+        or ""
+    )
 
-    if not file_name.lower().endswith(".csv"):
-        await message.answer(t("admin_dict_import_file_invalid", language))
+    if not file_name.lower().endswith(
+        ".csv"
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_import_file_invalid",
+                language,
+            ),
+        )
         return None
 
-    file = await bot.get_file(message.document.file_id)
-    buffer = await bot.download_file(file.file_path)
+    file = await bot.get_file(
+        message.document.file_id
+    )
+    buffer = await bot.download_file(
+        file.file_path
+    )
 
     if buffer is None:
-        await message.answer(t("admin_dict_import_file_encoding_error", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_import_file_encoding_error",
+                language,
+            ),
+        )
         return None
 
     try:
-        return buffer.read().decode("utf-8-sig")
+        return buffer.read().decode(
+            "utf-8-sig"
+        )
     except UnicodeDecodeError:
-        await message.answer(t("admin_dict_import_file_encoding_error", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_import_file_encoding_error",
+                language,
+            ),
+        )
         return None
 
 
@@ -17710,7 +19188,7 @@ async def admin_professions_dictionary(
     state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
-
+    await state.set_state(None)
     page = 0
     if callback.data and ":" in callback.data:
         try:
@@ -17749,8 +19227,10 @@ async def admin_professions_dictionary(
         admin_profession_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_professions_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_professions_list(
             visible_items,
             page=page,
             language=language,
@@ -17761,7 +19241,6 @@ async def admin_professions_dictionary(
             language=language,
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "ADM_PROF_OPEN")
@@ -17773,7 +19252,10 @@ async def admin_profession_open_prompt(
 
     data = await state.get_data()
     profession_ids = data.get("admin_profession_ids") or []
-
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
     if not profession_ids:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -17781,14 +19263,40 @@ async def admin_profession_open_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_profession_number)
-
-    await callback.message.answer(
-        t("admin_dict_profession_open_prompt", language).format(
-            count=len(profession_ids),
-        )
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_profession_number
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{callback.message.text or ''}\n\n"
+            f"{t(
+                'admin_dict_profession_open_prompt',
+                language,
+            ).format(
+                count=len(profession_ids),
+            )}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_PROFESSIONS:"
+                            f"{profession_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_profession_number)
@@ -17796,26 +19304,85 @@ async def admin_profession_open_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
-    profession_ids = data.get("admin_profession_ids") or []
+    profession_ids = (
+        data.get("admin_profession_ids")
+        or []
+    )
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_PROFESSIONS:"
+                        f"{profession_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    prompt_text = t(
+        "admin_dict_profession_open_prompt",
+        language,
+    ).format(
+        count=len(profession_ids),
+    )
 
     try:
-        index = int((message.text or "").strip()) - 1
-    except ValueError:
-        await message.answer(
-            t("admin_dict_profession_open_bad_number", language).format(
-                count=len(profession_ids),
+        index = (
+            int(
+                (message.text or "").strip()
             )
+            - 1
+        )
+    except ValueError:
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_profession_open_bad_number',
+                    language,
+                ).format(
+                    count=len(profession_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
-    if index < 0 or index >= len(profession_ids):
-        await message.answer(
-            t("admin_dict_profession_open_bad_number", language).format(
-                count=len(profession_ids),
-            )
+    if (
+        index < 0
+        or index >= len(profession_ids)
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_profession_open_bad_number',
+                    language,
+                ).format(
+                    count=len(profession_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -17830,8 +19397,17 @@ async def admin_profession_open_receive(
         )
 
     if not item:
-        await message.answer(t("admin_item_not_found", language))
-        await state.clear()
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
@@ -17839,9 +19415,16 @@ async def admin_profession_open_receive(
     )
     await state.set_state(None)
 
-    await message.answer(
-        format_admin_profession_card(item, language),
-        reply_markup=admin_profession_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_profession_card(
+            item,
+            language,
+        ),
+        reply_markup=admin_profession_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_PROF_CREATE")
@@ -17865,18 +19448,57 @@ async def admin_profession_create_prompt(
     data = await state.get_data()
     category_id = data.get("admin_selected_category_id")
 
-    await state.set_state(AdminModerationFSM.entering_admin_profession_create)
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
 
     if category_id:
-        await callback.message.answer(
-            t("admin_dict_profession_create_prompt_in_category", language)
+        prompt_text = t(
+            "admin_dict_profession_create_prompt_in_category",
+            language,
+        )
+        back_callback = (
+            "ADM_DICT_CATEGORIES:"
+            f"{category_page}"
         )
     else:
-        await callback.message.answer(
-            t("admin_dict_profession_create_prompt_with_category", language)
+        prompt_text = t(
+            "admin_dict_profession_create_prompt_with_category",
+            language,
+        )
+        back_callback = (
+            "ADM_DICT_PROFESSIONS:"
+            f"{profession_page}"
         )
 
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_profession_create
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=prompt_text,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=back_callback,
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_profession_create)
@@ -17884,19 +19506,75 @@ async def admin_profession_create_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    data = await state.get_data()
+    category_id = data.get(
+        "admin_selected_category_id"
+    )
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
+
+    if category_id:
+        prompt_text = t(
+            "admin_dict_profession_create_prompt_in_category",
+            language,
+        )
+        back_callback = (
+            "ADM_DICT_CATEGORIES:"
+            f"{category_page}"
+        )
+    else:
+        prompt_text = t(
+            "admin_dict_profession_create_prompt_with_category",
+            language,
+        )
+        back_callback = (
+            "ADM_DICT_PROFESSIONS:"
+            f"{profession_page}"
+        )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=back_callback,
+                )
+            ]
+        ]
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
-        return
+        await state.set_state(None)
 
-    data = await state.get_data()
-    category_id = data.get("admin_selected_category_id")
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
+        return
 
     raw_text = message.text or ""
     category_code = None
@@ -17904,9 +19582,19 @@ async def admin_profession_create_receive(
 
     if not category_id:
         parts = raw_text.split("|", 1)
+
         if len(parts) != 2:
-            await message.answer(
-                t("admin_dict_profession_create_format_error", language)
+            await replace_admin_input_screen(
+                message=message,
+                state=state,
+                text=(
+                    f"{t(
+                        'admin_dict_profession_create_format_error',
+                        language,
+                    )}\n\n"
+                    f"{prompt_text}"
+                ),
+                reply_markup=back_keyboard,
             )
             return
 
@@ -17928,20 +19616,40 @@ async def admin_profession_create_receive(
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
-        admin_selected_profession_id=str(item.profession_id),
+        admin_selected_profession_id=str(
+            item.profession_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_profession_create_done", language),
-    )
-    await message.answer(
-        format_admin_profession_card(item, language),
-        reply_markup=admin_profession_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_profession_create_done',
+                language,
+            )}\n\n"
+            f"{format_admin_profession_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_profession_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_PROF_RENAME")
@@ -17952,6 +19660,10 @@ async def admin_profession_rename_prompt(
     language = normalize_language(callback.from_user.language_code)
 
     data = await state.get_data()
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
     if not data.get("admin_selected_profession_id"):
         await callback.answer(
             t("admin_item_not_found", language),
@@ -17959,11 +19671,35 @@ async def admin_profession_rename_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_profession_rename)
-    await callback.message.answer(
-        t("admin_dict_profession_rename_prompt", language)
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_profession_rename
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_profession_rename_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_PROFESSIONS:"
+                            f"{profession_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_profession_rename)
@@ -17971,23 +19707,68 @@ async def admin_profession_rename_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
-    profession_id = data.get("admin_selected_profession_id")
+    profession_id = data.get(
+        "admin_selected_profession_id"
+    )
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_PROFESSIONS:"
+                        f"{profession_page}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if not profession_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -18004,20 +19785,43 @@ async def admin_profession_rename_receive(
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_profession_rename_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
-        admin_selected_profession_id=str(item.profession_id),
+        admin_selected_profession_id=str(
+            item.profession_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_profession_rename_done", language),
-    )
-    await message.answer(
-        format_admin_profession_card(item, language),
-        reply_markup=admin_profession_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_profession_rename_done',
+                language,
+            )}\n\n"
+            f"{format_admin_profession_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_profession_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_PROF_MOVE")
@@ -18028,6 +19832,10 @@ async def admin_profession_move_prompt(
     language = normalize_language(callback.from_user.language_code)
 
     data = await state.get_data()
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
     if not data.get("admin_selected_profession_id"):
         await callback.answer(
             t("admin_item_not_found", language),
@@ -18035,11 +19843,35 @@ async def admin_profession_move_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_profession_move)
-    await callback.message.answer(
-        t("admin_dict_profession_move_prompt", language)
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_profession_move
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_profession_move_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_PROFESSIONS:"
+                            f"{profession_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_profession_move)
@@ -18047,23 +19879,68 @@ async def admin_profession_move_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
-    profession_id = data.get("admin_selected_profession_id")
+    profession_id = data.get(
+        "admin_selected_profession_id"
+    )
+    profession_page = (
+        data.get("admin_profession_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_PROFESSIONS:"
+                        f"{profession_page}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if not profession_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -18080,20 +19957,43 @@ async def admin_profession_move_receive(
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_profession_move_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
-        admin_selected_profession_id=str(item.profession_id),
+        admin_selected_profession_id=str(
+            item.profession_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_profession_move_done", language),
-    )
-    await message.answer(
-        format_admin_profession_card(item, language),
-        reply_markup=admin_profession_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_profession_move_done',
+                language,
+            )}\n\n"
+            f"{format_admin_profession_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_profession_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_PROF_TOGGLE")
@@ -18147,14 +20047,25 @@ async def admin_profession_toggle_visibility(
         admin_selected_profession_id=str(item.profession_id),
     )
 
-    await callback.message.answer(
-        t("admin_dict_profession_visibility_done", language),
+    await state.set_state(None)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_profession_visibility_done',
+                language,
+            )}\n\n"
+            f"{format_admin_profession_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_profession_card_keyboard(
+            language
+        ),
     )
-    await callback.message.answer(
-        format_admin_profession_card(item, language),
-        reply_markup=admin_profession_card_keyboard(language),
-    )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_PROF_ARCHIVE")
 async def admin_profession_archive(
@@ -18221,18 +20132,20 @@ async def admin_profession_archive(
         )
         return
 
+    await state.set_state(None)
     await state.update_data(
         admin_selected_profession_id=str(item.profession_id),
     )
 
-    await callback.message.answer(
-        t(done_text_key, language),
-    )
-    await callback.message.answer(
-        format_admin_profession_card(item, language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(done_text_key, language)}\n\n"
+            f"{format_admin_profession_card(item, language)}"
+        ),
         reply_markup=admin_profession_card_keyboard(language),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_SPEC_MOVE_ALL")
 async def admin_specialist_move_all(
@@ -18297,6 +20210,7 @@ async def admin_specialist_move_all(
         callback.message,
         state,
         language,
+        edit=True,
     )
     await callback.answer()
 
@@ -18310,7 +20224,12 @@ async def admin_specialist_move_select_prompt(
     language = normalize_language(callback.from_user.language_code)
     data = await state.get_data()
     specialist_ids = data.get("admin_profession_specialist_ids") or []
-
+    page = int(
+        data.get(
+            "admin_profession_specialists_page"
+        )
+        or 0
+    )
     if not specialist_ids:
         await callback.answer(
             t("admin_dict_specialist_move_empty", language),
@@ -18329,11 +20248,35 @@ async def admin_specialist_move_select_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_specialist_move_numbers)
-    await callback.message.answer(
-        t("admin_dict_specialist_move_select_prompt", language)
+    await state.set_state(
+        AdminModerationFSM
+        .entering_admin_specialist_move_numbers
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_specialist_move_select_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_PROF_SPECIALISTS:"
+                            f"{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 @admin_router.message(AdminModerationFSM.entering_admin_specialist_move_numbers)
 async def admin_specialist_move_numbers_receive(
@@ -18343,10 +20286,41 @@ async def admin_specialist_move_numbers_receive(
     language = normalize_language(message.from_user.language_code)
     data = await state.get_data()
     specialist_ids = data.get("admin_profession_specialist_ids") or []
+    page = int(
+        data.get(
+            "admin_profession_specialists_page"
+        )
+        or 0
+    )
 
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_PROF_SPECIALISTS:"
+                        f"{page}"
+                    ),
+                )
+            ]
+        ]
+    )
     if not specialist_ids:
-        await state.clear()
-        await message.answer(t("admin_dict_specialist_move_empty", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_specialist_move_empty",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     raw_numbers = [
@@ -18363,10 +20337,16 @@ async def admin_specialist_move_numbers_receive(
             for item in raw_numbers
         ]
     except ValueError:
-        await message.answer(
-            t("admin_dict_specialist_move_bad_numbers", language).format(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_specialist_move_bad_numbers",
+                language,
+            ).format(
                 count=len(specialist_ids),
-            )
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -18374,10 +20354,16 @@ async def admin_specialist_move_numbers_receive(
         not selected_indexes
         or any(index < 0 or index >= len(specialist_ids) for index in selected_indexes)
     ):
-        await message.answer(
-            t("admin_dict_specialist_move_bad_numbers", language).format(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_specialist_move_bad_numbers",
+                language,
+            ).format(
                 count=len(specialist_ids),
-            )
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -18576,10 +20562,31 @@ async def show_admin_multi_move_professions(
     selected_ids = data.get(
         "admin_move_selected_profession_ids"
     ) or []
-
+    cancel_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_MULTI_MOVE_CANCEL"
+                    ),
+                )
+            ]
+        ]
+    )
     if not category_id:
-        await message.answer(
-            t("admin_item_not_found", language)
+        await message.edit_text(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=cancel_keyboard,
+        )
+        await state.update_data(
+            last_menu_message_id=message.message_id,
         )
         return
 
@@ -18600,8 +20607,15 @@ async def show_admin_multi_move_professions(
         )
 
     if not category:
-        await message.answer(
-            t("admin_item_not_found", language)
+        await message.edit_text(
+            t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=cancel_keyboard,
+        )
+        await state.update_data(
+            last_menu_message_id=message.message_id,
         )
         return
 
@@ -18675,10 +20689,14 @@ async def show_admin_multi_move_professions(
             reply_markup=keyboard,
         )
     else:
-        await message.answer(
+        await message.edit_text(
             screen_text,
             reply_markup=keyboard,
         )
+
+    await state.update_data(
+        last_menu_message_id=message.message_id,
+    )
 
 @admin_router.callback_query(
     F.data.startswith("ADM_MULTI_PROF_PAGE:")
@@ -18803,13 +20821,17 @@ async def admin_multi_move_professions_done(
     await state.set_state(
         AdminModerationFSM.choosing_admin_move_mode
     )
-    await callback.message.answer(
-        t("admin_dict_move_mode_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_move_mode_prompt",
+            language,
+        ),
         reply_markup=admin_multi_move_mode_keyboard(
             language
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -18845,13 +20867,17 @@ async def admin_multi_move_back_mode(
     await state.set_state(
         AdminModerationFSM.choosing_admin_move_mode
     )
-    await callback.message.answer(
-        t("admin_dict_move_mode_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_move_mode_prompt",
+            language,
+        ),
         reply_markup=admin_multi_move_mode_keyboard(
             language
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -18920,7 +20946,9 @@ async def admin_multi_move_confirm(
         else "admin_dict_move_mode_add_label"
     )
 
-    await state.clear()
+    await clear_admin_multi_move_state(
+        state
+    )
 
     await replace_admin_callback_screen(
         callback=callback,
@@ -19024,8 +21052,10 @@ async def admin_multi_move_mode_selected(
         else "admin_dict_move_mode_add_label"
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_dict_multi_move_preview",
             language,
         ).format(
@@ -19038,7 +21068,10 @@ async def admin_multi_move_mode_selected(
                 for profession
                 in preview.target_professions
             ),
-            mode=t(mode_key, language),
+            mode=t(
+                mode_key,
+                language,
+            ),
             specialists_count=len(
                 preview.selected_specialists
             ),
@@ -19047,7 +21080,6 @@ async def admin_multi_move_mode_selected(
             language
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -19065,6 +21097,7 @@ async def admin_multi_move_back_professions(
         callback.message,
         state,
         language,
+        edit=True,
     )
     await callback.answer()
 
@@ -19190,11 +21223,19 @@ async def show_admin_multi_move_categories(
             screen_text,
             reply_markup=keyboard,
         )
-    else:
-        await message.answer(
-            screen_text,
-            reply_markup=keyboard,
+        await state.update_data(
+            last_menu_message_id=(
+                message.message_id
+            ),
         )
+        return
+
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=screen_text,
+        reply_markup=keyboard,
+    )
 
 @admin_router.callback_query(
     F.data.startswith("ADM_MULTI_CAT_PAGE:")
@@ -19312,6 +21353,27 @@ async def admin_multi_move_category_selected(
     )
     await callback.answer()
 
+async def clear_admin_multi_move_state(
+    state: FSMContext,
+) -> None:
+    await state.set_state(None)
+    await state.update_data(
+        admin_selected_category_specialist_move_ids=[],
+        admin_selected_specialist_move_ids=[],
+        admin_move_source_type=None,
+        admin_move_source_id=None,
+        admin_move_specialist_ids=[],
+        admin_move_target_category_id=None,
+        admin_move_target_category_candidate_ids=[],
+        admin_move_available_category_ids=[],
+        admin_move_categories_page=0,
+        admin_move_target_profession_ids=[],
+        admin_move_target_professions=[],
+        admin_move_available_profession_ids=[],
+        admin_move_selected_profession_ids=[],
+        admin_move_professions_page=0,
+        admin_move_mode=None,
+    )
 
 @admin_router.callback_query(
     F.data == "ADM_MULTI_MOVE_CANCEL"
@@ -19324,311 +21386,16 @@ async def admin_multi_move_cancel(
         callback.from_user.language_code
     )
 
-    await state.clear()
-    await callback.message.answer(
-        t("admin_cancelled", language),
-        reply_markup=admin_dictionaries_keyboard(language),
+    await clear_admin_multi_move_state(
+        state
     )
-    await callback.answer()
-
-def admin_specialist_move_confirm_keyboard(
-    language: str,
-) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "admin_dict_specialist_move_confirm_btn",
-                        language,
-                    ),
-                    callback_data="ADM_SPEC_MOVE_CONFIRM",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "admin_dict_specialist_move_cancel_btn",
-                        language,
-                    ),
-                    callback_data="ADM_SPEC_MOVE_CANCEL",
-                )
-            ],
-        ]
-    )
-
-
-@admin_router.message(
-    AdminModerationFSM.entering_admin_specialist_move_target
-)
-async def admin_specialist_move_target_receive(
-    message: Message,
-    state: FSMContext,
-):
-    language = normalize_language(message.from_user.language_code)
-    data = await state.get_data()
-
-    source_profession_id = data.get(
-        "admin_selected_profession_id"
-    )
-    specialist_ids = data.get(
-        "admin_selected_specialist_move_ids"
-    ) or []
-    candidate_ids = data.get(
-        "admin_specialist_move_target_candidate_ids"
-    ) or []
-
-    if not source_profession_id or not specialist_ids:
-        await state.clear()
-        await message.answer(
-            t("admin_dict_specialist_move_empty", language)
-        )
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
-    )
-
-    if (
-        not admin_user_id
-        or not tenant_id
-        or "super_admin" not in roles
-    ):
-        await state.clear()
-        await message.answer(
-            t("admin_access_denied", language)
-        )
-        return
-
-    entered_value = " ".join((message.text or "").split())
-    target_profession_id = None
-
-    try:
-        async with get_session() as session:
-            service = DictionaryService(
-                DictionaryRepository(session)
-            )
-
-            if candidate_ids and entered_value.isdigit():
-                selected_index = int(entered_value) - 1
-
-                if (
-                    selected_index < 0
-                    or selected_index >= len(candidate_ids)
-                ):
-                    await message.answer(
-                        t(
-                            "admin_dict_specialist_move_target_bad_number",
-                            language,
-                        ).format(
-                            count=len(candidate_ids),
-                        )
-                    )
-                    return
-
-                target_profession_id = candidate_ids[
-                    selected_index
-                ]
-
-            else:
-                targets = await service.find_specialist_move_targets(
-                    title=entered_value,
-                    source_profession_id=source_profession_id,
-                    language=language,
-                )
-
-                if len(targets) > 1:
-                    await state.update_data(
-                        admin_specialist_move_target_candidate_ids=[
-                            str(target.profession_id)
-                            for target in targets
-                        ]
-                    )
-
-                    choices = [
-                        t(
-                            "admin_dict_specialist_move_target_multiple",
-                            language,
-                        ),
-                        "",
-                    ]
-
-                    for index, target in enumerate(
-                        targets,
-                        start=1,
-                    ):
-                        choices.append(
-                            f"{index}. {target.title} | "
-                            f"{target.category_name}"
-                        )
-
-                    await message.answer("\n".join(choices))
-                    return
-
-                target_profession_id = str(
-                    targets[0].profession_id
-                )
-
-            preview = await service.preview_specialist_move(
-                source_profession_id=source_profession_id,
-                target_profession_id=target_profession_id,
-                specialist_ids=specialist_ids,
-                language=language,
-            )
-
-    except DictionaryServiceError as exc:
-        await message.answer(
-            t(exc.text_key, language)
-        )
-        return
-
-    await state.update_data(
-        admin_specialist_move_target_id=target_profession_id,
-        admin_specialist_move_target_candidate_ids=[],
-    )
-    await state.set_state(
-        AdminModerationFSM.confirming_admin_specialist_move
-    )
-
-    await message.answer(
-        t(
-            "admin_dict_specialist_move_preview",
-            language,
-        ).format(
-            source_profession=preview.source_profession.title,
-            source_category=preview.source_profession.category_name,
-            target_profession=preview.target_profession.title,
-            target_category=preview.target_profession.category_name,
-            count=len(preview.selected_specialists),
-        ),
-        reply_markup=admin_specialist_move_confirm_keyboard(
-            language
-        ),
-    )
-
-
-@admin_router.callback_query(
-    F.data == "ADM_SPEC_MOVE_CANCEL"
-)
-async def admin_specialist_move_cancel(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-
-    await state.update_data(
-        admin_specialist_move_target_id=None,
-        admin_specialist_move_target_candidate_ids=[],
-    )
-    await state.set_state(
-        AdminModerationFSM.entering_admin_specialist_move_target
-    )
-
-    await callback.message.answer(
-        t("admin_dict_specialist_move_target_prompt", language)
-    )
-    await callback.answer()
-
-
-@admin_router.callback_query(
-    F.data == "ADM_SPEC_MOVE_CONFIRM"
-)
-async def admin_specialist_move_confirm(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-    data = await state.get_data()
-
-    source_profession_id = data.get(
-        "admin_selected_profession_id"
-    )
-    target_profession_id = data.get(
-        "admin_specialist_move_target_id"
-    )
-    specialist_ids = data.get(
-        "admin_selected_specialist_move_ids"
-    ) or []
-
-    if (
-        not source_profession_id
-        or not target_profession_id
-        or not specialist_ids
-    ):
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
-    )
-
-    if (
-        not admin_user_id
-        or not tenant_id
-        or "super_admin" not in roles
-    ):
-        await state.clear()
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        async with get_session() as session:
-            result = await DictionaryService(
-                DictionaryRepository(session)
-            ).move_specialists_to_profession(
-                admin_user_id=admin_user_id,
-                tenant_id=tenant_id,
-                source_profession_id=(
-                    source_profession_id
-                ),
-                target_profession_id=(
-                    target_profession_id
-                ),
-                specialist_ids=specialist_ids,
-                language=language,
-            )
-
-    except DictionaryServiceError as exc:
-        await callback.answer(
-            t(exc.text_key, language),
-            show_alert=True,
-        )
-        return
-
-    await state.clear()
 
     await replace_admin_callback_screen(
         callback=callback,
         state=state,
         text=t(
-            "admin_dict_specialist_move_done",
+            "admin_cancelled",
             language,
-        ).format(
-            target_profession=(
-                result.target_profession.title
-            ),
-            target_category=(
-                result.target_profession.category_name
-            ),
-            moved_count=result.moved_count,
-            duplicate_count=(
-                result.archived_duplicate_count
-            ),
-            synchronized_count=(
-                result.synchronized_primary_count
-            ),
-            missing_count=result.missing_count,
         ),
         reply_markup=admin_dictionaries_keyboard(
             language
@@ -19642,7 +21409,7 @@ async def admin_profession_specialists(
     state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
-
+    await state.set_state(None)
     page = 0
     if callback.data and ":" in callback.data:
         try:
@@ -19699,8 +21466,10 @@ async def admin_profession_specialists(
         admin_profession_specialists_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_profession_specialists_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_profession_specialists_list(
             visible_items,
             page=page,
             language=language,
@@ -19711,7 +21480,6 @@ async def admin_profession_specialists(
             language=language,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_DICT_GEO")
 @admin_router.callback_query(F.data.startswith("ADM_DICT_GEO:"))
@@ -19720,7 +21488,7 @@ async def admin_geo_dictionary(
     state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
-
+    await state.set_state(None)
     page = 0
     if callback.data and ":" in callback.data:
         try:
@@ -19759,8 +21527,10 @@ async def admin_geo_dictionary(
         admin_country_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_countries_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_countries_list(
             visible_items,
             page=page,
             language=language,
@@ -19771,7 +21541,6 @@ async def admin_geo_dictionary(
             language=language,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_COUNTRY_CREATE")
 async def admin_country_create_prompt(
@@ -19791,9 +21560,40 @@ async def admin_country_create_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_country_create)
-    await callback.message.answer(t("admin_dict_country_create_prompt", language))
-    await callback.answer()
+    data = await state.get_data()
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
+
+    await state.set_state(
+        AdminModerationFSM.entering_admin_country_create
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_country_create_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_GEO:"
+                            f"{country_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_country_create)
@@ -19801,15 +21601,53 @@ async def admin_country_create_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_GEO:"
+                        f"{country_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
     try:
@@ -19823,17 +21661,45 @@ async def admin_country_create_receive(
                 language=language,
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_country_create_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_country_id=str(item.country_id))
-    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+    await state.update_data(
+        admin_selected_country_id=str(
+            item.country_id
+        ),
+    )
+    await state.set_state(None)
 
-    await message.answer(t("admin_dict_country_create_done", language))
-    await message.answer(
-        format_admin_country_card(item, language),
-        reply_markup=admin_country_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_country_create_done',
+                language,
+            )}\n\n"
+            f"{format_admin_country_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_country_card_keyboard(
+            language
+        ),
     )
 
 
@@ -19855,9 +21721,40 @@ async def admin_country_import_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_country_import)
-    await callback.message.answer(t("admin_dict_country_import_prompt", language))
-    await callback.answer()
+    data = await state.get_data()
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
+
+    await state.set_state(
+        AdminModerationFSM.entering_admin_country_import
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_country_import_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_GEO:"
+                            f"{country_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_country_import)
@@ -19866,21 +21763,63 @@ async def admin_country_import_receive(
     state: FSMContext,
     bot: Bot,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or not tenant_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_GEO:"
+                        f"{country_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
-    payload = await read_admin_csv_payload_from_message(
-        message,
-        bot,
-        language,
+    payload = (
+        await read_admin_csv_payload_from_message(
+            message,
+            state,
+            bot,
+            language,
+        )
     )
 
     if payload is None:
@@ -19896,13 +21835,32 @@ async def admin_country_import_receive(
                 payload=payload,
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_country_import_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_country_number)
-    await message.answer(
-        format_admin_dictionary_import_result(result, language)
+    await state.set_state(None)
+
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_dictionary_import_result(
+            result,
+            language,
+        ),
+        reply_markup=back_keyboard,
     )
 
 
@@ -19914,7 +21872,10 @@ async def admin_country_open_prompt(
     language = normalize_language(callback.from_user.language_code)
     data = await state.get_data()
     country_ids = data.get("admin_country_ids") or []
-
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
     if not country_ids:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -19922,14 +21883,39 @@ async def admin_country_open_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_country_number)
-
-    await callback.message.answer(
-        t("admin_dict_country_open_prompt", language).format(
-            count=len(country_ids)
-        )
+    await state.set_state(
+        AdminModerationFSM.entering_admin_country_number
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{callback.message.text or ''}\n\n"
+            f"{t(
+                'admin_dict_country_open_prompt',
+                language,
+            ).format(
+                count=len(country_ids),
+            )}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_GEO:"
+                            f"{country_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_country_number)
@@ -19937,29 +21923,93 @@ async def admin_country_open_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
+
     data = await state.get_data()
-    country_ids = data.get("admin_country_ids") or []
+    country_ids = (
+        data.get("admin_country_ids")
+        or []
+    )
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_GEO:"
+                        f"{country_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    prompt_text = t(
+        "admin_dict_country_open_prompt",
+        language,
+    ).format(
+        count=len(country_ids),
+    )
 
     try:
-        selected_index = int((message.text or "").strip()) - 1
+        selected_index = (
+            int(
+                (message.text or "").strip()
+            )
+            - 1
+        )
     except ValueError:
-        await message.answer(
-            t("admin_dict_country_open_bad_number", language).format(
-                count=len(country_ids)
-            )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_country_open_bad_number',
+                    language,
+                ).format(
+                    count=len(country_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
-    if selected_index < 0 or selected_index >= len(country_ids):
-        await message.answer(
-            t("admin_dict_country_open_bad_number", language).format(
-                count=len(country_ids)
-            )
+    if (
+        selected_index < 0
+        or selected_index >= len(
+            country_ids
+        )
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_country_open_bad_number',
+                    language,
+                ).format(
+                    count=len(country_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
-    selected_country_id = country_ids[selected_index]
+    selected_country_id = country_ids[
+        selected_index
+    ]
 
     async with get_session() as session:
         item = await DictionaryService(
@@ -19970,15 +22020,36 @@ async def admin_country_open_receive(
         )
 
     if not item:
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_country_id=str(item.country_id))
-    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+    await state.update_data(
+        admin_selected_country_id=str(
+            item.country_id
+        ),
+    )
+    await state.set_state(None)
 
-    await message.answer(
-        format_admin_country_card(item, language),
-        reply_markup=admin_country_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_country_card(
+            item,
+            language,
+        ),
+        reply_markup=admin_country_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_COUNTRY_UPDATE")
@@ -19990,7 +22061,10 @@ async def admin_country_update_prompt(
 
     data = await state.get_data()
     country_id = data.get("admin_selected_country_id")
-
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
     if not country_id:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -19998,9 +22072,34 @@ async def admin_country_update_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_country_update)
-    await callback.message.answer(t("admin_dict_country_update_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_country_update
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_country_update_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_GEO:"
+                            f"{country_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_country_update)
@@ -20008,23 +22107,71 @@ async def admin_country_update_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    data = await state.get_data()
-    country_id = data.get("admin_selected_country_id")
-
-    if not country_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    country_id = data.get(
+        "admin_selected_country_id"
+    )
+    country_page = (
+        data.get("admin_country_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_GEO:"
+                        f"{country_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    if not country_id:
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -20039,17 +22186,45 @@ async def admin_country_update_receive(
                 language=language,
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_country_update_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_country_id=str(item.country_id))
-    await state.set_state(AdminModerationFSM.entering_admin_country_number)
+    await state.update_data(
+        admin_selected_country_id=str(
+            item.country_id
+        ),
+    )
+    await state.set_state(None)
 
-    await message.answer(t("admin_dict_country_update_done", language))
-    await message.answer(
-        format_admin_country_card(item, language),
-        reply_markup=admin_country_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_country_update_done',
+                language,
+            )}\n\n"
+            f"{format_admin_country_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_country_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_COUNTRY_TOGGLE")
@@ -20092,19 +22267,39 @@ async def admin_country_toggle_visibility(
             )
             await session.commit()
     except DictionaryServiceError as exc:
-        await callback.message.answer(t(exc.text_key, language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                exc.text_key,
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    await state.update_data(admin_selected_country_id=str(item.country_id))
-    await state.set_state(AdminModerationFSM.entering_admin_country_number)
-
-    await callback.message.answer(t("admin_dict_country_visibility_done", language))
-    await callback.message.answer(
-        format_admin_country_card(item, language),
-        reply_markup=admin_country_card_keyboard(language),
+    await state.update_data(
+        admin_selected_country_id=str(
+            item.country_id
+        ),
     )
-    await callback.answer()
+    await state.set_state(None)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_country_visibility_done',
+                language,
+            )}\n\n"
+            f"{format_admin_country_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_country_card_keyboard(
+            language
+        ),
+    )
 
 @admin_router.callback_query(F.data == "ADM_CITY_CREATE")
 async def admin_city_create_prompt(
@@ -20115,7 +22310,10 @@ async def admin_city_create_prompt(
 
     data = await state.get_data()
     country_id = data.get("admin_selected_country_id")
-
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
     if not country_id:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -20134,9 +22332,34 @@ async def admin_city_create_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_city_create)
-    await callback.message.answer(t("admin_dict_city_create_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_city_create
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_city_create_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_COUNTRY_CITIES:"
+                            f"{city_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_city_create)
@@ -20144,23 +22367,71 @@ async def admin_city_create_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    data = await state.get_data()
-    country_id = data.get("admin_selected_country_id")
-
-    if not country_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    country_id = data.get(
+        "admin_selected_country_id"
+    )
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_COUNTRY_CITIES:"
+                        f"{city_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    if not country_id:
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -20175,17 +22446,45 @@ async def admin_city_create_receive(
                 language=language,
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_city_create_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_city_id=str(item.city_id))
-    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+    await state.update_data(
+        admin_selected_city_id=str(
+            item.city_id
+        ),
+    )
+    await state.set_state(None)
 
-    await message.answer(t("admin_dict_city_create_done", language))
-    await message.answer(
-        format_admin_city_card(item, language),
-        reply_markup=admin_city_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_city_create_done',
+                language,
+            )}\n\n"
+            f"{format_admin_city_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_city_card_keyboard(
+            language
+        ),
     )
 
 
@@ -20198,7 +22497,10 @@ async def admin_city_import_prompt(
 
     data = await state.get_data()
     country_id = data.get("admin_selected_country_id")
-
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
     if not country_id:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -20217,9 +22519,34 @@ async def admin_city_import_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_city_import)
-    await callback.message.answer(t("admin_dict_city_import_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_city_import
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_city_import_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_COUNTRY_CITIES:"
+                            f"{city_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_city_import)
@@ -20228,29 +22555,81 @@ async def admin_city_import_receive(
     state: FSMContext,
     bot: Bot,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    data = await state.get_data()
-    country_id = data.get("admin_selected_country_id")
-
-    if not country_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or not tenant_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    country_id = data.get(
+        "admin_selected_country_id"
+    )
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_COUNTRY_CITIES:"
+                        f"{city_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    if not country_id:
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    payload = await read_admin_csv_payload_from_message(
-        message,
-        bot,
-        language,
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
+        return
+
+    payload = (
+        await read_admin_csv_payload_from_message(
+            message,
+            state,
+            bot,
+            language,
+        )
     )
 
     if payload is None:
@@ -20267,16 +22646,36 @@ async def admin_city_import_receive(
                 payload=payload,
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_city_import_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_country_id=country_id)
-    await state.set_state(AdminModerationFSM.entering_admin_city_number)
-    await message.answer(
-        format_admin_dictionary_import_result(result, language)
+    await state.update_data(
+        admin_selected_country_id=country_id,
     )
+    await state.set_state(None)
 
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_dictionary_import_result(
+            result,
+            language,
+        ),
+        reply_markup=back_keyboard,
+    )
 
 @admin_router.callback_query(F.data == "ADM_COUNTRY_CITIES")
 @admin_router.callback_query(F.data.startswith("ADM_COUNTRY_CITIES:"))
@@ -20285,6 +22684,7 @@ async def admin_country_cities(
     state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
+    await state.set_state(None)
     data = await state.get_data()
     country_id = data.get("admin_selected_country_id")
 
@@ -20323,8 +22723,10 @@ async def admin_country_cities(
         admin_city_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_cities_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_cities_list(
             visible_items,
             page=page,
             language=language,
@@ -20335,7 +22737,6 @@ async def admin_country_cities(
             language=language,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_CITY_UPDATE")
 async def admin_city_update_prompt(
@@ -20346,7 +22747,10 @@ async def admin_city_update_prompt(
 
     data = await state.get_data()
     city_id = data.get("admin_selected_city_id")
-
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
     if not city_id:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -20354,9 +22758,34 @@ async def admin_city_update_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_city_update)
-    await callback.message.answer(t("admin_dict_city_update_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_city_update
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_city_update_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_COUNTRY_CITIES:"
+                            f"{city_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_city_update)
@@ -20364,23 +22793,71 @@ async def admin_city_update_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    data = await state.get_data()
-    city_id = data.get("admin_selected_city_id")
-
-    if not city_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    city_id = data.get(
+        "admin_selected_city_id"
+    )
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_COUNTRY_CITIES:"
+                        f"{city_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    if not city_id:
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -20395,17 +22872,45 @@ async def admin_city_update_receive(
                 language=language,
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_city_update_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_city_id=str(item.city_id))
-    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+    await state.update_data(
+        admin_selected_city_id=str(
+            item.city_id
+        ),
+    )
+    await state.set_state(None)
 
-    await message.answer(t("admin_dict_city_update_done", language))
-    await message.answer(
-        format_admin_city_card(item, language),
-        reply_markup=admin_city_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_city_update_done',
+                language,
+            )}\n\n"
+            f"{format_admin_city_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_city_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_CITY_GEO_UPDATE")
@@ -20417,7 +22922,10 @@ async def admin_city_geo_update_prompt(
 
     data = await state.get_data()
     city_id = data.get("admin_selected_city_id")
-
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
     if not city_id:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -20425,9 +22933,34 @@ async def admin_city_geo_update_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_city_geo_update)
-    await callback.message.answer(t("admin_dict_city_geo_update_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_city_geo_update
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_city_geo_update_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_COUNTRY_CITIES:"
+                            f"{city_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_city_geo_update)
@@ -20435,23 +22968,71 @@ async def admin_city_geo_update_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    data = await state.get_data()
-    city_id = data.get("admin_selected_city_id")
-
-    if not city_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    city_id = data.get(
+        "admin_selected_city_id"
+    )
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_COUNTRY_CITIES:"
+                        f"{city_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    if not city_id:
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -20466,17 +23047,45 @@ async def admin_city_geo_update_receive(
                 language=language,
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_city_geo_update_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_city_id=str(item.city_id))
-    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+    await state.update_data(
+        admin_selected_city_id=str(
+            item.city_id
+        ),
+    )
+    await state.set_state(None)
 
-    await message.answer(t("admin_dict_city_geo_update_done", language))
-    await message.answer(
-        format_admin_city_card(item, language),
-        reply_markup=admin_city_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_city_geo_update_done',
+                language,
+            )}\n\n"
+            f"{format_admin_city_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_city_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_CITY_TOGGLE")
@@ -20519,20 +23128,39 @@ async def admin_city_toggle_visibility(
             )
             await session.commit()
     except DictionaryServiceError as exc:
-        await callback.message.answer(t(exc.text_key, language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                exc.text_key,
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    await state.update_data(admin_selected_city_id=str(item.city_id))
-    await state.set_state(AdminModerationFSM.entering_admin_city_number)
-
-    await callback.message.answer(t("admin_dict_city_visibility_done", language))
-    await callback.message.answer(
-        format_admin_city_card(item, language),
-        reply_markup=admin_city_card_keyboard(language),
+    await state.update_data(
+        admin_selected_city_id=str(
+            item.city_id
+        ),
     )
-    await callback.answer()
+    await state.set_state(None)
 
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_city_visibility_done',
+                language,
+            )}\n\n"
+            f"{format_admin_city_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_city_card_keyboard(
+            language
+        ),
+    )
 @admin_router.callback_query(F.data == "ADM_CITY_OPEN")
 async def admin_city_open_prompt(
     callback: CallbackQuery,
@@ -20541,7 +23169,10 @@ async def admin_city_open_prompt(
     language = normalize_language(callback.from_user.language_code)
     data = await state.get_data()
     city_ids = data.get("admin_city_ids") or []
-
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
     if not city_ids:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -20549,14 +23180,39 @@ async def admin_city_open_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_city_number)
-
-    await callback.message.answer(
-        t("admin_dict_city_open_prompt", language).format(
-            count=len(city_ids)
-        )
+    await state.set_state(
+        AdminModerationFSM.entering_admin_city_number
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{callback.message.text or ''}\n\n"
+            f"{t(
+                'admin_dict_city_open_prompt',
+                language,
+            ).format(
+                count=len(city_ids),
+            )}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_COUNTRY_CITIES:"
+                            f"{city_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_city_number)
@@ -20564,25 +23220,82 @@ async def admin_city_open_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
+
     data = await state.get_data()
     city_ids = data.get("admin_city_ids") or []
+    city_page = (
+        data.get("admin_city_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_COUNTRY_CITIES:"
+                        f"{city_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    prompt_text = t(
+        "admin_dict_city_open_prompt",
+        language,
+    ).format(
+        count=len(city_ids),
+    )
 
     try:
-        selected_index = int((message.text or "").strip()) - 1
-    except ValueError:
-        await message.answer(
-            t("admin_dict_city_open_bad_number", language).format(
-                count=len(city_ids)
+        selected_index = (
+            int(
+                (message.text or "").strip()
             )
+            - 1
+        )
+    except ValueError:
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_city_open_bad_number',
+                    language,
+                ).format(
+                    count=len(city_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
-    if selected_index < 0 or selected_index >= len(city_ids):
-        await message.answer(
-            t("admin_dict_city_open_bad_number", language).format(
-                count=len(city_ids)
-            )
+    if (
+        selected_index < 0
+        or selected_index >= len(city_ids)
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_city_open_bad_number',
+                    language,
+                ).format(
+                    count=len(city_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -20597,15 +23310,36 @@ async def admin_city_open_receive(
         )
 
     if not item:
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_city_id=str(item.city_id))
-    await state.set_state(AdminModerationFSM.entering_admin_city_number)
+    await state.update_data(
+        admin_selected_city_id=str(
+            item.city_id
+        ),
+    )
+    await state.set_state(None)
 
-    await message.answer(
-        format_admin_city_card(item, language),
-        reply_markup=admin_city_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_city_card(
+            item,
+            language,
+        ),
+        reply_markup=admin_city_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_DICT_LANGUAGES")
@@ -20615,7 +23349,7 @@ async def admin_languages_dictionary(
     state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
-
+    await state.set_state(None)
     page = 0
     if callback.data and ":" in callback.data:
         try:
@@ -20653,8 +23387,10 @@ async def admin_languages_dictionary(
         admin_language_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_languages_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_languages_list(
             visible_items,
             page=page,
             language=language,
@@ -20665,7 +23401,6 @@ async def admin_languages_dictionary(
             language=language,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_LANGUAGE_CREATE")
 async def admin_language_create_prompt(
@@ -20684,12 +23419,39 @@ async def admin_language_create_prompt(
             show_alert=True,
         )
         return
-
-    await state.set_state(AdminModerationFSM.entering_admin_language_create)
-    await callback.message.answer(
-        t("admin_dict_language_create_prompt", language)
+    data = await state.get_data()
+    language_page = (
+        data.get("admin_language_page")
+        or 0
     )
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_language_create
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_language_create_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_LANGUAGES:"
+                            f"{language_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_language_create)
@@ -20697,15 +23459,54 @@ async def admin_language_create_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    language_page = (
+        data.get("admin_language_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_LANGUAGES:"
+                        f"{language_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -20718,17 +23519,43 @@ async def admin_language_create_receive(
                 payload=message.text or "",
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_language_create_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_language_code=item.code)
-    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+    await state.update_data(
+        admin_selected_language_code=item.code,
+    )
+    await state.set_state(None)
 
-    await message.answer(t("admin_dict_language_create_done", language))
-    await message.answer(
-        format_admin_language_card(item, language),
-        reply_markup=admin_language_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_language_create_done',
+                language,
+            )}\n\n"
+            f"{format_admin_language_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_language_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_LANGUAGE_TOGGLE")
@@ -20770,19 +23597,37 @@ async def admin_language_toggle_visibility(
             )
             await session.commit()
     except DictionaryServiceError as exc:
-        await callback.message.answer(t(exc.text_key, language))
-        await callback.answer()
+        await callback.answer(
+            t(
+                exc.text_key,
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
-    await state.update_data(admin_selected_language_code=item.code)
-    await state.set_state(AdminModerationFSM.entering_admin_language_number)
-
-    await callback.message.answer(t("admin_dict_language_visibility_done", language))
-    await callback.message.answer(
-        format_admin_language_card(item, language),
-        reply_markup=admin_language_card_keyboard(language),
+    await state.update_data(
+        admin_selected_language_code=item.code,
     )
-    await callback.answer()
+    await state.set_state(None)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_language_visibility_done',
+                language,
+            )}\n\n"
+            f"{format_admin_language_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_language_card_keyboard(
+            language
+        ),
+    )
 
 @admin_router.callback_query(F.data == "ADM_LANGUAGE_RENAME")
 async def admin_language_rename_prompt(
@@ -20793,7 +23638,10 @@ async def admin_language_rename_prompt(
 
     data = await state.get_data()
     language_code = data.get("admin_selected_language_code")
-
+    language_page = (
+        data.get("admin_language_page")
+        or 0
+    )
     if not language_code:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -20801,11 +23649,34 @@ async def admin_language_rename_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_language_rename)
-    await callback.message.answer(
-        t("admin_dict_language_rename_prompt", language)
+    await state.set_state(
+        AdminModerationFSM.entering_admin_language_rename
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_language_rename_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_LANGUAGES:"
+                            f"{language_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_language_rename)
@@ -20813,23 +23684,71 @@ async def admin_language_rename_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
-
-    data = await state.get_data()
-    language_code = data.get("admin_selected_language_code")
-
-    if not language_code:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    language = normalize_language(
+        message.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+    data = await state.get_data()
+    language_code = data.get(
+        "admin_selected_language_code"
+    )
+    language_page = (
+        data.get("admin_language_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_LANGUAGES:"
+                        f"{language_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    if not language_code:
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
+        return
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -20843,17 +23762,43 @@ async def admin_language_rename_receive(
                 payload=message.text or "",
             )
             await session.commit()
+
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_language_rename_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_language_code=item.code)
-    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+    await state.update_data(
+        admin_selected_language_code=item.code,
+    )
+    await state.set_state(None)
 
-    await message.answer(t("admin_dict_language_rename_done", language))
-    await message.answer(
-        format_admin_language_card(item, language),
-        reply_markup=admin_language_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_language_rename_done',
+                language,
+            )}\n\n"
+            f"{format_admin_language_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_language_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_LANGUAGE_OPEN")
@@ -20864,7 +23809,10 @@ async def admin_language_open_prompt(
     language = normalize_language(callback.from_user.language_code)
     data = await state.get_data()
     language_codes = data.get("admin_language_codes") or []
-
+    language_page = (
+        data.get("admin_language_page")
+        or 0
+    )
     if not language_codes:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -20872,14 +23820,39 @@ async def admin_language_open_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_language_number)
-
-    await callback.message.answer(
-        t("admin_dict_language_open_prompt", language).format(
-            count=len(language_codes)
-        )
+    await state.set_state(
+        AdminModerationFSM.entering_admin_language_number
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{callback.message.text or ''}\n\n"
+            f"{t(
+                'admin_dict_language_open_prompt',
+                language,
+            ).format(
+                count=len(language_codes),
+            )}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_LANGUAGES:"
+                            f"{language_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_language_number)
@@ -20887,45 +23860,130 @@ async def admin_language_open_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
+
     data = await state.get_data()
-    language_codes = data.get("admin_language_codes") or []
+    language_codes = (
+        data.get("admin_language_codes")
+        or []
+    )
+    language_page = (
+        data.get("admin_language_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_LANGUAGES:"
+                        f"{language_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    prompt_text = t(
+        "admin_dict_language_open_prompt",
+        language,
+    ).format(
+        count=len(language_codes),
+    )
 
     try:
-        selected_index = int((message.text or "").strip()) - 1
+        selected_index = (
+            int(
+                (message.text or "").strip()
+            )
+            - 1
+        )
     except ValueError:
-        await message.answer(
-            t("admin_dict_language_open_bad_number", language).format(
-                count=len(language_codes)
-            )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_language_open_bad_number',
+                    language,
+                ).format(
+                    count=len(language_codes),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
-    if selected_index < 0 or selected_index >= len(language_codes):
-        await message.answer(
-            t("admin_dict_language_open_bad_number", language).format(
-                count=len(language_codes)
-            )
+    if (
+        selected_index < 0
+        or selected_index >= len(
+            language_codes
+        )
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_language_open_bad_number',
+                    language,
+                ).format(
+                    count=len(language_codes),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
-    selected_code = language_codes[selected_index]
+    selected_code = language_codes[
+        selected_index
+    ]
 
     async with get_session() as session:
         item = await DictionaryService(
             DictionaryRepository(session)
-        ).get_language_card(selected_code)
+        ).get_language_card(
+            selected_code
+        )
 
     if not item:
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    await state.update_data(admin_selected_language_code=item.code)
-    await state.set_state(AdminModerationFSM.entering_admin_language_number)
+    await state.update_data(
+        admin_selected_language_code=item.code,
+    )
+    await state.set_state(None)
 
-    await message.answer(
-        format_admin_language_card(item, language),
-        reply_markup=admin_language_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_language_card(
+            item,
+            language,
+        ),
+        reply_markup=admin_language_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_DICT_SKILLS")
@@ -20935,7 +23993,7 @@ async def admin_skills_dictionary(
     state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
-
+    await state.set_state(None)
     page = 0
     if callback.data and ":" in callback.data:
         try:
@@ -20974,8 +24032,10 @@ async def admin_skills_dictionary(
         admin_skill_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_skills_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_skills_list(
             visible_items,
             page=page,
             language=language,
@@ -20986,7 +24046,6 @@ async def admin_skills_dictionary(
             language=language,
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "ADM_SKILL_OPEN")
@@ -20998,7 +24057,10 @@ async def admin_skill_open_prompt(
 
     data = await state.get_data()
     skill_ids = data.get("admin_skill_ids") or []
-
+    skill_page = (
+        data.get("admin_skill_page")
+        or 0
+    )
     if not skill_ids:
         await callback.answer(
             t("admin_item_not_found", language),
@@ -21006,14 +24068,39 @@ async def admin_skill_open_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_skill_number)
-
-    await callback.message.answer(
-        t("admin_dict_skill_open_prompt", language).format(
-            count=len(skill_ids),
-        )
+    await state.set_state(
+        AdminModerationFSM.entering_admin_skill_number
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{callback.message.text or ''}\n\n"
+            f"{t(
+                'admin_dict_skill_open_prompt',
+                language,
+            ).format(
+                count=len(skill_ids),
+            )}"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_SKILLS:"
+                            f"{skill_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_skill_number)
@@ -21021,26 +24108,79 @@ async def admin_skill_open_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
     skill_ids = data.get("admin_skill_ids") or []
+    skill_page = (
+        data.get("admin_skill_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_SKILLS:"
+                        f"{skill_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    prompt_text = t(
+        "admin_dict_skill_open_prompt",
+        language,
+    ).format(
+        count=len(skill_ids),
+    )
 
     try:
-        index = int((message.text or "").strip()) - 1
-    except ValueError:
-        await message.answer(
-            t("admin_dict_skill_open_bad_number", language).format(
-                count=len(skill_ids),
+        index = (
+            int(
+                (message.text or "").strip()
             )
+            - 1
+        )
+    except ValueError:
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_skill_open_bad_number',
+                    language,
+                ).format(
+                    count=len(skill_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
     if index < 0 or index >= len(skill_ids):
-        await message.answer(
-            t("admin_dict_skill_open_bad_number", language).format(
-                count=len(skill_ids),
-            )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_skill_open_bad_number',
+                    language,
+                ).format(
+                    count=len(skill_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -21055,8 +24195,17 @@ async def admin_skill_open_receive(
         )
 
     if not item:
-        await message.answer(t("admin_item_not_found", language))
-        await state.clear()
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
@@ -21064,9 +24213,16 @@ async def admin_skill_open_receive(
     )
     await state.set_state(None)
 
-    await message.answer(
-        format_admin_skill_card(item, language),
-        reply_markup=admin_skill_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_skill_card(
+            item,
+            language,
+        ),
+        reply_markup=admin_skill_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_SKILL_CREATE")
@@ -21086,12 +24242,39 @@ async def admin_skill_create_prompt(
             show_alert=True,
         )
         return
-
-    await state.set_state(AdminModerationFSM.entering_admin_skill_create)
-    await callback.message.answer(
-        t("admin_dict_skill_create_prompt", language)
+    data = await state.get_data()
+    skill_page = (
+        data.get("admin_skill_page")
+        or 0
     )
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_admin_skill_create
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_skill_create_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_SKILLS:"
+                            f"{skill_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_skill_create)
@@ -21099,15 +24282,51 @@ async def admin_skill_create_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    data = await state.get_data()
+    skill_page = (
+        data.get("admin_skill_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_SKILLS:"
+                        f"{skill_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -21123,20 +24342,43 @@ async def admin_skill_create_receive(
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_skill_create_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
-        admin_selected_skill_id=str(item.skill_id),
+        admin_selected_skill_id=str(
+            item.skill_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_skill_create_done", language),
-    )
-    await message.answer(
-        format_admin_skill_card(item, language),
-        reply_markup=admin_skill_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_skill_create_done',
+                language,
+            )}\n\n"
+            f"{format_admin_skill_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_skill_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_SKILL_RENAME")
@@ -21147,6 +24389,10 @@ async def admin_skill_rename_prompt(
     language = normalize_language(callback.from_user.language_code)
 
     data = await state.get_data()
+    skill_page = (
+        data.get("admin_skill_page")
+        or 0
+    )
     if not data.get("admin_selected_skill_id"):
         await callback.answer(
             t("admin_item_not_found", language),
@@ -21154,11 +24400,34 @@ async def admin_skill_rename_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_skill_rename)
-    await callback.message.answer(
-        t("admin_dict_skill_rename_prompt", language)
+    await state.set_state(
+        AdminModerationFSM.entering_admin_skill_rename
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_skill_rename_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_SKILLS:"
+                            f"{skill_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_skill_rename)
@@ -21166,23 +24435,68 @@ async def admin_skill_rename_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
-    skill_id = data.get("admin_selected_skill_id")
+    skill_id = data.get(
+        "admin_selected_skill_id"
+    )
+    skill_page = (
+        data.get("admin_skill_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_SKILLS:"
+                        f"{skill_page}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if not skill_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -21199,20 +24513,43 @@ async def admin_skill_rename_receive(
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_skill_rename_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
-        admin_selected_skill_id=str(item.skill_id),
+        admin_selected_skill_id=str(
+            item.skill_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_skill_rename_done", language),
-    )
-    await message.answer(
-        format_admin_skill_card(item, language),
-        reply_markup=admin_skill_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_skill_rename_done',
+                language,
+            )}\n\n"
+            f"{format_admin_skill_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_skill_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_SKILL_TOGGLE")
@@ -21266,14 +24603,25 @@ async def admin_skill_toggle_visibility(
         admin_selected_skill_id=str(item.skill_id),
     )
 
-    await callback.message.answer(
-        t("admin_dict_skill_visibility_done", language),
+    await state.set_state(None)
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_skill_visibility_done',
+                language,
+            )}\n\n"
+            f"{format_admin_skill_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_skill_card_keyboard(
+            language
+        ),
     )
-    await callback.message.answer(
-        format_admin_skill_card(item, language),
-        reply_markup=admin_skill_card_keyboard(language),
-    )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -21350,7 +24698,10 @@ async def admin_skill_merge_receive(
                 language,
             ),
         )
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            admin_skill_merge_target_value=None,
+        )
         return
 
     (
@@ -21374,7 +24725,10 @@ async def admin_skill_merge_receive(
                 language,
             ),
         )
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            admin_skill_merge_target_value=None,
+        )
         return
 
     try:
@@ -21467,10 +24821,7 @@ async def admin_skill_merge_cancel(
         "admin_selected_skill_id"
     )
 
-    await state.set_state(
-        AdminModerationFSM
-        .entering_admin_skill_number
-    )
+    await state.set_state(None)
     await state.update_data(
         admin_skill_merge_target_value=None,
     )
@@ -21534,7 +24885,10 @@ async def admin_skill_merge_confirm(
     )
 
     if not skill_id or not target_value:
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            admin_skill_merge_target_value=None,
+        )
         await callback.answer(
             t(
                 "admin_item_not_found",
@@ -21557,7 +24911,10 @@ async def admin_skill_merge_confirm(
         or not tenant_id
         or "super_admin" not in roles
     ):
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            admin_skill_merge_target_value=None,
+        )
         await callback.answer(
             t(
                 "admin_access_denied",
@@ -21579,10 +24936,7 @@ async def admin_skill_merge_confirm(
                 language=language,
             )
     except DictionaryServiceError as exc:
-        await state.set_state(
-            AdminModerationFSM
-            .entering_admin_skill_merge
-        )
+        await state.set_state(None)
         await state.update_data(
             admin_skill_merge_target_value=None,
         )
@@ -21608,10 +24962,7 @@ async def admin_skill_merge_confirm(
         ),
         admin_skill_merge_target_value=None,
     )
-    await state.set_state(
-        AdminModerationFSM
-        .entering_admin_skill_number
-    )
+    await state.set_state(None)
 
     result_text = t(
         "admin_dict_skill_merge_done",
@@ -21842,8 +25193,10 @@ async def show_admin_dialog_contexts(
     )
 
     if not items:
-        await callback.message.answer(
-            t(
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
                 "admin_dialog_queue_empty",
                 language,
             ),
@@ -21861,11 +25214,12 @@ async def show_admin_dialog_contexts(
                 ]
             ),
         )
-        await callback.answer()
         return
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_dialog_queue_title",
             language,
         ),
@@ -21874,7 +25228,6 @@ async def show_admin_dialog_contexts(
             language,
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -22089,8 +25442,10 @@ async def open_admin_dialog_thread(
         history=history,
     )
 
-    await callback.message.answer(
-        screen_text,
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=screen_text,
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -22099,7 +25454,9 @@ async def open_admin_dialog_thread(
                             "admin_dialog_back_to_list_btn",
                             language,
                         ),
-                        callback_data="ADM_DIALOGS_STUB",
+                        callback_data=(
+                            "ADM_DIALOGS_STUB"
+                        ),
                     )
                 ],
                 [
@@ -22114,7 +25471,6 @@ async def open_admin_dialog_thread(
             ]
         ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -22122,13 +25478,16 @@ async def open_admin_dialog_thread(
 )
 async def admin_promotion_section_stub(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
     language = normalize_language(
         callback.from_user.language_code
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_section_stub",
             language,
         ).format(
@@ -22160,7 +25519,6 @@ async def admin_promotion_section_stub(
             ]
         ),
     )
-    await callback.answer()
 
 def format_admin_category_card(
     item,
@@ -22483,8 +25841,10 @@ async def admin_category_specialist_move_select_prompt(
         )
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_dict_specialist_move_select_page_prompt",
             language,
         ).format(
@@ -22494,9 +25854,24 @@ async def admin_category_specialist_move_select_prompt(
                 str(number)
                 for number in example_numbers
             ),
-        )
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_CAT_SPECIALISTS:"
+                            f"{page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
     )
-    await callback.answer()
 
 
 @admin_router.callback_query(
@@ -22574,6 +25949,7 @@ async def admin_category_specialist_move_all(
         callback.message,
         state,
         language,
+        edit=True,
     )
     await callback.answer()
 
@@ -22596,11 +25972,33 @@ async def admin_category_specialist_move_numbers_receive(
     page = int(
         data.get("admin_category_specialists_page") or 0
     )
-
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_CAT_SPECIALISTS:"
+                        f"{page}"
+                    ),
+                )
+            ]
+        ]
+    )
     if not specialist_ids:
-        await state.clear()
-        await message.answer(
-            t("admin_dict_specialist_move_empty", language)
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_dict_specialist_move_empty",
+                language,
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -22623,14 +26021,17 @@ async def admin_category_specialist_move_numbers_receive(
             for item in raw_numbers
         ]
     except ValueError:
-        await message.answer(
-            t(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
                 "admin_dict_specialist_move_bad_page_numbers",
                 language,
             ).format(
                 start=start_number,
                 end=end_number,
-            )
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -22642,14 +26043,17 @@ async def admin_category_specialist_move_numbers_receive(
             for number in entered_numbers
         )
     ):
-        await message.answer(
-            t(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
                 "admin_dict_specialist_move_bad_page_numbers",
                 language,
             ).format(
                 start=start_number,
                 end=end_number,
-            )
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -22679,339 +26083,7 @@ async def admin_category_specialist_move_numbers_receive(
         state,
         language,
     )
-
-def admin_category_specialist_move_confirm_keyboard(
-    language: str,
-) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "admin_dict_specialist_move_confirm_btn",
-                        language,
-                    ),
-                    callback_data=(
-                        "ADM_CAT_SPEC_MOVE_CONFIRM"
-                    ),
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "admin_dict_specialist_move_cancel_btn",
-                        language,
-                    ),
-                    callback_data=(
-                        "ADM_CAT_SPEC_MOVE_CANCEL"
-                    ),
-                )
-            ],
-        ]
-    )
-
-
-@admin_router.message(
-    AdminModerationFSM
-    .entering_admin_category_specialist_move_target
-)
-async def admin_category_specialist_move_target_receive(
-    message: Message,
-    state: FSMContext,
-):
-    language = normalize_language(
-        message.from_user.language_code
-    )
-    data = await state.get_data()
-
-    source_category_id = data.get(
-        "admin_selected_category_id"
-    )
-    specialist_ids = data.get(
-        "admin_selected_category_specialist_move_ids"
-    ) or []
-    candidate_ids = data.get(
-        "admin_category_specialist_move_target_candidate_ids"
-    ) or []
-
-    if not source_category_id or not specialist_ids:
-        await state.clear()
-        await message.answer(
-            t("admin_dict_specialist_move_empty", language)
-        )
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
-    )
-
-    if (
-        not admin_user_id
-        or not tenant_id
-        or "super_admin" not in roles
-    ):
-        await state.clear()
-        await message.answer(
-            t("admin_access_denied", language)
-        )
-        return
-
-    entered_value = " ".join(
-        (message.text or "").split()
-    )
-    target_profession_id = None
-
-    try:
-        async with get_session() as session:
-            service = DictionaryService(
-                DictionaryRepository(session)
-            )
-
-            if candidate_ids and entered_value.isdigit():
-                selected_index = int(entered_value) - 1
-
-                if (
-                    selected_index < 0
-                    or selected_index >= len(candidate_ids)
-                ):
-                    await message.answer(
-                        t(
-                            "admin_dict_specialist_move_target_bad_number",
-                            language,
-                        ).format(
-                            count=len(candidate_ids),
-                        )
-                    )
-                    return
-
-                target_profession_id = candidate_ids[
-                    selected_index
-                ]
-
-            else:
-                targets = (
-                    await service
-                    .find_specialist_move_targets(
-                        title=entered_value,
-                        language=language,
-                    )
-                )
-
-                if len(targets) > 1:
-                    await state.update_data(
-                        admin_category_specialist_move_target_candidate_ids=[
-                            str(target.profession_id)
-                            for target in targets
-                        ]
-                    )
-
-                    choices = [
-                        t(
-                            "admin_dict_specialist_move_target_multiple",
-                            language,
-                        ),
-                        "",
-                    ]
-
-                    for index, target in enumerate(
-                        targets,
-                        start=1,
-                    ):
-                        choices.append(
-                            f"{index}. {target.title} | "
-                            f"{target.category_name}"
-                        )
-
-                    await message.answer(
-                        "\n".join(choices)
-                    )
-                    return
-
-                target_profession_id = str(
-                    targets[0].profession_id
-                )
-
-            preview = (
-                await service
-                .preview_category_specialist_move(
-                    source_category_id=source_category_id,
-                    target_profession_id=target_profession_id,
-                    specialist_ids=specialist_ids,
-                    language=language,
-                )
-            )
-
-    except DictionaryServiceError as exc:
-        await message.answer(
-            t(exc.text_key, language)
-        )
-        return
-
-    await state.update_data(
-        admin_category_specialist_move_target_id=(
-            target_profession_id
-        ),
-        admin_category_specialist_move_target_candidate_ids=[],
-    )
-    await state.set_state(
-        AdminModerationFSM
-        .confirming_admin_category_specialist_move
-    )
-
-    await message.answer(
-        t(
-            "admin_dict_category_specialist_move_preview",
-            language,
-        ).format(
-            source_category=preview.source_category.title,
-            target_profession=(
-                preview.target_profession.title
-            ),
-            target_category=(
-                preview.target_profession.category_name
-            ),
-            count=len(preview.selected_specialists),
-        ),
-        reply_markup=(
-            admin_category_specialist_move_confirm_keyboard(
-                language
-            )
-        ),
-    )
-
-
-@admin_router.callback_query(
-    F.data == "ADM_CAT_SPEC_MOVE_CANCEL"
-)
-async def admin_category_specialist_move_cancel(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-
-    await state.update_data(
-        admin_category_specialist_move_target_id=None,
-        admin_category_specialist_move_target_candidate_ids=[],
-    )
-    await state.set_state(
-        AdminModerationFSM
-        .entering_admin_category_specialist_move_target
-    )
-
-    await callback.message.answer(
-        t("admin_dict_specialist_move_target_prompt", language)
-    )
-    await callback.answer()
-
-
-@admin_router.callback_query(
-    F.data == "ADM_CAT_SPEC_MOVE_CONFIRM"
-)
-async def admin_category_specialist_move_confirm(
-    callback: CallbackQuery,
-    state: FSMContext,
-):
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-    data = await state.get_data()
-
-    source_category_id = data.get(
-        "admin_selected_category_id"
-    )
-    target_profession_id = data.get(
-        "admin_category_specialist_move_target_id"
-    )
-    specialist_ids = data.get(
-        "admin_selected_category_specialist_move_ids"
-    ) or []
-
-    if (
-        not source_category_id
-        or not target_profession_id
-        or not specialist_ids
-    ):
-        await state.clear()
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
-    )
-
-    if (
-        not admin_user_id
-        or not tenant_id
-        or "super_admin" not in roles
-    ):
-        await state.clear()
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
-        )
-        return
-
-    try:
-        async with get_session() as session:
-            result = await DictionaryService(
-                DictionaryRepository(session)
-            ).move_category_specialists_to_profession(
-                admin_user_id=admin_user_id,
-                tenant_id=tenant_id,
-                source_category_id=(
-                    source_category_id
-                ),
-                target_profession_id=(
-                    target_profession_id
-                ),
-                specialist_ids=specialist_ids,
-                language=language,
-            )
-
-    except DictionaryServiceError as exc:
-        await callback.answer(
-            t(exc.text_key, language),
-            show_alert=True,
-        )
-        return
-
-    await state.clear()
-
-    await replace_admin_callback_screen(
-        callback=callback,
-        state=state,
-        text=t(
-            "admin_dict_category_specialist_move_done",
-            language,
-        ).format(
-            target_profession=(
-                result.target_profession.title
-            ),
-            target_category=(
-                result.target_profession.category_name
-            ),
-            moved_count=result.moved_count,
-            duplicate_count=(
-                result.archived_duplicate_count
-            ),
-            extra_cabinets_count=(
-                result.archived_extra_cabinets_count
-            ),
-            synchronized_count=(
-                result.synchronized_primary_count
-            ),
-            missing_count=result.missing_count,
-        ),
-        reply_markup=admin_dictionaries_keyboard(
-            language
-        ),
-    )
-
+    
 @admin_router.callback_query(F.data == "ADM_CAT_SPECIALISTS")
 @admin_router.callback_query(F.data.startswith("ADM_CAT_SPECIALISTS:"))
 async def admin_category_specialists(
@@ -23019,7 +26091,7 @@ async def admin_category_specialists(
     state: FSMContext,
 ):
     language = normalize_language(callback.from_user.language_code)
-
+    await state.set_state(None)
     page = 0
     if callback.data and ":" in callback.data:
         try:
@@ -23076,8 +26148,10 @@ async def admin_category_specialists(
         admin_category_specialists_page=page,
     )
 
-    await callback.message.answer(
-        format_admin_category_specialists_list(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_category_specialists_list(
             visible_items,
             page=page,
             language=language,
@@ -23088,33 +26162,91 @@ async def admin_category_specialists(
             language=language,
         ),
     )
-    await callback.answer()
 
 @admin_router.message(AdminModerationFSM.entering_admin_category_number)
 async def admin_category_open_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
-    category_ids = data.get("admin_category_ids") or []
+    category_ids = (
+        data.get("admin_category_ids")
+        or []
+    )
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_CATEGORIES:"
+                        f"{category_page}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+    prompt_text = t(
+        "admin_dict_category_open_prompt",
+        language,
+    ).format(
+        count=len(category_ids),
+    )
 
     try:
-        index = int((message.text or "").strip()) - 1
-    except ValueError:
-        await message.answer(
-            t("admin_dict_category_open_bad_number", language).format(
-                count=len(category_ids),
+        index = (
+            int(
+                (message.text or "").strip()
             )
+            - 1
+        )
+    except ValueError:
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_category_open_bad_number',
+                    language,
+                ).format(
+                    count=len(category_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
-    if index < 0 or index >= len(category_ids):
-        await message.answer(
-            t("admin_dict_category_open_bad_number", language).format(
-                count=len(category_ids),
-            )
+    if (
+        index < 0
+        or index >= len(category_ids)
+    ):
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(
+                    'admin_dict_category_open_bad_number',
+                    language,
+                ).format(
+                    count=len(category_ids),
+                )}\n\n"
+                f"{prompt_text}"
+            ),
+            reply_markup=back_keyboard,
         )
         return
 
@@ -23129,8 +26261,17 @@ async def admin_category_open_receive(
         )
 
     if not item:
-        await message.answer(t("admin_item_not_found", language))
-        await state.clear()
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
@@ -23138,9 +26279,16 @@ async def admin_category_open_receive(
     )
     await state.set_state(None)
 
-    await message.answer(
-        format_admin_category_card(item, language),
-        reply_markup=admin_category_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_admin_category_card(
+            item,
+            language,
+        ),
+        reply_markup=admin_category_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_CAT_RENAME")
@@ -23151,6 +26299,10 @@ async def admin_category_rename_prompt(
     language = normalize_language(callback.from_user.language_code)
 
     data = await state.get_data()
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
     if not data.get("admin_selected_category_id"):
         await callback.answer(
             t("admin_item_not_found", language),
@@ -23158,11 +26310,34 @@ async def admin_category_rename_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_category_rename)
-    await callback.message.answer(
-        t("admin_dict_category_rename_prompt", language)
+    await state.set_state(
+        AdminModerationFSM.entering_admin_category_rename
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_category_rename_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_CATEGORIES:"
+                            f"{category_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_category_rename)
@@ -23170,23 +26345,68 @@ async def admin_category_rename_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
-    category_id = data.get("admin_selected_category_id")
+    category_id = data.get(
+        "admin_selected_category_id"
+    )
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_CATEGORIES:"
+                        f"{category_page}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if not category_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -23203,20 +26423,43 @@ async def admin_category_rename_receive(
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_category_rename_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
-        admin_selected_category_id=str(item.category_id),
+        admin_selected_category_id=str(
+            item.category_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_category_rename_done", language),
-    )
-    await message.answer(
-        format_admin_category_card(item, language),
-        reply_markup=admin_category_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_category_rename_done',
+                language,
+            )}\n\n"
+            f"{format_admin_category_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_category_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_CAT_TOGGLE")
@@ -23270,14 +26513,23 @@ async def admin_category_toggle_visibility(
         admin_selected_category_id=str(item.category_id),
     )
 
-    await callback.message.answer(
-        t("admin_dict_category_visibility_done", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_category_visibility_done',
+                language,
+            )}\n\n"
+            f"{format_admin_category_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_category_card_keyboard(
+            language
+        ),
     )
-    await callback.message.answer(
-        format_admin_category_card(item, language),
-        reply_markup=admin_category_card_keyboard(language),
-    )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_CAT_ARCHIVE")
 async def admin_category_archive(
@@ -23348,14 +26600,23 @@ async def admin_category_archive(
         admin_selected_category_id=str(item.category_id),
     )
 
-    await callback.message.answer(
-        t(done_text_key, language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=(
+            f"{t(
+                done_text_key,
+                language,
+            )}\n\n"
+            f"{format_admin_category_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_category_card_keyboard(
+            language
+        ),
     )
-    await callback.message.answer(
-        format_admin_category_card(item, language),
-        reply_markup=admin_category_card_keyboard(language),
-    )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_CAT_REORDER")
 async def admin_category_sort_order_prompt(
@@ -23365,6 +26626,10 @@ async def admin_category_sort_order_prompt(
     language = normalize_language(callback.from_user.language_code)
 
     data = await state.get_data()
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
     if not data.get("admin_selected_category_id"):
         await callback.answer(
             t("admin_item_not_found", language),
@@ -23372,11 +26637,34 @@ async def admin_category_sort_order_prompt(
         )
         return
 
-    await state.set_state(AdminModerationFSM.entering_admin_category_sort_order)
-    await callback.message.answer(
-        t("admin_dict_category_sort_order_prompt", language)
+    await state.set_state(
+        AdminModerationFSM.entering_admin_category_sort_order
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_dict_category_sort_order_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_DICT_CATEGORIES:"
+                            f"{category_page}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @admin_router.message(AdminModerationFSM.entering_admin_category_sort_order)
@@ -23384,23 +26672,68 @@ async def admin_category_sort_order_receive(
     message: Message,
     state: FSMContext,
 ):
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
     data = await state.get_data()
-    category_id = data.get("admin_selected_category_id")
+    category_id = data.get(
+        "admin_selected_category_id"
+    )
+    category_page = (
+        data.get("admin_category_page")
+        or 0
+    )
+
+    back_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_DICT_CATEGORIES:"
+                        f"{category_page}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if not category_id:
-        await state.clear()
-        await message.answer(t("admin_item_not_found", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        message.from_user.id
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if "super_admin" not in roles:
-        await state.clear()
-        await message.answer(t("admin_access_denied", language))
+        await state.set_state(None)
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     try:
@@ -23411,26 +26744,51 @@ async def admin_category_sort_order_receive(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
                 category_id=category_id,
-                sort_order_text=message.text or "",
+                sort_order_text=(
+                    message.text or ""
+                ),
                 language=language,
             )
             await session.commit()
 
     except DictionaryServiceError as exc:
-        await message.answer(t(exc.text_key, language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=(
+                f"{t(exc.text_key, language)}\n\n"
+                f"{t(
+                    'admin_dict_category_sort_order_prompt',
+                    language,
+                )}"
+            ),
+            reply_markup=back_keyboard,
+        )
         return
 
     await state.update_data(
-        admin_selected_category_id=str(item.category_id),
+        admin_selected_category_id=str(
+            item.category_id
+        ),
     )
     await state.set_state(None)
 
-    await message.answer(
-        t("admin_dict_category_sort_order_done", language),
-    )
-    await message.answer(
-        format_admin_category_card(item, language),
-        reply_markup=admin_category_card_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=(
+            f"{t(
+                'admin_dict_category_sort_order_done',
+                language,
+            )}\n\n"
+            f"{format_admin_category_card(
+                item,
+                language,
+            )}"
+        ),
+        reply_markup=admin_category_card_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "SA_PANEL")
@@ -23477,12 +26835,18 @@ async def super_admin_roles_entry(
         await super_admin_user_roles(callback, state)
         return
 
-    await state.set_state(AdminModerationFSM.waiting_super_admin_user_search)
-
-    await callback.message.answer(
-        t("super_admin_user_search_prompt", language)
+    await state.set_state(
+        AdminModerationFSM.waiting_super_admin_user_search
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_user_search_prompt",
+            language,
+        ),
+    )
 
 @admin_router.callback_query(F.data == "SA_USER_PROFILE")
 async def super_admin_user_profile_alias(
@@ -23554,31 +26918,16 @@ async def super_admin_user_profile_alias(
         )
         return
 
-    await callback.message.answer(
-        format_super_admin_user_card(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_super_admin_user_card(
             card,
             language,
         ),
         reply_markup=super_admin_user_card_keyboard(
             language,
         ),
-    )
-    await callback.answer()
-    language = normalize_language(callback.from_user.language_code)
-
-    data = await state.get_data()
-    target_user_id_raw = data.get("super_admin_selected_user_id")
-
-    if not target_user_id_raw:
-        await callback.answer(
-            t("admin_item_not_found", language),
-            show_alert=True,
-        )
-        return
-
-    await callback.answer(
-        t("feature_disabled_beta_message", language),
-        show_alert=True,
     )
 
 
@@ -23775,25 +27124,48 @@ async def ask_admin_user_search(
         )
         return
 
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key="admin_user_message_ids",
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_user_history_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await state.clear()
     await state.set_state(
         AdminModerationFSM.entering_admin_user_search
     )
 
-    await callback.message.answer(
-        t("admin_user_search_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_search_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("admin_panel_back", language),
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
                         callback_data="ADM_PANEL",
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM.entering_admin_user_search
@@ -23808,17 +27180,26 @@ async def receive_admin_user_search(
     query = (message.text or "").strip()
 
     admin_user_id, tenant_id, roles = (
-        await get_admin_user_context(message.from_user.id)
+        await get_admin_user_context(
+            message.from_user.id
+        )
     )
 
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection({"admin", "super_admin"})
+        or not roles.intersection(
+            {"admin", "super_admin"}
+        )
     ):
-        await state.clear()
-        await message.answer(
-            t("admin_access_denied", language)
+        await state.set_state(None)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
         )
         return
 
@@ -23832,10 +27213,20 @@ async def receive_admin_user_search(
                 query=query,
             )
     except ModerationError as exc:
-        await message.answer(
-            t("admin_user_search_error", language).format(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_search_error",
+                language,
+            ).format(
                 error=str(exc),
-            )
+            ),
+            reply_markup=(
+                admin_user_search_actions_keyboard(
+                    language
+                )
+            ),
         )
         return
 
@@ -23845,10 +27236,17 @@ async def receive_admin_user_search(
         await state.update_data(
             admin_user_search_ids=[],
         )
-        await message.answer(
-            t("admin_user_search_empty", language),
-            reply_markup=admin_user_search_actions_keyboard(
-                language
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_search_empty",
+                language,
+            ),
+            reply_markup=(
+                admin_user_search_actions_keyboard(
+                    language
+                )
             ),
         )
         return
@@ -23860,30 +27258,67 @@ async def receive_admin_user_search(
         ],
     )
 
-    await message.answer(
-        t("admin_user_search_results", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_user_search_results",
+            language,
+        ).format(
             count=len(cards),
-        )
+        ),
     )
 
+    screen_data = await state.get_data()
+    rendered_message_ids: list[int] = []
+
+    header_message_id = screen_data.get(
+        "last_menu_message_id"
+    )
+
+    if isinstance(header_message_id, int):
+        rendered_message_ids.append(
+            header_message_id
+        )
+
     for index, card in enumerate(cards):
-        await message.answer(
+        card_message = await message.answer(
             format_admin_user_search_card(
                 card,
                 number=index + 1,
                 language=language,
             ),
-            reply_markup=admin_user_search_result_keyboard(
-                index=index,
-                language=language,
+            reply_markup=(
+                admin_user_search_result_keyboard(
+                    index=index,
+                    language=language,
+                )
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await message.answer(
-        t("admin_user_search_actions", language),
-        reply_markup=admin_user_search_actions_keyboard(
-            language
+    navigation_message = await message.answer(
+        t(
+            "admin_user_search_actions",
+            language,
         ),
+        reply_markup=(
+            admin_user_search_actions_keyboard(
+                language
+            )
+        ),
+    )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        admin_user_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
     )
 
 @admin_router.callback_query(
@@ -23960,8 +27395,29 @@ async def open_admin_user_details(
         admin_user_selected_index=index,
     )
 
-    await callback.message.answer(
-        format_admin_user_details(card, language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key="admin_user_message_ids",
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_user_history_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_user_details(
+            card,
+            language,
+        ),
         reply_markup=admin_user_details_keyboard(
             index=index,
             is_global_blacklisted=(
@@ -23970,7 +27426,6 @@ async def open_admin_user_details(
             language=language,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_USER_GLOBAL_UNBLOCK:")
@@ -24026,8 +27481,10 @@ async def ask_admin_user_global_unblock_reason(
         .entering_admin_user_global_unblock_reason
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_unblock_reason_prompt",
             language,
         ),
@@ -24035,16 +27492,19 @@ async def ask_admin_user_global_unblock_reason(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_UNBLOCK_CANCEL:{index}"
+                            "ADM_USER_GLOBAL_UNBLOCK_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM
@@ -24059,33 +27519,94 @@ async def receive_admin_user_global_unblock_reason(
     )
     reason = (message.text or "").strip()
 
+    data = await state.get_data()
+    index = data.get(
+        "admin_user_global_unblock_index"
+    )
+    user_ids = (
+        data.get("admin_user_search_ids")
+        or []
+    )
+
     if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
+        reply_markup = None
+
+        if isinstance(index, int):
+            reply_markup = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "cancel",
+                                language,
+                            ),
+                            callback_data=(
+                                "ADM_USER_GLOBAL_UNBLOCK_CANCEL:"
+                                f"{index}"
+                            ),
+                        )
+                    ]
+                ]
+            )
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
+            reply_markup=reply_markup,
         )
         return
-
-    data = await state.get_data()
-    index = data.get("admin_user_global_unblock_index")
-    user_ids = data.get("admin_user_search_ids") or []
 
     if (
         not isinstance(index, int)
         or index < 0
         or index >= len(user_ids)
     ):
-        await state.clear()
-        await message.answer(
-            t("admin_user_not_found", language)
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_unblock_index=None,
+            admin_user_global_unblock_reason=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=(
+                admin_user_search_actions_keyboard(
+                    language
+                )
+            ),
         )
         return
 
     try:
-        target_user_id = UUID(user_ids[index])
+        target_user_id = UUID(
+            user_ids[index]
+        )
     except (TypeError, ValueError):
-        await state.clear()
-        await message.answer(
-            t("admin_user_not_found", language)
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_unblock_index=None,
+            admin_user_global_unblock_reason=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=(
+                admin_user_search_actions_keyboard(
+                    language
+                )
+            ),
         )
         return
 
@@ -24097,12 +27618,16 @@ async def receive_admin_user_global_unblock_reason(
         .confirming_admin_user_global_unblock
     )
 
-    await message.answer(
-        t(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
             "admin_user_global_unblock_confirmation",
             language,
         ).format(
-            user_number=f"user-{target_user_id.hex[:8]}",
+            user_number=(
+                f"user-{target_user_id.hex[:8]}"
+            ),
             reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -24125,15 +27650,20 @@ async def receive_admin_user_global_unblock_reason(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_UNBLOCK:{index}"
+                            "ADM_USER_GLOBAL_UNBLOCK:"
+                            f"{index}"
                         ),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_UNBLOCK_CANCEL:{index}"
+                            "ADM_USER_GLOBAL_UNBLOCK_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ],
@@ -24165,20 +27695,44 @@ async def confirm_admin_user_global_unblock_first(
         or index >= len(user_ids)
         or not reason
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_unblock_index=None,
+            admin_user_global_unblock_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
     try:
         target_user_id = UUID(user_ids[index])
     except (TypeError, ValueError):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_unblock_index=None,
+            admin_user_global_unblock_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
@@ -24187,12 +27741,16 @@ async def confirm_admin_user_global_unblock_first(
         .confirming_admin_user_global_unblock_final
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_unblock_final_confirmation",
             language,
         ).format(
-            user_number=f"user-{target_user_id.hex[:8]}",
+            user_number=(
+                f"user-{target_user_id.hex[:8]}"
+            ),
             reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -24215,22 +27773,26 @@ async def confirm_admin_user_global_unblock_first(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_UNBLOCK:{index}"
+                            "ADM_USER_GLOBAL_UNBLOCK:"
+                            f"{index}"
                         ),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_UNBLOCK_CANCEL:{index}"
+                            "ADM_USER_GLOBAL_UNBLOCK_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     AdminModerationFSM
@@ -24255,20 +27817,44 @@ async def execute_admin_user_global_unblock(
         or index < 0
         or index >= len(user_ids)
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_unblock_index=None,
+            admin_user_global_unblock_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
     try:
         target_user_id = UUID(user_ids[index])
     except (TypeError, ValueError):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_unblock_index=None,
+            admin_user_global_unblock_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
@@ -24281,10 +27867,22 @@ async def execute_admin_user_global_unblock(
         or not tenant_id
         or not roles.intersection({"admin", "super_admin"})
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_unblock_index=None,
+            admin_user_global_unblock_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
@@ -24310,11 +27908,15 @@ async def execute_admin_user_global_unblock(
         admin_user_global_unblock_index=None,
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_unblock_completed",
             language,
-        ).format(status=result.status),
+        ).format(
+            status=result.status,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -24323,13 +27925,15 @@ async def execute_admin_user_global_unblock(
                             "admin_user_back_to_card_btn",
                             language,
                         ),
-                        callback_data=f"ADM_USER_VIEW:{index}",
+                        callback_data=(
+                            "ADM_USER_VIEW:"
+                            f"{index}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_USER_GLOBAL_UNBLOCK_CANCEL:")
@@ -24353,8 +27957,10 @@ async def cancel_admin_user_global_unblock(
         admin_user_global_unblock_index=None,
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_unblock_cancelled",
             language,
         ),
@@ -24366,13 +27972,15 @@ async def cancel_admin_user_global_unblock(
                             "admin_user_back_to_card_btn",
                             language,
                         ),
-                        callback_data=f"ADM_USER_VIEW:{index}",
+                        callback_data=(
+                            "ADM_USER_VIEW:"
+                            f"{index}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_USER_GLOBAL_BLOCK:")
@@ -24428,22 +28036,30 @@ async def ask_admin_user_global_block_reason(
         .entering_admin_user_global_block_reason
     )
 
-    await callback.message.answer(
-        t("admin_user_global_block_reason_prompt", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_global_block_reason_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_BLOCK_CANCEL:{index}"
+                            "ADM_USER_GLOBAL_BLOCK_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM
@@ -24458,33 +28074,94 @@ async def receive_admin_user_global_block_reason(
     )
     reason = (message.text or "").strip()
 
+    data = await state.get_data()
+    index = data.get(
+        "admin_user_global_block_index"
+    )
+    user_ids = (
+        data.get("admin_user_search_ids")
+        or []
+    )
+
     if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
+        reply_markup = None
+
+        if isinstance(index, int):
+            reply_markup = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "cancel",
+                                language,
+                            ),
+                            callback_data=(
+                                "ADM_USER_GLOBAL_BLOCK_CANCEL:"
+                                f"{index}"
+                            ),
+                        )
+                    ]
+                ]
+            )
+
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
+            reply_markup=reply_markup,
         )
         return
-
-    data = await state.get_data()
-    index = data.get("admin_user_global_block_index")
-    user_ids = data.get("admin_user_search_ids") or []
 
     if (
         not isinstance(index, int)
         or index < 0
         or index >= len(user_ids)
     ):
-        await state.clear()
-        await message.answer(
-            t("admin_user_not_found", language)
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_block_index=None,
+            admin_user_global_block_reason=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=(
+                admin_user_search_actions_keyboard(
+                    language
+                )
+            ),
         )
         return
 
     try:
-        target_user_id = UUID(user_ids[index])
+        target_user_id = UUID(
+            user_ids[index]
+        )
     except (TypeError, ValueError):
-        await state.clear()
-        await message.answer(
-            t("admin_user_not_found", language)
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_block_index=None,
+            admin_user_global_block_reason=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=(
+                admin_user_search_actions_keyboard(
+                    language
+                )
+            ),
         )
         return
 
@@ -24492,12 +28169,20 @@ async def receive_admin_user_global_block_reason(
         admin_user_global_block_reason=reason,
     )
     await state.set_state(
-        AdminModerationFSM.confirming_admin_user_global_block
+        AdminModerationFSM
+        .confirming_admin_user_global_block
     )
 
-    await message.answer(
-        t("admin_user_global_block_confirmation", language).format(
-            user_number=f"user-{target_user_id.hex[:8]}",
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_user_global_block_confirmation",
+            language,
+        ).format(
+            user_number=(
+                f"user-{target_user_id.hex[:8]}"
+            ),
             reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -24508,7 +28193,9 @@ async def receive_admin_user_global_block_reason(
                             "admin_user_global_block_confirm_btn",
                             language,
                         ),
-                        callback_data="ADM_USER_GLOBAL_BLOCK_CONFIRM",
+                        callback_data=(
+                            "ADM_USER_GLOBAL_BLOCK_CONFIRM"
+                        ),
                     )
                 ],
                 [
@@ -24518,15 +28205,20 @@ async def receive_admin_user_global_block_reason(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_BLOCK:{index}"
+                            "ADM_USER_GLOBAL_BLOCK:"
+                            f"{index}"
                         ),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_BLOCK_CANCEL:{index}"
+                            "ADM_USER_GLOBAL_BLOCK_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ],
@@ -24557,20 +28249,44 @@ async def confirm_admin_user_global_block_first(
         or index >= len(user_ids)
         or not reason
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_block_index=None,
+            admin_user_global_block_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
     try:
         target_user_id = UUID(user_ids[index])
     except (TypeError, ValueError):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_block_index=None,
+            admin_user_global_block_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
@@ -24579,12 +28295,16 @@ async def confirm_admin_user_global_block_first(
         .confirming_admin_user_global_block_final
     )
 
-    await callback.message.answer(
-        t(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
             "admin_user_global_block_final_confirmation",
             language,
         ).format(
-            user_number=f"user-{target_user_id.hex[:8]}",
+            user_number=(
+                f"user-{target_user_id.hex[:8]}"
+            ),
             reason=reason,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -24607,22 +28327,26 @@ async def confirm_admin_user_global_block_first(
                             language,
                         ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_BLOCK:{index}"
+                            "ADM_USER_GLOBAL_BLOCK:"
+                            f"{index}"
                         ),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_USER_GLOBAL_BLOCK_CANCEL:{index}"
+                            "ADM_USER_GLOBAL_BLOCK_CANCEL:"
+                            f"{index}"
                         ),
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     AdminModerationFSM.confirming_admin_user_global_block_final,
@@ -24646,20 +28370,44 @@ async def execute_admin_user_global_block(
         or index < 0
         or index >= len(user_ids)
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_block_index=None,
+            admin_user_global_block_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
     try:
         target_user_id = UUID(user_ids[index])
     except (TypeError, ValueError):
-        await state.clear()
-        await callback.answer(
-            t("admin_user_not_found", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_block_index=None,
+            admin_user_global_block_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_user_not_found",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
@@ -24672,10 +28420,22 @@ async def execute_admin_user_global_block(
         or not tenant_id
         or not roles.intersection({"admin", "super_admin"})
     ):
-        await state.clear()
-        await callback.answer(
-            t("admin_access_denied", language),
-            show_alert=True,
+        await state.set_state(None)
+        await state.update_data(
+            admin_user_global_block_index=None,
+            admin_user_global_block_reason=None,
+        )
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=admin_user_search_actions_keyboard(
+                language
+            ),
         )
         return
 
@@ -24698,10 +28458,16 @@ async def execute_admin_user_global_block(
     await state.set_state(None)
     await state.update_data(
         admin_user_global_block_reason=None,
+        admin_user_global_block_index=None,
     )
 
-    await callback.message.answer(
-        t("admin_user_global_block_completed", language).format(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_global_block_completed",
+            language,
+        ).format(
             status=result.status,
         ),
         reply_markup=InlineKeyboardMarkup(
@@ -24712,13 +28478,15 @@ async def execute_admin_user_global_block(
                             "admin_user_back_to_card_btn",
                             language,
                         ),
-                        callback_data=f"ADM_USER_VIEW:{index}",
+                        callback_data=(
+                            "ADM_USER_VIEW:"
+                            f"{index}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_USER_GLOBAL_BLOCK_CANCEL:")
@@ -24742,8 +28510,13 @@ async def cancel_admin_user_global_block(
         admin_user_global_block_index=None,
     )
 
-    await callback.message.answer(
-        t("admin_user_global_block_cancelled", language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_global_block_cancelled",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -24752,13 +28525,15 @@ async def cancel_admin_user_global_block(
                             "admin_user_back_to_card_btn",
                             language,
                         ),
-                        callback_data=f"ADM_USER_VIEW:{index}",
+                        callback_data=(
+                            "ADM_USER_VIEW:"
+                            f"{index}"
+                        ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_USER_ROLES:")
@@ -24830,14 +28605,18 @@ async def open_admin_user_roles(
         )
         return
 
-    await callback.message.answer(
-        format_admin_user_roles(card, language),
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_admin_user_roles(
+            card,
+            language,
+        ),
         reply_markup=admin_user_roles_keyboard(
             index=index,
             language=language,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_USER_HISTORY:")
@@ -24910,57 +28689,143 @@ async def open_admin_user_history(
         )
         return
 
-    await callback.message.answer(
-        t("admin_user_history_title", language).format(
-            user_number=f"user-{target_user_id.hex[:8]}",
-            count=len(history),
-        )
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_user_history_message_ids"
+        ),
+        preserve_current=True,
     )
 
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_user_history_title",
+            language,
+        ).format(
+            user_number=(
+                f"user-{target_user_id.hex[:8]}"
+            ),
+            count=len(history),
+        ),
+    )
+
+    screen_data = await state.get_data()
+    rendered_message_ids: list[int] = []
+
+    header_message_id = screen_data.get(
+        "last_menu_message_id"
+    )
+
+    if isinstance(header_message_id, int):
+        rendered_message_ids.append(
+            header_message_id
+        )
+
     if not history:
-        await callback.message.answer(
-            t("admin_user_history_empty", language),
+        empty_message = await callback.message.answer(
+            t(
+                "admin_user_history_empty",
+                language,
+            ),
             reply_markup=admin_user_history_keyboard(
                 index=index,
                 language=language,
             ),
         )
-        await callback.answer()
-        return
-
-    for number, card in enumerate(history, start=1):
-        await callback.message.answer(
-            format_admin_user_history_item(
-                card,
-                number=number,
-                language=language,
-            )
+        rendered_message_ids.append(
+            empty_message.message_id
         )
 
-    await callback.message.answer(
-        t("admin_user_history_actions", language),
+        await state.update_data(
+            admin_user_history_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
+        return
+
+    for number, card in enumerate(
+        history,
+        start=1,
+    ):
+        history_message = (
+            await callback.message.answer(
+                format_admin_user_history_item(
+                    card,
+                    number=number,
+                    language=language,
+                )
+            )
+        )
+        rendered_message_ids.append(
+            history_message.message_id
+        )
+
+    navigation_message = await callback.message.answer(
+        t(
+            "admin_user_history_actions",
+            language,
+        ),
         reply_markup=admin_user_history_keyboard(
             index=index,
             language=language,
         ),
     )
-    await callback.answer()
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        admin_user_history_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
 
 @admin_router.callback_query(F.data == "ADM_ROLES")
-async def admin_roles_panel(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
-    admin_user_id, tenant_id, roles = await get_admin_user_context(callback.from_user.id)
+async def admin_roles_panel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
-    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_ROLE_MENU_ROLES):
-        await callback.answer(t("admin_access_denied", language), show_alert=True)
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            ADMIN_ROLE_MENU_ROLES
+        )
+    ):
+        await callback.answer(
+            t("admin_access_denied", language),
+            show_alert=True,
+        )
         return
 
     await state.clear()
-    await callback.message.answer(
-        t("admin_roles_title", language),
-        reply_markup=admin_roles_keyboard(language),
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_roles_title",
+            language,
+        ),
+        reply_markup=admin_roles_keyboard(
+            language
+        ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_LOGS")
 async def admin_audit_panel(
@@ -25008,6 +28873,7 @@ async def change_admin_audit_queue(
 )
 async def open_admin_audit_filter(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
     language = normalize_language(
         callback.from_user.language_code
@@ -25032,11 +28898,42 @@ async def open_admin_audit_filter(
         )
         return
 
-    await callback.message.answer(
-        t("admin_audit_filter_title", language),
-        reply_markup=admin_audit_filter_keyboard(language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key="admin_audit_message_ids",
+        preserve_current=True,
     )
-    await callback.answer()
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_audit_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_escalated_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_audit_filter_title",
+            language,
+        ),
+        reply_markup=admin_audit_filter_keyboard(
+            language
+        ),
+    )
 
 
 @admin_router.callback_query(
@@ -25115,8 +29012,20 @@ async def open_admin_audit_details(
         )
         return
 
-    await callback.message.answer(
-        t("admin_audit_details", language).format(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key="admin_audit_message_ids",
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_audit_details",
+            language,
+        ).format(
             date=card.date,
             actor=card.actor,
             action=card.action,
@@ -25131,7 +29040,6 @@ async def open_admin_audit_details(
             language=language,
         ),
     )
-    await callback.answer()
 
 async def open_admin_audit_queue(
     callback: CallbackQuery,
@@ -25190,17 +29098,34 @@ async def open_admin_audit_queue(
         admin_audit_page=result.page,
     )
 
-    await callback.message.answer(
-        t("admin_audit_queue_title", language).format(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key="admin_audit_message_ids",
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
+        t(
+            "admin_audit_queue_title",
+            language,
+        ).format(
             filter=result.target_type,
             page=result.page + 1,
             count=len(result.items),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not result.items:
-        await callback.message.answer(
-            t("admin_audit_empty", language),
+        empty_message = await callback.message.answer(
+            t(
+                "admin_audit_empty",
+                language,
+            ),
             reply_markup=admin_audit_queue_keyboard(
                 target_type=result.target_type,
                 page=result.page,
@@ -25208,28 +29133,48 @@ async def open_admin_audit_queue(
                 language=language,
             ),
         )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            admin_audit_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         await callback.answer()
         return
 
     start_number = (
-        result.page * ADMIN_AUDIT_PAGE_SIZE + 1
+        result.page
+        * ADMIN_AUDIT_PAGE_SIZE
+        + 1
     )
 
     for offset, card in enumerate(result.items):
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_admin_audit_card(
                 card,
                 number=start_number + offset,
                 language=language,
             ),
-                reply_markup=super_admin_audit_card_keyboard(
+            reply_markup=(
+                super_admin_audit_card_keyboard(
                     index=offset,
                     language=language,
-                ),
+                )
+            ),
+        )
+        rendered_message_ids.append(
+            card_message.message_id
         )
 
-    await callback.message.answer(
-        t("admin_audit_actions_title", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "admin_audit_actions_title",
+            language,
+        ),
         reply_markup=admin_audit_queue_keyboard(
             target_type=result.target_type,
             page=result.page,
@@ -25237,6 +29182,17 @@ async def open_admin_audit_queue(
             language=language,
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        admin_audit_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 @admin_router.callback_query(F.data == "SA_AUDIT")
@@ -25281,25 +29237,50 @@ async def change_super_admin_audit_queue(
 @admin_router.callback_query(F.data == "SA_AUDIT_FILTER")
 async def open_super_admin_audit_filter(
     callback: CallbackQuery,
+    state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
-
-    admin_user_id, tenant_id, roles = await get_admin_user_context(
-        callback.from_user.id
+    language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not admin_user_id or "super_admin" not in roles:
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            callback.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or "super_admin" not in roles
+    ):
         await callback.answer(
             t("admin_access_denied", language),
             show_alert=True,
         )
         return
 
-    await callback.message.answer(
-        t("admin_audit_filter_title", language),
-        reply_markup=super_admin_audit_filter_keyboard(language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_audit_message_ids"
+        ),
+        preserve_current=True,
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_audit_filter_title",
+            language,
+        ),
+        reply_markup=(
+            super_admin_audit_filter_keyboard(
+                language
+            )
+        ),
+    )
 
 
 async def open_super_admin_audit_queue(
@@ -25346,17 +29327,36 @@ async def open_super_admin_audit_queue(
         super_admin_audit_page=result.page,
     )
 
-    await callback.message.answer(
-        t("admin_audit_queue_title", language).format(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_audit_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
+        t(
+            "admin_audit_queue_title",
+            language,
+        ).format(
             filter=result.target_type,
             page=result.page + 1,
             count=len(result.items),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not result.items:
-        await callback.message.answer(
-            t("admin_audit_empty", language),
+        empty_message = await callback.message.answer(
+            t(
+                "admin_audit_empty",
+                language,
+            ),
             reply_markup=admin_audit_queue_keyboard(
                 target_type=result.target_type,
                 page=result.page,
@@ -25366,26 +29366,48 @@ async def open_super_admin_audit_queue(
                 back_callback="ADM_PANEL",
             ),
         )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            super_admin_audit_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
+        )
         await callback.answer()
         return
 
-    start_number = result.page * ADMIN_AUDIT_PAGE_SIZE + 1
+    start_number = (
+        result.page
+        * ADMIN_AUDIT_PAGE_SIZE
+        + 1
+    )
 
     for offset, card in enumerate(result.items):
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_admin_audit_card(
                 card,
                 number=start_number + offset,
                 language=language,
             ),
-            reply_markup=super_admin_audit_card_keyboard(
-                index=offset,
-                language=language,
+            reply_markup=(
+                super_admin_audit_card_keyboard(
+                    index=offset,
+                    language=language,
+                )
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("admin_audit_actions_title", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "admin_audit_actions_title",
+            language,
+        ),
         reply_markup=admin_audit_queue_keyboard(
             target_type=result.target_type,
             page=result.page,
@@ -25395,6 +29417,17 @@ async def open_super_admin_audit_queue(
             back_callback="ADM_PANEL",
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        super_admin_audit_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 @admin_router.callback_query(F.data.startswith("SA_AUDIT_OPEN:"))
@@ -25458,8 +29491,22 @@ async def open_super_admin_audit_details(
         await callback.answer(str(exc), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("super_admin_audit_event_detail", language).format(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "super_admin_audit_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "super_admin_audit_event_detail",
+            language,
+        ).format(
             timestamp=card.timestamp,
             actor=card.actor,
             action=card.action,
@@ -25476,20 +29523,28 @@ async def open_super_admin_audit_details(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("admin_audit_back_to_list_btn", language),
-                        callback_data=f"SA_AUDIT_QUEUE:{target_type}:{page}",
+                        text=t(
+                            "admin_audit_back_to_list_btn",
+                            language,
+                        ),
+                        callback_data=(
+                            "SA_AUDIT_QUEUE:"
+                            f"{target_type}:{page}"
+                        ),
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text=t("search_menu", language),
+                        text=t(
+                            "search_menu",
+                            language,
+                        ),
                         callback_data="MAIN_MENU",
                     )
                 ],
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     (F.data == "ADM_ADMIN_SUPPORT")
@@ -25561,26 +29616,59 @@ async def open_admin_escalated_tickets(
         admin_support_page=ticket_page.page,
     )
 
-    await callback.message.answer(
-        t("admin_escalated_tickets_header", language).format(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_escalated_ticket_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
+        t(
+            "admin_escalated_tickets_header",
+            language,
+        ).format(
             page=ticket_page.page + 1,
             count=len(ticket_page.tickets),
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
     if not ticket_page.tickets:
-        await callback.message.answer(
-            t("admin_escalated_tickets_empty", language),
-            reply_markup=admin_escalated_tickets_keyboard(
-                page=ticket_page.page,
-                has_next=False,
-                language=language,
+        empty_message = await callback.message.answer(
+            t(
+                "admin_escalated_tickets_empty",
+                language,
             ),
+            reply_markup=(
+                admin_escalated_tickets_keyboard(
+                    page=ticket_page.page,
+                    has_next=False,
+                    language=language,
+                )
+            ),
+        )
+        rendered_message_ids.append(
+            empty_message.message_id
+        )
+
+        await state.update_data(
+            admin_escalated_ticket_message_ids=(
+                rendered_message_ids
+            ),
+            last_menu_message_id=None,
         )
         await callback.answer()
         return
 
-    for index, ticket in enumerate(ticket_page.tickets):
+    for index, ticket in enumerate(
+        ticket_page.tickets
+    ):
         number = (
             ticket_page.page
             * ADMIN_ESCALATED_TICKET_PAGE_SIZE
@@ -25588,7 +29676,7 @@ async def open_admin_escalated_tickets(
             + 1
         )
 
-        await callback.message.answer(
+        card_message = await callback.message.answer(
             format_admin_escalated_ticket(
                 ticket,
                 number=number,
@@ -25601,15 +29689,32 @@ async def open_admin_escalated_tickets(
                 )
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("admin_escalated_tickets_actions", language),
+    navigation_message = await callback.message.answer(
+        t(
+            "admin_escalated_tickets_actions",
+            language,
+        ),
         reply_markup=admin_escalated_tickets_keyboard(
             page=ticket_page.page,
             has_next=ticket_page.has_next,
             language=language,
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        admin_escalated_ticket_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 @admin_router.callback_query(
@@ -25674,20 +29779,32 @@ async def open_admin_escalated_ticket_card(
         )
         return
 
-    await callback.message.answer(
-        format_support_ticket_card(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "admin_escalated_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_support_ticket_card(
             view,
             index=index,
             total=len(ticket_ids),
             language=language,
         ),
-        reply_markup=admin_escalated_ticket_card_keyboard(
-            index=index,
-            page=page,
-            language=language,
+        reply_markup=(
+            admin_escalated_ticket_card_keyboard(
+                index=index,
+                page=page,
+                language=language,
+            )
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(
     F.data.startswith("ADM_ADMIN_TICKET_ACTION:")
@@ -25742,8 +29859,13 @@ async def ask_admin_ticket_action_reason(
         AdminModerationFSM.entering_admin_ticket_action_reason
     )
 
-    await callback.message.answer(
-        t("admin_ticket_action_reason_prompt", language).format(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_ticket_action_reason_prompt",
+            language,
+        ).format(
             action=t(
                 f"admin_ticket_action_{action}",
                 language,
@@ -25753,16 +29875,19 @@ async def ask_admin_ticket_action_reason(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("cancel", language),
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_ADMIN_SUPPORT_OPEN:{index}"
+                            "ADM_ADMIN_SUPPORT_OPEN:"
+                            f"{index}"
                         ),
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
 @admin_router.message(
     AdminModerationFSM.entering_admin_ticket_action_reason
@@ -25777,8 +29902,13 @@ async def execute_admin_ticket_action(
     reason = (message.text or "").strip()
 
     if len(reason) < 3:
-        await message.answer(
-            t("admin_reason_too_short", language)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
         )
         return
 
@@ -25792,9 +29922,19 @@ async def execute_admin_ticket_action(
         action not in {"assign", "resolve"}
         or not ticket_id
     ):
-        await state.clear()
-        await message.answer(
-            t("admin_item_not_found", language)
+        await state.set_state(None)
+        await state.update_data(
+            admin_ticket_action=None,
+            admin_ticket_action_id=None,
+            admin_ticket_action_index=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
         )
         return
 
@@ -25805,11 +29945,23 @@ async def execute_admin_ticket_action(
     if (
         not admin_user_id
         or not tenant_id
-        or not roles.intersection({"admin", "super_admin"})
+        or not roles.intersection(
+            {"admin", "super_admin"}
+        )
     ):
-        await state.clear()
-        await message.answer(
-            t("admin_access_denied", language)
+        await state.set_state(None)
+        await state.update_data(
+            admin_ticket_action=None,
+            admin_ticket_action_id=None,
+            admin_ticket_action_index=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
         )
         return
 
@@ -25840,10 +29992,15 @@ async def execute_admin_ticket_action(
                     )
                 )
     except (ValueError, SupportServiceError) as exc:
-        await message.answer(
-            t("support_error", language).format(
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "support_error",
+                language,
+            ).format(
                 error=str(exc),
-            )
+            ),
         )
         return
 
@@ -25854,8 +30011,13 @@ async def execute_admin_ticket_action(
         admin_ticket_action_index=None,
     )
 
-    await message.answer(
-        t("admin_ticket_action_completed", language).format(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_ticket_action_completed",
+            language,
+        ).format(
             action=t(
                 f"admin_ticket_action_{action}",
                 language,
@@ -25869,9 +30031,13 @@ async def execute_admin_ticket_action(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("admin_panel_back", language),
+                        text=t(
+                            "admin_panel_back",
+                            language,
+                        ),
                         callback_data=(
-                            f"ADM_ADMIN_SUPPORT:{page}"
+                            "ADM_ADMIN_SUPPORT:"
+                            f"{page}"
                         ),
                     )
                 ]
@@ -25920,15 +30086,29 @@ async def open_support_staff_menu(callback: CallbackQuery, state: FSMContext):
         )
         await session.commit()
 
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
     await state.clear()
-    await callback.message.answer(
-        format_support_staff_menu(counts, language),
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_support_staff_menu(
+            counts,
+            language,
+        ),
         reply_markup=support_staff_menu_keyboard(
             language,
             show_role_switch=show_role_switch,
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data == "ADM_SUPPORT_SEARCH")
 async def ask_support_ticket_search(callback: CallbackQuery, state: FSMContext):
@@ -25939,31 +30119,75 @@ async def ask_support_ticket_search(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
 
-    await state.set_state(AdminModerationFSM.entering_support_search)
-    await callback.message.answer(
-        t("support_staff_search_prompt", language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await state.set_state(
+        AdminModerationFSM.entering_support_search
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "support_staff_search_prompt",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("support_staff_back_to_panel", language),
+                        text=t(
+                            "support_staff_back_to_panel",
+                            language,
+                        ),
                         callback_data="ADM_SUPPORT",
                     )
                 ]
             ]
         ),
     )
-    await callback.answer()
 
-@admin_router.message(AdminModerationFSM.entering_support_search)
-async def receive_support_ticket_search(message: Message, state: FSMContext):
-    language = normalize_language(message.from_user.language_code)
+@admin_router.message(
+    AdminModerationFSM.entering_support_search
+)
+async def receive_support_ticket_search(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
     query = (message.text or "").strip()
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
-    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
-        await message.answer(t("admin_access_denied", language))
-        await state.clear()
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            ADMIN_SUPPORT_MENU_ROLES
+        )
+    ):
+        await state.set_state(None)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
     try:
@@ -25978,7 +30202,9 @@ async def receive_support_ticket_search(message: Message, state: FSMContext):
                 offset=0,
             )
 
-            await EventRepository(session).create_event(
+            await EventRepository(
+                session
+            ).create_event(
                 event_type="ticket_search",
                 tenant_id=tenant_id,
                 user_id=admin_user_id,
@@ -25992,48 +30218,106 @@ async def receive_support_ticket_search(message: Message, state: FSMContext):
             )
             await session.commit()
     except SupportServiceError as exc:
-        await message.answer(t("support_error", language).format(error=str(exc)))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "support_error",
+                language,
+            ).format(
+                error=str(exc),
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "support_staff_back_to_panel",
+                                language,
+                            ),
+                            callback_data="ADM_SUPPORT",
+                        )
+                    ]
+                ]
+            ),
+        )
         return
 
+    await state.set_state(None)
     await state.update_data(
-        admin_support_ticket_ids=[str(ticket.id) for ticket in tickets],
+        admin_support_ticket_ids=[
+            str(ticket.id)
+            for ticket in tickets
+        ],
         admin_support_view="search",
         admin_support_page=0,
     )
 
-    await message.answer(
-        format_support_staff_search_header(
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=format_support_staff_search_header(
             tickets,
             query=query,
             language=language,
-        )
+        ),
     )
 
+    screen_data = await state.get_data()
+    rendered_message_ids: list[int] = []
+
+    header_message_id = screen_data.get(
+        "last_menu_message_id"
+    )
+
+    if isinstance(header_message_id, int):
+        rendered_message_ids.append(
+            header_message_id
+        )
+
     for index, ticket in enumerate(tickets):
-        await message.answer(
+        card_message = await message.answer(
             format_support_staff_ticket_card(
                 ticket,
                 number=index + 1,
                 language=language,
             ),
-            reply_markup=support_staff_ticket_card_keyboard(
-                index=index,
-                ticket=ticket,
-                language=language,
+            reply_markup=(
+                support_staff_ticket_card_keyboard(
+                    index=index,
+                    ticket=ticket,
+                    language=language,
+                )
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await message.answer(
-        t("support_staff_list_actions", language),
-        reply_markup=support_staff_ticket_actions_keyboard(
-            view="open",
-            page=0,
-            has_next=False,
-            language=language,
+    navigation_message = await message.answer(
+        t(
+            "support_staff_list_actions",
+            language,
+        ),
+        reply_markup=(
+            support_staff_ticket_actions_keyboard(
+                view="open",
+                page=0,
+                has_next=False,
+                language=language,
+            )
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
 
-    await state.set_state(None)
+    await state.update_data(
+        support_staff_ticket_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
 
 @admin_router.callback_query(F.data == "ADM_SUPPORT_FILTERS")
 async def show_support_ticket_filters(callback: CallbackQuery, state: FSMContext):
@@ -26044,11 +30328,28 @@ async def show_support_ticket_filters(callback: CallbackQuery, state: FSMContext
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("support_staff_filters_title", language),
-        reply_markup=support_staff_filters_keyboard(language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "support_staff_filters_title",
+            language,
+        ),
+        reply_markup=(
+            support_staff_filters_keyboard(
+                language
+            )
+        ),
+    )
 
 @admin_router.callback_query(F.data.startswith("ADM_SUPPORT_VIEW:"))
 async def list_support_tickets_by_status(callback: CallbackQuery, state: FSMContext):
@@ -26109,7 +30410,17 @@ async def list_support_tickets_by_status(callback: CallbackQuery, state: FSMCont
         admin_support_page=page,
     )
 
-    await callback.message.answer(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+    )
+
+    rendered_message_ids: list[int] = []
+
+    header_message = await callback.message.answer(
         format_support_staff_ticket_header(
             visible_tickets,
             view=view,
@@ -26118,31 +30429,63 @@ async def list_support_tickets_by_status(callback: CallbackQuery, state: FSMCont
             language=language,
         )
     )
+    rendered_message_ids.append(
+        header_message.message_id
+    )
 
-    for index, ticket in enumerate(visible_tickets):
-        number = page * SUPPORT_STAFF_PAGE_SIZE + index + 1
-        await callback.message.answer(
+    for index, ticket in enumerate(
+        visible_tickets
+    ):
+        number = (
+            page
+            * SUPPORT_STAFF_PAGE_SIZE
+            + index
+            + 1
+        )
+
+        card_message = await callback.message.answer(
             format_support_staff_ticket_card(
                 ticket,
                 number=number,
                 language=language,
             ),
-            reply_markup=support_staff_ticket_card_keyboard(
-                index=index,
-                ticket=ticket,
-                language=language,
+            reply_markup=(
+                support_staff_ticket_card_keyboard(
+                    index=index,
+                    ticket=ticket,
+                    language=language,
+                )
             ),
         )
+        rendered_message_ids.append(
+            card_message.message_id
+        )
 
-    await callback.message.answer(
-        t("support_staff_list_actions", language),
-        reply_markup=support_staff_ticket_actions_keyboard(
-            view=view,
-            page=page,
-            has_next=has_next,
-            language=language,
+    navigation_message = await callback.message.answer(
+        t(
+            "support_staff_list_actions",
+            language,
+        ),
+        reply_markup=(
+            support_staff_ticket_actions_keyboard(
+                view=view,
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
         ),
     )
+    rendered_message_ids.append(
+        navigation_message.message_id
+    )
+
+    await state.update_data(
+        support_staff_ticket_message_ids=(
+            rendered_message_ids
+        ),
+        last_menu_message_id=None,
+    )
+
     await callback.answer()
 
 @admin_router.callback_query(F.data.startswith("ADM_SUP_TAKE:"))
@@ -26194,16 +30537,37 @@ async def take_support_ticket(callback: CallbackQuery, state: FSMContext):
         await callback.answer(str(exc), show_alert=True)
         return
 
-    await callback.message.answer(
-        t("support_staff_ticket_taken", language),
-            reply_markup=support_staff_ticket_actions_keyboard(
-                view=data.get("admin_support_view") or "open",
-                page=int(data.get("admin_support_page") or 0),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "support_staff_ticket_taken",
+            language,
+        ),
+        reply_markup=(
+            support_staff_ticket_actions_keyboard(
+                view=(
+                    data.get("admin_support_view")
+                    or "open"
+                ),
+                page=int(
+                    data.get("admin_support_page")
+                    or 0
+                ),
                 has_next=False,
                 language=language,
-            ),
+            )
+        ),
     )
-    await callback.answer()
 
 async def show_support_ticket(callback: CallbackQuery, state: FSMContext, index: int):
     data = await state.get_data()
@@ -26211,11 +30575,26 @@ async def show_support_ticket(callback: CallbackQuery, state: FSMContext, index:
     ids = data.get("admin_support_ticket_ids") or []
 
     if not ids:
-        await callback.message.answer(
-            t("admin_no_support_tickets", language),
-            reply_markup=admin_panel_keyboard(language),
+        await clear_admin_message_group(
+            callback=callback,
+            state=state,
+            state_key=(
+                "support_staff_ticket_message_ids"
+            ),
+            preserve_current=True,
         )
-        await callback.answer()
+
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_no_support_tickets",
+                language,
+            ),
+            reply_markup=admin_panel_keyboard(
+                language
+            ),
+        )
         return
 
     index = max(0, min(int(index), len(ids) - 1))
@@ -26238,22 +30617,50 @@ async def show_support_ticket(callback: CallbackQuery, state: FSMContext, index:
         await callback.answer(str(exc), show_alert=True)
         return
 
-    await callback.message.answer(
-        format_support_ticket_card(
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_support_ticket_card(
             view,
             index=index,
             total=len(ids),
             language=language,
         ),
-        reply_markup=support_ticket_keyboard(index, len(ids), language),
+        reply_markup=support_ticket_keyboard(
+            index,
+            len(ids),
+            language,
+        ),
     )
-    await callback.answer()
 
 
-@admin_router.callback_query(F.data.startswith("ADM_SUP_VIEW:"))
-async def view_support_ticket(callback: CallbackQuery, state: FSMContext):
-    index = int(callback.data.split(":", 1)[1])
-    await show_support_ticket(callback, state, index=index)
+@admin_router.callback_query(
+    F.data.startswith("ADM_SUP_VIEW:")
+)
+async def view_support_ticket(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    index = int(
+        callback.data.split(":", 1)[1]
+    )
+
+    await state.set_state(None)
+
+    await show_support_ticket(
+        callback,
+        state,
+        index=index,
+    )
 
 
 @admin_router.callback_query(F.data.startswith("ADM_SUP_REPLY:"))
@@ -26276,28 +30683,93 @@ async def ask_support_reply(callback: CallbackQuery, state: FSMContext):
         admin_support_ticket_id=ids[index],
         admin_support_ticket_index=index,
     )
-    await state.set_state(AdminModerationFSM.entering_support_reply)
-    await callback.message.answer(t("admin_support_reply_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_support_reply
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_support_reply_prompt",
+            language,
+        ),
+    )
 
 
-@admin_router.message(AdminModerationFSM.entering_support_reply)
-async def receive_support_reply(message: Message, state: FSMContext):
+@admin_router.message(
+    AdminModerationFSM.entering_support_reply
+)
+async def receive_support_reply(
+    message: Message,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
-    ticket_id = data.get("admin_support_ticket_id")
-    index = int(data.get("admin_support_ticket_index") or 0)
+    ticket_id = data.get(
+        "admin_support_ticket_id"
+    )
+    index = int(
+        data.get(
+            "admin_support_ticket_index"
+        )
+        or 0
+    )
 
     if not ticket_id:
-        await message.answer(t("admin_item_not_found", language))
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            admin_support_ticket_id=None,
+            admin_support_ticket_index=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
-    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
-        await message.answer(t("admin_access_denied", language))
-        await state.clear()
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            ADMIN_SUPPORT_MENU_ROLES
+        )
+    ):
+        await state.set_state(None)
+        await state.update_data(
+            admin_support_ticket_id=None,
+            admin_support_ticket_index=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
     try:
@@ -26311,38 +30783,66 @@ async def receive_support_reply(message: Message, state: FSMContext):
                 message_text=message.text or "",
             )
     except SupportServiceError as exc:
-        await message.answer(t("support_error", language).format(error=str(exc)))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "support_error",
+                language,
+            ).format(
+                error=str(exc),
+            ),
+        )
         return
 
     if reply_result.recipient_chat_id is not None:
         try:
             await message.bot.send_message(
-                chat_id=reply_result.recipient_chat_id,
-                text=t("support_staff_reply_received", language).format(
+                chat_id=(
+                    reply_result.recipient_chat_id
+                ),
+                text=t(
+                    "support_staff_reply_received",
+                    language,
+                ).format(
                     ticket_id=str(ticket_id)[:8],
                     message=message.text or "",
                 ),
             )
         except Exception:
             logger.exception(
-                "support_reply_notification_failed ticket_id=%s",
+                "support_reply_notification_failed "
+                "ticket_id=%s",
                 ticket_id,
             )
 
-    await message.answer(
-        t("admin_support_reply_sent", language),
+    await state.set_state(None)
+    await state.update_data(
+        admin_support_ticket_id=None,
+        admin_support_ticket_index=None,
+    )
+
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_support_reply_sent",
+            language,
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=t("support_staff_back_to_queue", language),
+                        text=t(
+                            "support_staff_back_to_queue",
+                            language,
+                        ),
                         callback_data="ADM_SUPPORT",
                     )
                 ]
             ]
         ),
     )
-    await state.set_state(None)
 
 async def update_support_ticket_status_from_admin(
     callback: CallbackQuery,
@@ -26415,16 +30915,33 @@ async def update_support_ticket_status_from_admin(
     view = data.get("admin_support_view") or "in_progress"
     page = int(data.get("admin_support_page") or 0)
 
-    await callback.message.answer(
-        t("admin_support_status_updated", language).format(status=status),
-        reply_markup=support_staff_ticket_actions_keyboard(
-            view=view,
-            page=page,
-            has_next=False,
-            language=language,
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_support_status_updated",
+            language,
+        ).format(
+            status=status,
+        ),
+        reply_markup=(
+            support_staff_ticket_actions_keyboard(
+                view=view,
+                page=page,
+                has_next=False,
+                language=language,
+            )
         ),
     )
-    await callback.answer()
 
 @admin_router.callback_query(F.data.startswith("ADM_SUP_ASSIGN:"))
 async def assign_support_ticket(callback: CallbackQuery, state: FSMContext):
@@ -26472,8 +30989,37 @@ async def assign_support_ticket(callback: CallbackQuery, state: FSMContext):
         await callback.answer(str(exc), show_alert=True)
         return
 
-    await callback.message.answer(t("support_staff_ticket_taken", language))
-    await callback.answer()
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "support_staff_ticket_taken",
+            language,
+        ),
+        reply_markup=(
+            support_staff_ticket_actions_keyboard(
+                view=(
+                    data.get("admin_support_view")
+                    or "open"
+                ),
+                page=int(
+                    data.get("admin_support_page")
+                    or 0
+                ),
+                has_next=False,
+                language=language,
+            )
+        ),
+    )
 
 @admin_router.callback_query(F.data.startswith("ADM_SUP_ESCALATE:"))
 async def ask_support_ticket_escalation_reason(callback: CallbackQuery, state: FSMContext):
@@ -26495,26 +31041,113 @@ async def ask_support_ticket_escalation_reason(callback: CallbackQuery, state: F
         admin_support_ticket_id=ids[index],
         admin_support_ticket_index=index,
     )
-    await state.set_state(AdminModerationFSM.entering_support_escalation_reason)
-    await callback.message.answer(t("admin_support_escalate_reason_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM
+        .entering_support_escalation_reason
+    )
+
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_support_escalate_reason_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "search_back",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_SUP_VIEW:"
+                            f"{index}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
-@admin_router.message(AdminModerationFSM.entering_support_escalation_reason)
-async def receive_support_ticket_escalation_reason(message: Message, state: FSMContext):
+@admin_router.message(
+    AdminModerationFSM
+    .entering_support_escalation_reason
+)
+async def receive_support_ticket_escalation_reason(
+    message: Message,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
 
-    ticket_id = data.get("admin_support_ticket_id")
+    ticket_id = data.get(
+        "admin_support_ticket_id"
+    )
+    view = (
+        data.get("admin_support_view")
+        or "open"
+    )
+    page = int(
+        data.get("admin_support_page")
+        or 0
+    )
+
     if not ticket_id:
-        await message.answer(t("admin_item_not_found", language))
-        await state.clear()
+        await state.set_state(None)
+        await state.update_data(
+            admin_support_ticket_id=None,
+            admin_support_ticket_index=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_item_not_found",
+                language,
+            ),
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
-    if not admin_user_id or not tenant_id or not roles.intersection(ADMIN_SUPPORT_MENU_ROLES):
-        await message.answer(t("admin_access_denied", language))
-        await state.clear()
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or not roles.intersection(
+            ADMIN_SUPPORT_MENU_ROLES
+        )
+    ):
+        await state.set_state(None)
+        await state.update_data(
+            admin_support_ticket_id=None,
+            admin_support_ticket_index=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+        )
         return
 
     try:
@@ -26528,21 +31161,54 @@ async def receive_support_ticket_escalation_reason(message: Message, state: FSMC
                 reason=message.text or "",
             )
 
-            await ModerationRepository(session).log_event(
+            await ModerationRepository(
+                session
+            ).log_event(
                 tenant_id=tenant_id,
                 user_id=admin_user_id,
                 event_type="ticket_escalated",
                 entity_type="support_ticket",
                 entity_id=ticket.id,
-                payload={"priority": ticket.priority},
+                payload={
+                    "priority": ticket.priority
+                },
             )
             await session.commit()
     except SupportServiceError as exc:
-        await message.answer(t("support_error", language).format(error=str(exc)))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "support_error",
+                language,
+            ).format(
+                error=str(exc),
+            ),
+        )
         return
 
-    await state.clear()
-    await message.answer(t("admin_support_escalated", language))
+    await state.set_state(None)
+    await state.update_data(
+        admin_support_ticket_id=None,
+        admin_support_ticket_index=None,
+    )
+
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_support_escalated",
+            language,
+        ),
+        reply_markup=(
+            support_staff_ticket_actions_keyboard(
+                view=view,
+                page=page,
+                has_next=False,
+                language=language,
+            )
+        ),
+    )
 
 @admin_router.callback_query(F.data.startswith("ADM_SUP_RESOLVE:"))
 async def resolve_support_ticket(callback: CallbackQuery, state: FSMContext):
@@ -26593,11 +31259,28 @@ async def show_support_staff_stats(callback: CallbackQuery, state: FSMContext):
         await callback.answer(str(exc), show_alert=True)
         return
 
-    await callback.message.answer(
-        format_support_staff_stats(stats, language),
-        reply_markup=support_staff_stats_keyboard(language),
+    await clear_admin_message_group(
+        callback=callback,
+        state=state,
+        state_key=(
+            "support_staff_ticket_message_ids"
+        ),
+        preserve_current=True,
     )
-    await callback.answer()
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_support_staff_stats(
+            stats,
+            language,
+        ),
+        reply_markup=(
+            support_staff_stats_keyboard(
+                language
+            )
+        ),
+    )
 
 
 @admin_router.callback_query(F.data.in_({"ADM_SUPPORT_STATS_PERIOD", "ADM_SUPPORT_STATS_CATEGORY"}))
@@ -26617,26 +31300,96 @@ async def ask_role_grant(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
 
-    await state.set_state(AdminModerationFSM.entering_role_grant)
-    await callback.message.answer(t("admin_role_grant_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_role_grant
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_role_grant_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
+                        callback_data="ADM_ROLES",
+                    )
+                ]
+            ]
+        ),
+    )
 
 
-@admin_router.message(AdminModerationFSM.entering_role_grant)
-async def receive_role_grant(message: Message, state: FSMContext):
-    language = normalize_language(message.from_user.language_code)
-    parsed = parse_role_command(message.text)
+@admin_router.message(
+    AdminModerationFSM.entering_role_grant
+)
+async def receive_role_grant(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    parsed = parse_role_command(
+        message.text
+    )
 
     if not parsed:
-        await message.answer(t("admin_role_bad_format", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_role_bad_format",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "cancel",
+                                language,
+                            ),
+                            callback_data="ADM_ROLES",
+                        )
+                    ]
+                ]
+            ),
+        )
         return
 
     target_platform_user_id, role, reason = parsed
-    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
 
-    if not admin_user_id or not tenant_id or "super_admin" not in roles:
-        await message.answer(t("admin_access_denied", language))
-        await state.clear()
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=admin_roles_keyboard(
+                language
+            ),
+        )
         return
 
     try:
@@ -26646,23 +31399,49 @@ async def receive_role_grant(message: Message, state: FSMContext):
             ).grant_admin_role(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
-                target_platform_user_id=target_platform_user_id,
+                target_platform_user_id=(
+                    target_platform_user_id
+                ),
                 role=role,
                 reason=reason,
             )
     except ModerationError as exc:
-        await message.answer(str(exc))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=str(exc),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "cancel",
+                                language,
+                            ),
+                            callback_data="ADM_ROLES",
+                        )
+                    ]
+                ]
+            ),
+        )
         return
 
-    await state.clear()
-    await message.answer(
-        t("admin_role_granted", language).format(
+    await state.set_state(None)
+
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_role_granted",
+            language,
+        ).format(
             role=role,
             status=result.status,
         ),
-        reply_markup=admin_roles_keyboard(language),
+        reply_markup=admin_roles_keyboard(
+            language
+        ),
     )
-
 
 @admin_router.callback_query(F.data == "ADM_ROLE_REVOKE")
 async def ask_role_revoke(callback: CallbackQuery, state: FSMContext):
@@ -26673,26 +31452,96 @@ async def ask_role_revoke(callback: CallbackQuery, state: FSMContext):
         await callback.answer(t("admin_access_denied", language), show_alert=True)
         return
 
-    await state.set_state(AdminModerationFSM.entering_role_revoke)
-    await callback.message.answer(t("admin_role_revoke_prompt", language))
-    await callback.answer()
+    await state.set_state(
+        AdminModerationFSM.entering_role_revoke
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_role_revoke_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
+                        callback_data="ADM_ROLES",
+                    )
+                ]
+            ]
+        ),
+    )
 
 
-@admin_router.message(AdminModerationFSM.entering_role_revoke)
-async def receive_role_revoke(message: Message, state: FSMContext):
-    language = normalize_language(message.from_user.language_code)
-    parsed = parse_role_command(message.text)
+@admin_router.message(
+    AdminModerationFSM.entering_role_revoke
+)
+async def receive_role_revoke(
+    message: Message,
+    state: FSMContext,
+):
+    language = normalize_language(
+        message.from_user.language_code
+    )
+    parsed = parse_role_command(
+        message.text
+    )
 
     if not parsed:
-        await message.answer(t("admin_role_bad_format", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_role_bad_format",
+                language,
+            ),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "cancel",
+                                language,
+                            ),
+                            callback_data="ADM_ROLES",
+                        )
+                    ]
+                ]
+            ),
+        )
         return
 
     target_platform_user_id, role, reason = parsed
-    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
 
-    if not admin_user_id or not tenant_id or "super_admin" not in roles:
-        await message.answer(t("admin_access_denied", language))
-        await state.clear()
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not tenant_id
+        or "super_admin" not in roles
+    ):
+        await state.set_state(None)
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=admin_roles_keyboard(
+                language
+            ),
+        )
         return
 
     try:
@@ -26702,21 +31551,48 @@ async def receive_role_revoke(message: Message, state: FSMContext):
             ).revoke_admin_role(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
-                target_platform_user_id=target_platform_user_id,
+                target_platform_user_id=(
+                    target_platform_user_id
+                ),
                 role=role,
                 reason=reason,
             )
     except ModerationError as exc:
-        await message.answer(str(exc))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=str(exc),
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=t(
+                                "cancel",
+                                language,
+                            ),
+                            callback_data="ADM_ROLES",
+                        )
+                    ]
+                ]
+            ),
+        )
         return
 
-    await state.clear()
-    await message.answer(
-        t("admin_role_revoked", language).format(
+    await state.set_state(None)
+
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=t(
+            "admin_role_revoked",
+            language,
+        ).format(
             role=role,
             status=result.status,
         ),
-        reply_markup=admin_roles_keyboard(language),
+        reply_markup=admin_roles_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(F.data == "ADM_MENU")
@@ -32734,11 +37610,17 @@ async def show_pending_payment(
     ids = data.get("admin_payment_ids") or []
 
     if not ids:
-        await callback.message.answer(
-            t("admin_no_pending_payments", language),
-            reply_markup=admin_panel_keyboard(language),
+        await replace_admin_callback_screen(
+            callback=callback,
+            state=state,
+            text=t(
+                "admin_no_pending_payments",
+                language,
+            ),
+            reply_markup=admin_panel_keyboard(
+                language
+            ),
         )
-        await callback.answer()
         return
 
     index = max(0, min(int(index), len(ids) - 1))
@@ -32769,8 +37651,10 @@ async def show_pending_payment(
         )
         return
 
-    await callback.message.answer(
-        format_pending_payment_card(
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=format_pending_payment_card(
             card,
             index=index,
             total=len(ids),
@@ -32782,13 +37666,30 @@ async def show_pending_payment(
             language,
         ),
     )
-    await callback.answer()
 
 
-@admin_router.callback_query(F.data.startswith("ADM_PAY_VIEW:"))
-async def view_pending_payment(callback: CallbackQuery, state: FSMContext):
-    index = int(callback.data.split(":", 1)[1])
-    await show_pending_payment(callback, state, index=index)
+@admin_router.callback_query(
+    F.data.startswith("ADM_PAY_VIEW:")
+)
+async def view_pending_payment(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    index = int(
+        callback.data.split(":", 1)[1]
+    )
+
+    await state.set_state(None)
+    await state.update_data(
+        admin_payment_id=None,
+        admin_payment_index=None,
+    )
+
+    await show_pending_payment(
+        callback,
+        state,
+        index=index,
+    )
 
 @admin_router.callback_query(F.data.startswith("ADMIN_BETA_DISABLED:"))
 async def show_admin_beta_disabled_feature(callback: CallbackQuery):
@@ -32806,31 +37707,122 @@ async def ask_mark_payment_paid_reason(callback: CallbackQuery, state: FSMContex
         await callback.answer(t("admin_item_not_found", language), show_alert=True)
         return
 
-    await state.update_data(admin_payment_id=ids[index])
-    await state.set_state(AdminModerationFSM.entering_payment_paid_reason)
-    await callback.message.answer(t("admin_reason_prompt", language))
-    await callback.answer()
+    await state.update_data(
+        admin_payment_id=ids[index],
+        admin_payment_index=index,
+    )
+    await state.set_state(
+        AdminModerationFSM
+        .entering_payment_paid_reason
+    )
+
+    await replace_admin_callback_screen(
+        callback=callback,
+        state=state,
+        text=t(
+            "admin_reason_prompt",
+            language,
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=t(
+                            "cancel",
+                            language,
+                        ),
+                        callback_data=(
+                            "ADM_PAY_VIEW:"
+                            f"{index}"
+                        ),
+                    )
+                ]
+            ]
+        ),
+    )
 
 
-@admin_router.message(AdminModerationFSM.entering_payment_paid_reason)
-async def receive_mark_payment_paid_reason(message: Message, state: FSMContext):
+@admin_router.message(
+    AdminModerationFSM.entering_payment_paid_reason
+)
+async def receive_mark_payment_paid_reason(
+    message: Message,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = normalize_language(message.from_user.language_code)
+    language = normalize_language(
+        message.from_user.language_code
+    )
     reason = (message.text or "").strip()
-    payment_id = data.get("admin_payment_id")
+    payment_id = data.get(
+        "admin_payment_id"
+    )
+    payment_index = int(
+        data.get("admin_payment_index")
+        or 0
+    )
+
+    cancel_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "cancel",
+                        language,
+                    ),
+                    callback_data=(
+                        "ADM_PAY_VIEW:"
+                        f"{payment_index}"
+                    ),
+                )
+            ]
+        ]
+    )
 
     if len(reason) < 3:
-        await message.answer(t("admin_reason_too_short", language))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_reason_too_short",
+                language,
+            ),
+            reply_markup=cancel_keyboard,
+        )
         return
 
-    admin_user_id, tenant_id, roles = await get_admin_user_context(message.from_user.id)
-    if not admin_user_id or not roles or not payment_id:
-        await message.answer(t("admin_access_denied", language))
-        await state.clear()
+    admin_user_id, tenant_id, roles = (
+        await get_admin_user_context(
+            message.from_user.id
+        )
+    )
+
+    if (
+        not admin_user_id
+        or not roles
+        or not payment_id
+    ):
+        await state.set_state(None)
+        await state.update_data(
+            admin_payment_id=None,
+            admin_payment_index=None,
+        )
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "admin_access_denied",
+                language,
+            ),
+            reply_markup=admin_panel_keyboard(
+                language
+            ),
+        )
         return
 
     try:
         payment_uuid = UUID(payment_id)
+
         async with get_session() as session:
             result = await BillingService(
                 BillingRepository(session)
@@ -32841,38 +37833,74 @@ async def receive_mark_payment_paid_reason(message: Message, state: FSMContext):
             )
 
         logger.info(
-            "admin_payment_mark_paid telegram_id=%s admin_user_id=%s payment_id=%s approval_required=%s payment_status=%s",
+            "admin_payment_mark_paid "
+            "telegram_id=%s "
+            "admin_user_id=%s "
+            "payment_id=%s "
+            "approval_required=%s "
+            "payment_status=%s",
             message.from_user.id,
             admin_user_id,
             payment_uuid,
             result.approval_required,
             result.payment.status,
         )
-    except BillingError as exc:
+    except (BillingError, ValueError) as exc:
         logger.warning(
-            "admin_payment_mark_paid_failed telegram_id=%s admin_user_id=%s payment_id=%s error=%s",
+            "admin_payment_mark_paid_failed "
+            "telegram_id=%s "
+            "admin_user_id=%s "
+            "payment_id=%s "
+            "error=%s",
             message.from_user.id,
             admin_user_id,
             payment_id,
             exc,
         )
-        await message.answer(str(exc))
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=str(exc),
+            reply_markup=cancel_keyboard,
+        )
         return
 
-    await state.clear()
+    await state.set_state(None)
+    await state.update_data(
+        admin_payment_id=None,
+        admin_payment_index=None,
+    )
 
     if result.approval_required:
-        text = t("admin_payment_approval_required", language)
+        text = t(
+            "admin_payment_approval_required",
+            language,
+        )
     else:
-        text = t("admin_payment_marked_paid", language).format(
-            invoice_status=result.invoice.status,
-            payment_status=result.payment.status,
-            promotion_status=result.promotion.status if result.promotion else "-",
+        text = t(
+            "admin_payment_marked_paid",
+            language,
+        ).format(
+            invoice_status=(
+                result.invoice.status
+            ),
+            payment_status=(
+                result.payment.status
+            ),
+            promotion_status=(
+                result.promotion.status
+                if result.promotion
+                else "-"
+            ),
         )
 
-    await message.answer(
-        text,
-        reply_markup=admin_panel_keyboard(language),
+    await replace_admin_input_screen(
+        message=message,
+        state=state,
+        text=text,
+        reply_markup=admin_panel_keyboard(
+            language
+        ),
     )
 
 @admin_router.callback_query(

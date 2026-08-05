@@ -102,6 +102,75 @@ class SpecialistRepository:
             result.tuples().all()
         )
 
+    async def list_professional_cabinets(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+    ) -> list[
+        tuple[
+            ProfessionalCabinet,
+            Profession,
+        ]
+    ]:
+        result = await self.session.execute(
+            select(
+                ProfessionalCabinet,
+                Profession,
+            )
+            .join(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
+            .where(
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == specialist_id,
+            )
+            .order_by(
+                ProfessionalCabinet.created_at.asc(),
+                ProfessionalCabinet.id.asc(),
+            )
+        )
+
+        return list(
+            result.tuples().all()
+        )
+
+    async def get_professional_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> tuple[
+        ProfessionalCabinet,
+        Profession,
+    ] | None:
+        result = await self.session.execute(
+            select(
+                ProfessionalCabinet,
+                Profession,
+            )
+            .join(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
+            .where(
+                ProfessionalCabinet.id
+                == professional_cabinet_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.specialist_id
+                == specialist_id,
+            )
+        )
+
+        return result.tuples().one_or_none()
+
     async def set_active_professional_cabinet(
         self,
         *,
@@ -638,16 +707,33 @@ class SpecialistRepository:
         *,
         tenant_id: UUID,
         specialist_id: UUID,
+        professional_cabinet_id: UUID | None = None,
     ) -> tuple[
         City | None,
         Country | None,
     ]:
-        cabinet = (
-            await self.get_active_professional_cabinet(
-                tenant_id=tenant_id,
-                specialist_id=specialist_id,
+        if professional_cabinet_id:
+            cabinet_context = await (
+                self.get_professional_cabinet(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                )
             )
-        )
+            cabinet = (
+                cabinet_context[0]
+                if cabinet_context
+                else None
+            )
+        else:
+            cabinet = await (
+                self.get_active_professional_cabinet(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                )
+            )
 
         if not cabinet:
             return None, None
