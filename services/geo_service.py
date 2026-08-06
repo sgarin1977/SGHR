@@ -228,6 +228,7 @@ class GeoService:
             "pt",
             "uk",
             "pl",
+            "de",
         }:
             return normalized_language
 

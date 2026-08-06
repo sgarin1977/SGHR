@@ -27,6 +27,7 @@ def normalize_language(language_code: str | None) -> str:
         "pt",
         "uk",
         "pl",
+        "de",
     }:
         return normalized_language
 

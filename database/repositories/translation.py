@@ -22,6 +22,7 @@ SUPPORTED_TRANSLATION_LANGUAGES = {
     "pt",
     "uk",
     "pl",
+    "de",
 }
 
 

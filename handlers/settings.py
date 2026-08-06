@@ -65,6 +65,10 @@ def translation_settings_keyboard(
                     text="PL",
                     callback_data="SET_UI_LANG:pl",
                 ),
+                InlineKeyboardButton(
+                    text="DE",
+                    callback_data="SET_UI_LANG:de",
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -95,6 +99,10 @@ def translation_settings_keyboard(
                 InlineKeyboardButton(
                     text="PL",
                     callback_data="SET_MSG_LANG:pl",
+                ),
+                InlineKeyboardButton(
+                    text="DE",
+                    callback_data="SET_MSG_LANG:de",
                 ),
             ],
             [

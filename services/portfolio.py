@@ -765,6 +765,7 @@ class PortfolioService:
             "pt": "name_pt",
             "uk": "name_ru",
             "pl": "name_en",
+            "de": "name_en",
         }.get(
             language,
             "name_ru",

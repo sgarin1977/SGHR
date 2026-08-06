@@ -2436,6 +2436,14 @@ def profile_languages_keyboard(
                         "CAB_LANG_TOGGLE:pl"
                     ),
                 ),
+                InlineKeyboardButton(
+                    text=(
+                        f"{marker('de')}DE"
+                    ),
+                    callback_data=(
+                        "CAB_LANG_TOGGLE:de"
+                    ),
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -2483,6 +2491,10 @@ def format_profile_languages_text(
         ),
         "pl": t(
             "search_language_pl",
+            language,
+        ),
+        "de": t(
+            "search_language_de",
             language,
         ),
     }
@@ -3452,6 +3464,7 @@ def billing_status_label(
             "pt": "Aguardando pagamento",
             "uk": "Очікує оплати",
             "pl": "Oczekuje na płatność",
+            "de": "Zahlung ausstehend",
         },
         "claimed": {
             "ru": (
@@ -3469,6 +3482,9 @@ def billing_status_label(
             "pl": (
                 "Płatność wysłana do weryfikacji"
             ),
+            "de": (
+                "Zahlung zur Prüfung eingereicht"
+            ),
         },
         "paid": {
             "ru": "Оплачено",
@@ -3476,6 +3492,7 @@ def billing_status_label(
             "pt": "Pago",
             "uk": "Оплачено",
             "pl": "Opłacono",
+            "de": "Bezahlt",
         },
         "cancelled": {
             "ru": "Отменено",
@@ -3483,6 +3500,7 @@ def billing_status_label(
             "pt": "Cancelado",
             "uk": "Скасовано",
             "pl": "Anulowano",
+            "de": "Storniert",
         },
         "failed": {
             "ru": "Не удалось оплатить",
@@ -3490,6 +3508,7 @@ def billing_status_label(
             "pt": "Falha no pagamento",
             "uk": "Не вдалося оплатити",
             "pl": "Płatność nie powiodła się",
+            "de": "Zahlung fehlgeschlagen",
         },
     }
 
@@ -3501,6 +3520,7 @@ def billing_status_label(
             "pt",
             "uk",
             "pl",
+            "de",
         }
         else "ru"
     )
@@ -5996,6 +6016,12 @@ def specialist_language_settings_keyboard(
                         "SPEC_SET_UI_LANG:pl"
                     ),
                 ),
+                InlineKeyboardButton(
+                    text="DE",
+                    callback_data=(
+                        "SPEC_SET_UI_LANG:de"
+                    ),
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -6035,6 +6061,12 @@ def specialist_language_settings_keyboard(
                     text="PL",
                     callback_data=(
                         "SPEC_SET_MSG_LANG:pl"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="DE",
+                    callback_data=(
+                        "SPEC_SET_MSG_LANG:de"
                     ),
                 ),
             ],

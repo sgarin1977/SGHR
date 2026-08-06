@@ -313,6 +313,7 @@ class UserService:
             "pt",
             "uk",
             "pl",
+            "de",
         }:
             raise ValueError(
                 "Unsupported language."

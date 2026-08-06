@@ -381,6 +381,7 @@ class ContactChatService:
                 "pt",
                 "uk",
                 "pl",
+                "de",
             }
             else "ru"
         )
