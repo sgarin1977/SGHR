@@ -228,6 +228,7 @@ class DictionaryService:
             "en": row.name_en,
             "pt": row.name_pt,
             "uk": row.name_ru,
+            "pl": row.name_en,
         }.get(
             language
         ) or (
@@ -261,6 +262,11 @@ class DictionaryService:
                 "active": "Активна",
                 "hidden": "Прихована",
                 "archived": "Архів",
+            },
+            "pl": {
+                "active": "Aktywna",
+                "hidden": "Ukryta",
+                "archived": "Zarchiwizowana",
             },
         }
 
@@ -1112,6 +1118,7 @@ class DictionaryService:
             "en": row.name_en,
             "pt": row.name_pt,
             "uk": row.name_ru,
+            "pl": row.name_en,
         }.get(
             language
         ) or row.name
@@ -1138,6 +1145,10 @@ class DictionaryService:
             "uk": {
                 "active": "Активна",
                 "hidden": "Прихована",
+            },
+            "pl": {
+                "active": "Aktywny",
+                "hidden": "Ukryty",
             },
         }
 
@@ -1512,6 +1523,7 @@ class DictionaryService:
             "en": row.name_en,
             "pt": row.name_pt,
             "uk": row.name_ru,
+            "pl": row.name_en,
         }.get(
             language
         ) or row.name
@@ -1538,6 +1550,10 @@ class DictionaryService:
             "uk": {
                 "active": "Активне",
                 "hidden": "Приховане",
+            },
+            "pl": {
+                "active": "Aktywne",
+                "hidden": "Ukryte",
             },
         }
 
@@ -2063,6 +2079,7 @@ class DictionaryService:
             "en": row.name_en,
             "pt": row.name_pt,
             "uk": row.name_ru,
+            "pl": row.name_en,
         }.get(
             language
         ) or (
@@ -2101,6 +2118,11 @@ class DictionaryService:
                 "active": "Активна",
                 "hidden": "Прихована",
                 "archived": "Архів",
+            },
+            "pl": {
+                "active": "Aktywny",
+                "hidden": "Ukryty",
+                "archived": "Zarchiwizowany",
             },
         }
 
@@ -3390,6 +3412,7 @@ class DictionaryService:
             "en": row.name_en,
             "pt": row.name_pt,
             "uk": row.name_ru,
+            "pl": row.name_en,
         }.get(
             language
         ) or (
@@ -3417,6 +3440,10 @@ class DictionaryService:
             "uk": {
                 "active": "Активна",
                 "hidden": "Прихована",
+            },
+            "pl": {
+                "active": "Aktywna",
+                "hidden": "Ukryta",
             },
         }
 

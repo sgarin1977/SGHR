@@ -79,7 +79,17 @@ class SpecialistSearchFSM(StatesGroup):
     entering_review_text = State()
 
 def normalize_language(language: str | None) -> str:
-    return language if language in {"ru", "en", "pt", "uk"} else "ru"
+    return (
+        language
+        if language in {
+            "ru",
+            "en",
+            "pt",
+            "uk",
+            "pl",
+        }
+        else "ru"
+    )
 
 async def get_interface_language(
     telegram_id: int | str,
@@ -120,6 +130,7 @@ async def get_search_language(
         "en",
         "pt",
         "uk",
+        "pl",
     }:
         return stored_language
 
@@ -188,6 +199,10 @@ def language_filter_label(
         ),
         "uk": t(
             "search_language_uk",
+            language,
+        ),
+        "pl": t(
+            "search_language_pl",
             language,
         ),
     }
@@ -3354,6 +3369,17 @@ def search_language_keyboard(
             [
                 InlineKeyboardButton(
                     text=t(
+                        "search_language_pl",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_lang:pl"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
                         "search_back_to_filters_btn",
                         language,
                     ),
@@ -6292,6 +6318,7 @@ async def choose_language_filter(
         "en",
         "pt",
         "uk",
+        "pl",
     }:
         await callback.answer()
         return

@@ -380,6 +380,7 @@ class ContactChatService:
                 "en",
                 "pt",
                 "uk",
+                "pl",
             }
             else "ru"
         )

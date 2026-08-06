@@ -2699,6 +2699,7 @@ class SpecialistService:
             "en",
             "pt",
             "uk",
+            "pl",
         }
 
         normalized_code = (
@@ -2784,6 +2785,7 @@ class SpecialistService:
             "en",
             "pt",
             "uk",
+            "pl",
         }
 
         selected = [

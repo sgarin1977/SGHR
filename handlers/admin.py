@@ -1,9 +1,18 @@
 import logging
+from contextvars import ContextVar
+from typing import Any, Awaitable, Callable
 from uuid import UUID
-from aiogram import Bot, F, Router
+
+from aiogram import BaseMiddleware, Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    TelegramObject,
+)
 from database.repositories.dictionaries import DictionaryRepository
 from services.dictionaries import DictionaryService, DictionaryServiceError
 from database.models import (
@@ -26,7 +35,12 @@ from database.repositories.portfolio import PortfolioRepository
 from database.repositories.support import SupportRepository
 from database.repositories.specialist import SpecialistRepository
 from database.session import get_session
-from handlers.start import get_main_menu_keyboard_for_user, normalize_language, open_current_role_cabinet, send_global_main_menu
+from handlers.start import (
+    get_main_menu_keyboard_for_user,
+    normalize_language as normalize_base_language,
+    open_current_role_cabinet,
+    send_global_main_menu,
+)
 from services.moderation import (
     ImpersonationRoleUnavailableError,
     ModerationError,
@@ -75,7 +89,88 @@ from handlers.search import format_chat_message_body
 
 admin_router = Router()
 logger = logging.getLogger(__name__)
+_admin_interface_language = ContextVar[
+    str | None
+](
+    "admin_interface_language",
+    default=None,
+)
 
+
+def normalize_language(
+    language_code: str | None,
+) -> str:
+    return normalize_base_language(
+        _admin_interface_language.get()
+        or language_code
+    )
+
+
+class AdminInterfaceLanguageMiddleware(
+    BaseMiddleware
+):
+    async def __call__(
+        self,
+        handler: Callable[
+            [
+                TelegramObject,
+                dict[str, Any],
+            ],
+            Awaitable[Any],
+        ],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        telegram_user = getattr(
+            event,
+            "from_user",
+            None,
+        )
+
+        resolved_language = (
+            normalize_base_language(
+                telegram_user.language_code
+                if telegram_user
+                else None
+            )
+        )
+
+        if telegram_user:
+            async with get_session() as session:
+                user = await UserService(
+                    session
+                ).get_user_by_telegram_id(
+                    telegram_user.id
+                )
+
+                if user:
+                    resolved_language = (
+                        normalize_base_language(
+                            user.language_code
+                        )
+                    )
+
+        token = _admin_interface_language.set(
+            resolved_language
+        )
+
+        try:
+            return await handler(
+                event,
+                data,
+            )
+        finally:
+            _admin_interface_language.reset(
+                token
+            )
+
+
+admin_router.callback_query.outer_middleware(
+    AdminInterfaceLanguageMiddleware()
+)
+admin_router.message.outer_middleware(
+    AdminInterfaceLanguageMiddleware()
+)
 async def replace_admin_input_screen(
     *,
     message: Message,
@@ -17595,7 +17690,21 @@ async def show_admin_panel(
     callback_answered: bool = False,
 ):
     user = callback.from_user
-    language = normalize_language(user.language_code)
+    language = normalize_language(
+        user.language_code
+    )
+
+    async with get_session() as session:
+        stored_user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            user.id
+        )
+
+        if stored_user:
+            language = normalize_base_language(
+                stored_user.language_code
+            )
 
     async def send_panel(
         text: str,

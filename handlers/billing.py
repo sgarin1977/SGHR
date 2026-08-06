@@ -2428,6 +2428,14 @@ def profile_languages_keyboard(
                         "CAB_LANG_TOGGLE:uk"
                     ),
                 ),
+                InlineKeyboardButton(
+                    text=(
+                        f"{marker('pl')}PL"
+                    ),
+                    callback_data=(
+                        "CAB_LANG_TOGGLE:pl"
+                    ),
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -2471,6 +2479,10 @@ def format_profile_languages_text(
         ),
         "uk": t(
             "search_language_uk",
+            language,
+        ),
+        "pl": t(
+            "search_language_pl",
             language,
         ),
     }
@@ -3439,6 +3451,7 @@ def billing_status_label(
             "en": "Waiting for payment",
             "pt": "Aguardando pagamento",
             "uk": "Очікує оплати",
+            "pl": "Oczekuje na płatność",
         },
         "claimed": {
             "ru": (
@@ -3453,24 +3466,30 @@ def billing_status_label(
             "uk": (
                 "Оплату надіслано на перевірку"
             ),
+            "pl": (
+                "Płatność wysłana do weryfikacji"
+            ),
         },
         "paid": {
             "ru": "Оплачено",
             "en": "Paid",
             "pt": "Pago",
             "uk": "Оплачено",
+            "pl": "Opłacono",
         },
         "cancelled": {
             "ru": "Отменено",
             "en": "Cancelled",
             "pt": "Cancelado",
             "uk": "Скасовано",
+            "pl": "Anulowano",
         },
         "failed": {
             "ru": "Не удалось оплатить",
             "en": "Payment failed",
             "pt": "Falha no pagamento",
             "uk": "Не вдалося оплатити",
+            "pl": "Płatność nie powiodła się",
         },
     }
 
@@ -3481,6 +3500,7 @@ def billing_status_label(
             "en",
             "pt",
             "uk",
+            "pl",
         }
         else "ru"
     )
@@ -5970,6 +5990,12 @@ def specialist_language_settings_keyboard(
                         "SPEC_SET_UI_LANG:uk"
                     ),
                 ),
+                InlineKeyboardButton(
+                    text="PL",
+                    callback_data=(
+                        "SPEC_SET_UI_LANG:pl"
+                    ),
+                ),
             ],
             [
                 InlineKeyboardButton(
@@ -6003,6 +6029,12 @@ def specialist_language_settings_keyboard(
                     text="UK",
                     callback_data=(
                         "SPEC_SET_MSG_LANG:uk"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="PL",
+                    callback_data=(
+                        "SPEC_SET_MSG_LANG:pl"
                     ),
                 ),
             ],

@@ -278,6 +278,7 @@ class BillingService:
                 "en",
                 "pt",
                 "uk",
+                "pl",
             }
             else "ru"
         )
@@ -320,6 +321,10 @@ class BillingService:
             "uk": (
                 "Реквізити для оплати ще не налаштовані. "
                 "Зверніться до адміністратора SGHR Beta."
+            ),
+            "pl": (
+                "Dane do płatności nie zostały jeszcze skonfigurowane. "
+                "Skontaktuj się z administratorem SGHR Beta."
             ),
         }
 
