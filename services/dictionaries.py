@@ -227,16 +227,20 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-            "uk": row.name_ru,
-            "pl": row.name_en,
-            "de": row.name_en,
-            "nl": row.name_en,
+            "uk": row.name_uk,
+            "pl": row.name_pl,
+            "de": row.name_de,
+            "nl": row.name_nl,
         }.get(
             language
         ) or (
             row.name_ru
             or row.name_en
             or row.name_pt
+            or row.name_uk
+            or row.name_pl
+            or row.name_de
+            or row.name_nl
             or row.name
         )
 
@@ -373,12 +377,20 @@ class DictionaryService:
                 "name_ru": before.name_ru,
                 "name_en": before.name_en,
                 "name_pt": before.name_pt,
+                "name_uk": before.name_uk,
+                "name_pl": before.name_pl,
+                "name_de": before.name_de,
+                "name_nl": before.name_nl,
             },
             after_state={
                 "name": after.name,
                 "name_ru": after.name_ru,
                 "name_en": after.name_en,
                 "name_pt": after.name_pt,
+                "name_uk": after.name_uk,
+                "name_pl": after.name_pl,
+                "name_de": after.name_de,
+                "name_nl": after.name_nl,
             },
             reason="Category renamed from Super Admin dictionaries",
         )
@@ -1881,6 +1893,10 @@ class DictionaryService:
                 "name_ru": row.name_ru,
                 "name_en": row.name_en,
                 "name_pt": row.name_pt,
+                "name_uk": row.name_uk,
+                "name_pl": row.name_pl,
+                "name_de": row.name_de,
+                "name_nl": row.name_nl,
                 "sort_order": row.sort_order,
                 "is_active": row.is_active,
                 "metadata": row.metadata,
@@ -2110,10 +2126,10 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-            "uk": row.name_ru,
-            "pl": row.name_en,
-            "de": row.name_en,
-            "nl": row.name_en,
+            "uk": row.name_uk,
+            "pl": row.name_pl,
+            "de": row.name_de,
+            "nl": row.name_nl,
         }.get(
             language
         ) or (
@@ -2121,6 +2137,27 @@ class DictionaryService:
             or row.name_en
             or row.name_pt
             or row.name
+        )
+
+        category_name = {
+            "ru": row.category_name_ru,
+            "en": row.category_name_en,
+            "pt": row.category_name_pt,
+            "uk": row.category_name_uk,
+            "pl": row.category_name_pl,
+            "de": row.category_name_de,
+            "nl": row.category_name_nl,
+        }.get(
+            language
+        ) or (
+            row.category_name_ru
+            or row.category_name_en
+            or row.category_name_pt
+            or row.category_name_uk
+            or row.category_name_pl
+            or row.category_name_de
+            or row.category_name_nl
+            or row.category_name
         )
 
         release = None
@@ -2180,7 +2217,7 @@ class DictionaryService:
             category_id=row.category_id,
             code=row.code,
             title=title,
-            category_name=row.category_name,
+            category_name=category_name,
             sort_order=row.sort_order,
             status=status,
             status_code=status_code,
@@ -2357,6 +2394,10 @@ class DictionaryService:
                 "name_ru": row.name_ru,
                 "name_en": row.name_en,
                 "name_pt": row.name_pt,
+                "name_uk": row.name_uk,
+                "name_pl": row.name_pl,
+                "name_de": row.name_de,
+                "name_nl": row.name_nl,
                 "normalized_name": row.normalized_name,
                 "sort_order": row.sort_order,
                 "is_active": row.is_active,
@@ -2419,6 +2460,10 @@ class DictionaryService:
                 "name_ru": before.name_ru,
                 "name_en": before.name_en,
                 "name_pt": before.name_pt,
+                "name_uk": before.name_uk,
+                "name_pl": before.name_pl,
+                "name_de": before.name_de,
+                "name_nl": before.name_nl,
                 "normalized_name": before.normalized_name,
             },
             after_state={
@@ -2426,6 +2471,10 @@ class DictionaryService:
                 "name_ru": after.name_ru,
                 "name_en": after.name_en,
                 "name_pt": after.name_pt,
+                "name_uk": after.name_uk,
+                "name_pl": after.name_pl,
+                "name_de": after.name_de,
+                "name_nl": after.name_nl,
                 "normalized_name": after.normalized_name,
             },
             reason="Profession renamed from Super Admin dictionaries",

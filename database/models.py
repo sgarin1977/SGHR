@@ -297,6 +297,10 @@ class SpecialistCategory(Base):
     name_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     name_pt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     name_es: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_uk: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_pl: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_de: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_nl: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
@@ -310,11 +314,42 @@ class Profession(Base):
     category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialist_categories.id"), nullable=False)
     code: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    name_ru: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    name_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    name_pt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    name_es: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    normalized_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_ru: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    name_en: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    name_pt: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    name_es: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    name_uk: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    name_pl: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    name_de: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    name_nl: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    normalized_name: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)

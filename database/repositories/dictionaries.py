@@ -28,6 +28,10 @@ class AdminCategoryDictionaryRow:
     name_ru: str | None
     name_en: str | None
     name_pt: str | None
+    name_uk: str | None
+    name_pl: str | None
+    name_de: str | None
+    name_nl: str | None
     sort_order: int
     is_active: bool
     metadata: dict
@@ -52,11 +56,22 @@ class AdminProfessionDictionaryRow:
     name_ru: str | None
     name_en: str | None
     name_pt: str | None
+    name_uk: str | None
+    name_pl: str | None
+    name_de: str | None
+    name_nl: str | None
     normalized_name: str | None
     sort_order: int
     is_active: bool
     metadata: dict
     category_name: str
+    category_name_ru: str | None
+    category_name_en: str | None
+    category_name_pt: str | None
+    category_name_uk: str | None
+    category_name_pl: str | None
+    category_name_de: str | None
+    category_name_nl: str | None
     specialists_count: int
 
 @dataclass(frozen=True)
@@ -216,6 +231,10 @@ class DictionaryRepository:
                 SpecialistCategory.name_ru,
                 SpecialistCategory.name_en,
                 SpecialistCategory.name_pt,
+                SpecialistCategory.name_uk,
+                SpecialistCategory.name_pl,
+                SpecialistCategory.name_de,
+                SpecialistCategory.name_nl,
                 SpecialistCategory.sort_order,
                 SpecialistCategory.is_active,
                 SpecialistCategory.extra_metadata,
@@ -246,6 +265,10 @@ class DictionaryRepository:
                 name_ru=name_ru,
                 name_en=name_en,
                 name_pt=name_pt,
+                name_uk=name_uk,
+                name_pl=name_pl,
+                name_de=name_de,
+                name_nl=name_nl,
                 sort_order=sort_order,
                 is_active=is_active,
                 metadata=metadata or {},
@@ -259,6 +282,10 @@ class DictionaryRepository:
                 name_ru,
                 name_en,
                 name_pt,
+                name_uk,
+                name_pl,
+                name_de,
+                name_nl,
                 sort_order,
                 is_active,
                 metadata,
@@ -314,6 +341,10 @@ class DictionaryRepository:
                 SpecialistCategory.name_ru,
                 SpecialistCategory.name_en,
                 SpecialistCategory.name_pt,
+                SpecialistCategory.name_uk,
+                SpecialistCategory.name_pl,
+                SpecialistCategory.name_de,
+                SpecialistCategory.name_nl,
                 SpecialistCategory.sort_order,
                 SpecialistCategory.is_active,
                 SpecialistCategory.extra_metadata,
@@ -342,6 +373,10 @@ class DictionaryRepository:
             name_ru,
             name_en,
             name_pt,
+            name_uk,
+            name_pl,
+            name_de,
+            name_nl,
             sort_order,
             is_active,
             metadata,
@@ -356,6 +391,10 @@ class DictionaryRepository:
             name_ru=name_ru,
             name_en=name_en,
             name_pt=name_pt,
+            name_uk=name_uk,
+            name_pl=name_pl,
+            name_de=name_de,
+            name_nl=name_nl,
             sort_order=sort_order,
             is_active=is_active,
             metadata=metadata or {},
@@ -379,6 +418,10 @@ class DictionaryRepository:
                     func.lower(func.trim(SpecialistCategory.name_ru)) == normalized_title,
                     func.lower(func.trim(SpecialistCategory.name_en)) == normalized_title,
                     func.lower(func.trim(SpecialistCategory.name_pt)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_uk)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_pl)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_de)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_nl)) == normalized_title,
                 ),
             )
         )
@@ -397,12 +440,28 @@ class DictionaryRepository:
         if not category:
             return None
 
-        if language == "en":
-            category.name_en = title
-        elif language == "pt":
-            category.name_pt = title
-        else:
-            category.name_ru = title
+        localized_field = {
+            "ru": "name_ru",
+            "en": "name_en",
+            "pt": "name_pt",
+            "uk": "name_uk",
+            "pl": "name_pl",
+            "de": "name_de",
+            "nl": "name_nl",
+        }.get(language)
+
+        if not localized_field:
+            raise ValueError(
+                "Unsupported category language."
+            )
+
+        setattr(
+            category,
+            localized_field,
+            title,
+        )
+
+        if language == "ru":
             category.name = title
 
         await self.session.flush()
@@ -538,6 +597,18 @@ class DictionaryRepository:
                     func.lower(
                         func.trim(SpecialistCategory.name_pt)
                     ) == normalized_title,
+                    func.lower(
+                        func.trim(SpecialistCategory.name_uk)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(SpecialistCategory.name_pl)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(SpecialistCategory.name_de)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(SpecialistCategory.name_nl)
+                    ) == normalized_title,
                 )
             )
             .order_by(
@@ -575,6 +646,10 @@ class DictionaryRepository:
                     func.lower(func.trim(SpecialistCategory.name_ru)) == normalized_title,
                     func.lower(func.trim(SpecialistCategory.name_en)) == normalized_title,
                     func.lower(func.trim(SpecialistCategory.name_pt)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_uk)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_pl)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_de)) == normalized_title,
+                    func.lower(func.trim(SpecialistCategory.name_nl)) == normalized_title,
                 ),
             )
         )
@@ -609,16 +684,34 @@ class DictionaryRepository:
         language: str,
         sort_order: int,
     ) -> AdminCategoryDictionaryRow:
-        name_ru = title if language == "ru" else None
-        name_en = title if language == "en" else None
-        name_pt = title if language == "pt" else None
+        localized_names = {
+            "name_ru": (
+                title if language == "ru" else None
+            ),
+            "name_en": (
+                title if language == "en" else None
+            ),
+            "name_pt": (
+                title if language == "pt" else None
+            ),
+            "name_uk": (
+                title if language == "uk" else None
+            ),
+            "name_pl": (
+                title if language == "pl" else None
+            ),
+            "name_de": (
+                title if language == "de" else None
+            ),
+            "name_nl": (
+                title if language == "nl" else None
+            ),
+        }
 
         category = SpecialistCategory(
             code=code,
             name=title,
-            name_ru=name_ru or title,
-            name_en=name_en,
-            name_pt=name_pt,
+            **localized_names,
             sort_order=sort_order,
             is_active=True,
             extra_metadata={
@@ -816,11 +909,22 @@ class DictionaryRepository:
                 Profession.name_ru,
                 Profession.name_en,
                 Profession.name_pt,
+                Profession.name_uk,
+                Profession.name_pl,
+                Profession.name_de,
+                Profession.name_nl,
                 Profession.normalized_name,
                 Profession.sort_order,
                 Profession.is_active,
                 Profession.extra_metadata,
                 SpecialistCategory.name,
+                SpecialistCategory.name_ru,
+                SpecialistCategory.name_en,
+                SpecialistCategory.name_pt,
+                SpecialistCategory.name_uk,
+                SpecialistCategory.name_pl,
+                SpecialistCategory.name_de,
+                SpecialistCategory.name_nl,
                 func.coalesce(specialist_counts.c.specialists_count, 0),
             )
             .join(
@@ -849,11 +953,22 @@ class DictionaryRepository:
                 name_ru=name_ru,
                 name_en=name_en,
                 name_pt=name_pt,
+                name_uk=name_uk,
+                name_pl=name_pl,
+                name_de=name_de,
+                name_nl=name_nl,
                 normalized_name=normalized_name,
                 sort_order=sort_order,
                 is_active=is_active,
                 metadata=metadata or {},
                 category_name=category_name,
+                category_name_ru=category_name_ru,
+                category_name_en=category_name_en,
+                category_name_pt=category_name_pt,
+                category_name_uk=category_name_uk,
+                category_name_pl=category_name_pl,
+                category_name_de=category_name_de,
+                category_name_nl=category_name_nl,
                 specialists_count=int(specialists_count or 0),
             )
             for (
@@ -864,11 +979,22 @@ class DictionaryRepository:
                 name_ru,
                 name_en,
                 name_pt,
+                name_uk,
+                name_pl,
+                name_de,
+                name_nl,
                 normalized_name,
                 sort_order,
                 is_active,
                 metadata,
                 category_name,
+                category_name_ru,
+                category_name_en,
+                category_name_pt,
+                category_name_uk,
+                category_name_pl,
+                category_name_de,
+                category_name_nl,
                 specialists_count,
             ) in result.all()
         ]
@@ -912,11 +1038,22 @@ class DictionaryRepository:
                 Profession.name_ru,
                 Profession.name_en,
                 Profession.name_pt,
+                Profession.name_uk,
+                Profession.name_pl,
+                Profession.name_de,
+                Profession.name_nl,
                 Profession.normalized_name,
                 Profession.sort_order,
                 Profession.is_active,
                 Profession.extra_metadata,
                 SpecialistCategory.name,
+                SpecialistCategory.name_ru,
+                SpecialistCategory.name_en,
+                SpecialistCategory.name_pt,
+                SpecialistCategory.name_uk,
+                SpecialistCategory.name_pl,
+                SpecialistCategory.name_de,
+                SpecialistCategory.name_nl,
                 func.coalesce(specialist_counts.c.specialists_count, 0),
             )
             .join(
@@ -942,11 +1079,22 @@ class DictionaryRepository:
             name_ru,
             name_en,
             name_pt,
+            name_uk,
+            name_pl,
+            name_de,
+            name_nl,
             normalized_name,
             sort_order,
             is_active,
             metadata,
             category_name,
+            category_name_ru,
+            category_name_en,
+            category_name_pt,
+            category_name_uk,
+            category_name_pl,
+            category_name_de,
+            category_name_nl,
             specialists_count,
         ) = row
 
@@ -958,11 +1106,22 @@ class DictionaryRepository:
             name_ru=name_ru,
             name_en=name_en,
             name_pt=name_pt,
+            name_uk=name_uk,
+            name_pl=name_pl,
+            name_de=name_de,
+            name_nl=name_nl,
             normalized_name=normalized_name,
             sort_order=sort_order,
             is_active=is_active,
             metadata=metadata or {},
             category_name=category_name,
+            category_name_ru=category_name_ru,
+            category_name_en=category_name_en,
+            category_name_pt=category_name_pt,
+            category_name_uk=category_name_uk,
+            category_name_pl=category_name_pl,
+            category_name_de=category_name_de,
+            category_name_nl=category_name_nl,
             specialists_count=int(specialists_count or 0),
         )
     
@@ -999,6 +1158,10 @@ class DictionaryRepository:
                     func.lower(func.trim(Profession.name_ru)) == normalized_title,
                     func.lower(func.trim(Profession.name_en)) == normalized_title,
                     func.lower(func.trim(Profession.name_pt)) == normalized_title,
+                    func.lower(func.trim(Profession.name_uk)) == normalized_title,
+                    func.lower(func.trim(Profession.name_pl)) == normalized_title,
+                    func.lower(func.trim(Profession.name_de)) == normalized_title,
+                    func.lower(func.trim(Profession.name_nl)) == normalized_title,
                     func.lower(func.trim(Profession.normalized_name)) == normalized_title,
                 ),
             )
@@ -1028,6 +1191,14 @@ class DictionaryRepository:
                     func.lower(func.trim(Profession.name_en))
                     == normalized_title,
                     func.lower(func.trim(Profession.name_pt))
+                    == normalized_title,
+                    func.lower(func.trim(Profession.name_uk))
+                    == normalized_title,
+                    func.lower(func.trim(Profession.name_pl))
+                    == normalized_title,
+                    func.lower(func.trim(Profession.name_de))
+                    == normalized_title,
+                    func.lower(func.trim(Profession.name_nl))
                     == normalized_title,
                 )
             )
@@ -1086,17 +1257,35 @@ class DictionaryRepository:
         sort_order: int,
         release: str | None,
     ) -> AdminProfessionDictionaryRow:
-        name_ru = title if language == "ru" else None
-        name_en = title if language == "en" else None
-        name_pt = title if language == "pt" else None
+        localized_names = {
+            "name_ru": (
+                title if language == "ru" else None
+            ),
+            "name_en": (
+                title if language == "en" else None
+            ),
+            "name_pt": (
+                title if language == "pt" else None
+            ),
+            "name_uk": (
+                title if language == "uk" else None
+            ),
+            "name_pl": (
+                title if language == "pl" else None
+            ),
+            "name_de": (
+                title if language == "de" else None
+            ),
+            "name_nl": (
+                title if language == "nl" else None
+            ),
+        }
 
         profession = Profession(
             category_id=category_id,
             code=code,
             name=title,
-            name_ru=name_ru or title,
-            name_en=name_en,
-            name_pt=name_pt,
+            **localized_names,
             normalized_name=title.strip().lower(),
             sort_order=sort_order,
             is_active=True,
@@ -1123,12 +1312,28 @@ class DictionaryRepository:
         if not profession:
             return None
 
-        if language == "en":
-            profession.name_en = title
-        elif language == "pt":
-            profession.name_pt = title
-        else:
-            profession.name_ru = title
+        localized_field = {
+            "ru": "name_ru",
+            "en": "name_en",
+            "pt": "name_pt",
+            "uk": "name_uk",
+            "pl": "name_pl",
+            "de": "name_de",
+            "nl": "name_nl",
+        }.get(language)
+
+        if not localized_field:
+            raise ValueError(
+                "Unsupported profession language."
+            )
+
+        setattr(
+            profession,
+            localized_field,
+            title,
+        )
+
+        if language == "ru":
             profession.name = title
 
         profession.normalized_name = title.strip().lower()
