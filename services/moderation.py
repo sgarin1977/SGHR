@@ -645,6 +645,7 @@ class ModerationService:
                 "uk": "name_ru",
                 "pl": "name_en",
                 "de": "name_en",
+                "nl": "name_en",
             }.get(
                 language,
                 "name_ru",
@@ -800,6 +801,7 @@ class ModerationService:
                 "uk": "name_ru",
                 "pl": "name_en",
                 "de": "name_en",
+                "nl": "name_en",
             }.get(
                 language,
                 "name_ru",

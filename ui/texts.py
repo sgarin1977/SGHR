@@ -6,6 +6,7 @@ translations = {
         "uk": "✅ Прийняти",
         "pl": '✅ Zaakceptuj',
         "de": '✅ Akzeptieren',
+        "nl": '✅ Accepteren',
     },
     "legal_back_to_menu_btn": {
         "ru": "⬅️ Назад в меню",
@@ -14,6 +15,7 @@ translations = {
         "uk": "⬅️ Назад до меню",
         "pl": '⬅️ Powrót do menu',
         "de": '⬅️ Zurück zum Menü',
+        "nl": '⬅️ Terug naar het menu',
     },
     "legal_continue_specialist_registration_btn": {
         "ru": "Создать профиль специалиста",
@@ -22,6 +24,7 @@ translations = {
         "uk": "Створити профіль спеціаліста",
         "pl": 'Utwórz profil specjalisty',
         "de": 'Fachprofil erstellen',
+        "nl": 'Maak een specialistprofiel aan',
     },
     "legal_gate_intro": {
         "ru": (
@@ -48,6 +51,10 @@ translations = {
             'Bevor Sie ein Fachprofil erstellen, müssen Sie die '
             'erforderlichen rechtlichen Dokumente akzeptieren.'
         ),
+        "nl": (
+            'Accepteer de vereiste juridische documenten voordat u een '
+            'specialistprofiel aanmaakt.'
+        ),
     },
     "legal_gate_required_docs": {
         "ru": "Обязательные документы:",
@@ -56,6 +63,7 @@ translations = {
         "uk": "Обов'язкові документи:",
         "pl": 'Wymagane dokumenty:',
         "de": 'Erforderliche Dokumente:',
+        "nl": 'Vereiste documenten:',
     },
     "legal_gate_confirmation": {
         "ru": "Продолжая, вы подтверждаете согласие с правилами сервиса, обработкой данных, публикацией профиля специалиста, использованием города/геолокации для поиска и автоматическим переводом сообщений.",
@@ -75,6 +83,12 @@ translations = {
             'Stadtangaben/Geolokalisierung für die Suche sowie der '
             'automatischen Übersetzung von Nachrichten.'
         ),
+        "nl": (
+            'Door verder te gaan, bevestigt u dat u akkoord gaat met de '
+            'servicevoorwaarden, de gegevensverwerking, de publicatie van het '
+            'specialistprofiel, het gebruik van de stad/geolocatie voor '
+            'zoekopdrachten en de automatische vertaling van berichten.'
+        ),
     },
     "legal_start_required": {
         "ru": "Сначала нажмите /start, чтобы продолжить.",
@@ -83,6 +97,7 @@ translations = {
         "uk": "Спочатку натисніть /start, щоб продовжити.",
         "pl": 'Aby kontynuować, naciśnij najpierw /start.',
         "de": 'Drücken Sie zunächst /start, um fortzufahren.',
+        "nl": 'Druk eerst op /start om door te gaan.',
     },
     "legal_documents_not_configured": {
         "ru": "Юридические документы временно недоступны. Попробуйте позже.",
@@ -96,6 +111,10 @@ translations = {
         "de": (
             'Die rechtlichen Dokumente sind vorübergehend nicht verfügbar. '
             'Bitte versuchen Sie es später erneut.'
+        ),
+        "nl": (
+            'Juridische documenten zijn tijdelijk niet beschikbaar. Probeer '
+            'het later nog eens.'
         ),
     },
     "legal_already_accepted": {
@@ -111,6 +130,10 @@ translations = {
             'Die rechtlichen Einwilligungen wurden bereits akzeptiert. Sie '
             'können mit der Facharztregistrierung fortfahren.'
         ),
+        "nl": (
+            'De wettelijke toestemmingen zijn al geaccepteerd. U kunt '
+            'doorgaan met de registratie als specialist.'
+        ),
     },
     "legal_accept_failed": {
         "ru": "Не удалось сохранить согласие. Попробуйте позже.",
@@ -121,6 +144,10 @@ translations = {
         "de": (
             'Ihre Einwilligung konnte nicht gespeichert werden. Versuchen Sie '
             'es später erneut.'
+        ),
+        "nl": (
+            'Uw toestemming kon niet worden opgeslagen. Probeer het later nog '
+            'eens.'
         ),
     },
     "legal_accepted": {
@@ -136,6 +163,10 @@ translations = {
             'Einwilligungen akzeptiert. Sie können nun mit der '
             'Facharztregistrierung fortfahren.'
         ),
+        "nl": (
+            'Toestemmingen geaccepteerd. U kunt nu doorgaan met de '
+            'registratie als specialist.'
+        ),
     },
     "legal_main_menu": {
         "ru": "🏠 Главное меню",
@@ -144,6 +175,7 @@ translations = {
         "uk": "🏠 Головне меню",
         "pl": '🏠 Menu główne',
         "de": '🏠 Hauptmenü',
+        "nl": '🏠 Hoofdmenu',
     },
 
     "spec_back_btn": {
@@ -153,6 +185,7 @@ translations = {
         "uk": "Назад",
         "pl": 'Wstecz',
         "de": 'Zurück',
+        "nl": 'Terug',
     },
     "spec_cancel_btn": {
         "ru": "Отмена",
@@ -161,6 +194,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "spec_done_btn": {
         "ru": "Готово",
@@ -169,6 +203,7 @@ translations = {
         "uk": "Готово",
         "pl": 'Gotowe',
         "de": 'Fertig',
+        "nl": 'Gereed',
     },
     "spec_confirm_btn": {
         "ru": "Сохранить",
@@ -177,6 +212,7 @@ translations = {
         "uk": "Зберегти",
         "pl": 'Zapisz',
         "de": 'Speichern',
+        "nl": 'Opslaan',
     },
     "spec_restart_btn": {
         "ru": "Изменить",
@@ -185,6 +221,7 @@ translations = {
         "uk": "Змінити",
         "pl": 'Edytuj',
         "de": 'Bearbeiten',
+        "nl": 'Bewerken',
     },
     "spec_choose_city_btn": {
         "ru": "Выбрать город",
@@ -193,6 +230,7 @@ translations = {
         "uk": "Вибрати місто",
         "pl": 'Wybierz miasto',
         "de": 'Stadt auswählen',
+        "nl": 'Kies een stad',
     },
     "spec_send_geo_btn": {
         "ru": "Отправить геолокацию",
@@ -201,6 +239,7 @@ translations = {
         "uk": "Надіслати геолокацію",
         "pl": 'Wyślij geolokalizację',
         "de": 'Standort senden',
+        "nl": 'Geolocatie verzenden',
     },
     "spec_go_to_consents_btn": {
         "ru": "Перейти к согласиям",
@@ -209,6 +248,7 @@ translations = {
         "uk": "Перейти до згод",
         "pl": 'Przejdź do zgód',
         "de": 'Zu den Einwilligungen',
+        "nl": 'Ga naar toestemmingen',
     },
 
     "spec_start_required": {
@@ -218,6 +258,7 @@ translations = {
         "uk": "Спочатку натисніть /start.",
         "pl": 'Najpierw naciśnij /start.',
         "de": 'Bitte drücken Sie zuerst /start.',
+        "nl": 'Druk eerst op /start.',
     },
     "spec_legal_docs_missing": {
         "ru": "Юридические документы не настроены. Передайте администратору: {error}",
@@ -232,6 +273,10 @@ translations = {
             'Rechtliche Dokumente sind nicht konfiguriert. Bitte leiten Sie '
             'dies an den Administrator weiter: {error}'
         ),
+        "nl": (
+            'Juridische documenten zijn niet geconfigureerd. Stuur dit door '
+            'naar de beheerder: {error}'
+        ),
     },
     "spec_legal_consents_required": {
         "ru": "Перед регистрацией специалиста нужно принять юридические согласия.",
@@ -243,6 +288,10 @@ translations = {
             'Vor der Registrierung als Fachkraft müssen die rechtlichen '
             'Einwilligungen akzeptiert werden.'
         ),
+        "nl": (
+            'Voordat u zich als specialist kunt registreren, moet u akkoord '
+            'gaan met de juridische voorwaarden.'
+        ),
     },
     "spec_profile_pending_exists": {
         "ru": "Профиль специалиста уже создан и ожидает модерации.",
@@ -251,6 +300,7 @@ translations = {
         "uk": "Профіль спеціаліста вже створено і він очікує модерації.",
         "pl": 'Profil specjalisty został już utworzony i oczekuje na moderację.',
         "de": 'Das Facharztprofil wurde bereits erstellt und wartet auf Freigabe.',
+        "nl": 'Het specialistprofiel is al aangemaakt en wacht op moderatie.',
     },
     "spec_profile_exists": {
         "ru": "Профиль специалиста уже существует.",
@@ -259,6 +309,7 @@ translations = {
         "uk": "Профіль спеціаліста вже існує.",
         "pl": 'Profil specjalisty już istnieje.',
         "de": 'Das Facharztprofil existiert bereits.',
+        "nl": 'Het specialistprofiel bestaat al.',
     },
     "spec_category_prompt": {
         "ru": "Выберите категорию услуг:",
@@ -267,6 +318,7 @@ translations = {
         "uk": "Виберіть категорію послуг:",
         "pl": 'Wybierz kategorię usługi:',
         "de": 'Wählen Sie eine Dienstleistungskategorie aus:',
+        "nl": 'Kies een servicecategorie:',
     },
     "spec_category_not_found_restart": {
         "ru": "Категория не найдена. Начните регистрацию заново.",
@@ -275,6 +327,7 @@ translations = {
         "uk": "Категорію не знайдено. Почніть реєстрацію заново.",
         "pl": 'Nie znaleziono kategorii. Rozpocznij rejestrację od nowa.',
         "de": 'Kategorie nicht gefunden. Starten Sie die Registrierung erneut.',
+        "nl": 'Categorie niet gevonden. Begin opnieuw met de registratie.',
     },
     "spec_category_not_found": {
         "ru": "Категория не найдена или отключена.",
@@ -283,6 +336,7 @@ translations = {
         "uk": "Категорію не знайдено або вона вимкнена.",
         "pl": 'Nie znaleziono kategorii lub jest ona nieaktywna.',
         "de": 'Kategorie nicht gefunden oder inaktiv.',
+        "nl": 'Categorie niet gevonden of inactief.',
     },
     "spec_profession_prompt": {
         "ru": "Выберите профессию:",
@@ -291,6 +345,7 @@ translations = {
         "uk": "Виберіть професію:",
         "pl": 'Wybierz zawód:',
         "de": 'Wählen Sie einen Beruf aus:',
+        "nl": 'Kies een beroep:',
     },
     "spec_profession_not_found_back": {
         "ru": "Профессия не найдена. Вернитесь к выбору категории.",
@@ -299,6 +354,7 @@ translations = {
         "uk": "Професію не знайдено. Поверніться до вибору категорії.",
         "pl": 'Nie znaleziono zawodu. Wróć do wyboru kategorii.',
         "de": 'Beruf nicht gefunden. Zurück zur Kategorieauswahl.',
+        "nl": 'Beroep niet gevonden. Ga terug naar de categoriekeuze.',
     },
     "spec_profession_not_found": {
         "ru": "Профессия не найдена или отключена.",
@@ -307,6 +363,7 @@ translations = {
         "uk": "Професію не знайдено або вона вимкнена.",
         "pl": 'Nie znaleziono zawodu lub jest on nieaktywny.',
         "de": 'Beruf nicht gefunden oder inaktiv.',
+        "nl": 'Beroep niet gevonden of inactief.',
     },
     "spec_categories_missing": {
         "ru": "Сферы услуг пока недоступны. Попробуйте позже.",
@@ -317,6 +374,10 @@ translations = {
         "de": (
             'Die Servicebereiche sind vorübergehend nicht verfügbar. Bitte '
             'versuchen Sie es später erneut.'
+        ),
+        "nl": (
+            'De servicegebieden zijn tijdelijk niet beschikbaar. Probeer het '
+            'later nog eens.'
         ),
     },
     "spec_professions_missing": {
@@ -331,6 +392,10 @@ translations = {
         "de": (
             'In diesem Dienstleistungsgebiet sind noch keine Berufe '
             'verfügbar. Wählen Sie ein anderes Gebiet aus.'
+        ),
+        "nl": (
+            'Er zijn nog geen beschikbare beroepen in dit servicegebied. Kies '
+            'een ander gebied.'
         ),
     },
     "spec_contact_prompt": {
@@ -363,6 +428,11 @@ translations = {
             'Kontakt mit Kunden\n'
             'Senden Sie „-“ ein, um Nachrichten ausschließlich über SGHR zu '
             'erhalten, oder geben Sie einen Kontakt für Ihr Profil ein.'
+        ),
+        "nl": (
+            'Contact met klanten\n'
+            'Stuur “-” om alleen berichten via SGHR te ontvangen, of voer een '
+            'contactpersoon in voor je profiel.'
         ),
     },
     "spec_summary": {
@@ -446,6 +516,20 @@ translations = {
             'Arbeitsform: {work_format}\n'
             'Kontakt: {contact}'
         ),
+        "nl": (
+            'Profiel van de specialist\n'
+            'Details vóór indiening ter moderatie.\n'
+            '\n'
+            'Categorie: {category}\n'
+            'Beroepen: {profession}\n'
+            'Locatie: {location}\n'
+            'Naam: {display_name}\n'
+            'Beschrijving: {description}\n'
+            'Prijs: {price}\n'
+            'Talen: {languages}\n'
+            'Werkvorm: {work_format}\n'
+            'Contact: {contact}'
+        ),
     },
     "spec_location_prompt": {
         "ru": "Выберите город или отправьте геолокацию:",
@@ -454,6 +538,7 @@ translations = {
         "uk": "Виберіть місто або надішліть геолокацію:",
         "pl": 'Wybierz miasto lub prześlij współrzędne:',
         "de": 'Wählen Sie eine Stadt aus oder senden Sie Ihren Standort:',
+        "nl": 'Kies een stad of stuur je locatie:',
     },
     "spec_city_prompt": {
         "ru": "Выберите город:",
@@ -462,6 +547,7 @@ translations = {
         "uk": "Виберіть місто:",
         "pl": 'Wybierz miasto:',
         "de": 'Wählen Sie eine Stadt aus:',
+        "nl": 'Kies een stad:',
     },
     "spec_city_search_prompt": {
         "ru": "Введите город, село или район. Мы найдем варианты через OpenStreetMap.",
@@ -476,6 +562,10 @@ translations = {
             'Geben Sie eine Stadt, ein Dorf oder einen Bezirk ein. Wir suchen '
             'dann mithilfe von OpenStreetMap nach entsprechenden Optionen.'
         ),
+        "nl": (
+            'Voer een stad, dorp of wijk in. We zoeken opties via '
+            'OpenStreetMap.'
+        ),
     },
     "spec_city_query_too_short": {
         "ru": "Введите минимум 2 символа для поиска места.",
@@ -484,6 +574,7 @@ translations = {
         "uk": "Введіть мінімум 2 символи для пошуку місця.",
         "pl": 'Wpisz co najmniej 2 znaki, aby wyszukać miejsce.',
         "de": 'Geben Sie mindestens 2 Zeichen ein, um nach einem Ort zu suchen.',
+        "nl": 'Voer minimaal 2 tekens in om naar een plaats te zoeken.',
     },
     "spec_geo_candidates_prompt": {
         "ru": "Выберите подходящее место:",
@@ -492,6 +583,7 @@ translations = {
         "uk": "Виберіть відповідне місце:",
         "pl": 'Wybierz pasujące miejsce:',
         "de": 'Wählen Sie den passenden Ort aus:',
+        "nl": 'Kies de juiste plaats:',
     },
     "spec_geo_reverse_confirm_prompt": {
         "ru": "Мы определили место по вашей геолокации. Подтвердите вариант ниже.",
@@ -505,6 +597,10 @@ translations = {
         "de": (
             'Wir haben anhand Ihres Standorts einen Ort ermittelt. Bestätigen '
             'Sie die untenstehende Option.'
+        ),
+        "nl": (
+            'We hebben op basis van je geolocatie een plaats gedetecteerd. '
+            'Bevestig de onderstaande optie.'
         ),
     },
     "spec_geo_candidates_not_found": {
@@ -520,6 +616,10 @@ translations = {
             'Ort nicht gefunden. Versuchen Sie es mit einer anderen '
             'Suchanfrage oder senden Sie Ihren Standort.'
         ),
+        "nl": (
+            'Locatie niet gevonden. Probeer een andere zoekopdracht of stuur '
+            'je geolocatie door.'
+        ),
     },
     "spec_geo_candidate_not_found": {
         "ru": "Вариант места не найден. Повторите поиск.",
@@ -528,6 +628,7 @@ translations = {
         "uk": "Варіант місця не знайдено. Повторіть пошук.",
         "pl": 'Nie znaleziono opcji miejsca. Proszę spróbować ponownie.',
         "de": 'Option „Ort“ nicht gefunden. Bitte suche erneut.',
+        "nl": 'Locatieoptie niet gevonden. Zoek opnieuw.',
     },
     "spec_geo_provider_error": {
         "ru": "Не удалось получить место из OpenStreetMap: {error}",
@@ -536,6 +637,7 @@ translations = {
         "uk": "Не вдалося отримати місце з OpenStreetMap: {error}",
         "pl": 'Nie udało się pobrać lokalizacji z OpenStreetMap: {error}',
         "de": 'Der Ort konnte nicht aus OpenStreetMap abgerufen werden: {error}',
+        "nl": 'Kon geen locatie ophalen uit OpenStreetMap: {error}',
     },
 
     "spec_city_not_found_back": {
@@ -545,6 +647,7 @@ translations = {
         "uk": "Місто не знайдено. Поверніться до вибору міста.",
         "pl": 'Nie znaleziono miasta. Wróć do wyboru miasta.',
         "de": 'Stadt nicht gefunden. Zurück zur Stadtwahl.',
+        "nl": 'Stad niet gevonden. Ga terug naar de stadsselectie.',
     },
     "spec_city_not_found": {
         "ru": "Город не найден или отключен.",
@@ -553,6 +656,7 @@ translations = {
         "uk": "Місто не знайдено або воно вимкнене.",
         "pl": 'Nie znaleziono miasta lub jest ono nieaktywne.',
         "de": 'Stadt nicht gefunden oder inaktiv.',
+        "nl": 'Stad niet gevonden of inactief.',
     },
     "spec_geo_prompt": {
         "ru": "Отправьте геолокацию Telegram. Если неудобно, вернитесь и выберите город.",
@@ -567,6 +671,10 @@ translations = {
             'Telegram-Standort senden. Falls dies nicht möglich ist, kehre '
             'zurück und wähle eine Stadt aus.'
         ),
+        "nl": (
+            'Stuur de geolocatie via Telegram. Als dit niet mogelijk is, ga '
+            'dan terug en kies een stad.'
+        ),
     },
     "spec_geo_required": {
         "ru": "Пожалуйста, отправьте геолокацию Telegram или выберите город.",
@@ -578,6 +686,7 @@ translations = {
             'Bitte sende deinen Standort über Telegram oder wähle eine Stadt '
             'aus.'
         ),
+        "nl": 'Stuur alstublieft de geolocatie via Telegram of kies een stad.',
     },
     "spec_geo_location_name": {
         "ru": "Геолокация",
@@ -586,6 +695,7 @@ translations = {
         "uk": "Геолокація",
         "pl": 'Położenie geograficzne',
         "de": 'Standort',
+        "nl": 'Geolocatie',
     },
     "spec_display_name_prompt": {
         "ru": "Укажите имя или название профиля:",
@@ -594,6 +704,7 @@ translations = {
         "uk": "Вкажіть ім'я або назву профілю:",
         "pl": 'Wprowadź nazwę profilu lub tytuł:',
         "de": 'Geben Sie einen Profilnamen oder Titel ein:',
+        "nl": 'Voer een profielnaam of titel in:',
     },
     "spec_display_name_too_short": {
         "ru": "Название слишком короткое. Введите минимум 2 символа.",
@@ -602,6 +713,7 @@ translations = {
         "uk": "Назва занадто коротка. Введіть мінімум 2 символи.",
         "pl": 'Nazwa jest zbyt krótka. Wprowadź co najmniej 2 znaki.',
         "de": 'Der Name ist zu kurz. Geben Sie mindestens 2 Zeichen ein.',
+        "nl": 'De naam is te kort. Voer minimaal 2 tekens in.',
     },
     "spec_description_prompt": {
         "ru": "Коротко опишите ваш опыт и услуги. Минимум 20 символов.",
@@ -613,6 +725,10 @@ translations = {
             'Beschreiben Sie kurz Ihre Erfahrung und Ihre Dienstleistungen. '
             'Mindestens 20 Zeichen.'
         ),
+        "nl": (
+            'Geef een korte beschrijving van uw ervaring en diensten. '
+            'Minimaal 20 tekens.'
+        ),
     },
     "spec_description_too_short": {
         "ru": "Описание слишком короткое. Введите минимум 20 символов.",
@@ -621,6 +737,7 @@ translations = {
         "uk": "Опис занадто короткий. Введіть мінімум 20 символів.",
         "pl": 'Opis jest zbyt krótki. Wpisz co najmniej 20 znaków.',
         "de": 'Die Beschreibung ist zu kurz. Geben Sie mindestens 20 Zeichen ein.',
+        "nl": 'De beschrijving is te kort. Voer minimaal 20 tekens in.',
     },
     "spec_price_prompt": {
         "ru": "Укажите цену в EUR. Можно одним числом: 50, или диапазоном: 50-100. Если цену пока не хотите указывать, отправьте 0.",
@@ -636,6 +753,10 @@ translations = {
             'oder einen Bereich: 50–100. Senden Sie 0, um den Preis zu '
             'überspringen.'
         ),
+        "nl": (
+            'Voer de prijs in EUR in. Gebruik één getal: 50, of een bereik: '
+            '50-100. Stuur 0 om de prijs over te slaan.'
+        ),
     },
     "spec_price_invalid": {
         "ru": "Не удалось распознать цену. Пример: 50 или 50-100.",
@@ -644,6 +765,7 @@ translations = {
         "uk": "Не вдалося розпізнати ціну. Приклад: 50 або 50-100.",
         "pl": 'Nie udało się rozpoznać ceny. Przykład: 50 lub 50–100.',
         "de": 'Preis konnte nicht erkannt werden. Beispiel: 50 oder 50–100.',
+        "nl": 'Prijs kon niet worden herkend. Voorbeeld: 50 of 50-100.',
     },
     "specialist_languages_title": {
         "ru": "🌐 Языки",
@@ -652,6 +774,7 @@ translations = {
         "uk": "🌐 Мови",
         "pl": '🌐 Języki',
         "de": '🌐 Sprachen',
+        "nl": '🌐 Talen',
     },
     "specialist_languages_hint": {
         "ru": "Укажите языки общения с клиентами.",
@@ -660,6 +783,7 @@ translations = {
         "uk": "Вкажіть мови спілкування з клієнтами.",
         "pl": 'Wybierz języki, których używasz w kontaktach z klientami.',
         "de": 'Wählen Sie die Sprachen aus, die Sie mit Ihren Kunden verwenden.',
+        "nl": 'Kies de talen die u met klanten gebruikt.',
     },
     "specialist_languages_selected": {
         "ru": "Выбрано: {languages}",
@@ -668,6 +792,7 @@ translations = {
         "uk": "Вибрано: {languages}",
         "pl": 'Wybrano: {languages}',
         "de": 'Ausgewählt: {languages}',
+        "nl": 'Geselecteerd: {languages}',
     },
     "spec_languages_prompt": {
         "ru": "Выберите языки, на которых можете общаться:",
@@ -676,6 +801,7 @@ translations = {
         "uk": "Виберіть мови, якими можете спілкуватися:",
         "pl": 'Wybierz języki, w których potrafisz się porozumiewać:',
         "de": 'Wählen Sie die Sprachen aus, in denen Sie kommunizieren können:',
+        "nl": 'Kies de talen waarin u kunt communiceren:',
     },
     "spec_price_not_set": {
         "ru": "Стоимость обсудим в переписке",
@@ -684,6 +810,7 @@ translations = {
         "uk": "Вартість обговоримо в переписці",
         "pl": 'Cena zostanie ustalona podczas rozmowy',
         "de": 'Der Preis wird im Gespräch besprochen',
+        "nl": 'De prijs wordt tijdens het gesprek besproken',
     },
     "spec_create_failed": {
         "ru": "Не удалось создать профиль: {error}",
@@ -692,6 +819,7 @@ translations = {
         "uk": "Не вдалося створити профіль: {error}",
         "pl": 'Nie udało się utworzyć profilu: {error}',
         "de": 'Profil konnte nicht erstellt werden: {error}',
+        "nl": 'Profiel kon niet worden aangemaakt: {error}',
     },
     "spec_created": {
         "ru": "Профиль специалиста создан и отправлен на модерацию.",
@@ -703,6 +831,7 @@ translations = {
             'Das Spezialistenprofil wurde erstellt und zur Freigabe '
             'weitergeleitet.'
         ),
+        "nl": 'Het specialistprofiel is aangemaakt en ter moderatie verzonden.',
     },
     "spec_cancelled": {
         "ru": "Регистрация специалиста отменена.",
@@ -711,6 +840,7 @@ translations = {
         "uk": "Реєстрацію спеціаліста скасовано.",
         "pl": 'Rejestracja specjalisty została anulowana.',
         "de": 'Die Registrierung des Spezialisten wurde abgebrochen.',
+        "nl": 'Registratie van specialist geannuleerd.',
     },
 
      "start_default_first_name": {
@@ -720,6 +850,7 @@ translations = {
         "uk": "друже",
         "pl": 'przyjaciel',
         "de": 'Freund',
+        "nl": 'vriend',
     },   
     "start_welcome_existing": {
         "ru": "Привет, {first_name}! 👋",
@@ -728,6 +859,7 @@ translations = {
         "uk": "Привіт, {first_name}! 👋",
         "pl": 'Cześć, {first_name}! 👋',
         "de": 'Hallo, {first_name}! 👋',
+        "nl": 'Hoi, {first_name}! 👋',
     },
     "start_welcome_new": {
         "ru": (
@@ -752,6 +884,7 @@ translations = {
             '\n'
             'Die Registrierung ist abgeschlossen.'
         ),
+        "nl": '🎉 Welkom, {first_name}!\n\nDe registratie is voltooid.',
     },
     "role_text_client": {
         "ru": "Клиент 👤",
@@ -760,6 +893,7 @@ translations = {
         "uk": "Клієнт 👤",
         "pl": 'Klient 👤',
         "de": 'Kunde 👤',
+        "nl": 'Klant 👤',
     },
     "role_text_super_admin": {
         "ru": "Супер-Администратор 👑",
@@ -768,6 +902,7 @@ translations = {
         "uk": "Супер-Адміністратор 👑",
         "pl": 'Superadministrator 👑',
         "de": 'Super-Admin 👑',
+        "nl": 'Superbeheerder 👑',
     },
     "menu_find_specialist": {
         "ru": "🔎 Найти специалиста",
@@ -776,6 +911,7 @@ translations = {
         "uk": "🔎 Знайти спеціаліста",
         "pl": '🔎 Znajdź specjalistę',
         "de": '🔎 Spezialisten finden',
+        "nl": '🔎 Zoek een specialist',
     },
     "menu_offer_services": {
         "ru": "💼 Предложить услуги",
@@ -784,6 +920,7 @@ translations = {
         "uk": "💼 Запропонувати послуги",
         "pl": '💼 Oferuj usługi',
         "de": '💼 Dienstleistungen anbieten',
+        "nl": '💼 Diensten aanbieden',
     },
     "menu_my_cabinet": {
         "ru": "👤 Мой кабинет",
@@ -792,6 +929,7 @@ translations = {
         "uk": "👤 Мій кабінет",
         "pl": '👤 Mój panel',
         "de": '👤 Mein Dashboard',
+        "nl": '👤 Mijn dashboard',
     },
     "menu_all_services": {
         "ru": "📦 Все сервисы",
@@ -800,6 +938,7 @@ translations = {
         "uk": "📦 Усі сервіси",
         "pl": '📦 Wszystkie usługi',
         "de": '📦 Alle Dienstleistungen',
+        "nl": '📦 Alle diensten',
     },
     "all_services_title": {
         "ru": "📦 Все сервисы",
@@ -808,6 +947,7 @@ translations = {
         "uk": "📦 Усі сервіси",
         "pl": '📦 Wszystkie usługi',
         "de": '📦 Alle Dienste',
+        "nl": '📦 Alle diensten',
     },
     "all_services_hint": {
         "ru": "Дополнительные возможности платформы.",
@@ -816,6 +956,7 @@ translations = {
         "uk": "Додаткові можливості платформи.",
         "pl": 'Dodatkowe funkcje platformy.',
         "de": 'Zusätzliche Plattformfunktionen.',
+        "nl": 'Extra platformfuncties.',
     },
     "all_services_help_btn": {
         "ru": "❓ Помощь",
@@ -824,6 +965,7 @@ translations = {
         "uk": "❓ Допомога",
         "pl": '❓ Pomoc',
         "de": '❓ Hilfe',
+        "nl": '❓ Help',
     },
     "all_services_community_btn": {
         "ru": "🌍 Сообщество",
@@ -832,6 +974,7 @@ translations = {
         "uk": "🌍 Спільнота",
         "pl": '🌍 Społeczność',
         "de": '🌍 Community',
+        "nl": '🌍 Community',
     },
     "all_services_companies_btn": {
         "ru": "🏢 Для компаний",
@@ -840,6 +983,7 @@ translations = {
         "uk": "🏢 Для компаній",
         "pl": '🏢 Dla firm',
         "de": '🏢 Für Unternehmen',
+        "nl": '🏢 Voor bedrijven',
     },
     "all_services_crm_btn": {
         "ru": "📊 Клиенты и заказы / CRM",
@@ -848,6 +992,7 @@ translations = {
         "uk": "📊 Клієнти та замовлення / CRM",
         "pl": '📊 Klienci i zamówienia / CRM',
         "de": '📊 Kunden und Aufträge / CRM',
+        "nl": '📊 Klanten en bestellingen / CRM',
     },
     "all_services_finance_btn": {
         "ru": "💳 Финансы",
@@ -856,6 +1001,7 @@ translations = {
         "uk": "💳 Фінанси",
         "pl": '💳 Finanse',
         "de": '💳 Finanzen',
+        "nl": '💳 Financiën',
     },
     "all_services_promotion_btn": {
         "ru": "📈 Продвижение",
@@ -864,6 +1010,7 @@ translations = {
         "uk": "📈 Просування",
         "pl": '📈 Promocja',
         "de": '📈 Werbung',
+        "nl": '📈 Promotie',
     },
     "all_services_community_stub": {
         "ru": "🌍 Сообщество\n\nРаздел станет доступен позже.",
@@ -872,6 +1019,7 @@ translations = {
         "uk": "🌍 Спільнота\n\nРозділ стане доступний пізніше.",
         "pl": '🌍 Społeczność\n\nTa sekcja będzie dostępna później.',
         "de": '🌍 Community\n\nDieser Abschnitt wird später verfügbar sein.',
+        "nl": '🌍 Community\n\nDit gedeelte komt later beschikbaar.',
     },
     "all_services_companies_stub": {
         "ru": "🏢 Для компаний\n\nРаздел станет доступен позже.",
@@ -880,6 +1028,7 @@ translations = {
         "uk": "🏢 Для компаній\n\nРозділ стане доступний пізніше.",
         "pl": '🏢 Dla firm\n\nTa sekcja będzie dostępna w późniejszym terminie.',
         "de": '🏢 Für Unternehmen\n\nDieser Abschnitt wird später verfügbar sein.',
+        "nl": '🏢 Voor bedrijven\n\nDit gedeelte komt later beschikbaar.',
     },
     "all_services_promotion_stub": {
         "ru": "📈 Продвижение\n\nРаздел станет доступен позже.",
@@ -888,6 +1037,7 @@ translations = {
         "uk": "📈 Просування\n\nРозділ стане доступний пізніше.",
         "pl": '📈 Promocja\n\nTa sekcja będzie dostępna w późniejszym terminie.',
         "de": '📈 Werbung\n\nDieser Abschnitt wird später verfügbar sein.',
+        "nl": '📈 Promotie\n\nDit gedeelte komt later beschikbaar.',
     },
     "menu_settings": {
         "ru": "⚙️ Настройки",
@@ -896,11 +1046,13 @@ translations = {
         "uk": "⚙️ Налаштування",
         "pl": '⚙️ Ustawienia',
         "de": '⚙️ Einstellungen',
+        "nl": '⚙️ Instellingen',
     },
     "accept_order": {
         "ru": "✅ Принять", "pt": "✅ Aceitar", "en": "✅ Accept", "uk": "✅ Прийняти",
         "pl": '✅ Akceptuj',
         "de": '✅ Akzeptieren',
+        "nl": '✅ Accepteren',
     },
     "greeting_message": {
     "ru": "Привет! Я помогу вам найти работу или сотрудников.",
@@ -912,6 +1064,7 @@ translations = {
         'Hallo! Ich helfe Ihnen dabei, einen Job oder Mitarbeiter zu '
         'finden.'
     ),
+    "nl": 'Hallo! Ik help u graag bij het vinden van een baan of personeel.',
 },
     "menu_specialist": {
         "ru": "🧰 Мои услуги",
@@ -920,6 +1073,7 @@ translations = {
         "uk": "🧰 Мої послуги",
         "pl": '🧰 Moje usługi',
         "de": '🧰 Meine Dienstleistungen',
+        "nl": '🧰 Mijn diensten',
     },
     "menu_rfq": {
         "ru": "📋 Заявки / RFQ",
@@ -928,6 +1082,7 @@ translations = {
         "uk": "📋 Заявки / RFQ",
         "pl": '📋 Zapytania / RFQ',
         "de": '📋 Anfragen / Angebotsanfragen',
+        "nl": '📋 Aanvragen / Offerteaanvragen',
     },
     "menu_dialogs": {
         "ru": "💬 Сообщения",
@@ -936,6 +1091,7 @@ translations = {
         "uk": "💬 Повідомлення",
         "pl": '💬 Wiadomości',
         "de": '💬 Nachrichten',
+        "nl": '💬 Berichten',
     },
     "menu_community": {
         "ru": "🌍 Community",
@@ -944,6 +1100,7 @@ translations = {
         "uk": "🌍 Спільнота",
         "pl": '🌍 Społeczność',
         "de": '🌍 Community',
+        "nl": '🌍 Community',
     },
     "menu_hr": {
         "ru": "🏢 HR / Компании",
@@ -952,6 +1109,7 @@ translations = {
         "uk": "🏢 HR / Компанії",
         "pl": '🏢 HR / Firmy',
         "de": '🏢 Personalwesen / Unternehmen',
+        "nl": '🏢 HR / Bedrijven',
     },
     "menu_admin": {
         "ru": "🛡 Админка",
@@ -960,6 +1118,7 @@ translations = {
         "uk": "🛡 Адмінка",
         "pl": '🛡 Administracja',
         "de": '🛡 Verwaltung',
+        "nl": '🛡 Beheer',
     },
     "main_menu": {
   "ru": "🏠 Главное меню",
@@ -968,6 +1127,7 @@ translations = {
   "uk": "🏠 Головне меню",
     "pl": '🏠 Menu główne',
     "de": '🏠 Hauptmenü',
+    "nl": '🏠 Hoofdmenu',
 },
 "you_are_in_main_menu": {
   "ru": "Вы вернулись в главное меню.",
@@ -976,6 +1136,7 @@ translations = {
   "uk": "Ви повернулися до головного меню.",
     "pl": 'Wróciłeś do menu głównego.',
     "de": 'Sie sind zum Hauptmenü zurückgekehrt.',
+    "nl": 'Je bent terug bij het hoofdmenu.',
 },
 
 
@@ -987,6 +1148,7 @@ translations = {
     "uk": "Спеціалісти",
     "pl": 'Specjaliści',
     "de": 'Fachärzte',
+    "nl": 'Specialisten',
 },
 "choose_section": {
     "ru": "Выберите раздел:",
@@ -995,6 +1157,7 @@ translations = {
     "uk": "Виберіть розділ:",
     "pl": 'Wybierz sekcję:',
     "de": 'Wählen Sie einen Bereich aus:',
+    "nl": 'Kies een rubriek:',
 },
 
     "vacancies_section": {
@@ -1004,6 +1167,7 @@ translations = {
     "uk": "Вакансії",
     "pl": 'Oferty pracy',
     "de": 'Stellenangebote',
+    "nl": 'Vacatures',
 },
 "role_specialist": {
     "ru": "Специалист",
@@ -1012,6 +1176,7 @@ translations = {
     "uk": "Спеціаліст",
     "pl": 'Specjalista',
     "de": 'Fachkraft',
+    "nl": 'Specialist',
 },
 "role_employer": {
     "ru": "Работодатель",
@@ -1020,6 +1185,7 @@ translations = {
     "uk": "Роботодавець",
     "pl": 'Pracodawca',
     "de": 'Arbeitgeber',
+    "nl": 'Werkgever',
 },
 "role_seeker": {
     "ru": "Соискатель",
@@ -1028,6 +1194,7 @@ translations = {
     "uk": "Здобувач",
     "pl": 'Osoba poszukująca pracy',
     "de": 'Arbeitssuchender',
+    "nl": 'Werkzoekende',
 },
 "role_unregistered": {
     "ru": "Не выбрана",
@@ -1036,6 +1203,7 @@ translations = {
     "uk": "Не вибрано",
     "pl": 'Niezarejestrowany',
     "de": 'Nicht registriert',
+    "nl": 'Niet-geregistreerd',
 },
 "chat_history": {
     "ru": "История переписки",
@@ -1044,6 +1212,7 @@ translations = {
     "uk": "Історія переписки",
     "pl": 'Historia czatu',
     "de": 'Chat-Verlauf',
+    "nl": 'Chatgeschiedenis',
 },
 
     "ask_contact_message": {
@@ -1053,12 +1222,14 @@ translations = {
         "uk": "Опишіть, чим може допомогти спеціаліст:",
         "pl": 'Opisz, w jaki sposób specjalista może pomóc:',
         "de": 'Beschreiben Sie, wie der Spezialist helfen kann:',
+        "nl": 'Beschrijf hoe de specialist kan helpen:',
     },
     "ask_decline_reason": {
         "ru": "Введите причину отказа:", "pt": "Digite o motivo da recusa:", "en": "Enter the reason for decline:",
         "uk": "Введіть причину відмови:",
         "pl": 'Wprowadź powód odmowy:',
         "de": 'Geben Sie den Grund für die Ablehnung an:',
+        "nl": 'Voer de reden voor afwijzing in:',
     },
     "ask_location": {
         "ru": "Пожалуйста, отправьте вашу геолокацию, нажав кнопку ниже.",
@@ -1070,6 +1241,7 @@ translations = {
             'Bitte senden Sie Ihren Standort, indem Sie auf die Schaltfläche '
             'unten klicken.'
         ),
+        "nl": 'Stuur uw locatie door op de onderstaande knop te klikken.',
     },
     "ask_reply_message": {
         "ru": "Введите сообщение для пользователя:",
@@ -1078,32 +1250,38 @@ translations = {
         "uk": "Введіть повідомлення для користувача:",
         "pl": 'Wpisz wiadomość dla użytkownika:',
         "de": 'Geben Sie die Nachricht für den Nutzer ein:',
+        "nl": 'Voer het bericht voor de gebruiker in:',
     },
     "back": {
         "ru": "⬅️ Назад", "pt": "⬅️ Voltar", "en": "⬅️ Back", "uk": "⬅️ Назад",
         "pl": '⬅️ Wstecz',
         "de": '⬅️ Zurück',
+        "nl": '⬅️ Terug',
     },
     "back_to_menu": {
         "ru": "Возврат в меню", "pt": "Voltar ao menu", "en": "Back to menu", "uk": "Повернення в меню",
         "pl": 'Powrót do menu',
         "de": 'Zurück zum Menü',
+        "nl": 'Terug naar het menu',
     },
     "boost_vacancy": {
         "ru": "🚀 Поднять", "pt": "🚀 Destacar", "en": "🚀 Boost", "uk": "🚀 Підняти",
         "pl": '🚀 Przyspieszenie',
         "de": '🚀 Boost',
+        "nl": '🚀 Boost',
     },
     "cancel": {
         "ru": "❌ Отмена", "pt": "❌ Cancelar", "en": "❌ Cancel", "uk": "❌ Скасувати",
         "pl": '❌ Anuluj',
         "de": '❌ Abbrechen',
+        "nl": '❌ Annuleren',
     },
     "change_location": {
         "ru": "📍 Изменить местоположение", "pt": "📍 Alterar localização", "en": "📍 Change location",
         "uk": "📍 Змінити місцезнаходження",
         "pl": '📍 Zmień lokalizację',
         "de": '📍 Standort ändern',
+        "nl": '📍 Locatie wijzigen',
     },
     "choose_location_method": {
         "ru": "Выберите способ указания местоположения:",
@@ -1112,6 +1290,7 @@ translations = {
         "uk": "Виберіть спосіб вказання місцезнаходження:",
         "pl": 'Wybierz metodę ustalania lokalizacji:',
         "de": 'Standortmethode auswählen:',
+        "nl": 'Kies een locatiemethode:',
     },
     "choose_location_mode": {
         "ru": "Выберите способ указания локации:",
@@ -1120,16 +1299,19 @@ translations = {
         "uk": "Виберіть спосіб вказання локації:",
         "pl": 'Wybierz tryb lokalizacji:',
         "de": 'Standortmodus auswählen:',
+        "nl": 'Kies de locatiemodus:',
     },
     "choose_from_list": {
         "ru": "Выбрать из списка", "pt": "Escolher da lista", "en": "Choose from list", "uk": "Вибрати зі списку",
         "pl": 'Wybierz z listy',
         "de": 'Aus Liste auswählen',
+        "nl": 'Kies uit de lijst',
     },
     "confirm": {
         "ru": "✅ Подтвердить", "pt": "✅ Confirmar", "en": "✅ Confirm", "uk": "✅ Підтвердити",
         "pl": '✅ Potwierdź',
         "de": '✅ Bestätigen',
+        "nl": '✅ Bevestigen',
     },
     "contact": {
         "ru": "💬 Написать",
@@ -1138,11 +1320,13 @@ translations = {
         "uk": "💬 Написати",
         "pl": '💬 Napisz',
         "de": '💬 Schreiben',
+        "nl": '💬 Schrijven',
     },
     "decline_order": {
         "ru": "❌ Отказать", "pt": "❌ Recusar", "en": "❌ Decline", "uk": "❌ Відмовити",
         "pl": '❌ Odrzuć',
         "de": '❌ Ablehnen',
+        "nl": '❌ Weigeren',
     },
     "decline_from_specialist": {
         "ru": "Специалист отказал от выполнения заказа:",
@@ -1151,38 +1335,45 @@ translations = {
         "uk": "Спеціаліст відмовився від виконання замовлення:",
         "pl": 'Specjalista odrzucił prośbę:',
         "de": 'Der Spezialist hat die Anfrage abgelehnt:',
+        "nl": 'De specialist heeft het verzoek afgewezen:',
     },
     "delete_vacancy": {
         "ru": "🗑️ Удалить", "pt": "🗑️ Excluir", "en": "🗑️ Delete", "uk": "🗑️ Видалити",
         "pl": '🗑️ Usuń',
         "de": '🗑️ Löschen',
+        "nl": '🗑️ Verwijderen',
     },
     "edit_resume": {
         "ru": "✏️ Редактировать резюме", "pt": "✏️ Editar currículo", "en": "✏️ Edit resume",
         "uk": "✏️ Редагувати резюме",
         "pl": '✏️ Edytuj CV',
         "de": '✏️ Lebenslauf bearbeiten',
+        "nl": '✏️ CV bewerken',
     },
     "edit_vacancy": {
         "ru": "✏️ Редактировать", "pt": "✏️ Editar", "en": "✏️ Edit", "uk": "✏️ Редагувати",
         "pl": '✏️ Edytuj',
         "de": '✏️ Bearbeiten',
+        "nl": '✏️ Bewerken',
     },
     "enter_city_btn": {
         "ru": "📝 Ввести город вручную", "pt": "📝 Inserir cidade manualmente", "en": "📝 Enter city manually",
         "uk": "📝 Ввести місто вручну",
         "pl": '📝 Wprowadź miasto ręcznie',
         "de": '📝 Stadt manuell eingeben',
+        "nl": '📝 Stad handmatig invoeren',
     },
     "enter_city_prompt": {
         "ru": "Введите город:", "pt": "Digite a cidade:", "en": "Enter the city:", "uk": "Введіть місто:",
         "pl": 'Wprowadź nazwę miasta:',
         "de": 'Stadt eingeben:',
+        "nl": 'Voer de stad in:',
     },
     "enter_country_prompt": {
         "ru": "Введите страну:", "pt": "Digite o país:", "en": "Enter the country:", "uk": "Введіть країну:",
         "pl": 'Wprowadź kraj:',
         "de": 'Geben Sie das Land ein:',
+        "nl": 'Voer het land in:',
     },
     "error_cannot_send": {
         "ru": "Ошибка при отправке сообщения специалисту.",
@@ -1191,6 +1382,7 @@ translations = {
         "uk": "Помилка під час надсилання повідомлення спеціалісту.",
         "pl": 'Nie udało się wysłać wiadomości do specjalisty.',
         "de": 'Die Nachricht konnte nicht an den Spezialisten gesendet werden.',
+        "nl": 'Het bericht kon niet naar de specialist worden verzonden.',
     },
     "error_no_specialist": {
         "ru": "Произошла ошибка — специалист не найден.",
@@ -1199,57 +1391,68 @@ translations = {
         "uk": "Сталася помилка — спеціаліста не знайдено.",
         "pl": 'Wystąpił błąd — nie znaleziono specjalisty.',
         "de": 'Es ist ein Fehler aufgetreten – Spezialist nicht gefunden.',
+        "nl": 'Er is een fout opgetreden — specialist niet gevonden.',
     },
     "extend_vacancy": {
         "ru": "🔁 Продлить", "pt": "🔁 Prorrogar", "en": "🔁 Extend", "uk": "🔁 Продовжити",
         "pl": '🔁 Przedłuż',
         "de": '🔁 Verlängern',
+        "nl": '🔁 Verlengen',
     },
     "favorite": {
         "ru": "⭐ В избранное", "pt": "⭐ Favoritar", "en": "⭐ Favorite", "uk": "⭐ До обраного",
         "pl": '⭐ Dodaj do ulubionych',
         "de": '⭐ Zu den Favoriten hinzufügen',
+        "nl": '⭐ Favoriet',
     },
     "find_job": {
         "ru": "Найти работу", "pt": "Encontrar trabalho", "en": "Find a job", "uk": "Знайти роботу",
         "pl": 'Znajdź pracę',
         "de": 'Stelle finden',
+        "nl": 'Zoek een baan',
     },
     "find_specialists": {
         "ru": "Специалисты", "pt": "Especialistas", "en": "Specialists", "uk": "Спеціалісти",
         "pl": 'Specjaliści',
         "de": 'Fachkräfte',
+        "nl": 'Specialisten',
     },
     "help": {
         "ru": "Помощь", "pt": "Ajuda", "en": "Help", "uk": "Допомога",
         "pl": 'Pomoc',
         "de": 'Hilfe',
+        "nl": 'Hulp',
     },
     "i_am_abroad": {
         "ru": "Я за пределами Португалии", "pt": "Estou fora de Portugal", "en": "I am abroad",
         "uk": "Я за межами Португалії",
         "pl": 'Jestem za granicą',
         "de": 'Ich bin im Ausland',
+        "nl": 'Ik ben in het buitenland',
     },
     "i_am_in_portugal": {
         "ru": "Я в Португалии", "pt": "Estou em Portugal", "en": "I am in Portugal", "uk": "Я в Португалії",
         "pl": 'Jestem w Portugalii',
         "de": 'Ich bin in Portugal',
+        "nl": 'Ik ben in Portugal',
     },
     "im_employer": {
         "ru": "Я работодатель", "pt": "Sou empregador", "en": "I'm an employer", "uk": "Я роботодавець",
         "pl": 'Jestem pracodawcą',
         "de": 'Ich bin Arbeitgeber',
+        "nl": 'Ik ben werkgever',
     },
     "im_seeker": {
         "ru": "Я соискатель", "pt": "Sou candidato", "en": "I'm a job seeker", "uk": "Я здобувач",
         "pl": 'Jestem osobą poszukującą pracy',
         "de": 'Ich bin Arbeitssuchender',
+        "nl": 'Ik ben werkzoekende',
     },
     "location_detected": {
         "ru": "Город определён", "pt": "Cidade detectada", "en": "Location detected", "uk": "Місто визначено",
         "pl": 'Wykryto lokalizację',
         "de": 'Standort erkannt',
+        "nl": 'Locatie gedetecteerd',
     },
     "location_not_found": {
         "ru": "❌ Город не найден. Попробуйте ещё.",
@@ -1258,24 +1461,28 @@ translations = {
         "uk": "❌ Місто не знайдено. Спробуйте ще раз.",
         "pl": '❌ Nie znaleziono miasta. Spróbuj ponownie.',
         "de": '❌ Stadt nicht gefunden. Bitte versuche es erneut.',
+        "nl": '❌ Stad niet gevonden. Probeer het nog eens.',
     },
     "no_cities": {
         "ru": "Нет доступных городов", "pt": "Nenhuma cidade disponível", "en": "No available cities",
         "uk": "Немає доступних міст",
         "pl": 'Brak dostępnych miast',
         "de": 'Keine Städte verfügbar',
+        "nl": 'Geen beschikbare steden',
     },
     "no_professions": {
         "ru": "Нет доступных профессий", "pt": "Nenhuma profissão disponível", "en": "No available professions",
         "uk": "Немає доступних професій",
         "pl": 'Brak dostępnych zawodów',
         "de": 'Keine Berufe verfügbar',
+        "nl": 'Geen beschikbare beroepen',
     },
     "no_specialists_found": {
         "ru": "Специалисты не найдены", "pt": "Nenhum especialista encontrado", "en": "No specialists found",
         "uk": "Спеціалістів не знайдено",
         "pl": 'Nie znaleziono specjalistów',
         "de": 'Keine Spezialisten gefunden',
+        "nl": 'Geen specialisten gevonden',
     },
     "no_specialists_found_in_city": {
         "ru": "❗ В вашем городе пока не зарегистрировано ни одного специалиста. Попробуйте изменить регион.",
@@ -1290,6 +1497,10 @@ translations = {
             '❗ In Ihrer Stadt sind noch keine Spezialisten registriert. '
             'Versuchen Sie es mit einer anderen Region.'
         ),
+        "nl": (
+            '❗ Er zijn nog geen specialisten geregistreerd in uw stad. '
+            'Probeer de regio te wijzigen.'
+        ),
     },
     "no_specialists_near": {
         "ru": "Поблизости нет специалистов. Попробуйте другой город.",
@@ -1301,56 +1512,66 @@ translations = {
             'Keine Spezialisten in der Nähe. Versuchen Sie es mit einer '
             'anderen Stadt.'
         ),
+        "nl": 'Geen specialisten in de buurt. Probeer een andere stad.',
     },
     "portugal_choose_mode": {
         "ru": "Как вы хотите указать ваш регион?", "pt": "Como deseja indicar sua região?", "en": "How do you want to specify your region?",
         "uk": "Як ви хочете вказати ваш регіон?",
         "pl": 'Jak chcesz określić swój region?',
         "de": 'Wie möchtest du deine Region angeben?',
+        "nl": 'Hoe wil je je regio specificeren?',
     },
     "post_vacancy": {
         "ru": "Разместить вакансию", "pt": "Publicar vaga", "en": "Post a job", "uk": "Розмістити вакансію",
         "pl": 'Opublikuj ofertę pracy',
         "de": 'Stellenangebot veröffentlichen',
+        "nl": 'Plaats een vacature',
     },
     "profile": {
         "ru": "Профиль", "pt": "Perfil", "en": "Profile", "uk": "Профіль",
         "pl": 'Profil',
         "de": 'Profil',
+        "nl": 'Profiel',
     },
     "register_employer": {
         "ru": "Зарегистрироваться как работодатель", "pt": "Registrar-se como empregador", "en": "Register as employer",
         "uk": "Зареєструватися як роботодавець",
         "pl": 'Zarejestruj się jako pracodawca',
         "de": 'Als Arbeitgeber registrieren',
+        "nl": 'Registreer als werkgever',
     },
     "register_seeker": {
         "ru": "Зарегистрироваться как соискатель", "pt": "Registrar-se como candidato", "en": "Register as seeker",
         "uk": "Зареєструватися як здобувач",
         "pl": 'Zarejestruj się jako osoba poszukująca pracy',
         "de": 'Als Arbeitssuchender registrieren',
+        "nl": 'Registreren als werkzoekende',
     },
     "register_specialist": {
         "ru": "Зарегистрироваться как специалист", "pt": "Registrar-se como especialista", "en": "Register as specialist",
         "uk": "Зареєструватися як спеціаліст",
         "pl": 'Zarejestruj się jako specjalista',
         "de": 'Als Fachkraft registrieren',
+        "nl": 'Registreer je als specialist',
     },
     "report": {
         "ru": "⚠️ Пожаловаться", "pt": "⚠️ Denunciar", "en": "⚠️ Report", "uk": "⚠️ Поскаржитися",
         "pl": '⚠️ Zgłoś',
         "de": '⚠️ Melden',
+        "nl": '⚠️ Melden',
     },
     "respond": {
         "ru": "📬 Откликнуться", "pt": "📬 Candidatar-se", "en": "📬 Apply", "uk": "📬 Відгукнутися",
         "pl": '📬 Zgłoś się',
         "de": '📬 Bewerben',
+        "nl": '📬 Solliciteren',
     },
     "reply_from_specialist": {
         "ru": "Ответ от специалиста", "pt": "Resposta do especialista", "en": "Reply from specialist",
         "uk": "Відповідь від спеціаліста",
         "pl": 'Odpowiedź specjalisty',
         "de": 'Antwort vom Spezialisten',
+        "nl": 'Antwoord van specialist',
     },
     "request_location_prompt": {
         "ru": "Пожалуйста, отправьте вашу геолокацию, чтобы найти ближайших специалистов.",
@@ -1362,28 +1583,33 @@ translations = {
             'Bitte gib deinen Standort an, um Spezialisten in deiner Nähe zu '
             'finden.'
         ),
+        "nl": 'Geef je locatie door om specialisten in de buurt te vinden.',
     },
     "select_specialist": {
         "ru": "Выберите специалиста:", "pt": "Escolha um especialista:", "en": "Select a specialist:",
         "uk": "Виберіть спеціаліста:",
         "pl": 'Wybierz specjalistę:',
         "de": 'Wählen Sie einen Spezialisten aus:',
+        "nl": 'Kies een specialist:',
     },
     "send_geo": {
         "ru": "Отправить геолокацию", "pt": "Enviar localização", "en": "Send location", "uk": "Надіслати геолокацію",
         "pl": 'Wyślij lokalizację',
         "de": 'Standort senden',
+        "nl": 'Locatie verzenden',
     },
     "send_location_btn": {
         "ru": "📍 Отправить геолокацию", "pt": "📍 Enviar localização", "en": "📍 Send location",
         "uk": "📍 Надіслати геолокацію",
         "pl": '📍 Wyślij lokalizację',
         "de": '📍 Standort senden',
+        "nl": '📍 Locatie verzenden',
     },
     "send_resume": {
         "ru": "📤 Разослать резюме", "pt": "📤 Enviar currículo", "en": "📤 Send resume", "uk": "📤 Розіслати резюме",
         "pl": '📤 Wyślij CV',
         "de": '📤 Lebenslauf senden',
+        "nl": '📤 Stuur cv',
     },
     "specialist_not_found": {
         "ru": "Специалист не найден или недоступен.",
@@ -1392,6 +1618,7 @@ translations = {
         "uk": "Спеціаліста не знайдено або він недоступний.",
         "pl": 'Nie znaleziono specjalisty lub jest on niedostępny.',
         "de": 'Spezialist nicht gefunden oder nicht verfügbar.',
+        "nl": 'Specialist niet gevonden of niet beschikbaar.',
     },
     "switch_profile": {
         "ru": "🔄 Мои кабинеты",
@@ -1400,26 +1627,31 @@ translations = {
         "uk": "🔄 Мої кабінети",
         "pl": '🔄 Moje panele',
         "de": '🔄 Meine Dashboards',
+        "nl": '🔄 Mijn dashboards',
     },
     "view_resume": {
         "ru": "📄 Посмотреть резюме", "pt": "📄 Ver currículo", "en": "📄 View resume", "uk": "📄 Переглянути резюме",
         "pl": '📄 Wyświetl CV',
         "de": '📄 Lebenslauf anzeigen',
+        "nl": '📄 Bekijk cv',
     },
     "view_stats": {
         "ru": "📊 Статистика", "pt": "📊 Estatísticas", "en": "📊 Stats", "uk": "📊 Статистика",
         "pl": '📊 Statystyki',
         "de": '📊 Statistiken',
+        "nl": '📊 Statistieken',
     },
     "more_info": {
         "ru": "📄 Подробнее", "pt": "📄 Detalhes", "en": "📄 More info", "uk": "📄 Детальніше",
         "pl": '📄 Więcej informacji',
         "de": '📄 Weitere Informationen',
+        "nl": '📄 Meer informatie',
     },
     "new_vacancies": {
         "ru": "Новые вакансии", "pt": "Novas vagas", "en": "New vacancies", "uk": "Нові вакансії",
         "pl": 'Nowe oferty pracy',
         "de": 'Neue Stellenangebote',
+        "nl": 'Nieuwe vacatures',
     },
     "legal_show_documents_btn": {
         "ru": "Показать документы",
@@ -1428,6 +1660,7 @@ translations = {
         "uk": "Показати документи",
         "pl": 'Pokaż dokumenty',
         "de": 'Dokumente anzeigen',
+        "nl": 'Documenten weergeven',
     },
     "search_back": {
         "ru": "⬅️ Назад",
@@ -1436,6 +1669,7 @@ translations = {
         "uk": "⬅️ Назад",
         "pl": '⬅️ Wstecz',
         "de": '⬅️ Zurück',
+        "nl": '⬅️ Terug',
     },
     "search_menu": {
         "ru": "🏠 Главное меню",
@@ -1444,6 +1678,7 @@ translations = {
         "uk": "🏠 Головне меню",
         "pl": '🏠 Menu główne',
         "de": '🏠 Hauptmenü',
+        "nl": '🏠 Hoofdmenu',
     },
     "search_choose_city_btn": {
         "ru": "Выбрать город",
@@ -1452,6 +1687,7 @@ translations = {
         "uk": "Вибрати місто",
         "pl": 'Wybierz miasto',
         "de": 'Stadt auswählen',
+        "nl": 'Kies een stad',
     },
     "search_nearby_btn": {
         "ru": "Найти рядом",
@@ -1460,6 +1696,7 @@ translations = {
         "uk": "Знайти поруч",
         "pl": 'Znajdź w pobliżu',
         "de": 'In der Nähe suchen',
+        "nl": 'Zoek in de buurt',
     },
     "search_new": {
         "ru": "Новый поиск",
@@ -1468,6 +1705,7 @@ translations = {
         "uk": "Новий пошук",
         "pl": 'Nowe wyszukiwanie',
         "de": 'Neue Suche',
+        "nl": 'Opnieuw zoeken',
     },
     "search_distance": {
         "ru": "Расстояние",
@@ -1476,6 +1714,7 @@ translations = {
         "uk": "Відстань",
         "pl": 'Odległość',
         "de": 'Entfernung',
+        "nl": 'Afstand',
     },
     "search_no_results": {
         "ru": "Специалисты не найдены. Попробуйте другую категорию, город или радиус.",
@@ -1490,6 +1729,10 @@ translations = {
             'Es wurden keine Fachleute gefunden. Versuchen Sie es mit einer '
             'anderen Kategorie, Stadt oder einem anderen Umkreis.'
         ),
+        "nl": (
+            'Er zijn geen specialisten gevonden. Probeer een andere '
+            'categorie, stad of straal.'
+        ),
     },
     "search_categories_missing": {
         "ru": "Категории специалистов не настроены.",
@@ -1498,6 +1741,7 @@ translations = {
         "uk": "Категорії спеціалістів не налаштовані.",
         "pl": 'Kategorie specjalistów nie zostały skonfigurowane.',
         "de": 'Fachgebietskategorien sind nicht konfiguriert.',
+        "nl": 'Specialistencategorieën zijn niet geconfigureerd.',
     },
     "search_choose_category": {
         "ru": "Выберите сферу услуг.",
@@ -1506,6 +1750,7 @@ translations = {
         "uk": "Виберіть сферу послуг.",
         "pl": 'Wybierz obszar świadczenia usług.',
         "de": 'Wählen Sie einen Dienstleistungsbereich aus.',
+        "nl": 'Kies een servicegebied.',
     },
     "search_category_not_found": {
         "ru": "Категория не найдена или отключена.",
@@ -1514,6 +1759,7 @@ translations = {
         "uk": "Категорію не знайдено або вона вимкнена.",
         "pl": 'Nie znaleziono kategorii lub jest ona wyłączona.',
         "de": 'Kategorie nicht gefunden oder deaktiviert.',
+        "nl": 'Categorie niet gevonden of uitgeschakeld.',
     },
     "search_mode_prompt": {
         "ru": "Как искать специалиста?",
@@ -1522,6 +1768,7 @@ translations = {
         "uk": "Як шукати спеціаліста?",
         "pl": 'Jak chcesz wyszukiwać?',
         "de": 'Wie möchten Sie suchen?',
+        "nl": 'Hoe wilt u zoeken?',
     },
     "search_cities_missing": {
         "ru": "Города не настроены.",
@@ -1530,6 +1777,7 @@ translations = {
         "uk": "Міста не налаштовані.",
         "pl": 'Miasta nie zostały skonfigurowane.',
         "de": 'Städte sind nicht konfiguriert.',
+        "nl": 'Steden zijn niet geconfigureerd.',
     },
     "search_choose_city": {
         "ru": "Выберите город:",
@@ -1538,6 +1786,7 @@ translations = {
         "uk": "Виберіть місто:",
         "pl": 'Wybierz miasto:',
         "de": 'Stadt auswählen:',
+        "nl": 'Kies een stad:',
     },
     "search_city_not_found": {
         "ru": "Город не найден или отключен.",
@@ -1546,6 +1795,7 @@ translations = {
         "uk": "Місто не знайдено або воно вимкнене.",
         "pl": 'Miasto nie zostało znalezione lub jest wyłączone.',
         "de": 'Stadt nicht gefunden oder deaktiviert.',
+        "nl": 'Stad niet gevonden of uitgeschakeld.',
     },
     "search_geo_prompt": {
         "ru": "Отправьте вашу геолокацию Telegram для поиска рядом.",
@@ -1557,6 +1807,7 @@ translations = {
             'w pobliżu.'
         ),
         "de": 'Sende deinen Telegram-Standort, um in der Nähe zu suchen.',
+        "nl": 'Stuur je Telegram-geolocatie door om in de buurt te zoeken.',
     },
     "search_send_geo_btn": {
         "ru": "Отправить геолокацию",
@@ -1565,6 +1816,7 @@ translations = {
         "uk": "Надіслати геолокацію",
         "pl": 'Wyślij geolokalizację',
         "de": 'Standort senden',
+        "nl": 'Stuur geolocatie',
     },
     "search_geo_required": {
         "ru": "Пожалуйста, отправьте геолокацию Telegram.",
@@ -1573,6 +1825,7 @@ translations = {
         "uk": "Будь ласка, надішліть геолокацію Telegram.",
         "pl": 'Proszę o przesłanie geolokalizacji z Telegrama.',
         "de": 'Bitte sende deinen Standort über Telegram.',
+        "nl": 'Stuur alstublieft je Telegram-locatie.',
     },
     "search_loading_nearby": {
         "ru": "Ищу специалистов рядом...",
@@ -1581,6 +1834,7 @@ translations = {
         "uk": "Шукаю спеціалістів поруч...",
         "pl": 'Wyszukiwanie specjalistów w pobliżu...',
         "de": 'Suche nach Spezialisten in der Nähe...',
+        "nl": 'Op zoek naar specialisten in de buurt...',
     },
     "search_main_menu": {
         "ru": "🏠 Главное меню\n\nВыберите нужный раздел.",
@@ -1589,6 +1843,7 @@ translations = {
         "uk": "🏠 Головне меню\n\nВиберіть потрібний розділ.",
         "pl": '🏠 Menu główne\n\nWybierz sekcję.',
         "de": '🏠 Hauptmenü\n\nWählen Sie einen Bereich aus.',
+        "nl": '🏠 Hoofdmenu\n\nKies een rubriek.',
     },
     "search_rating": {
         "ru": "Рейтинг",
@@ -1597,6 +1852,7 @@ translations = {
         "uk": "Рейтинг",
         "pl": 'Ocena',
         "de": 'Bewertung',
+        "nl": 'Beoordeling',
     },
     "search_verified_label": {
         "ru": "проверен",
@@ -1605,6 +1861,7 @@ translations = {
         "uk": "перевірено",
         "pl": 'zweryfikowane',
         "de": 'verifiziert',
+        "nl": 'geverifieerd',
     },
     "search_moderation_approved_label": {
         "ru": "Модерация пройдена",
@@ -1613,6 +1870,7 @@ translations = {
         "uk": "Модерацію пройдено",
         "pl": 'Zatwierdzone przez moderatorów',
         "de": 'Von der Moderation freigegeben',
+        "nl": 'Goedgekeurd door moderator',
     },
     "search_moderation_pending_label": {
         "ru": "На модерации",
@@ -1621,6 +1879,7 @@ translations = {
         "uk": "На модерації",
         "pl": 'Oczekuje na moderację',
         "de": 'Wartet auf Moderation',
+        "nl": 'In afwachting van moderatie',
     },
     "search_premium_label": {
         "ru": "premium",
@@ -1629,6 +1888,7 @@ translations = {
         "uk": "premium",
         "pl": 'premium',
         "de": 'Premium',
+        "nl": 'premium',
     },
     "search_choose_profession": {
         "ru": "Выберите одно или несколько направлений.",
@@ -1637,6 +1897,7 @@ translations = {
         "uk": "Виберіть один або кілька напрямків.",
         "pl": 'Wybierz jeden lub więcej kierunków.',
         "de": 'Wählen Sie eine oder mehrere Richtungen aus.',
+        "nl": 'Kies een of meer richtingen.',
     },
     "search_selected_professions_count": {
         "ru": "Выбрано: {count}",
@@ -1645,6 +1906,7 @@ translations = {
         "uk": "Вибрано: {count}",
         "pl": 'Wybrano: {count}',
         "de": 'Ausgewählt: {count}',
+        "nl": 'Geselecteerd: {count}',
     },
     "search_all_professions": {
         "ru": "☑ Выбрать все",
@@ -1653,6 +1915,7 @@ translations = {
         "uk": "☑ Вибрати всі",
         "pl": '☑ Zaznacz wszystko',
         "de": '☑ Alle auswählen',
+        "nl": '☑ Alles selecteren',
     },
     "search_professions_missing": {
         "ru": "Направления для категории не настроены.",
@@ -1661,6 +1924,10 @@ translations = {
         "uk": "Напрямки для категорії не налаштовані.",
         "pl": 'Dla tej kategorii nie skonfigurowano wskazówek.',
         "de": 'Für diese Kategorie sind keine Wegbeschreibungen konfiguriert.',
+        "nl": (
+            'Er zijn geen routebeschrijvingen geconfigureerd voor deze '
+            'categorie.'
+        ),
     },
     "search_profession_not_found": {
         "ru": "Направление не найдено или отключено.",
@@ -1669,6 +1936,7 @@ translations = {
         "uk": "Напрямок не знайдено або він вимкнений.",
         "pl": 'Nie znaleziono wskazówek lub są one wyłączone.',
         "de": 'Richtung nicht gefunden oder deaktiviert.',
+        "nl": 'Routebeschrijving niet gevonden of uitgeschakeld.',
     },
     "search_filters_prompt": {
         "ru": "Настройте фильтры поиска:",
@@ -1677,6 +1945,7 @@ translations = {
         "uk": "Налаштуйте фільтри пошуку:",
         "pl": 'Ustaw filtry wyszukiwania:',
         "de": 'Suchfilter festlegen:',
+        "nl": 'Zoekfilters instellen:',
     },
     "search_show_results": {
         "ru": "Показать результаты",
@@ -1685,6 +1954,7 @@ translations = {
         "uk": "Показати результати",
         "pl": 'Pokaż wyniki',
         "de": 'Ergebnisse anzeigen',
+        "nl": 'Resultaten weergeven',
     },
     "search_filter_language_any": {
         "ru": "Любой язык",
@@ -1693,6 +1963,7 @@ translations = {
         "uk": "Будь-яка мова",
         "pl": 'Dowolny język',
         "de": 'Beliebige Sprache',
+        "nl": 'Elke taal',
     },
     "search_filter_verified_only": {
         "ru": "Только проверенные",
@@ -1701,6 +1972,7 @@ translations = {
         "uk": "Тільки перевірені",
         "pl": 'Tylko zweryfikowane',
         "de": 'Nur verifizierte',
+        "nl": 'Alleen geverifieerd',
     },
     "search_filter_verified_all": {
         "ru": "Все специалисты",
@@ -1709,6 +1981,7 @@ translations = {
         "uk": "Усі спеціалісти",
         "pl": 'Wszyscy specjaliści',
         "de": 'Alle Fachleute',
+        "nl": 'Alle specialisten',
     },
     "search_filter_verified_label": {
         "ru": "Проверенный профиль",
@@ -1717,6 +1990,7 @@ translations = {
         "uk": "Перевірений профіль",
         "pl": 'Zweryfikowany profil',
         "de": 'Verifiziertes Profil',
+        "nl": 'Geverifieerd profiel',
     },
     "search_verified_prompt": {
         "ru": "Выберите, показывать всех специалистов или только проверенные профили.",
@@ -1731,6 +2005,10 @@ translations = {
             'Wählen Sie aus, ob alle Spezialisten oder nur verifizierte '
             'Profile angezeigt werden sollen.'
         ),
+        "nl": (
+            'Kies of u alle specialisten wilt weergeven of alleen '
+            'geverifieerde profielen.'
+        ),
     },
     "search_filter_availability": {
         "ru": "Доступность",
@@ -1739,6 +2017,7 @@ translations = {
         "uk": "Доступність",
         "pl": 'Dostępność',
         "de": 'Verfügbarkeit',
+        "nl": 'Beschikbaarheid',
     },
     "search_filter_availability_label": {
         "ru": "Доступность",
@@ -1747,6 +2026,7 @@ translations = {
         "uk": "Доступність",
         "pl": 'Dostępność',
         "de": 'Verfügbarkeit',
+        "nl": 'Beschikbaarheid',
     },
     "search_filter_available_now": {
         "ru": "Свободен сейчас",
@@ -1755,6 +2035,7 @@ translations = {
         "uk": "Вільний зараз",
         "pl": 'Już dostępne',
         "de": 'Jetzt erhältlich',
+        "nl": 'Nu verkrijgbaar',
     },
     "search_availability_prompt": {
         "ru": "Выберите доступность специалиста.",
@@ -1763,6 +2044,7 @@ translations = {
         "uk": "Виберіть доступність спеціаліста.",
         "pl": 'Wybierz dostępność specjalisty.',
         "de": 'Wählen Sie die Verfügbarkeit des Spezialisten.',
+        "nl": 'Kies de beschikbaarheid per specialist.',
     },
     "search_filter_price_any": {
         "ru": "Любая цена",
@@ -1771,6 +2053,7 @@ translations = {
         "uk": "Будь-яка ціна",
         "pl": 'Dowolna cena',
         "de": 'Beliebiger Preis',
+        "nl": 'Elke prijs',
     },
     "search_filter_price_up_to_50": {
         "ru": "До 50 EUR",
@@ -1779,6 +2062,7 @@ translations = {
         "uk": "До 50 EUR",
         "pl": 'Do 50 EUR',
         "de": 'Bis zu 50 EUR',
+        "nl": 'Tot 50 EUR',
     },
     "search_filter_price_50_100": {
         "ru": "50-100 EUR",
@@ -1787,6 +2071,7 @@ translations = {
         "uk": "50-100 EUR",
         "pl": '50–100 EUR',
         "de": '50–100 EUR',
+        "nl": '50-100 EUR',
     },
     "search_filter_price_from_100": {
         "ru": "От 100 EUR",
@@ -1795,6 +2080,7 @@ translations = {
         "uk": "Від 100 EUR",
         "pl": 'Od 100 EUR',
         "de": 'Ab 100 EUR',
+        "nl": 'Vanaf 100 EUR',
     },
     "search_filter_premium_only": {
         "ru": "Только premium",
@@ -1803,6 +2089,7 @@ translations = {
         "uk": "Тільки premium",
         "pl": 'Tylko opcja Premium',
         "de": 'Nur Premium',
+        "nl": 'Alleen premium',
     },
     "search_filter_premium_all": {
         "ru": "Все тарифы",
@@ -1811,6 +2098,7 @@ translations = {
         "uk": "Усі тарифи",
         "pl": 'Wszystkie poziomy',
         "de": 'Alle Stufen',
+        "nl": 'Alle niveaus',
     },
     "search_filter_work_any": {
         "ru": "Любой формат",
@@ -1819,6 +2107,7 @@ translations = {
         "uk": "Будь-який формат",
         "pl": 'Dowolny format',
         "de": 'Beliebiges Format',
+        "nl": 'Elk formaat',
     },
     "search_filter_work_remote": {
         "ru": "Удаленно",
@@ -1827,6 +2116,7 @@ translations = {
         "uk": "Віддалено",
         "pl": 'Zdalnie',
         "de": 'Fernzugriff',
+        "nl": 'Op afstand',
     },
     "search_filter_work_onsite": {
         "ru": "На месте",
@@ -1835,6 +2125,7 @@ translations = {
         "uk": "На місці",
         "pl": 'Na miejscu',
         "de": 'Vor Ort',
+        "nl": 'Ter plaatse',
     },
     "search_filter_work_mixed": {
         "ru": "Смешанный",
@@ -1843,6 +2134,7 @@ translations = {
         "uk": "Змішаний",
         "pl": 'Mieszane',
         "de": 'Gemischt',
+        "nl": 'Gemengd',
     },
     "search_filter_rating_any": {
         "ru": "Любой рейтинг",
@@ -1851,6 +2143,7 @@ translations = {
         "uk": "Будь-який рейтинг",
         "pl": 'Dowolna ocena',
         "de": 'Beliebige Bewertung',
+        "nl": 'Elke beoordeling',
     },
     "search_filter_rating_4": {
         "ru": "Рейтинг от 4",
@@ -1859,6 +2152,7 @@ translations = {
         "uk": "Рейтинг від 4",
         "pl": 'Ocena od 4',
         "de": 'Bewertung ab 4',
+        "nl": 'Beoordeling vanaf 4',
     },
     "search_filter_rating_label": {
         "ru": "Рейтинг",
@@ -1867,6 +2161,7 @@ translations = {
         "uk": "Рейтинг",
         "pl": 'Ocena',
         "de": 'Bewertung',
+        "nl": 'Beoordeling',
     },
     "search_filter_rating_from": {
         "ru": "от {rating}",
@@ -1875,6 +2170,7 @@ translations = {
         "uk": "від {rating}",
         "pl": 'z {rating}',
         "de": 'von {rating}',
+        "nl": 'van {rating}',
     },
     "search_rating_prompt": {
         "ru": "Выберите минимальный рейтинг. Новые специалисты без отзывов не скрываются, если фильтр не выбран.",
@@ -1890,6 +2186,11 @@ translations = {
             'Bewertungen werden nicht ausgeblendet, es sei denn, Sie wählen '
             'den Filter aus.'
         ),
+        "nl": (
+            'Kies een minimumbeoordeling. Nieuwe specialisten zonder '
+            'beoordelingen worden niet verborgen, tenzij u het filter '
+            'selecteert.'
+        ),
     },
     "contact_request_prompt": {
         "ru": "Опишите задачу специалисту. Минимум 10 символов.",
@@ -1901,6 +2202,7 @@ translations = {
             'Beschreiben Sie die Aufgabe für den Spezialisten. Mindestens 10 '
             'Zeichen.'
         ),
+        "nl": 'Beschrijf de opdracht voor de specialist. Minimaal 10 tekens.',
     },
     "contact_chat_first_prompt": {
         "ru": "Опишите, что нужно сделать.",
@@ -1909,6 +2211,7 @@ translations = {
         "uk": "Опишіть, що потрібно зробити.",
         "pl": 'Opisz, co należy zrobić.',
         "de": 'Beschreiben Sie, was zu tun ist.',
+        "nl": 'Beschrijf wat er moet gebeuren.',
     },
     "legacy_contact_request_unavailable": {
         "ru": "Эта старая заявка больше не используется. Откройте сообщения.",
@@ -1920,6 +2223,7 @@ translations = {
             'Diese alte Anfrage wird nicht mehr verwendet. Öffnen Sie '
             '„Nachrichten“.'
         ),
+        "nl": 'Dit oude verzoek wordt niet meer gebruikt. Open Berichten.',
     },
     "contact_request_created": {
         "ru": "Переписка открыта. Напишите первое сообщение.",
@@ -1931,6 +2235,7 @@ translations = {
             'Die Unterhaltung wurde geöffnet. Verfassen Sie Ihre erste '
             'Nachricht.'
         ),
+        "nl": 'Gesprek geopend. Schrijf je eerste bericht.',
     },
     "contact_request_error": {
         "ru": "Не удалось отправить заявку: {error}",
@@ -1939,6 +2244,7 @@ translations = {
         "uk": "Не вдалося надіслати заявку: {error}",
         "pl": 'Nie udało się wysłać żądania: {error}',
         "de": 'Anfrage konnte nicht gesendet werden: {error}',
+        "nl": 'Verzoek kon niet worden verzonden: {error}',
     },
     "search_contact_no_specialist": {
         "ru": "Специалист не выбран. Вернитесь к результатам поиска.",
@@ -1950,6 +2256,7 @@ translations = {
             'Es wurde kein Spezialist ausgewählt. Zurück zu den '
             'Suchergebnissen.'
         ),
+        "nl": 'Er is geen specialist geselecteerd. Terug naar de zoekresultaten.',
     },
     "search_contact_user_not_found": {
         "ru": "Не удалось определить пользователя. Нажмите /start и попробуйте снова.",
@@ -1964,6 +2271,10 @@ translations = {
             'Der Benutzer konnte nicht identifiziert werden. Drücken Sie '
             '/start und versuchen Sie es erneut.'
         ),
+        "nl": (
+            'De gebruiker kon niet worden geïdentificeerd. Druk op /start en '
+            'probeer het opnieuw.'
+        ),
     },
     "contact_accept_btn": {
         "ru": "Принять",
@@ -1972,6 +2283,7 @@ translations = {
         "uk": "Прийняти",
         "pl": 'Akceptuj',
         "de": 'Akzeptieren',
+        "nl": 'Accepteren',
     },
     "contact_reject_btn": {
         "ru": "Отклонить",
@@ -1980,6 +2292,7 @@ translations = {
         "uk": "Відхилити",
         "pl": 'Odrzuć',
         "de": 'Ablehnen',
+        "nl": 'Weigeren',
     },
     "contact_request_specialist_notification": {
         "ru": "Новая заявка от клиента:\n\n{message}",
@@ -1988,6 +2301,7 @@ translations = {
         "uk": "Нова заявка від клієнта:\n\n{message}",
         "pl": 'Nowe zgłoszenie od klienta:\n\n{message}',
         "de": 'Neue Anfrage von einem Kunden:\n\n{message}',
+        "nl": 'Nieuw verzoek van een klant:\n\n{message}',
     },
     "contact_request_accepted_specialist": {
         "ru": "Переписка открыта.",
@@ -1996,6 +2310,7 @@ translations = {
         "uk": "Переписку відкрито.",
         "pl": 'Rozmowa rozpoczęta.',
         "de": 'Konversation eröffnet.',
+        "nl": 'Gesprek geopend.',
     },
     "contact_request_rejected_specialist": {
         "ru": "Заявка отклонена.",
@@ -2004,6 +2319,7 @@ translations = {
         "uk": "Заявку відхилено.",
         "pl": 'Prośba odrzucona.',
         "de": 'Anfrage abgelehnt.',
+        "nl": 'Verzoek afgewezen.',
     },
     "contact_request_not_found": {
         "ru": "Заявка не найдена или уже обработана.",
@@ -2012,6 +2328,7 @@ translations = {
         "uk": "Заявку не знайдено або її вже опрацьовано.",
         "pl": 'Żądanie nie znalezione lub już przetworzone.',
         "de": 'Anfrage nicht gefunden oder bereits bearbeitet.',
+        "nl": 'Verzoek niet gevonden of al verwerkt.',
     },
     "contact_show_original_btn": {
         "ru": "Показать оригинал",
@@ -2020,6 +2337,7 @@ translations = {
         "uk": "Показати оригінал",
         "pl": 'Pokaż oryginał',
         "de": 'Original anzeigen',
+        "nl": 'Origineel weergeven',
     },
     "contact_finish_btn": {
         "ru": "Завершить",
@@ -2028,6 +2346,7 @@ translations = {
         "uk": "Завершити",
         "pl": 'Zakończ',
         "de": 'Beenden',
+        "nl": 'Voltooien',
     },
     "contact_report_btn": {
         "ru": "Пожаловаться",
@@ -2036,6 +2355,7 @@ translations = {
         "uk": "Поскаржитися",
         "pl": 'Raport',
         "de": 'Bericht',
+        "nl": 'Rapport',
     },
     "contact_thread_message_received": {
         "ru": "Новое сообщение:\n\n{message}",
@@ -2044,6 +2364,7 @@ translations = {
         "uk": "Нове повідомлення:\n\n{message}",
         "pl": 'Nowa wiadomość:\n\n{message}',
         "de": 'Neue Nachricht:\n\n{message}',
+        "nl": 'Nieuw bericht:\n\n{message}',
     },
     "contact_thread_not_found": {
         "ru": "Переписка не найдена. Вернитесь к поиску и попробуйте снова.",
@@ -2058,6 +2379,10 @@ translations = {
             'Chat nicht gefunden. Kehren Sie zur Anfrage zurück oder starten '
             'Sie eine neue Suche.'
         ),
+        "nl": (
+            'Chat niet gevonden. Ga terug naar de zoekopdracht of start een '
+            'nieuwe zoekopdracht.'
+        ),
     },
     "contact_original_message": {
         "ru": "Оригинал сообщения:\n\n{message}",
@@ -2066,6 +2391,7 @@ translations = {
         "uk": "Оригінал повідомлення:\n\n{message}",
         "pl": 'Oryginalna wiadomość:\n\n{message}',
         "de": 'Ursprüngliche Nachricht:\n\n{message}',
+        "nl": 'Oorspronkelijk bericht:\n\n{message}',
     },
 
         "contact_show_original": {
@@ -2075,6 +2401,7 @@ translations = {
     "uk": "Показати оригінал",
     "pl": 'Pokaż oryginał',
     "de": 'Original anzeigen',
+    "nl": 'Origineel weergeven',
 },
     "contact_translated_message_received": {
         "ru": "Новое сообщение с переводом:\n\n{message}",
@@ -2083,6 +2410,7 @@ translations = {
         "uk": "Нове повідомлення з перекладом:\n\n{message}",
         "pl": 'Nowa przetłumaczona wiadomość:\n\n{message}',
         "de": 'Neue übersetzte Nachricht:\n\n{message}',
+        "nl": 'Nieuw vertaald bericht:\n\n{message}',
     },
 "contact_translation_failed_original_shown": {
     "ru": "Перевод временно недоступен. Показан оригинал сообщения:\n\n{message}",
@@ -2101,6 +2429,12 @@ translations = {
         '\n'
         '{message}'
     ),
+    "nl": (
+        'Vertaling is tijdelijk niet beschikbaar. Het originele bericht '
+        'wordt weergegeven:\n'
+        '\n'
+        '{message}'
+    ),
 },
 "translation_provider_error": {
     "ru": "Сервис перевода временно недоступен.",
@@ -2109,6 +2443,7 @@ translations = {
     "uk": "Сервіс перекладу тимчасово недоступний.",
     "pl": 'Usługa tłumaczenia jest chwilowo niedostępna.',
     "de": 'Der Übersetzungsdienst ist vorübergehend nicht verfügbar.',
+    "nl": 'De vertaaldienst is tijdelijk niet beschikbaar.',
 },
 "translation_retry_later": {
     "ru": "Мы попробуем перевести сообщение позже. Общение в чате не остановлено.",
@@ -2122,6 +2457,10 @@ translations = {
     "de": (
         'Wir werden versuchen, die Nachricht später zu übersetzen. Der '
         'Chat ist nicht gesperrt.'
+    ),
+    "nl": (
+        'We zullen het bericht later proberen te vertalen. De chat is '
+        'niet geblokkeerd.'
     ),
 },
     
@@ -2138,6 +2477,10 @@ translations = {
             'Die ursprüngliche Nachricht konnte nicht angezeigt werden. Bitte '
             'versuche es später erneut.'
         ),
+        "nl": (
+            'Het originele bericht kon niet worden weergegeven. Probeer het '
+            'later nog eens.'
+        ),
     },
     "contact_thread_completed": {
         "ru": "Переписка завершена.",
@@ -2146,6 +2489,7 @@ translations = {
         "uk": "Переписку завершено.",
         "pl": 'Czat zakończony.',
         "de": 'Chat beendet.',
+        "nl": 'Chat voltooid.',
     },
     "search_filter_not_set": {
         "ru": "любой",
@@ -2154,6 +2498,7 @@ translations = {
         "uk": "будь-який",
         "pl": 'dowolny',
         "de": 'beliebig',
+        "nl": 'willekeurig',
     },
     "search_filter_any": {
         "ru": "любой",
@@ -2162,6 +2507,7 @@ translations = {
         "uk": "будь-який",
         "pl": 'dowolny',
         "de": 'beliebig',
+        "nl": 'willekeurig',
     },
     "search_filters_title": {
         "ru": "⚙️ Фильтры поиска",
@@ -2170,6 +2516,7 @@ translations = {
         "uk": "⚙️ Фільтри пошуку",
         "pl": '⚙️ Filtry wyszukiwania',
         "de": '⚙️ Suchfilter',
+        "nl": '⚙️ Zoekfilters',
     },
     "search_searching_specialists": {
         "ru": "🔍 Ищем специалистов...",
@@ -2178,6 +2525,7 @@ translations = {
         "uk": "🔍 Шукаємо спеціалістів...",
         "pl": '🔍 Wyszukiwanie specjalistów...',
         "de": '🔍 Suche nach Spezialisten...',
+        "nl": '🔍 Op zoek naar specialisten...',
     },
     "search_filter_category_label": {
         "ru": "Категория",
@@ -2186,6 +2534,7 @@ translations = {
         "uk": "Категорія",
         "pl": 'Kategoria',
         "de": 'Kategorie',
+        "nl": 'Categorie',
     },
     "search_filter_profession_label": {
         "ru": "Профессии",
@@ -2194,6 +2543,7 @@ translations = {
         "uk": "Професії",
         "pl": 'Zawody',
         "de": 'Berufe',
+        "nl": 'Beroepen',
     },
     "search_filter_location_label": {
         "ru": "Локация",
@@ -2202,6 +2552,7 @@ translations = {
         "uk": "Локація",
         "pl": 'Lokalizacja',
         "de": 'Standort',
+        "nl": 'Locatie',
     },
     "search_filter_radius_label": {
         "ru": "Радиус",
@@ -2210,6 +2561,7 @@ translations = {
         "uk": "Радіус",
         "pl": 'Promień',
         "de": 'Umkreis',
+        "nl": 'Straal',
     },
     "search_filter_work_label": {
         "ru": "Формат",
@@ -2218,6 +2570,7 @@ translations = {
         "uk": "Формат",
         "pl": 'Forma pracy',
         "de": 'Arbeitsformate',
+        "nl": 'Werkformaat',
     },
     "search_filter_language_label": {
         "ru": "Язык",
@@ -2226,6 +2579,7 @@ translations = {
         "uk": "Мова",
         "pl": 'Język',
         "de": 'Sprache',
+        "nl": 'Taal',
     },
     "search_filter_price_label": {
         "ru": "Цена",
@@ -2234,6 +2588,7 @@ translations = {
         "uk": "Ціна",
         "pl": 'Cena',
         "de": 'Preis',
+        "nl": 'Prijs',
     },
     "search_filter_sort_label": {
         "ru": "Сортировка",
@@ -2242,6 +2597,7 @@ translations = {
         "uk": "Сортування",
         "pl": 'Sortuj',
         "de": 'Sortieren',
+        "nl": 'Sorteren',
     },
     "search_filter_category": {
         "ru": "Категория",
@@ -2250,6 +2606,7 @@ translations = {
         "uk": "Категорія",
         "pl": 'Kategoria',
         "de": 'Kategorie',
+        "nl": 'Categorie',
     },
     "search_filter_profession": {
         "ru": "Профессии",
@@ -2258,6 +2615,7 @@ translations = {
         "uk": "Професії",
         "pl": 'Zawody',
         "de": 'Berufe',
+        "nl": 'Beroepen',
     },
     "search_filter_location": {
         "ru": "Город / гео",
@@ -2266,6 +2624,7 @@ translations = {
         "uk": "Місто / гео",
         "pl": 'Miasto / lokalizacja',
         "de": 'Stadt / Region',
+        "nl": 'Stad / regio',
     },
     "search_filter_radius": {
         "ru": "Радиус",
@@ -2274,6 +2633,7 @@ translations = {
         "uk": "Радіус",
         "pl": 'Promień',
         "de": 'Umkreis',
+        "nl": 'Straal',
     },
     "search_filter_work_format": {
         "ru": "Формат работы",
@@ -2282,6 +2642,7 @@ translations = {
         "uk": "Формат роботи",
         "pl": 'Forma pracy',
         "de": 'Arbeitsformate',
+        "nl": 'Werkformaat',
     },
     "search_filter_language": {
         "ru": "Язык",
@@ -2290,6 +2651,7 @@ translations = {
         "uk": "Мова",
         "pl": 'Język',
         "de": 'Sprache',
+        "nl": 'Taal',
     },
     "search_filter_price": {
         "ru": "Цена",
@@ -2298,6 +2660,7 @@ translations = {
         "uk": "Ціна",
         "pl": 'Cena',
         "de": 'Preis',
+        "nl": 'Prijs',
     },
     "search_filter_sort": {
         "ru": "Сортировка",
@@ -2306,6 +2669,7 @@ translations = {
         "uk": "Сортування",
         "pl": 'Sortuj',
         "de": 'Sortieren',
+        "nl": 'Sorteren',
     },
     "search_reset_filters": {
         "ru": "Сбросить фильтры",
@@ -2314,6 +2678,7 @@ translations = {
         "uk": "Скинути фільтри",
         "pl": 'Resetuj filtry',
         "de": 'Filter zurücksetzen',
+        "nl": 'Filters resetten',
     },
     "search_back_to_filters": {
         "ru": "⚙️ Фильтры поиска",
@@ -2322,6 +2687,7 @@ translations = {
         "uk": "⚙️ Фільтри пошуку",
         "pl": '⚙️ Filtry wyszukiwania',
         "de": '⚙️ Suchfilter',
+        "nl": '⚙️ Zoekfilters',
     },
     "search_back_to_filters_btn": {
         "ru": "⬅️ Назад к фильтрам",
@@ -2330,6 +2696,7 @@ translations = {
         "uk": "⬅️ Назад до фільтрів",
         "pl": '⬅️ Powrót do filtrów',
         "de": '⬅️ Zurück zu den Filtern',
+        "nl": '⬅️ Terug naar filters',
     },
     "search_back_to_categories_btn": {
         "ru": "⬅️ Назад к категориям",
@@ -2338,6 +2705,7 @@ translations = {
         "uk": "⬅️ Назад до категорій",
         "pl": '⬅️ Powrót do kategorii',
         "de": '⬅️ Zurück zu den Kategorien',
+        "nl": '⬅️ Terug naar categorieën',
     },
     "search_location_prompt": {
         "ru": "Выберите способ указать локацию.",
@@ -2346,6 +2714,7 @@ translations = {
         "uk": "Виберіть спосіб вказати локацію.",
         "pl": 'Wybierz sposób ustawiania lokalizacji.',
         "de": 'Wählen Sie aus, wie der Standort festgelegt werden soll.',
+        "nl": 'Kies hoe je de locatie wilt instellen.',
     },
     "search_location_city": {
         "ru": "🏙 Ввести город",
@@ -2354,6 +2723,7 @@ translations = {
         "uk": "🏙 Ввести місто",
         "pl": '🏙 Wpisz miasto',
         "de": '🏙 Stadt eingeben',
+        "nl": '🏙 Voer de stad in',
     },
     "search_location_geo": {
         "ru": "📍 Отправить геолокацию",
@@ -2362,6 +2732,7 @@ translations = {
         "uk": "📍 Надіслати геолокацію",
         "pl": '📍 Wyślij lokalizację',
         "de": '📍 Standort senden',
+        "nl": '📍 Locatie verzenden',
     },
     "search_location_city_prompt": {
         "ru": "Введите город, село или район. Мы найдем варианты через OpenStreetMap.",
@@ -2376,6 +2747,10 @@ translations = {
             'Gib eine Stadt, ein Dorf oder einen Bezirk ein. Wir suchen dann '
             'über OpenStreetMap nach entsprechenden Optionen.'
         ),
+        "nl": (
+            'Voer een stad, dorp of wijk in. We zoeken opties via '
+            'OpenStreetMap.'
+        ),
     },
     "search_location_query_too_short": {
         "ru": "Введите минимум 2 символа.",
@@ -2384,6 +2759,7 @@ translations = {
         "uk": "Введіть мінімум 2 символи.",
         "pl": 'Wpisz co najmniej 2 znaki.',
         "de": 'Geben Sie mindestens 2 Zeichen ein.',
+        "nl": 'Voer minimaal 2 tekens in.',
     },
     "search_geo_candidates_prompt": {
         "ru": "Выберите населенный пункт:",
@@ -2392,6 +2768,7 @@ translations = {
         "uk": "Виберіть населений пункт:",
         "pl": 'Wybierz miejsce:',
         "de": 'Wählen Sie einen Ort aus:',
+        "nl": 'Kies een plaats:',
     },
     "search_geo_candidates_not_found": {
         "ru": "Не удалось найти варианты. Попробуйте другой запрос.",
@@ -2403,6 +2780,7 @@ translations = {
             'Keine Ergebnisse gefunden. Versuchen Sie es mit einer anderen '
             'Suchanfrage.'
         ),
+        "nl": 'Geen resultaten gevonden. Probeer een andere zoekopdracht.',
     },
     "search_geo_candidate_not_found": {
         "ru": "Вариант не найден. Попробуйте еще раз.",
@@ -2411,6 +2789,7 @@ translations = {
         "uk": "Варіант не знайдено. Спробуйте ще раз.",
         "pl": 'Nie znaleziono opcji. Spróbuj ponownie.',
         "de": 'Option nicht gefunden. Versuchen Sie es erneut.',
+        "nl": 'Optie niet gevonden. Probeer het opnieuw.',
     },
     "search_geo_provider_error": {
         "ru": "Не удалось получить геоданные. Попробуйте позже.",
@@ -2425,6 +2804,10 @@ translations = {
             'Standortdaten konnten nicht abgerufen werden. Bitte versuche es '
             'später erneut.'
         ),
+        "nl": (
+            'Locatiegegevens konden niet worden opgehaald. Probeer het later '
+            'nog eens.'
+        ),
     },
     "search_radius_prompt": {
         "ru": "Выберите радиус поиска.",
@@ -2433,6 +2816,7 @@ translations = {
         "uk": "Виберіть радіус пошуку.",
         "pl": 'Wybierz promień wyszukiwania.',
         "de": 'Wählen Sie einen Suchradius aus.',
+        "nl": 'Kies een zoekradius.',
     },
     "search_radius_country": {
         "ru": "Вся страна",
@@ -2441,6 +2825,7 @@ translations = {
         "uk": "Уся країна",
         "pl": 'Cały kraj',
         "de": 'Gesamtes Land',
+        "nl": 'Het hele land',
     },
     "search_work_prompt": {
         "ru": "Выберите формат работы.",
@@ -2449,6 +2834,7 @@ translations = {
         "uk": "Виберіть формат роботи.",
         "pl": 'Wybierz formę zatrudnienia.',
         "de": 'Wählen Sie die Arbeitsform.',
+        "nl": 'Kies de werkvorm.',
     },
     "search_work_at_client": {
         "ru": "У клиента",
@@ -2457,6 +2843,7 @@ translations = {
         "uk": "У клієнта",
         "pl": 'U klienta',
         "de": 'Beim Kunden',
+        "nl": 'Bij de klant',
     },
     "search_work_at_specialist": {
         "ru": "У специалиста",
@@ -2465,6 +2852,7 @@ translations = {
         "uk": "У спеціаліста",
         "pl": 'U specjalisty',
         "de": 'Beim Facharzt',
+        "nl": 'Bij specialist',
     },
     "search_work_remote": {
         "ru": "Удаленно",
@@ -2473,6 +2861,7 @@ translations = {
         "uk": "Віддалено",
         "pl": 'Zdalnie',
         "de": 'Fernzugriff',
+        "nl": 'Op afstand',
     },
     "search_work_mixed": {
         "ru": "Смешанный формат",
@@ -2481,6 +2870,7 @@ translations = {
         "uk": "Змішаний формат",
         "pl": 'Mieszane',
         "de": 'Gemischt',
+        "nl": 'Gemengd',
     },
     "search_language_prompt": {
         "ru": "Выберите язык специалиста.",
@@ -2489,6 +2879,7 @@ translations = {
         "uk": "Виберіть мову спеціаліста.",
         "pl": 'Wybierz język specjalistyczny.',
         "de": 'Wählen Sie eine Fachsprache aus.',
+        "nl": 'Kies een specifieke taal.',
     },
     "search_language_ru": {
         "ru": "Русский",
@@ -2497,6 +2888,7 @@ translations = {
         "uk": "Російська",
         "pl": 'Rosyjski',
         "de": 'Russisch',
+        "nl": 'Russisch',
     },
     "search_language_pt": {
         "ru": "Португальский",
@@ -2505,6 +2897,7 @@ translations = {
         "uk": "Португальська",
         "pl": 'portugalski',
         "de": 'Portugiesisch',
+        "nl": 'Portugees',
     },
     "search_language_en": {
         "ru": "Английский",
@@ -2513,6 +2906,7 @@ translations = {
         "uk": "Англійська",
         "pl": 'angielski',
         "de": 'Englisch',
+        "nl": 'Engels',
     },
     "search_language_uk": {
         "ru": "Украинский",
@@ -2521,6 +2915,7 @@ translations = {
         "uk": "Українська",
         "pl": "ukraiński",
         "de": 'Ukrainisch',
+        "nl": 'Oekraïens',
     },
     "search_language_pl": {
         "ru": "Польский",
@@ -2529,6 +2924,7 @@ translations = {
         "uk": "Польська",
         "pl": "Polski",
         "de": 'Polnisch',
+        "nl": 'Pools',
     },
     "search_language_de": {
         "ru": "Немецкий",
@@ -2537,6 +2933,16 @@ translations = {
         "uk": "Німецька",
         "pl": "Niemiecki",
         "de": "Deutsch",
+        "nl": 'Duits',
+    },
+    "search_language_nl": {
+        "ru": "Нидерландский",
+        "en": "Dutch",
+        "pt": "Neerlandês",
+        "uk": "Нідерландська",
+        "pl": "Niderlandzki",
+        "de": "Niederländisch",
+        "nl": "Nederlands",
     },
     "search_price_prompt": {
         "ru": "Выберите ценовой фильтр.",
@@ -2545,6 +2951,7 @@ translations = {
         "uk": "Виберіть ціновий фільтр.",
         "pl": 'Wybierz filtr cenowy.',
         "de": 'Preisfilter auswählen.',
+        "nl": 'Kies een prijsfilter.',
     },
     "search_filter_price_up_to": {
         "ru": "до {amount}",
@@ -2553,6 +2960,7 @@ translations = {
         "uk": "до {amount}",
         "pl": 'do {amount}',
         "de": 'bis zu {amount}',
+        "nl": 'tot {amount}',
     },
     "search_filter_price_from": {
         "ru": "от {amount}",
@@ -2561,6 +2969,7 @@ translations = {
         "uk": "від {amount}",
         "pl": 'od {amount}',
         "de": 'ab {amount}',
+        "nl": 'vanaf {amount}',
     },
     "search_filter_price_up_to_25": {
         "ru": "до 25 EUR",
@@ -2569,6 +2978,7 @@ translations = {
         "uk": "до 25 EUR",
         "pl": 'do 25 EUR',
         "de": 'bis zu 25 EUR',
+        "nl": 'tot 25 EUR',
     },
     "search_filter_price_up_to_100": {
         "ru": "до 100 EUR",
@@ -2577,6 +2987,7 @@ translations = {
         "uk": "до 100 EUR",
         "pl": 'do 100 EUR',
         "de": 'bis zu 100 EUR',
+        "nl": 'tot 100 EUR',
     },
     "search_filter_price_manual_later": {
         "ru": "указать вручную позже",
@@ -2585,6 +2996,7 @@ translations = {
         "uk": "вказати вручну пізніше",
         "pl": 'instrukcja później',
         "de": 'Handbuch folgt später',
+        "nl": 'handleiding volgt later',
     },
     "search_sort_prompt": {
         "ru": "Выберите сортировку.",
@@ -2593,6 +3005,7 @@ translations = {
         "uk": "Виберіть сортування.",
         "pl": 'Wybierz sposób sortowania.',
         "de": 'Sortierreihenfolge auswählen.',
+        "nl": 'Kies sorteervolgorde.',
     },
     "search_sort_distance": {
         "ru": "по расстоянию",
@@ -2601,6 +3014,7 @@ translations = {
         "uk": "за відстанню",
         "pl": 'według odległości',
         "de": 'nach Entfernung',
+        "nl": 'op afstand',
     },
     "search_sort_relevance": {
         "ru": "по релевантности",
@@ -2609,6 +3023,7 @@ translations = {
         "uk": "за релевантністю",
         "pl": 'według trafności',
         "de": 'nach Relevanz',
+        "nl": 'op relevantie',
     },
     "search_empty_summary": {
         "ru": "По вашему запросу специалистов не найдено. Попробуйте изменить фильтры.",
@@ -2620,6 +3035,10 @@ translations = {
             'Es wurden keine Spezialisten gefunden. Versuchen Sie, die Filter '
             'anzupassen.'
         ),
+        "nl": (
+            'Er zijn geen specialisten gevonden. Probeer de filters aan te '
+            'passen.'
+        ),
     },
     "search_empty_increase_radius": {
         "ru": "Увеличить радиус до 25 км",
@@ -2628,6 +3047,7 @@ translations = {
         "uk": "Збільшити радіус до 25 км",
         "pl": 'Zwiększ promień do 25 km',
         "de": 'Erhöhen Sie den Radius auf 25 km',
+        "nl": 'Vergroot de straal tot 25 km',
     },
     "search_empty_reset_profession": {
         "ru": "Сбросить направление",
@@ -2636,6 +3056,7 @@ translations = {
         "uk": "Скинути напрямок",
         "pl": 'Zresetuj kierunek',
         "de": 'Richtung zurücksetzen',
+        "nl": 'Richting resetten',
     },
     "search_empty_reset_all": {
         "ru": "Сбросить все фильтры",
@@ -2644,6 +3065,7 @@ translations = {
         "uk": "Скинути всі фільтри",
         "pl": 'Zresetuj wszystkie filtry',
         "de": 'Alle Filter zurücksetzen',
+        "nl": 'Alle filters resetten',
     },
     "contact_message_too_short": {
         "ru": "Сообщение должно быть минимум 10 символов.",
@@ -2652,6 +3074,7 @@ translations = {
         "uk": "Повідомлення має бути мінімум 10 символів.",
         "pl": 'Komunikat musi mieć co najmniej 10 znaków.',
         "de": 'Die Nachricht muss mindestens 10 Zeichen lang sein.',
+        "nl": 'Het bericht moet minimaal 10 tekens bevatten.',
     },
     "search_geo_nearby_prompt": {
         "ru": "Мы нашли рядом несколько вариантов. Выберите, что использовать для поиска.",
@@ -2666,6 +3089,10 @@ translations = {
             'Wir haben mehrere Optionen in der Nähe gefunden. Wählen Sie aus, '
             'was Sie für die Suche verwenden möchten.'
         ),
+        "nl": (
+            'We hebben verschillende opties in de buurt gevonden. Kies wat u '
+            'wilt gebruiken voor de zoekopdracht.'
+        ),
     },
     "search_details_btn": {
         "ru": "Подробнее",
@@ -2674,6 +3101,7 @@ translations = {
         "uk": "Детальніше",
         "pl": 'Szczegóły',
         "de": 'Details',
+        "nl": 'Details',
     },
     "search_price_from": {
         "ru": "от",
@@ -2682,6 +3110,7 @@ translations = {
         "uk": "від",
         "pl": 'z',
         "de": 'aus',
+        "nl": 'van',
     },
     "search_status_label": {
         "ru": "Статус",
@@ -2690,6 +3119,7 @@ translations = {
         "uk": "Статус",
         "pl": 'Status',
         "de": 'Status',
+        "nl": 'Status',
     },
     "search_services_label": {
         "ru": "Услуги",
@@ -2698,6 +3128,7 @@ translations = {
         "uk": "Послуги",
         "pl": 'Usługi',
         "de": 'Dienstleistungen',
+        "nl": 'Diensten',
     },
     "settings_message_language_ru": {
         "ru": "Русский",
@@ -2706,6 +3137,7 @@ translations = {
         "uk": "Російська",
         "pl": 'Rosyjski',
         "de": 'Russisch',
+        "nl": 'Russisch',
     },
     "settings_message_language_en": {
         "ru": "Английский",
@@ -2714,6 +3146,7 @@ translations = {
         "uk": "Англійська",
         "pl": 'Angielski',
         "de": 'Englisch',
+        "nl": 'Engels',
     },
     "settings_message_language_pt": {
         "ru": "Португальский",
@@ -2722,6 +3155,7 @@ translations = {
         "uk": "Португальська",
         "pl": 'portugalski',
         "de": 'Portugiesisch',
+        "nl": 'Portugees',
     },
     "settings_auto_translate_on": {
         "ru": "Автоперевод: включен",
@@ -2730,6 +3164,7 @@ translations = {
         "uk": "Автопереклад: увімкнено",
         "pl": 'Automatyczne tłumaczenie: włączone',
         "de": 'Automatische Übersetzung: aktiviert',
+        "nl": 'Automatische vertaling: aan',
     },
     "settings_auto_translate_off": {
         "ru": "Автоперевод: выключен",
@@ -2738,6 +3173,7 @@ translations = {
         "uk": "Автопереклад: вимкнено",
         "pl": 'Tłumaczenie automatyczne: wyłączone',
         "de": 'Automatische Übersetzung: aus',
+        "nl": 'Automatische vertaling: uit',
     },
     "settings_show_original_on": {
         "ru": "Оригинал: показывать кнопку",
@@ -2746,6 +3182,7 @@ translations = {
         "uk": "Оригінал: показувати кнопку",
         "pl": 'Oryginał: przycisk „Pokaż”',
         "de": 'Original: Schaltfläche „Anzeigen“',
+        "nl": 'Origineel: knop weergeven',
     },
     "settings_show_original_off": {
         "ru": "Оригинал: не показывать",
@@ -2754,6 +3191,7 @@ translations = {
         "uk": "Оригінал: не показувати",
         "pl": 'Oryginał: nie pokazuj',
         "de": 'Original: Nicht anzeigen',
+        "nl": 'Origineel: niet weergeven',
     },
     "settings_enabled": {
         "ru": "включено",
@@ -2762,6 +3200,7 @@ translations = {
         "uk": "увімкнено",
         "pl": 'włączone',
         "de": 'aktiviert',
+        "nl": 'ingeschakeld',
     },
     "settings_disabled": {
         "ru": "выключено",
@@ -2770,6 +3209,7 @@ translations = {
         "uk": "вимкнено",
         "pl": 'wyłączone',
         "de": 'deaktiviert',
+        "nl": 'uitgeschakeld',
     },
     "search_empty_increase_radius_to": {
         "ru": "Увеличить радиус до {radius} км",
@@ -2778,6 +3218,7 @@ translations = {
         "uk": "Збільшити радіус до {radius} км",
         "pl": 'Zwiększ promień do {radius} km',
         "de": 'Radius auf {radius} km vergrößern',
+        "nl": 'Vergroot de straal tot {radius} km',
     },
     "search_empty_increase_radius_country": {
         "ru": "Искать по всей стране",
@@ -2786,6 +3227,7 @@ translations = {
         "uk": "Шукати по всій країні",
         "pl": 'Przeszukaj cały kraj',
         "de": 'Das ganze Land durchsuchen',
+        "nl": 'Zoek in het hele land',
     },
 
     "admin_panel_title": {
@@ -2795,6 +3237,7 @@ translations = {
         "uk": "Панель адміністратора",
         "pl": 'Panel administracyjny',
         "de": 'Admin-Bereich',
+        "nl": 'Beheerderspaneel',
     },
     "admin_pending_profiles": {
         "ru": "Профили на модерации",
@@ -2803,6 +3246,7 @@ translations = {
         "uk": "Профілі на модерації",
         "pl": 'Profile oczekujące na zatwierdzenie',
         "de": 'Ausstehende Profile',
+        "nl": 'Profielen in behandeling',
     },
     "admin_open_complaints": {
         "ru": "Жалобы",
@@ -2811,6 +3255,7 @@ translations = {
         "uk": "Скарги",
         "pl": 'Skargi',
         "de": 'Beschwerden',
+        "nl": 'Klachten',
     },
     "admin_access_denied": {
         "ru": "Доступ запрещён.",
@@ -2819,6 +3264,7 @@ translations = {
         "uk": "Доступ заборонено.",
         "pl": 'Odmowa dostępu.',
         "de": 'Zugriff verweigert.',
+        "nl": 'Toegang geweigerd.',
     },
     "admin_no_pending_profiles": {
         "ru": "Профессиональных кабинетов на модерации нет.",
@@ -2827,6 +3273,7 @@ translations = {
         "uk": "Професійних кабінетів на модерації немає.",
         "pl": 'Brak profili zawodowych oczekujących na moderację.',
         "de": 'Es sind keine Berufsprofile zur Moderation anstehend.',
+        "nl": 'Er zijn geen professionele profielen in afwachting van moderatie.',
     },
     "admin_no_open_complaints": {
         "ru": "Нерассмотренных жалоб нет.",
@@ -2835,6 +3282,7 @@ translations = {
         "uk": "Нерозглянутих скарг немає.",
         "pl": 'Nie ma żadnych nierozpatrzonych skarg.',
         "de": 'Es liegen keine ungelösten Beschwerden vor.',
+        "nl": 'Er zijn geen onopgeloste klachten.',
     },
     "admin_pending_profile_title": {
         "ru": "Профиль на модерации {index}/{total}",
@@ -2843,6 +3291,7 @@ translations = {
         "uk": "Профіль на модерації {index}/{total}",
         "pl": 'Profil oczekujący na zatwierdzenie: {index}/{total}',
         "de": 'Ausstehendes Profil {index}/{total}',
+        "nl": 'Profiel in afwachting van goedkeuring {index}/{total}',
     },
     "admin_complaint_title": {
         "ru": "Жалоба {index}/{total}",
@@ -2851,6 +3300,7 @@ translations = {
         "uk": "Скарга {index}/{total}",
         "pl": 'Skarga {index}/{total}',
         "de": 'Beschwerde {index}/{total}',
+        "nl": 'Klacht {index}/{total}',
     },
     "admin_status": {
         "ru": "Статус",
@@ -2859,6 +3309,7 @@ translations = {
         "uk": "Статус",
         "pl": 'Status',
         "de": 'Status',
+        "nl": 'Status',
     },
     "admin_approve": {
         "ru": "Одобрить",
@@ -2867,6 +3318,7 @@ translations = {
         "uk": "Схвалити",
         "pl": 'Zatwierdź',
         "de": 'Genehmigen',
+        "nl": 'Goedkeuren',
     },
     "admin_reject": {
         "ru": "Отклонить",
@@ -2875,6 +3327,7 @@ translations = {
         "uk": "Відхилити",
         "pl": 'Odrzuć',
         "de": 'Ablehnen',
+        "nl": 'Afwijzen',
     },
     "admin_hide_specialist_btn": {
         "ru": "Скрыть кабинет",
@@ -2883,6 +3336,7 @@ translations = {
         "uk": "Приховати кабінет",
         "pl": 'Ukryj profil',
         "de": 'Profil ausblenden',
+        "nl": 'Profiel verbergen',
     },
     "admin_restore_specialist_btn": {
         "ru": "Восстановить кабинет",
@@ -2891,6 +3345,7 @@ translations = {
         "uk": "Відновити кабінет",
         "pl": 'Przywróć profil',
         "de": 'Profil wiederherstellen',
+        "nl": 'Profiel herstellen',
     },
     "admin_prev": {
         "ru": "Назад",
@@ -2899,6 +3354,7 @@ translations = {
         "uk": "Назад",
         "pl": 'Poprzedni',
         "de": 'Zurück',
+        "nl": 'Vorige',
     },
     "admin_next": {
         "ru": "Дальше",
@@ -2907,6 +3363,7 @@ translations = {
         "uk": "Далі",
         "pl": 'Dalej',
         "de": 'Weiter',
+        "nl": 'Volgende',
     },
     "admin_panel_back": {
         "ru": "К админ-панели",
@@ -2915,6 +3372,7 @@ translations = {
         "uk": "До адмін-панелі",
         "pl": 'Panel administracyjny',
         "de": 'Admin-Bereich',
+        "nl": 'Beheerderspaneel',
     },
     "admin_reason_prompt": {
         "ru": "Укажите причину действия. Минимум 3 символа.",
@@ -2923,6 +3381,7 @@ translations = {
         "uk": "Вкажіть причину дії. Мінімум 3 символи.",
         "pl": 'Wprowadź powód. Co najmniej 3 znaki.',
         "de": 'Geben Sie den Grund ein. Mindestens 3 Zeichen.',
+        "nl": 'Voer de reden in. Minimaal 3 tekens.',
     },
     "admin_reason_too_short": {
         "ru": "Причина слишком короткая.",
@@ -2931,6 +3390,7 @@ translations = {
         "uk": "Причина занадто коротка.",
         "pl": 'Powód jest zbyt krótki.',
         "de": 'Der Grund ist zu kurz.',
+        "nl": 'De reden is te kort.',
     },
     "admin_specialist_approved": {
         "ru": "Профиль одобрен. Статус: {status}",
@@ -2939,6 +3399,7 @@ translations = {
         "uk": "Профіль схвалено. Статус: {status}",
         "pl": 'Profil zatwierdzony. Status: {status}',
         "de": 'Profil genehmigt. Status: {status}',
+        "nl": 'Profiel goedgekeurd. Status: {status}',
     },
     "admin_specialist_rejected": {
         "ru": "Профиль отклонён. Статус: {status}",
@@ -2947,6 +3408,7 @@ translations = {
         "uk": "Профіль відхилено. Статус: {status}",
         "pl": 'Profil odrzucony. Status: {status}',
         "de": 'Profil abgelehnt. Status: {status}',
+        "nl": 'Profiel afgewezen. Status: {status}',
     },
     "admin_item_not_found": {
         "ru": "Элемент не найден. Обновите список.",
@@ -2955,6 +3417,7 @@ translations = {
         "uk": "Елемент не знайдено. Оновіть список.",
         "pl": 'Nie znaleziono pozycji. Odśwież listę.',
         "de": 'Eintrag nicht gefunden. Liste aktualisieren.',
+        "nl": 'Item niet gevonden. Vernieuw de lijst.',
     },
     "admin_complaint_target": {
         "ru": "Цель",
@@ -2963,6 +3426,7 @@ translations = {
         "uk": "Ціль",
         "pl": 'Zgłoszony obiekt',
         "de": 'Gemeldetes Objekt',
+        "nl": 'Gemeld object',
     },
     "admin_complaint_reason": {
         "ru": "Причина",
@@ -2971,6 +3435,7 @@ translations = {
         "uk": "Причина",
         "pl": 'Powód',
         "de": 'Grund',
+        "nl": 'Reden',
     },
     "admin_complaint_comment": {
         "ru": "Комментарий",
@@ -2979,6 +3444,7 @@ translations = {
         "uk": "Коментар",
         "pl": 'Komentarz',
         "de": 'Kommentar',
+        "nl": 'Opmerking',
     },
     "admin_no_comment": {
         "ru": "без комментария",
@@ -2987,6 +3453,7 @@ translations = {
         "uk": "без коментаря",
         "pl": 'brak komentarza',
         "de": 'kein Kommentar',
+        "nl": 'geen opmerking',
     },
     "admin_resolve_complaint": {
         "ru": "Закрыть жалобу",
@@ -2995,6 +3462,7 @@ translations = {
         "uk": "Закрити скаргу",
         "pl": 'Rozpatrz skargę',
         "de": 'Beschwerde klären',
+        "nl": 'Klacht afhandelen',
     },
     "admin_reject_complaint": {
         "ru": "Отклонить жалобу",
@@ -3003,6 +3471,7 @@ translations = {
         "uk": "Відхилити скаргу",
         "pl": 'Odrzuć skargę',
         "de": 'Beschwerde ablehnen',
+        "nl": 'Klacht afwijzen',
     },
     "admin_block_user": {
         "ru": "Заблокировать пользователя",
@@ -3011,6 +3480,7 @@ translations = {
         "uk": "Заблокувати користувача",
         "pl": 'Zablokuj użytkownika',
         "de": 'Benutzer sperren',
+        "nl": 'Gebruiker blokkeren',
     },
     "admin_complaint_updated": {
         "ru": "Жалоба обновлена. Статус: {status}",
@@ -3019,6 +3489,7 @@ translations = {
         "uk": "Скаргу оновлено. Статус: {status}",
         "pl": 'Skarga zaktualizowana. Status: {status}',
         "de": 'Beschwerde aktualisiert. Status: {status}',
+        "nl": 'Klacht bijgewerkt. Status: {status}',
     },
     "admin_block_target_not_found": {
         "ru": "Не удалось определить пользователя для блокировки.",
@@ -3027,6 +3498,7 @@ translations = {
         "uk": "Не вдалося визначити користувача для блокування.",
         "pl": 'Nie udało się zidentyfikować użytkownika w celu zablokowania.',
         "de": 'Der zu sperrende Nutzer konnte nicht ermittelt werden.',
+        "nl": 'De gebruiker kon niet worden gevonden om te blokkeren.',
     },
     "admin_user_blocked": {
         "ru": "Пользователь заблокирован. Статус: {status}",
@@ -3035,6 +3507,7 @@ translations = {
         "uk": "Користувача заблоковано. Статус: {status}",
         "pl": 'Użytkownik zablokowany. Status: {status}',
         "de": 'Benutzer gesperrt. Status: {status}',
+        "nl": 'Gebruiker geblokkeerd. Status: {status}',
     },
 
     "complaint_reason_prompt": {
@@ -3044,6 +3517,7 @@ translations = {
         "uk": "Виберіть причину скарги:",
         "pl": 'Wybierz powód zgłoszenia:',
         "de": 'Wählen Sie einen Grund für die Meldung aus:',
+        "nl": 'Kies een reden voor de melding:',
     },
     "complaint_reason_fake": {
         "ru": "Фейковый профиль",
@@ -3052,6 +3526,7 @@ translations = {
         "uk": "Фейковий профіль",
         "pl": 'Fałszywy profil',
         "de": 'Gefälschtes Profil',
+        "nl": 'Nepprofiel',
     },
     "complaint_reason_contact": {
         "ru": "Просит контакт вне SGHR",
@@ -3060,6 +3535,7 @@ translations = {
         "uk": "Просить контакт поза SGHR",
         "pl": 'Prośba o kontakt poza serwisem SGHR',
         "de": 'Bittet um Kontakt außerhalb von SGHR',
+        "nl": 'Vraagt om contact buiten SGHR',
     },
     "complaint_reason_abuse": {
         "ru": "Оскорбления или нарушение правил",
@@ -3068,6 +3544,7 @@ translations = {
         "uk": "Образи або порушення правил",
         "pl": 'Nadużycie lub naruszenie zasad',
         "de": 'Missbrauch oder Regelverstoß',
+        "nl": 'Misbruik of overtreding van de regels',
     },
     "complaint_reason_other": {
         "ru": "Другая причина",
@@ -3076,6 +3553,7 @@ translations = {
         "uk": "Інша причина",
         "pl": 'Inny powód',
         "de": 'Sonstiger Grund',
+        "nl": 'Andere reden',
     },
     "complaint_comment_prompt": {
         "ru": "Опишите жалобу. Минимум 3 символа.",
@@ -3084,6 +3562,7 @@ translations = {
         "uk": "Опишіть скаргу. Мінімум 3 символи.",
         "pl": 'Opisz treść skargi. Co najmniej 3 znaki.',
         "de": 'Beschreiben Sie die Beschwerde. Mindestens 3 Zeichen.',
+        "nl": 'Beschrijf de klacht. Minimaal 3 tekens.',
     },
     "complaint_comment_too_short": {
         "ru": "Описание слишком короткое.",
@@ -3092,6 +3571,7 @@ translations = {
         "uk": "Опис занадто короткий.",
         "pl": 'Opis jest zbyt krótki.',
         "de": 'Die Beschreibung ist zu kurz.',
+        "nl": 'De beschrijving is te kort.',
     },
     "complaint_created": {
         "ru": "Жалоба принята. Модератор проверит профиль.",
@@ -3100,6 +3580,7 @@ translations = {
         "uk": "Скаргу прийнято. Модератор перевірить профіль.",
         "pl": 'Zgłoszenie zostało przyjęte. Moderator sprawdzi profil.',
         "de": 'Meldung erhalten. Ein Moderator wird das Profil überprüfen.',
+        "nl": 'Melding ontvangen. Een moderator zal het profiel beoordelen.',
     },
 
     "billing_panel_title": {
@@ -3109,6 +3590,7 @@ translations = {
         "uk": "Монетизація профілю",
         "pl": 'Monetyzacja profilu',
         "de": 'Monetarisierung des Profils',
+        "nl": 'Inkomsten genereren met profiel',
     },
     "billing_promotions": {
         "ru": "Продвижение профиля",
@@ -3117,6 +3599,7 @@ translations = {
         "uk": "Просування профілю",
         "pl": 'Promocja profilu',
         "de": 'Profilwerbung',
+        "nl": 'Profielpromotie',
     },
     "billing_features_title": {
         "ru": "Выберите платное продвижение:",
@@ -3125,6 +3608,7 @@ translations = {
         "uk": "Виберіть платне просування:",
         "pl": 'Wybierz płatną promocję:',
         "de": 'Wählen Sie eine kostenpflichtige Werbemaßnahme aus:',
+        "nl": 'Kies een betaalde promotie:',
     },
     "billing_no_features": {
         "ru": "Платные функции пока не настроены.",
@@ -3133,6 +3617,7 @@ translations = {
         "uk": "Платні функції поки не налаштовані.",
         "pl": 'Funkcje płatne nie zostały jeszcze skonfigurowane.',
         "de": 'Kostenpflichtige Funktionen sind noch nicht konfiguriert.',
+        "nl": 'Betaalde functies zijn nog niet geconfigureerd.',
     },
     "billing_price": {
         "ru": "Цена",
@@ -3141,6 +3626,7 @@ translations = {
         "uk": "Ціна",
         "pl": 'Cena',
         "de": 'Preis',
+        "nl": 'Prijs',
     },
     "billing_period": {
         "ru": "Период",
@@ -3149,6 +3635,7 @@ translations = {
         "uk": "Період",
         "pl": 'Okres',
         "de": 'Laufzeit',
+        "nl": 'Periode',
     },
     "billing_period_days": {
         "ru": "{days} дн.",
@@ -3157,6 +3644,7 @@ translations = {
         "uk": "{days} дн.",
         "pl": '{days} dni',
         "de": '{days} Tage',
+        "nl": '{days} dagen',
     },
     "billing_period_not_set": {
         "ru": "Период не выбран",
@@ -3165,6 +3653,7 @@ translations = {
         "uk": "Період не вибрано",
         "pl": 'Okres nie został wybrany',
         "de": 'Zeitraum nicht ausgewählt',
+        "nl": 'Periode niet geselecteerd',
     },
     "billing_back": {
         "ru": "Назад",
@@ -3173,6 +3662,7 @@ translations = {
         "uk": "Назад",
         "pl": 'Wstecz',
         "de": 'Zurück',
+        "nl": 'Terug',
     },
     "billing_i_paid": {
         "ru": "Я оплатил",
@@ -3181,6 +3671,7 @@ translations = {
         "uk": "Я оплатив",
         "pl": 'Zgłoś płatność',
         "de": 'Ich habe bezahlt',
+        "nl": 'Ik heb betaald',
     },
     "billing_start_required": {
         "ru": "Сначала нажмите /start.",
@@ -3189,6 +3680,7 @@ translations = {
         "uk": "Спочатку натисніть /start.",
         "pl": 'Najpierw naciśnij /start.',
         "de": 'Bitte drücken Sie zuerst /start.',
+        "nl": 'Druk eerst op /start.',
     },
     "billing_invoice_created": {
         "ru": "Инвойс создан. Оплатите вручную по реквизитам ниже.",
@@ -3203,6 +3695,10 @@ translations = {
             'Rechnung erstellt. Bitte zahlen Sie manuell gemäß den '
             'nachstehenden Anweisungen.'
         ),
+        "nl": (
+            'Factuur aangemaakt. Gelieve handmatig te betalen volgens de '
+            'onderstaande instructies.'
+        ),
     },
     "billing_invoice_id": {
         "ru": "Инвойс",
@@ -3211,6 +3707,7 @@ translations = {
         "uk": "Інвойс",
         "pl": 'Faktura',
         "de": 'Rechnung',
+        "nl": 'Factuur',
     },
     "billing_amount": {
         "ru": "Сумма",
@@ -3219,6 +3716,7 @@ translations = {
         "uk": "Сума",
         "pl": 'Kwota',
         "de": 'Betrag',
+        "nl": 'Bedrag',
     },
     "billing_manual_instructions_title": {
         "ru": "Реквизиты оплаты:",
@@ -3227,6 +3725,7 @@ translations = {
         "uk": "Реквізити оплати:",
         "pl": 'Instrukcje dotyczące płatności:',
         "de": 'Zahlungshinweise:',
+        "nl": 'Betalingsinstructies:',
     },
     "billing_payment_claimed": {
         "ru": "Заявка об оплате отправлена. Статус: {status}",
@@ -3235,6 +3734,7 @@ translations = {
         "uk": "Заявку про оплату надіслано. Статус: {status}",
         "pl": 'Wysłano powiadomienie o płatności. Status: {status}',
         "de": 'Zahlungsbenachrichtigung gesendet. Status: {status}',
+        "nl": 'Betalingsmelding verzonden. Status: {status}',
     },
     "billing_payment_method": {
         "ru": "Метод оплаты",
@@ -3243,6 +3743,7 @@ translations = {
         "uk": "Метод оплати",
         "pl": 'Sposób płatności',
         "de": 'Zahlungsart',
+        "nl": 'Betaalmethode',
     },
     "admin_pending_payments": {
         "ru": "Оплаты на проверке",
@@ -3251,6 +3752,7 @@ translations = {
         "uk": "Оплати на перевірці",
         "pl": 'Płatności oczekujące',
         "de": 'Ausstehende Zahlungen',
+        "nl": 'Lopende betalingen',
     },
     "admin_no_pending_payments": {
         "ru": "Нет оплат на проверке.",
@@ -3259,6 +3761,7 @@ translations = {
         "uk": "Немає оплат на перевірці.",
         "pl": 'Brak płatności oczekujących.',
         "de": 'Keine ausstehenden Zahlungen.',
+        "nl": 'Geen openstaande betalingen.',
     },
     "admin_pending_payment_title": {
         "ru": "Оплата на проверке {index}/{total}",
@@ -3267,6 +3770,7 @@ translations = {
         "uk": "Оплата на перевірці {index}/{total}",
         "pl": 'Płatność oczekująca {index}/{total}',
         "de": 'Ausstehende Zahlung {index}/{total}',
+        "nl": 'Openstaande betaling {index}/{total}',
     },
     "admin_mark_payment_paid": {
         "ru": "Отметить оплату",
@@ -3275,6 +3779,7 @@ translations = {
         "uk": "Позначити оплату",
         "pl": 'Oznacz jako opłacone',
         "de": 'Als bezahlt markieren',
+        "nl": 'Als betaald markeren',
     },
     "admin_invoice_status": {
         "ru": "Статус инвойса",
@@ -3283,6 +3788,7 @@ translations = {
         "uk": "Статус інвойсу",
         "pl": 'Status faktury',
         "de": 'Rechnungsstatus',
+        "nl": 'Factuurstatus',
     },
     "admin_payment_marked_paid": {
         "ru": "Оплата подтверждена.\nИнвойс: {invoice_status}\nПлатёж: {payment_status}\nПродвижение: {promotion_status}",
@@ -3301,6 +3807,12 @@ translations = {
             'Zahlung: {payment_status}\n'
             'Aktionscode: {promotion_status}'
         ),
+        "nl": (
+            'Betaling bevestigd.\n'
+            'Factuur: {invoice_status}\n'
+            'Betaling: {payment_status}\n'
+            'Promotie: {promotion_status}'
+        ),
     },
     "admin_payment_approval_required": {
         "ru": "Сумма выше порога. Создан запрос на второе подтверждение.",
@@ -3312,6 +3824,10 @@ translations = {
             'Der Betrag liegt über dem Schwellenwert. Zweite '
             'Genehmigungsanfrage erstellt.'
         ),
+        "nl": (
+            'Het bedrag ligt boven de drempel. Er is een tweede '
+            'goedkeuringsverzoek aangemaakt.'
+        ),
     },
 
     "cabinet_specialist_profile": {
@@ -3321,6 +3837,7 @@ translations = {
         "uk": "Профіль спеціаліста",
         "pl": 'Profil specjalisty',
         "de": 'Fachprofil',
+        "nl": 'Profiel van de specialist',
     },
     "cabinet_view_profile": {
         "ru": "Просмотреть профиль",
@@ -3329,6 +3846,7 @@ translations = {
         "uk": "Переглянути профіль",
         "pl": 'Wyświetl profil',
         "de": 'Profil anzeigen',
+        "nl": 'Profiel bekijken',
     },
     "cabinet_edit_profile": {
         "ru": "Редактировать профиль",
@@ -3337,6 +3855,7 @@ translations = {
         "uk": "Редагувати профіль",
         "pl": 'Edytuj profil',
         "de": 'Profil bearbeiten',
+        "nl": 'Profiel bewerken',
     },
     "cabinet_edit_name": {
         "ru": "Имя",
@@ -3345,6 +3864,7 @@ translations = {
         "uk": "Ім'я",
         "pl": 'Imię',
         "de": 'Name',
+        "nl": 'Naam',
     },
     "cabinet_edit_description": {
         "ru": "Описание",
@@ -3353,6 +3873,7 @@ translations = {
         "uk": "Опис",
         "pl": 'Opis',
         "de": 'Beschreibung',
+        "nl": 'Beschrijving',
     },
     "cabinet_edit_contacts": {
         "ru": "Контакты",
@@ -3361,6 +3882,7 @@ translations = {
         "uk": "Контакти",
         "pl": 'Dane kontaktowe',
         "de": 'Ansprechpartner',
+        "nl": 'Contacten',
     },
     "cabinet_edit_direction": {
         "ru": "Направление",
@@ -3369,6 +3891,7 @@ translations = {
         "uk": "Напрямок",
         "pl": 'Dojazd',
         "de": 'Anfahrt',
+        "nl": 'Routebeschrijving',
     },
     "cabinet_edit_profession": {
     "ru": "Специальности",
@@ -3377,6 +3900,7 @@ translations = {
     "uk": "Спеціальності",
         "pl": 'Specjalizacje',
         "de": 'Spezialgebiete',
+        "nl": 'Specialiteiten',
     },
     "cabinet_edit_location": {
         "ru": "Локация",
@@ -3385,6 +3909,7 @@ translations = {
         "uk": "Локація",
         "pl": 'Lokalizacja',
         "de": 'Standort',
+        "nl": 'Locatie',
     },
     "cabinet_profile": {
         "ru": "Профиль",
@@ -3393,6 +3918,7 @@ translations = {
         "uk": "Профіль",
         "pl": 'Profil',
         "de": 'Profil',
+        "nl": 'Profiel',
     },
     "cabinet_profile_not_found": {
         "ru": "Профиль специалиста не найден. Сначала предложите услуги.",
@@ -3404,6 +3930,7 @@ translations = {
             'Spezialistenprofil nicht gefunden. Bieten Sie zunächst Ihre '
             'Dienstleistungen an.'
         ),
+        "nl": 'Specialistenprofiel niet gevonden. Bied eerst diensten aan.',
     },
     "cabinet_profile_name": {
         "ru": "Имя",
@@ -3412,6 +3939,7 @@ translations = {
         "uk": "Ім'я",
         "pl": 'Nazwa',
         "de": 'Name',
+        "nl": 'Naam',
     },
     "cabinet_profile_status": {
         "ru": "Статус",
@@ -3420,6 +3948,7 @@ translations = {
         "uk": "Статус",
         "pl": 'Status',
         "de": 'Status',
+        "nl": 'Status',
     },
     "cabinet_profile_description": {
         "ru": "Описание",
@@ -3428,6 +3957,7 @@ translations = {
         "uk": "Опис",
         "pl": 'Opis',
         "de": 'Beschreibung',
+        "nl": 'Beschrijving',
     },
     "cabinet_profile_contacts": {
         "ru": "Контакты",
@@ -3436,6 +3966,7 @@ translations = {
         "uk": "Контакти",
         "pl": 'Kontakty',
         "de": 'Ansprechpartner',
+        "nl": 'Contacten',
     },
     "cabinet_profile_price": {
         "ru": "Цена",
@@ -3444,6 +3975,7 @@ translations = {
         "uk": "Ціна",
         "pl": 'Cena',
         "de": 'Preis',
+        "nl": 'Prijs',
     },
     "cabinet_profile_location": {
         "ru": "Локация",
@@ -3452,6 +3984,7 @@ translations = {
         "uk": "Локація",
         "pl": 'Lokalizacja',
         "de": 'Standort',
+        "nl": 'Locatie',
     },
     "cabinet_enter_name": {
         "ru": "Введите новое имя специалиста. Минимум 2 символа.",
@@ -3463,6 +3996,7 @@ translations = {
             'Geben Sie den Namen des neuen Facharztes ein. Mindestens 2 '
             'Zeichen.'
         ),
+        "nl": 'Voer de naam van de nieuwe specialist in. Minimaal 2 tekens.',
     },
     "cabinet_enter_description": {
         "ru": "Введите новое описание. Минимум 20 символов.",
@@ -3471,6 +4005,7 @@ translations = {
         "uk": "Введіть новий опис. Мінімум 20 символів.",
         "pl": 'Wprowadź nowy opis. Co najmniej 20 znaków.',
         "de": 'Geben Sie die neue Beschreibung ein. Mindestens 20 Zeichen.',
+        "nl": 'Voer de nieuwe beschrijving in. Minimaal 20 tekens.',
     },
     "cabinet_enter_contact": {
         "ru": "Введите новые контакты. Минимум 3 символа.",
@@ -3479,6 +4014,7 @@ translations = {
         "uk": "Введіть нові контакти. Мінімум 3 символи.",
         "pl": 'Wprowadź nowe dane kontaktowe. Minimum 3 znaki.',
         "de": 'Geben Sie neue Kontaktdaten ein. Mindestens 3 Zeichen.',
+        "nl": 'Voer nieuwe contactgegevens in. Minimaal 3 tekens.',
     },
     "cabinet_profile_updated": {
         "ru": "Профиль обновлен.",
@@ -3487,6 +4023,7 @@ translations = {
         "uk": "Профіль оновлено.",
         "pl": 'Profil zaktualizowany.',
         "de": 'Profil aktualisiert.',
+        "nl": 'Profiel bijgewerkt.',
     },
     "cabinet_profile_update_failed": {
         "ru": "Не удалось обновить профиль: {error}",
@@ -3495,6 +4032,7 @@ translations = {
         "uk": "Не вдалося оновити профіль: {error}",
         "pl": 'Nie udało się zaktualizować profilu: {error}',
         "de": 'Profil konnte nicht aktualisiert werden: {error}',
+        "nl": 'Profiel kon niet worden bijgewerkt: {error}',
     },
     "specialist_professions_title": {
         "ru": "📂 Профессии",
@@ -3503,6 +4041,7 @@ translations = {
         "uk": "📂 Професії",
         "pl": '📂 Zawody',
         "de": '📂 Berufe',
+        "nl": '📂 Beroepen',
     },
     "specialist_professions_hint": {
         "ru": "Выберите услуги, по которым вас будут находить клиенты.",
@@ -3514,6 +4053,7 @@ translations = {
             'Wählen Sie die Dienstleistungen aus, über die Kunden Sie finden '
             'können.'
         ),
+        "nl": 'Kies de diensten waarmee klanten je kunnen vinden.',
     },
     "cabinet_choose_direction": {
         "ru": "Выберите категорию.",
@@ -3522,6 +4062,7 @@ translations = {
         "uk": "Виберіть категорію.",
         "pl": 'Wybierz kategorię.',
         "de": 'Wählen Sie eine Kategorie aus.',
+        "nl": 'Kies een categorie.',
     },
     "cabinet_choose_profession": {
         "ru": "Выберите одну или несколько профессий.",
@@ -3530,6 +4071,7 @@ translations = {
         "uk": "Виберіть одну або кілька професій.",
         "pl": 'Wybierz jeden lub więcej zawodów.',
         "de": 'Wählen Sie einen oder mehrere Berufe aus.',
+        "nl": 'Kies een of meer beroepen.',
     },
 
     "cabinet_location_prompt": {
@@ -3551,6 +4093,7 @@ translations = {
         ),
         "pl": 'Lokalizacja\nPodaj miejsce pracy.',
         "de": 'Standort\nGeben Sie an, wo Sie arbeiten.',
+        "nl": 'Locatie\nGeef aan waar u werkt.',
     },
     "cabinet_location_manual": {
         "ru": "Ввести город",
@@ -3559,6 +4102,7 @@ translations = {
         "uk": "Ввести місто",
         "pl": 'Wpisz miasto',
         "de": 'Stadt eingeben',
+        "nl": 'Voer de stad in',
     },
     "cabinet_location_geo": {
         "ru": "Отправить гео",
@@ -3567,6 +4111,7 @@ translations = {
         "uk": "Надіслати гео",
         "pl": 'Wyślij lokalizację',
         "de": 'Standort senden',
+        "nl": 'Locatie verzenden',
     },
     "cabinet_location_query_prompt": {
         "ru": (
@@ -3593,6 +4138,7 @@ translations = {
             'Stadtsuche\n'
             'Geben Sie die Stadt oder den Bezirk ein, in dem Sie arbeiten.'
         ),
+        "nl": 'Zoeken op plaats\nVoer de stad of wijk in waar u werkt.',
     },
     "cabinet_send_geo_btn": {
         "ru": "Отправить геолокацию",
@@ -3601,6 +4147,7 @@ translations = {
         "uk": "Надіслати геолокацію",
         "pl": 'Wyślij lokalizację',
         "de": 'Standort senden',
+        "nl": 'Locatie verzenden',
     },
     "cabinet_geo_required": {
         "ru": "Отправьте геолокацию кнопкой ниже.",
@@ -3609,6 +4156,7 @@ translations = {
         "uk": "Надішліть геолокацію кнопкою нижче.",
         "pl": 'Wyślij lokalizację, korzystając z przycisku poniżej.',
         "de": 'Senden Sie den Standort über die Schaltfläche unten.',
+        "nl": 'Verzend de locatie via de onderstaande knop.',
     },
     "cabinet_geo_candidates_prompt": {
         "ru": "Выберите подходящий вариант:",
@@ -3617,6 +4165,7 @@ translations = {
         "uk": "Виберіть відповідний варіант:",
         "pl": 'Wybierz odpowiednie miejsce:',
         "de": 'Wählen Sie den passenden Ort aus:',
+        "nl": 'Kies de juiste locatie:',
     },
     "cabinet_geo_candidates_not_found": {
         "ru": "Не удалось найти варианты локации.",
@@ -3625,6 +4174,7 @@ translations = {
         "uk": "Не вдалося знайти варіанти локації.",
         "pl": 'Nie znaleziono potencjalnych lokalizacji.',
         "de": 'Es konnten keine möglichen Standorte gefunden werden.',
+        "nl": 'Er zijn geen geschikte locaties gevonden.',
     },
     "cabinet_geo_provider_error": {
         "ru": "Ошибка геосервиса: {error}",
@@ -3633,6 +4183,7 @@ translations = {
         "uk": "Помилка геосервісу: {error}",
         "pl": 'Błąd dostawcy danych geograficznych: {error}',
         "de": 'Fehler des Geodienstanbieters: {error}',
+        "nl": 'Fout bij geodienst: {error}',
     },
     "cabinet_location_updated": {
         "ru": "Локация профиля обновлена.",
@@ -3641,6 +4192,7 @@ translations = {
         "uk": "Локацію профілю оновлено.",
         "pl": 'Lokalizacja profilu została zaktualizowana.',
         "de": 'Standort im Profil aktualisiert.',
+        "nl": 'Locatie in profiel bijgewerkt.',
     },
 
     "contact_detection_warning": {
@@ -3658,6 +4210,11 @@ translations = {
             'außerhalb der Plattform. Diese Angaben wurden maskiert und das '
             'Ereignis zur Überprüfung weitergeleitet.'
         ),
+        "nl": (
+            'Het bericht bevat externe contacten of betalingsgegevens buiten '
+            'het platform. Deze gegevens zijn gemaskeerd en de gebeurtenis is '
+            'ter beoordeling verzonden.'
+        ),
     },
 
     "favorite_saved": {
@@ -3667,6 +4224,7 @@ translations = {
         "uk": "Спеціаліста додано до обраного.",
         "pl": 'Specjalista dodany do ulubionych.',
         "de": 'Experte zu den Favoriten hinzugefügt.',
+        "nl": 'Specialist toegevoegd aan favorieten.',
     },
     "favorite_action_error": {
         "ru": "Не удалось обновить избранное. Попробуйте позже.",
@@ -3678,6 +4236,10 @@ translations = {
             'Die Favoriten konnten nicht aktualisiert werden. Bitte versuchen '
             'Sie es später erneut.'
         ),
+        "nl": (
+            'Favorieten konden niet worden bijgewerkt. Probeer het later nog '
+            'eens.'
+        ),
     },
     "favorite_removed": {
         "ru": "Специалист удален из избранного.",
@@ -3686,6 +4248,7 @@ translations = {
         "uk": "Спеціаліста видалено з обраного.",
         "pl": 'Specjalista został usunięty z ulubionych.',
         "de": 'Spezialist wurde aus den Favoriten entfernt.',
+        "nl": 'Specialist uit favorieten verwijderd.',
     },
     "error_rate_limited": {
         "ru": "Слишком много действий за короткое время. Попробуйте позже.",
@@ -3694,6 +4257,7 @@ translations = {
         "uk": "Забагато дій за короткий час. Спробуйте пізніше.",
         "pl": 'Zbyt wiele operacji w krótkim czasie. Spróbuj ponownie później.',
         "de": 'Zu viele Aktionen in kurzer Zeit. Bitte versuche es später erneut.',
+        "nl": 'Te veel acties in korte tijd. Probeer het later nog eens.',
     },
     "cabinet_location_whole_country": {
         "ru": "Вся страна",
@@ -3702,6 +4266,7 @@ translations = {
         "uk": "Уся країна",
         "pl": 'Cały kraj',
         "de": 'Gesamtes Land',
+        "nl": 'Het hele land',
     },
 
 "settings_translation_title": {
@@ -3749,6 +4314,14 @@ translations = {
         'Automatische Übersetzung: {auto_translate}\n'
         'Schaltfläche „Original anzeigen“: {show_original}'
     ),
+    "nl": (
+        'Vertalingsinstellingen:\n'
+        '\n'
+        'Taal van de interface: {interface_language}\n'
+        'Taal van berichten: {message_language}\n'
+        'Automatische vertaling: {auto_translate}\n'
+        "Knop 'Origineel weergeven': {show_original}"
+    ),
 },
 "settings_interface_language_ru": {
     "ru": "Интерфейс: Русский",
@@ -3757,6 +4330,7 @@ translations = {
     "uk": "Інтерфейс: Російська",
     "pl": 'Interfejs użytkownika: rosyjski',
     "de": 'Benutzeroberfläche: Russisch',
+    "nl": 'Gebruikersinterface: Russisch',
 },
 "settings_interface_language_en": {
     "ru": "Интерфейс: Английский",
@@ -3765,6 +4339,7 @@ translations = {
     "uk": "Інтерфейс: Англійська",
     "pl": 'Interfejs użytkownika: angielski',
     "de": 'Benutzeroberfläche: Englisch',
+    "nl": 'Gebruikersinterface: Engels',
 },
 "settings_interface_language_pt": {
     "ru": "Интерфейс: Португальский",
@@ -3773,6 +4348,7 @@ translations = {
     "uk": "Інтерфейс: Португальська",
     "pl": 'Interfejs użytkownika: portugalski',
     "de": 'Benutzeroberfläche: Portugiesisch',
+    "nl": 'Gebruikersinterface: Portugees',
 },
 
 "privacy_settings_title": {
@@ -3801,6 +4377,10 @@ translations = {
         'Verwalten Sie den Export und die Löschung Ihrer '
         'personenbezogenen Daten.'
     ),
+    "nl": (
+        'Privacy en gegevens\n'
+        'Beheer het exporteren en verwijderen van uw persoonsgegevens.'
+    ),
 },
 "privacy_open_btn": {
     "ru": "Приватность и данные",
@@ -3809,6 +4389,7 @@ translations = {
     "uk": "Приватність та дані",
     "pl": 'Prywatność i dane',
     "de": 'Datenschutz und Daten',
+    "nl": 'Privacy en gegevens',
 },
 "privacy_delete_profile_btn": {
     "ru": "Удалить профиль",
@@ -3817,6 +4398,7 @@ translations = {
     "uk": "Видалити профіль",
     "pl": 'Usuń profil',
     "de": 'Profil löschen',
+    "nl": 'Profiel verwijderen',
 },
 "privacy_my_data_btn": {
     "ru": "Скачать мои данные",
@@ -3825,6 +4407,7 @@ translations = {
     "uk": "Завантажити мої дані",
     "pl": 'Pobierz moje dane',
     "de": 'Meine Daten herunterladen',
+    "nl": 'Mijn gegevens downloaden',
 },
 "privacy_delete_geo_btn": {
     "ru": "Удалить геолокацию",
@@ -3833,6 +4416,7 @@ translations = {
     "uk": "Видалити геолокацію",
     "pl": 'Usuń dane lokalizacyjne',
     "de": 'Standortdaten löschen',
+    "nl": 'Locatiegegevens verwijderen',
 },
 "privacy_confirm_delete_profile": {
     "ru": (
@@ -3858,6 +4442,10 @@ translations = {
     "de": (
         'Die Löschung des Profils wird geplant. Bestätigen Sie die '
         'Löschung des Profils.'
+    ),
+    "nl": (
+        'Het verwijderen van het profiel wordt ingepland. Bevestig het '
+        'verwijderen van het profiel.'
     ),
 },
 "privacy_confirm_delete_geo": {
@@ -3885,6 +4473,10 @@ translations = {
         'Die Standortdaten werden aus Ihrem Profil und Ihrem '
         'Standortverlauf entfernt. Bestätigen Sie die Löschung.'
     ),
+    "nl": (
+        'De locatiegegevens worden uit je profiel en locatiegeschiedenis '
+        'verwijderd. Bevestig het verwijderen.'
+    ),
 },
 "privacy_confirm_btn": {
     "ru": "Подтвердить",
@@ -3893,6 +4485,7 @@ translations = {
     "uk": "Підтвердити",
     "pl": 'Potwierdź',
     "de": 'Bestätigen',
+    "nl": 'Bevestigen',
 },
 "privacy_cancel_btn": {
     "ru": "Отмена",
@@ -3901,6 +4494,7 @@ translations = {
     "uk": "Скасувати",
     "pl": 'Anuluj',
     "de": 'Abbrechen',
+    "nl": 'Annuleren',
 },
 "privacy_profile_not_found": {
     "ru": "Профиль специалиста не найден.",
@@ -3909,6 +4503,7 @@ translations = {
     "uk": "Профіль спеціаліста не знайдено.",
     "pl": 'Nie znaleziono profilu specjalisty.',
     "de": 'Facharztprofil nicht gefunden.',
+    "nl": 'Specialistenprofiel niet gevonden.',
 },
 "privacy_deletion_scheduled": {
     "ru": "Запрос на удаление профиля создан. Обработка будет выполнена отдельно с сохранением audit trail.",
@@ -3922,6 +4517,10 @@ translations = {
     "de": (
         'Antrag auf Löschung des Profils erstellt. Die Bearbeitung '
         'erfolgt separat unter Beibehaltung des Prüfpfads.'
+    ),
+    "nl": (
+        'Verzoek tot verwijdering van profiel aangemaakt. De verwerking '
+        'vindt apart plaats, waarbij het audittraject behouden blijft.'
     ),
 },
 "privacy_data_export_requested": {
@@ -3937,6 +4536,10 @@ translations = {
         'Anfrage zum Datenexport erstellt. Der Export wird manuell oder '
         'automatisch vorbereitet.'
     ),
+    "nl": (
+        'Verzoek tot gegevensexport aangemaakt. De export wordt handmatig '
+        'of automatisch voorbereid.'
+    ),
 },
 "privacy_geo_deleted": {
     "ru": "Геолокация удалена.",
@@ -3945,6 +4548,7 @@ translations = {
     "uk": "Геолокацію видалено.",
     "pl": 'Dane dotyczące lokalizacji zostały usunięte.',
     "de": 'Standortdaten gelöscht.',
+    "nl": 'Locatiegegevens verwijderd.',
 },
 "privacy_back_to_settings": {
     "ru": "Назад к настройкам",
@@ -3953,6 +4557,7 @@ translations = {
     "uk": "Назад до налаштувань",
     "pl": 'Powrót do ustawień',
     "de": 'Zurück zu den Einstellungen',
+    "nl": 'Terug naar instellingen',
 },
 
 "settings_interface_language_label": {
@@ -3962,6 +4567,7 @@ translations = {
     "uk": "Мова інтерфейсу",
     "pl": 'Język interfejsu',
     "de": 'Sprache der Benutzeroberfläche',
+    "nl": 'Taal van de interface',
 },
 "settings_message_language_label": {
     "ru": "Язык общения / перевода",
@@ -3970,6 +4576,7 @@ translations = {
     "uk": "Мова спілкування / перекладу",
     "pl": 'Język komunikatów / tłumaczeń',
     "de": 'Sprache der Meldungen / Übersetzungen',
+    "nl": 'Taal van berichten / vertalingen',
 },
 
 "spec_profession_done_btn": {
@@ -3979,6 +4586,7 @@ translations = {
     "uk": "Готово",
     "pl": 'Gotowe',
     "de": 'Fertig',
+    "nl": 'Gereed',
 },
 "spec_profession_select_one": {
     "ru": "Выберите хотя бы одну специальность.",
@@ -3987,6 +4595,7 @@ translations = {
     "uk": "Виберіть хоча б одну спеціальність.",
     "pl": 'Wybierz co najmniej jeden zawód.',
     "de": 'Wählen Sie mindestens einen Beruf aus.',
+    "nl": 'Selecteer ten minste één beroep.',
 },
 "spec_profession_multi_prompt": {
     "ru": "Выберите одну или несколько специальностей. Первая выбранная будет основной.",
@@ -4000,6 +4609,10 @@ translations = {
     "de": (
         'Wählen Sie einen oder mehrere Berufe aus. Der zuerst ausgewählte '
         'Beruf wird als Hauptberuf festgelegt.'
+    ),
+    "nl": (
+        'Selecteer één of meer beroepen. Het eerste geselecteerde beroep '
+        'wordt het primaire beroep.'
     ),
 },
 "spec_work_format_prompt": {
@@ -4021,6 +4634,7 @@ translations = {
     ),
     "pl": 'Forma pracy\nOkreśl, w jaki sposób współpracujesz z klientami.',
     "de": 'Arbeitsform\nGeben Sie an, wie Sie mit Kunden arbeiten.',
+    "nl": 'Werkvorm\nGeef aan hoe u met klanten werkt.',
 },
 "spec_work_format_invalid": {
     "ru": "Неизвестный формат работы.",
@@ -4029,6 +4643,7 @@ translations = {
     "uk": "Невідомий формат роботи.",
     "pl": 'Nieznany format pracy.',
     "de": 'Unbekannte Arbeitsform.',
+    "nl": 'Onbekende werkvorm.',
 },
 
 "spec_selected_professions_title": {
@@ -4038,6 +4653,7 @@ translations = {
     "uk": "Вже вибрано:",
     "pl": 'Wybrano:',
     "de": 'Ausgewählt:',
+    "nl": 'Geselecteerd:',
 },
 "spec_selected_professions_empty": {
     "ru": "Пока ничего не выбрано.",
@@ -4046,6 +4662,7 @@ translations = {
     "uk": "Поки нічого не вибрано.",
     "pl": 'Jeszcze nic nie zostało wybrane.',
     "de": 'Noch nichts ausgewählt.',
+    "nl": 'Er is nog niets geselecteerd.',
 },
 "spec_location_country_btn": {
     "ru": "Вся страна",
@@ -4054,6 +4671,7 @@ translations = {
     "uk": "Уся країна",
     "pl": 'Cały kraj',
     "de": 'Gesamtes Land',
+    "nl": 'Het hele land',
 },
 "spec_country_search_prompt": {
     "ru": (
@@ -4074,6 +4692,7 @@ translations = {
     ),
     "pl": 'Kraj pracy\nWprowadź kraj, w którym możesz pracować.',
     "de": 'Arbeitsland\nGeben Sie das Land ein, in dem Sie arbeiten können.',
+    "nl": 'Land waar je wilt werken\nVoer het land in waar u mag werken.',
 },
 "spec_country_selected": {
     "ru": "Выбрана вся страна: {country}",
@@ -4082,6 +4701,7 @@ translations = {
     "uk": "Вибрано всю країну: {country}",
     "pl": 'Wybrano cały kraj: {country}',
     "de": 'Ausgewähltes Land: {country}',
+    "nl": 'Geheel land geselecteerd: {country}',
 },
 "spec_country_not_found": {
     "ru": "Страна не найдена. Попробуйте ввести название иначе.",
@@ -4093,6 +4713,7 @@ translations = {
         'Land nicht gefunden. Versuchen Sie es mit einer anderen '
         'Schreibweise.'
     ),
+    "nl": 'Land niet gevonden. Probeer een andere spelling.',
 },
 "spec_country_candidates_prompt": {
     "ru": "Выберите страну:",
@@ -4101,6 +4722,7 @@ translations = {
     "uk": "Виберіть країну:",
     "pl": 'Wybierz kraj:',
     "de": 'Wählen Sie ein Land aus:',
+    "nl": 'Kies een land:',
 },
 "spec_country_candidate_not_found": {
     "ru": "Страна не найдена. Попробуйте снова.",
@@ -4109,6 +4731,7 @@ translations = {
     "uk": "Країну не знайдено. Спробуйте ще раз.",
     "pl": 'Nie znaleziono kraju. Spróbuj ponownie.',
     "de": 'Land nicht gefunden. Versuchen Sie es erneut.',
+    "nl": 'Land niet gevonden. Probeer het nog eens.',
 },
 "spec_profession_limit_categories": {
     "ru": "Можно выбрать не более 2 разделов.",
@@ -4117,6 +4740,7 @@ translations = {
     "uk": "Можна вибрати не більше 2 розділів.",
     "pl": 'Możesz wybrać maksymalnie 2 sekcje.',
     "de": 'Sie können maximal 2 Abschnitte auswählen.',
+    "nl": 'U kunt maximaal 2 secties selecteren.',
 },
 "spec_profession_limit_per_category": {
     "ru": "В одном разделе можно выбрать не более 3 специальностей.",
@@ -4125,6 +4749,7 @@ translations = {
     "uk": "В одному розділі можна вибрати не більше 3 спеціальностей.",
     "pl": 'W jednej sekcji można wybrać maksymalnie 3 zawody.',
     "de": 'Sie können in einem Bereich nicht mehr als 3 Berufe auswählen.',
+    "nl": 'U kunt maximaal 3 beroepen per sectie selecteren.',
 },
     "cabinet_favorites": {
         "ru": "⭐ Избранное",
@@ -4133,6 +4758,7 @@ translations = {
         "uk": "⭐ Обране",
         "pl": '⭐ Ulubione',
         "de": '⭐ Favoriten',
+        "nl": '⭐ Favorieten',
     },
     "favorites_title": {
         "ru": "⭐ Избранные специалисты",
@@ -4141,6 +4767,7 @@ translations = {
         "uk": "⭐ Обрані спеціалісти",
         "pl": '⭐ Ulubieni specjaliści',
         "de": '⭐ Bevorzugte Spezialisten',
+        "nl": '⭐ Favoriete specialisten',
     },
     "favorites_hint": {
         "ru": "Сохранённые профили для быстрого доступа.",
@@ -4149,6 +4776,7 @@ translations = {
         "uk": "Збережені профілі для швидкого доступу.",
         "pl": 'Zapisane profile dla szybkiego dostępu.',
         "de": 'Gespeicherte Profile für den schnellen Zugriff.',
+        "nl": 'Opgeslagen profielen voor snelle toegang.',
     },
     "favorites_navigation": {
         "ru": "Другие сохранённые специалисты.",
@@ -4157,6 +4785,7 @@ translations = {
         "uk": "Інші збережені спеціалісти.",
         "pl": 'Inni zapisani specjaliści.',
         "de": 'Weitere gespeicherte Spezialisten.',
+        "nl": 'Andere opgeslagen specialisten.',
     },
     "favorites_empty": {
         "ru": "У вас пока нет избранных специалистов.",
@@ -4165,6 +4794,7 @@ translations = {
         "uk": "У вас поки немає обраних спеціалістів.",
         "pl": 'Nie masz jeszcze ulubionych specjalistów.',
         "de": 'Sie haben noch keine bevorzugten Spezialisten.',
+        "nl": 'U hebt nog geen favoriete specialisten.',
     },
     "favorite_remove_btn": {
         "ru": "Удалить из избранного",
@@ -4173,6 +4803,7 @@ translations = {
         "uk": "Видалити з обраного",
         "pl": 'Usuń z ulubionych',
         "de": 'Aus den Favoriten entfernen',
+        "nl": 'Uit favorieten verwijderen',
     },
     "favorites_not_found": {
         "ru": "Специалист не найден в избранном.",
@@ -4181,6 +4812,7 @@ translations = {
         "uk": "Спеціаліста не знайдено в обраному.",
         "pl": 'Nie znaleziono specjalisty w ulubionych.',
         "de": 'Der Spezialist wurde in den Favoriten nicht gefunden.',
+        "nl": 'De specialist is niet gevonden in de favorieten.',
     },
 
     "admin_roles": {
@@ -4190,6 +4822,7 @@ translations = {
         "uk": "Ролі адмінів",
         "pl": 'Role administratora',
         "de": 'Administratorrollen',
+        "nl": 'Beheerdersrollen',
     },
     "admin_roles_title": {
         "ru": "Управление ролями админов.",
@@ -4198,6 +4831,7 @@ translations = {
         "uk": "Керування ролями адмінів.",
         "pl": 'Zarządzanie rolami administratora.',
         "de": 'Verwaltung von Administratorrollen.',
+        "nl": 'Beheer van beheerdersrollen.',
     },
     "admin_role_grant": {
         "ru": "Выдать роль",
@@ -4206,6 +4840,7 @@ translations = {
         "uk": "Видати роль",
         "pl": 'Przyznaj rolę',
         "de": 'Rolle zuweisen',
+        "nl": 'Rol toekennen',
     },
     "admin_role_revoke": {
         "ru": "Отозвать роль",
@@ -4214,6 +4849,7 @@ translations = {
         "uk": "Відкликати роль",
         "pl": 'Cofnięcie roli',
         "de": 'Rolle widerrufen',
+        "nl": 'Rol intrekken',
     },
     "admin_role_grant_prompt": {
         "ru": (
@@ -4239,6 +4875,10 @@ translations = {
         "de": (
             'Senden: Telegram-ID, Rolle und Grund.\n'
             'Beispiel: 123456789 Moderator vorübergehender Zugriff'
+        ),
+        "nl": (
+            'Verzenden: Telegram-ID, rol en reden.\n'
+            'Voorbeeld: 123456789 moderator tijdelijke toegang'
         ),
     },
     "admin_role_revoke_prompt": {
@@ -4266,6 +4906,10 @@ translations = {
             'Senden Sie: Telegram-ID, Rolle und Grund.\n'
             'Beispiel: 123456789 Moderator, Zugriff nicht mehr erforderlich'
         ),
+        "nl": (
+            'Verzend: Telegram-ID, rol en reden.\n'
+            'Voorbeeld: 123456789 moderator toegang niet langer nodig'
+        ),
     },
     "admin_role_bad_format": {
         "ru": "Неверный формат. Нужно: telegram_id role причина",
@@ -4274,6 +4918,7 @@ translations = {
         "uk": "Невірний формат. Потрібно: telegram_id role причина",
         "pl": 'Nieprawidłowy format. Użyj: telegram_id rola powód',
         "de": 'Ungültiges Format. Verwenden Sie: telegram_id Rolle Grund',
+        "nl": 'Ongeldige indeling. Gebruik: telegram_id rol reden',
     },
     "admin_role_granted": {
         "ru": "Роль выдана: {role}. Статус: {status}",
@@ -4282,6 +4927,7 @@ translations = {
         "uk": "Роль видано: {role}. Статус: {status}",
         "pl": 'Przyznano rolę: {role}. Status: {status}',
         "de": 'Rolle gewährt: {role}. Status: {status}',
+        "nl": 'Rol toegekend: {role}. Status: {status}',
     },
     "admin_role_revoked": {
         "ru": "Роль отозвана: {role}. Статус: {status}",
@@ -4290,6 +4936,7 @@ translations = {
         "uk": "Роль відкликано: {role}. Статус: {status}",
         "pl": 'Rola cofnięta: {role}. Status: {status}',
         "de": 'Rolle widerrufen: {role}. Status: {status}',
+        "nl": 'Rol ingetrokken: {role}. Status: {status}',
     },
 
     "admin_no_available_actions": {
@@ -4305,6 +4952,7 @@ translations = {
             'Für Ihre Rolle stehen noch keine Administratoraktionen zur '
             'Verfügung.'
         ),
+        "nl": 'Er zijn nog geen beheerdersacties beschikbaar voor uw rol.',
     },
 
     "admin_logs": {
@@ -4314,6 +4962,7 @@ translations = {
         "uk": "Логи",
         "pl": 'Logi',
         "de": 'Protokolle',
+        "nl": 'Logs',
     },
     "admin_logs_title": {
         "ru": "Последние события",
@@ -4322,6 +4971,7 @@ translations = {
         "uk": "Останні події",
         "pl": 'Ostatnie zdarzenia',
         "de": 'Aktuelle Ereignisse',
+        "nl": 'Recente gebeurtenissen',
     },
     "admin_logs_empty": {
         "ru": "Логов пока нет.",
@@ -4330,6 +4980,7 @@ translations = {
         "uk": "Логів поки немає.",
         "pl": 'Jeszcze nie ma wpisów.',
         "de": 'Noch keine Einträge.',
+        "nl": 'Nog geen logboeken.',
     },
     "admin_logs_full_section": {
         "ru": "Админ-действия",
@@ -4338,6 +4989,7 @@ translations = {
         "uk": "Адмін-дії",
         "pl": 'Działania administratora',
         "de": 'Administratoraktionen',
+        "nl": 'Beheerdersacties',
     },
     "admin_logs_events_section": {
         "ru": "События",
@@ -4346,6 +4998,7 @@ translations = {
         "uk": "Події",
         "pl": 'Wydarzenia',
         "de": 'Ereignisse',
+        "nl": 'Gebeurtenissen',
     },
     "admin_pending_reviews": {
         "ru": "Отзывы на модерации",
@@ -4354,6 +5007,7 @@ translations = {
         "uk": "Відгуки на модерації",
         "pl": 'Oczekujące recenzje',
         "de": 'Ausstehende Überprüfungen',
+        "nl": 'Beoordelingen in behandeling',
     },
     "admin_no_pending_reviews": {
         "ru": "Отзывов на модерации нет.",
@@ -4362,6 +5016,7 @@ translations = {
         "uk": "Відгуків на модерації немає.",
         "pl": 'Brak recenzji oczekujących na zatwierdzenie.',
         "de": 'Keine ausstehenden Bewertungen.',
+        "nl": 'Geen beoordelingen in behandeling.',
     },
     "admin_review_title": {
         "ru": "Отзыв на модерации {index}/{total}",
@@ -4370,6 +5025,7 @@ translations = {
         "uk": "Відгук на модерації {index}/{total}",
         "pl": 'Oczekująca recenzja {index}/{total}',
         "de": 'Ausstehende Überprüfung {index}/{total}',
+        "nl": 'Beoordeling in behandeling {index}/{total}',
     },
     "admin_review_rating": {
         "ru": "Оценка",
@@ -4378,6 +5034,7 @@ translations = {
         "uk": "Оцінка",
         "pl": 'Ocena',
         "de": 'Bewertung',
+        "nl": 'Beoordeling',
     },
     "admin_review_target": {
         "ru": "Цель",
@@ -4386,6 +5043,7 @@ translations = {
         "uk": "Ціль",
         "pl": 'Docelowa',
         "de": 'Ziel',
+        "nl": 'Doel',
     },
     "admin_review_cabinet": {
         "ru": "Профессиональный кабинет",
@@ -4394,6 +5052,7 @@ translations = {
         "uk": "Професійний кабінет",
         "pl": 'Profil zawodowy',
         "de": 'Berufsprofil',
+        "nl": 'Professioneel profiel',
     },
     "admin_review_profession": {
         "ru": "Профессия",
@@ -4402,6 +5061,7 @@ translations = {
         "uk": "Професія",
         "pl": 'Zawód',
         "de": 'Beruf',
+        "nl": 'Beroep',
     },
     "admin_review_text": {
         "ru": "Текст отзыва",
@@ -4410,6 +5070,7 @@ translations = {
         "uk": "Текст відгуку",
         "pl": 'Tekst recenzji',
         "de": 'Rezensionstext',
+        "nl": 'Beoordelingstekst',
     },
     "admin_review_reply": {
         "ru": "Ответ специалиста",
@@ -4418,6 +5079,7 @@ translations = {
         "uk": "Відповідь спеціаліста",
         "pl": 'Odpowiedź specjalisty',
         "de": 'Antwort des Facharztes',
+        "nl": 'Antwoord van de specialist',
     },
     "admin_hide_review": {
         "ru": "Скрыть отзыв",
@@ -4426,6 +5088,7 @@ translations = {
         "uk": "Приховати відгук",
         "pl": 'Ukryj recenzję',
         "de": 'Bewertung ausblenden',
+        "nl": 'Recensie verbergen',
     },
     "admin_review_updated": {
         "ru": "Отзыв обновлён. Статус: {status}",
@@ -4434,6 +5097,7 @@ translations = {
         "uk": "Відгук оновлено. Статус: {status}",
         "pl": 'Recenzja zaktualizowana. Status: {status}',
         "de": 'Bewertung aktualisiert. Status: {status}',
+        "nl": 'Beoordeling bijgewerkt. Status: {status}',
     },
 
     "review_leave_btn": {
@@ -4443,6 +5107,7 @@ translations = {
         "uk": "Залишити відгук",
         "pl": 'Dodaj recenzję',
         "de": 'Bewertung abgeben',
+        "nl": 'Een beoordeling achterlaten',
     },
     "review_rating_prompt": {
         "ru": "Оцените специалиста от 1 до 5.",
@@ -4451,6 +5116,7 @@ translations = {
         "uk": "Оцініть спеціаліста від 1 до 5.",
         "pl": 'Oceń specjalistę w skali od 1 do 5.',
         "de": 'Bewerten Sie den Spezialisten mit einer Note von 1 bis 5.',
+        "nl": 'Beoordeel de specialist met een cijfer van 1 tot 5.',
     },
     "review_text_prompt": {
         "ru": "Напишите короткий отзыв или пропустите этот шаг.",
@@ -4462,6 +5128,7 @@ translations = {
             'Schreiben Sie eine kurze Bewertung oder überspringen Sie diesen '
             'Schritt.'
         ),
+        "nl": 'Schrijf een korte beoordeling of sla deze stap over.',
     },
     "review_skip_text_btn": {
         "ru": "Пропустить текст",
@@ -4470,6 +5137,7 @@ translations = {
         "uk": "Пропустити текст",
         "pl": 'Pomiń tekst',
         "de": 'Text überspringen',
+        "nl": 'Tekst overslaan',
     },
     "review_created": {
         "ru": "Спасибо. Отзыв отправлен на модерацию.",
@@ -4478,6 +5146,7 @@ translations = {
         "uk": "Дякуємо. Відгук надіслано на модерацію.",
         "pl": 'Dziękujemy. Recenzja została przesłana do moderacji.',
         "de": 'Vielen Dank. Die Bewertung wurde zur Überprüfung weitergeleitet.',
+        "nl": 'Bedankt. De recensie is ter beoordeling verzonden.',
     },
     "review_created_archived": {
         "ru": "Спасибо. Отзыв отправлен на модерацию. Переписка перенесена в архив.",
@@ -4492,6 +5161,10 @@ translations = {
             'Vielen Dank. Die Bewertung wurde zur Moderation weitergeleitet. '
             'Die Unterhaltung wurde ins Archiv verschoben.'
         ),
+        "nl": (
+            'Bedankt. De recensie is ter moderatie verzonden. Het gesprek is '
+            'verplaatst naar het archief.'
+        ),
     },
     "review_error": {
         "ru": "Не удалось создать отзыв: {error}",
@@ -4500,6 +5173,7 @@ translations = {
         "uk": "Не вдалося створити відгук: {error}",
         "pl": 'Nie udało się utworzyć recenzji: {error}',
         "de": 'Bewertung konnte nicht erstellt werden: {error}',
+        "nl": 'Beoordeling kon niet worden aangemaakt: {error}',
     },
 
     "portfolio_button": {
@@ -4509,6 +5183,7 @@ translations = {
         "uk": "Портфоліо",
         "pl": 'Portfolio',
         "de": 'Portfolio',
+        "nl": 'Portfolio',
     },
     "specialist_portfolio_title": {
         "ru": "🖼 Портфолио",
@@ -4517,6 +5192,7 @@ translations = {
         "uk": "🖼 Портфоліо",
         "pl": '🖼 Portfolio',
         "de": '🖼 Portfolio',
+        "nl": '🖼 Portfolio',
     },
     "specialist_portfolio_hint": {
         "ru": "Добавьте примеры работ и документы.",
@@ -4525,6 +5201,7 @@ translations = {
         "uk": "Додайте приклади робіт та документи.",
         "pl": 'Dodaj przykłady prac i dokumenty.',
         "de": 'Fügen Sie Arbeitsbeispiele und Dokumente hinzu.',
+        "nl": 'Voeg voorbeelden van werk en documenten toe.',
     },
     "portfolio_title": {
         "ru": "Портфолио специалиста",
@@ -4533,6 +5210,7 @@ translations = {
         "uk": "Портфоліо спеціаліста",
         "pl": 'Specjalista portfolio',
         "de": 'Fachkraft portfolio',
+        "nl": 'Specialist portfolio',
     },
     "portfolio_empty": {
         "ru": "В портфолио пока нет файлов.",
@@ -4541,6 +5219,7 @@ translations = {
         "uk": "У портфоліо поки немає файлів.",
         "pl": 'W sekcji portfolio nie ma jeszcze żadnych plików.',
         "de": 'Das Verzeichnis portfolio enthält noch keine Dateien.',
+        "nl": 'De map portfolio bevat nog geen bestanden.',
     },
     "portfolio_upload_button": {
         "ru": "Загрузить файл",
@@ -4549,6 +5228,7 @@ translations = {
         "uk": "Завантажити файл",
         "pl": 'Prześlij plik',
         "de": 'Datei hochladen',
+        "nl": 'Bestand uploaden',
     },
     "portfolio_upload_prompt": {
         "ru": "Отправьте фото работы/кейса JPG, PNG, WEBP до 10 MB или сертификат PDF до 20 MB.",
@@ -4565,6 +5245,10 @@ translations = {
             'einer Größe von bis zu 10 MB oder ein Zertifikat als PDF mit '
             'einer Größe von bis zu 20 MB.'
         ),
+        "nl": (
+            'Stuur een foto van het werk/de casus als JPG, PNG of WEBP '
+            '(maximaal 10 MB) of een certificaat als PDF (maximaal 20 MB).'
+        ),
     },
     "portfolio_upload_success": {
         "ru": "Файл загружен и отправлен на модерацию.",
@@ -4573,6 +5257,7 @@ translations = {
         "uk": "Файл завантажено та надіслано на модерацію.",
         "pl": 'Plik został przesłany i przekazany do moderacji.',
         "de": 'Die Datei wurde hochgeladen und zur Freigabe weitergeleitet.',
+        "nl": 'Het bestand is geüpload en ter beoordeling verzonden.',
     },
     "portfolio_upload_error": {
         "ru": "Не удалось загрузить файл: {error}",
@@ -4581,6 +5266,7 @@ translations = {
         "uk": "Не вдалося завантажити файл: {error}",
         "pl": 'Nie udało się przesłać pliku: {error}',
         "de": 'Datei konnte nicht hochgeladen werden: {error}',
+        "nl": 'Bestand kon niet worden geüpload: {error}',
     },
     "portfolio_invalid_file": {
         "ru": "Отправьте разрешённое фото или PDF.",
@@ -4589,6 +5275,7 @@ translations = {
         "uk": "Надішліть дозволене фото або PDF.",
         "pl": 'Wyślij dozwolone zdjęcie lub plik PDF.',
         "de": 'Bitte senden Sie ein zulässiges Foto oder PDF.',
+        "nl": 'Stuur een toegestane foto of PDF.',
     },
     "portfolio_open_button": {
         "ru": "Открыть файл",
@@ -4597,6 +5284,7 @@ translations = {
         "uk": "Відкрити файл",
         "pl": 'Otwórz plik',
         "de": 'Datei öffnen',
+        "nl": 'Bestand openen',
     },
     "portfolio_delete_button": {
         "ru": "Удалить",
@@ -4605,6 +5293,7 @@ translations = {
         "uk": "Видалити",
         "pl": 'Usuń',
         "de": 'Löschen',
+        "nl": 'Verwijderen',
     },
     "portfolio_deleted": {
         "ru": "Файл скрыт и запланирован на удаление.",
@@ -4613,6 +5302,10 @@ translations = {
         "uk": "Файл приховано та заплановано на видалення.",
         "pl": 'Plik został ukryty i zaplanowano jego usunięcie.',
         "de": 'Die Datei war ausgeblendet und zum Löschen vorgesehen.',
+        "nl": (
+            'Het bestand was verborgen en stond gepland om te worden '
+            'verwijderd.'
+        ),
     },
     "portfolio_status_pending_moderation": {
         "ru": "На модерации",
@@ -4621,6 +5314,7 @@ translations = {
         "uk": "На модерації",
         "pl": 'Oczekuje na moderację',
         "de": 'Wartet auf Freigabe',
+        "nl": 'In afwachting van moderatie',
     },
     "portfolio_status_active": {
         "ru": "Опубликован",
@@ -4629,6 +5323,7 @@ translations = {
         "uk": "Опубліковано",
         "pl": 'Opublikowano',
         "de": 'Veröffentlicht',
+        "nl": 'Gepubliceerd',
     },
     "portfolio_status_rejected": {
         "ru": "Отклонён",
@@ -4637,6 +5332,7 @@ translations = {
         "uk": "Відхилено",
         "pl": 'Odrzucone',
         "de": 'Abgelehnt',
+        "nl": 'Afgewezen',
     },
     "portfolio_photo_label": {
         "ru": "Фото",
@@ -4645,6 +5341,7 @@ translations = {
         "uk": "Фото",
         "pl": 'Zdjęcie',
         "de": 'Foto',
+        "nl": 'Foto',
     },
     "portfolio_pdf_label": {
         "ru": "Сертификат",
@@ -4653,6 +5350,7 @@ translations = {
         "uk": "Сертифікат",
         "pl": 'Certyfikat',
         "de": 'Zertifikat',
+        "nl": 'Certificaat',
     },
     "portfolio_error": {
         "ru": "Не удалось открыть портфолио: {error}",
@@ -4661,6 +5359,7 @@ translations = {
         "uk": "Не вдалося відкрити портфоліо: {error}",
         "pl": 'Nie można otworzyć pliku portfolio: {error}',
         "de": 'portfolio konnte nicht geöffnet werden: {error}',
+        "nl": 'Kon portfolio niet openen: {error}',
     },
 
     "admin_pending_portfolio": {
@@ -4670,6 +5369,7 @@ translations = {
         "uk": "Портфоліо на модерації",
         "pl": 'Oczekuje na portfolio',
         "de": 'Ausstehend: portfolio',
+        "nl": 'In behandeling: portfolio',
     },
 
     "admin_rejected_portfolio": {
@@ -4679,6 +5379,7 @@ translations = {
         "uk": "Відхилені файли",
         "pl": 'Odrzucono portfolio',
         "de": 'portfolio wurde abgelehnt',
+        "nl": 'portfolio is afgewezen',
     },
     "admin_no_rejected_portfolio": {
         "ru": "Отклонённых файлов нет.",
@@ -4687,6 +5388,7 @@ translations = {
         "uk": "Відхилених файлів немає.",
         "pl": 'Nie ma żadnych odrzuconych plików portfolio.',
         "de": 'Es gibt keine abgelehnten portfolio-Dateien.',
+        "nl": 'Er zijn geen afgewezen portfolio-bestanden.',
     },
     "admin_restore_portfolio": {
         "ru": "Одобрить повторно",
@@ -4695,6 +5397,7 @@ translations = {
         "uk": "Схвалити повторно",
         "pl": 'Zatwierdź ponownie',
         "de": 'Erneut genehmigen',
+        "nl": 'Opnieuw goedkeuren',
     },
     "admin_portfolio_updated": {
         "ru": "Статус файла обновлён: {status}.",
@@ -4703,6 +5406,7 @@ translations = {
         "uk": "Статус файлу оновлено: {status}.",
         "pl": 'Zaktualizowano status pliku: {status}.',
         "de": 'Dateistatus aktualisiert: {status}.',
+        "nl": 'Bestandsstatus bijgewerkt: {status}.',
     },
     "support_open_btn": {
         "ru": "Поддержка",
@@ -4711,6 +5415,7 @@ translations = {
         "uk": "Підтримка",
         "pl": 'Pomoc techniczna',
         "de": 'Support',
+        "nl": 'Ondersteuning',
     },
     "support_title": {
         "ru": (
@@ -4741,6 +5446,12 @@ translations = {
             'Schreib uns, wenn du Hilfe zu deinem Konto, deinem Profil oder '
             'deinen Nachrichten benötigst.'
         ),
+        "nl": (
+            '🛟 Ondersteuning\n'
+            '\n'
+            'Neem contact met ons op als je hulp nodig hebt met je account, '
+            'profiel of berichten.'
+        ),
     },
     "support_create_btn": {
         "ru": "Создать обращение",
@@ -4749,6 +5460,7 @@ translations = {
         "uk": "Створити звернення",
         "pl": 'Utwórz zgłoszenie',
         "de": 'Ticket erstellen',
+        "nl": 'Een ticket aanmaken',
     },
     "support_my_tickets_btn": {
         "ru": "Мои обращения",
@@ -4757,6 +5469,7 @@ translations = {
         "uk": "Мої звернення",
         "pl": 'Moje zgłoszenia',
         "de": 'Meine Tickets',
+        "nl": 'Mijn tickets',
     },
     "support_back_to_settings_btn": {
         "ru": "Назад к настройкам",
@@ -4765,6 +5478,7 @@ translations = {
         "uk": "Назад до налаштувань",
         "pl": 'Powrót do ustawień',
         "de": 'Zurück zu den Einstellungen',
+        "nl": 'Terug naar instellingen',
     },
     "support_category_prompt": {
         "ru": "Выберите категорию обращения:",
@@ -4773,6 +5487,7 @@ translations = {
         "uk": "Виберіть категорію звернення:",
         "pl": 'Wybierz kategorię zgłoszenia:',
         "de": 'Ticketkategorie auswählen:',
+        "nl": 'Kies ticketcategorie:',
     },
     "support_category_account": {
         "ru": "Аккаунт",
@@ -4781,6 +5496,7 @@ translations = {
         "uk": "Акаунт",
         "pl": 'Konto',
         "de": 'Konto',
+        "nl": 'Account',
     },
     "support_category_specialist_profile": {
         "ru": "Профиль специалиста",
@@ -4789,6 +5505,7 @@ translations = {
         "uk": "Профіль спеціаліста",
         "pl": 'Profil specjalisty',
         "de": 'Fachprofil',
+        "nl": 'Profiel van de specialist',
     },
     "support_category_payment": {
         "ru": "Оплата",
@@ -4797,6 +5514,7 @@ translations = {
         "uk": "Оплата",
         "pl": 'Płatność',
         "de": 'Zahlung',
+        "nl": 'Betaling',
     },
     "support_category_translation": {
         "ru": "Перевод",
@@ -4805,6 +5523,7 @@ translations = {
         "uk": "Переклад",
         "pl": 'Tłumaczenie',
         "de": 'Übersetzung',
+        "nl": 'Vertaling',
     },
     "support_category_complaint": {
         "ru": "Жалоба",
@@ -4813,6 +5532,7 @@ translations = {
         "uk": "Скарга",
         "pl": 'Skarga',
         "de": 'Beschwerde',
+        "nl": 'Klacht',
     },
     "support_category_technical": {
         "ru": "Техническая проблема",
@@ -4821,6 +5541,7 @@ translations = {
         "uk": "Технічна проблема",
         "pl": 'Problem techniczny',
         "de": 'Technisches Problem',
+        "nl": 'Technisch probleem',
     },
     "support_category_other": {
         "ru": "Другое",
@@ -4829,6 +5550,7 @@ translations = {
         "uk": "Інше",
         "pl": 'Inne',
         "de": 'Sonstiges',
+        "nl": 'Overig',
     },
     "support_priority_prompt": {
         "ru": "Выберите приоритет обращения:",
@@ -4837,6 +5559,7 @@ translations = {
         "uk": "Виберіть пріоритет звернення:",
         "pl": 'Wybierz priorytet zgłoszenia:',
         "de": 'Wählen Sie die Priorität des Tickets:',
+        "nl": 'Kies de prioriteit van het ticket:',
     },
     "support_priority_p1": {
         "ru": "P1: сервис недоступен / данные / оплата",
@@ -4845,6 +5568,7 @@ translations = {
         "uk": "P1: сервіс недоступний / дані / оплата",
         "pl": 'P1: awaria usługi / dane / płatność',
         "de": 'P1: Dienstausfall / Daten / Zahlung',
+        "nl": 'P1: storing / gegevens / betaling',
     },
     "support_priority_p2": {
         "ru": "P2: платный пользователь заблокирован / перевод сломан",
@@ -4853,6 +5577,7 @@ translations = {
         "uk": "P2: платного користувача заблоковано / переклад зламано",
         "pl": 'P2: zablokowany płatny użytkownik / błąd w tłumaczeniu',
         "de": 'P2: Bezahlter Nutzer gesperrt / Übersetzung fehlerhaft',
+        "nl": 'P2: betaalde gebruiker geblokkeerd / vertaling werkt niet',
     },
     "support_priority_p3": {
         "ru": "P3: проблема с профилем",
@@ -4861,6 +5586,7 @@ translations = {
         "uk": "P3: проблема з профілем",
         "pl": 'P3: problem z profilem',
         "de": 'P3: Problem mit dem Profil',
+        "nl": 'P3: probleem met profiel',
     },
     "support_priority_p4": {
         "ru": "P4: вопрос или обратная связь",
@@ -4869,6 +5595,7 @@ translations = {
         "uk": "P4: питання або зворотний зв'язок",
         "pl": 'P4: pytanie lub opinia',
         "de": 'P4: Frage oder Feedback',
+        "nl": 'P4: vraag of feedback',
     },
     "support_message_prompt": {
         "ru": "Опишите проблему одним сообщением. Не отправляйте пароли, коды доступа или лишние персональные данные.",
@@ -4882,6 +5609,10 @@ translations = {
         "de": (
             'Beschreiben Sie das Problem in einer Nachricht. Senden Sie keine '
             'Passwörter, Zugangscodes oder unnötige personenbezogene Daten.'
+        ),
+        "nl": (
+            'Beschrijf het probleem in één bericht. Stuur geen wachtwoorden, '
+            'toegangscodes of onnodige persoonlijke gegevens.'
         ),
     },
     "support_ticket_created": {
@@ -4897,6 +5628,10 @@ translations = {
             'Ticket erstellt. Nummer: {ticket_id}\n'
             'Der Support wird in diesem Chat antworten.'
         ),
+        "nl": (
+            'Ticket aangemaakt. Nummer: {ticket_id}\n'
+            'De helpdesk zal in deze chat reageren.'
+        ),
     },
     "support_no_tickets": {
         "ru": "У вас пока нет обращений.",
@@ -4905,6 +5640,7 @@ translations = {
         "uk": "У вас поки немає звернень.",
         "pl": 'Nie masz jeszcze zgłoszeń do pomocy technicznej.',
         "de": 'Sie haben noch keine Support-Tickets.',
+        "nl": 'Je hebt nog geen supporttickets.',
     },
     "support_tickets_title": {
         "ru": "Ваши обращения:",
@@ -4913,6 +5649,7 @@ translations = {
         "uk": "Ваші звернення:",
         "pl": 'Twoje zgłoszenia do pomocy technicznej:',
         "de": 'Ihre Support-Tickets:',
+        "nl": 'Uw supporttickets:',
     },
     "support_ticket_line": {
         "ru": "#{ticket_id} | {status} | {priority} | {category}",
@@ -4921,6 +5658,7 @@ translations = {
         "uk": "#{ticket_id} | {status} | {priority} | {category}",
         "pl": '#{ticket_id} | {status} | {priority} | {category}',
         "de": '#{ticket_id} | {status} | {priority} | {category}',
+        "nl": '#{ticket_id} | {status} | {priority} | {category}',
     },
     "support_error": {
         "ru": "Не удалось выполнить действие поддержки: {error}",
@@ -4929,6 +5667,7 @@ translations = {
         "uk": "Не вдалося виконати дію підтримки: {error}",
         "pl": 'Nie udało się wykonać czynności pomocy technicznej: {error}',
         "de": 'Support-Aktion konnte nicht abgeschlossen werden: {error}',
+        "nl": 'De supportactie kon niet worden voltooid: {error}',
     },
 
     "admin_support_tickets": {
@@ -4938,6 +5677,7 @@ translations = {
         "uk": "Звернення до підтримки",
         "pl": 'Zgłoszenia do pomocy technicznej',
         "de": 'Support-Tickets',
+        "nl": 'Supporttickets',
     },
     "admin_no_support_tickets": {
         "ru": "Нет обращений, требующих ответа.",
@@ -4949,6 +5689,7 @@ translations = {
             'odpowiedź.'
         ),
         "de": 'Es liegen keine Supportanfragen vor, die auf eine Antwort warten.',
+        "nl": 'Er zijn geen supportverzoeken die op een reactie wachten.',
     },
     "admin_support_ticket_title": {
         "ru": "Обращение #{ticket_id} ({index}/{total})",
@@ -4957,6 +5698,7 @@ translations = {
         "uk": "Звернення #{ticket_id} ({index}/{total})",
         "pl": 'Zgłoszenie nr {ticket_id} ({index}/{total})',
         "de": 'Ticket Nr. {ticket_id} ({index}/{total})',
+        "nl": 'Ticket #{ticket_id} ({index}/{total})',
     },
     "admin_support_priority": {
         "ru": "Приоритет",
@@ -4965,6 +5707,7 @@ translations = {
         "uk": "Пріоритет",
         "pl": 'Priorytet',
         "de": 'Priorität',
+        "nl": 'Prioriteit',
     },
     "admin_support_category": {
         "ru": "Категория",
@@ -4973,6 +5716,7 @@ translations = {
         "uk": "Категорія",
         "pl": 'Kategoria',
         "de": 'Kategorie',
+        "nl": 'Categorie',
     },
     "admin_support_user": {
         "ru": "Пользователь",
@@ -4981,6 +5725,7 @@ translations = {
         "uk": "Користувач",
         "pl": 'Użytkownik',
         "de": 'Benutzer',
+        "nl": 'Gebruiker',
     },
     "admin_support_ticket_id": {
         "ru": "Ticket",
@@ -4989,6 +5734,7 @@ translations = {
         "uk": "Ticket",
         "pl": 'Zgłoszenie',
         "de": 'Ticket',
+        "nl": 'Ticket',
     },
     "admin_support_messages": {
         "ru": "Последние сообщения:",
@@ -4997,6 +5743,7 @@ translations = {
         "uk": "Останні повідомлення:",
         "pl": 'Najnowsze wiadomości:',
         "de": 'Neueste Nachrichten:',
+        "nl": 'Laatste berichten:',
     },
     "admin_support_reply": {
         "ru": "Ответить",
@@ -5005,6 +5752,7 @@ translations = {
         "uk": "Відповісти",
         "pl": 'Odpowiedz',
         "de": 'Antwort',
+        "nl": 'Reageren',
     },
     "admin_support_resolve": {
         "ru": "Решено",
@@ -5013,6 +5761,7 @@ translations = {
         "uk": "Вирішено",
         "pl": 'Rozwiązanie',
         "de": 'Lösen',
+        "nl": 'Oplossen',
     },
     "admin_support_close": {
         "ru": "Закрыть",
@@ -5021,6 +5770,7 @@ translations = {
         "uk": "Закрити",
         "pl": 'Zamknij',
         "de": 'Schließen',
+        "nl": 'Sluiten',
     },
     "admin_support_reply_prompt": {
         "ru": "Введите ответ пользователю по обращению.",
@@ -5029,6 +5779,7 @@ translations = {
         "uk": "Введіть відповідь користувачу щодо звернення.",
         "pl": 'Wpisz odpowiedź dla użytkownika.',
         "de": 'Geben Sie Ihre Antwort an den Nutzer ein.',
+        "nl": 'Voer je antwoord aan de gebruiker in.',
     },
     "admin_support_reply_sent": {
         "ru": "Ответ отправлен пользователю.",
@@ -5037,6 +5788,7 @@ translations = {
         "uk": "Відповідь надіслано користувачу.",
         "pl": 'Odpowiedź wysłana do użytkownika.',
         "de": 'Antwort an den Nutzer gesendet.',
+        "nl": 'Antwoord verzonden naar gebruiker.',
     },
     "admin_support_back_hint": {
         "ru": "Вернитесь в /admin, чтобы продолжить работу с обращениями.",
@@ -5048,6 +5800,7 @@ translations = {
             'Kehren Sie zu /admin zurück, um die Arbeit mit Tickets '
             'fortzusetzen.'
         ),
+        "nl": 'Ga terug naar /admin om verder te werken met tickets.',
     },
     "admin_support_status_updated": {
         "ru": "Статус обращения изменён: {status}",
@@ -5056,6 +5809,7 @@ translations = {
         "uk": "Статус звернення змінено: {status}",
         "pl": 'Zaktualizowano status zgłoszenia do pomocy technicznej: {status}',
         "de": 'Status des Support-Tickets aktualisiert: {status}',
+        "nl": 'Status van het supportticket bijgewerkt: {status}',
     },
     "support_staff_reply_received": {
         "ru": "Ответ поддержки по обращению #{ticket_id}:\n\n{message}",
@@ -5069,6 +5823,7 @@ translations = {
             '{message}'
         ),
         "de": 'Support-Antwort auf Ticket Nr. {ticket_id}:\n\n{message}',
+        "nl": 'Antwoord van de ondersteuning op ticket #{ticket_id}:\n\n{message}',
     },
     "support_ticket_button": {
         "ru": "#{ticket_id} | {category} | {status}",
@@ -5077,6 +5832,7 @@ translations = {
         "uk": "#{ticket_id} | {category} | {status}",
         "pl": '#{ticket_id} | {category} | {status}',
         "de": '#{ticket_id} | {category} | {status}',
+        "nl": '#{ticket_id} | {category} | {status}',
     },
     "support_ticket_view_title": {
         "ru": "Обращение #{ticket_id}",
@@ -5085,6 +5841,7 @@ translations = {
         "uk": "Звернення #{ticket_id}",
         "pl": 'Zgłoszenie nr #{ticket_id}',
         "de": 'Ticket Nr. {ticket_id}',
+        "nl": 'Ticket #{ticket_id}',
     },
     "support_message_line": {
         "ru": "{sender_role}: {message}",
@@ -5093,6 +5850,7 @@ translations = {
         "uk": "{sender_role}: {message}",
         "pl": '{sender_role}: {message}',
         "de": '{sender_role}: {message}',
+        "nl": '{sender_role}: {message}',
     },
     "support_reply_btn": {
         "ru": "Ответить в обращение",
@@ -5101,6 +5859,7 @@ translations = {
         "uk": "Відповісти у зверненні",
         "pl": 'Odpowiedz na zgłoszenie',
         "de": 'Auf Ticket antworten',
+        "nl": 'Reageren op ticket',
     },
     "support_reply_prompt": {
         "ru": "Введите сообщение для поддержки.",
@@ -5109,6 +5868,7 @@ translations = {
         "uk": "Введіть повідомлення для підтримки.",
         "pl": 'Wpisz wiadomość do działu pomocy technicznej.',
         "de": 'Geben Sie Ihre Nachricht an den Support ein.',
+        "nl": 'Voer uw bericht in voor ondersteuning.',
     },
     "support_reply_sent": {
         "ru": "Сообщение добавлено в обращение.",
@@ -5117,6 +5877,7 @@ translations = {
         "uk": "Повідомлення додано до звернення.",
         "pl": 'Wiadomość dodana do zgłoszenia.',
         "de": 'Nachricht wurde dem Ticket hinzugefügt.',
+        "nl": 'Bericht toegevoegd aan het ticket.',
     },
 
     "feature_disabled_beta": {
@@ -5126,6 +5887,7 @@ translations = {
         "uk": "Скоро буде доступно",
         "pl": 'Wkrótce',
         "de": 'In Kürze verfügbar',
+        "nl": 'Binnenkort beschikbaar',
     },
     "feature_disabled_beta_message": {
         "ru": "Раздел пока недоступен.",
@@ -5134,6 +5896,7 @@ translations = {
         "uk": "Розділ поки недоступний.",
         "pl": 'Ta sekcja jest obecnie niedostępna.',
         "de": 'Dieser Abschnitt ist derzeit nicht verfügbar.',
+        "nl": 'Dit gedeelte is momenteel niet beschikbaar.',
     },
     "role_text_specialist": {
         "ru": "Специалист",
@@ -5142,6 +5905,7 @@ translations = {
         "uk": "Спеціаліст",
         "pl": 'Specjalista',
         "de": 'Facharzt',
+        "nl": 'Specialist',
     },
     "role_text_support": {
         "ru": "Поддержка",
@@ -5150,6 +5914,7 @@ translations = {
         "uk": "Підтримка",
         "pl": 'Wsparcie',
         "de": 'Support',
+        "nl": 'Ondersteuning',
     },
     "role_text_moderator": {
         "ru": "Модератор",
@@ -5158,6 +5923,7 @@ translations = {
         "uk": "Модератор",
         "pl": 'Moderator',
         "de": 'Moderator',
+        "nl": 'Moderator',
     },
     "role_text_admin": {
         "ru": "Администратор",
@@ -5166,6 +5932,7 @@ translations = {
         "uk": "Адміністратор",
         "pl": 'Administrator',
         "de": 'Admin',
+        "nl": 'Beheerder',
     },
     "professional_cabinets_btn": {
         "ru": "🔄 Профессиональные кабинеты",
@@ -5174,6 +5941,7 @@ translations = {
         "uk": "🔄 Професійні кабінети",
         "pl": '🔄 Profile zawodowe',
         "de": '🔄 Berufsprofile',
+        "nl": '🔄 Professionele profielen',
     },
     "professional_cabinets_title": {
         "ru": "🔄 Профессиональные кабинеты\n\nВыберите кабинет, который хотите открыть.",
@@ -5186,6 +5954,7 @@ translations = {
             '\n'
             'Wählen Sie das Profil aus, das Sie öffnen möchten.'
         ),
+        "nl": '🔄 Professionele profielen\n\nKies het profiel dat u wilt openen.',
     },
     "professional_cabinets_empty": {
         "ru": "У вас пока нет активных профессиональных кабинетов.",
@@ -5194,6 +5963,7 @@ translations = {
         "uk": "У вас поки немає активних професійних кабінетів.",
         "pl": 'Nie masz jeszcze aktywnych profili zawodowych.',
         "de": 'Sie haben noch keine aktiven Berufsprofile.',
+        "nl": 'Je hebt nog geen actieve professionele profielen.',
     },
 "professional_cabinet_switched": {
         "ru": "Профессиональный кабинет открыт.",
@@ -5202,6 +5972,7 @@ translations = {
         "uk": "Професійний кабінет відкрито.",
         "pl": 'Profil zawodowy został otwarty.',
         "de": 'Berufsprofil geöffnet.',
+        "nl": 'Professioneel profiel geopend.',
     },
     "professional_cabinet_add_btn": {
         "ru": "➕ Добавить кабинет",
@@ -5210,6 +5981,7 @@ translations = {
         "uk": "➕ Додати кабінет",
         "pl": '➕ Dodaj profil',
         "de": '➕ Profil hinzufügen',
+        "nl": '➕ Profiel toevoegen',
     },
     "professional_cabinet_choose_category": {
         "ru": "➕ Новый профессиональный кабинет\n\nВыберите направление.",
@@ -5218,6 +5990,7 @@ translations = {
         "uk": "➕ Новий професійний кабінет\n\nОберіть напрям.",
         "pl": '➕ Nowy profil zawodowy\n\nWybierz kategorię.',
         "de": '➕ Neues berufliches Profil\n\nWählen Sie eine Kategorie aus.',
+        "nl": '➕ Nieuw professioneel profiel\n\nKies een categorie.',
     },
     "professional_cabinet_choose_profession": {
         "ru": "➕ Новый профессиональный кабинет\n\nВыберите профессию.",
@@ -5226,6 +5999,7 @@ translations = {
         "uk": "➕ Новий професійний кабінет\n\nОберіть професію.",
         "pl": '➕ Nowy profil zawodowy\n\nWybierz zawód.',
         "de": '➕ Neues Berufsprofil\n\nWählen Sie einen Beruf aus.',
+        "nl": '➕ Nieuw beroepsprofiel\n\nKies een beroep.',
     },
     "professional_cabinet_created": {
         "ru": "Профессиональный кабинет создан и открыт.",
@@ -5234,6 +6008,7 @@ translations = {
         "uk": "Професійний кабінет створено та відкрито.",
         "pl": 'Profil zawodowy został utworzony i otwarty.',
         "de": 'Berufsprofil erstellt und geöffnet.',
+        "nl": 'Beroepsprofiel aangemaakt en geopend.',
     },
     "professional_cabinet_already_exists": {
         "ru": "Кабинет для этой профессии уже существует.",
@@ -5242,6 +6017,7 @@ translations = {
         "uk": "Кабінет для цієї професії вже існує.",
         "pl": 'Profil dla tego zawodu już istnieje.',
         "de": 'Ein Profil für diesen Beruf existiert bereits.',
+        "nl": 'Er bestaat al een profiel voor dit beroep.',
     },
     "professional_cabinet_add_failed": {
         "ru": "Не удалось создать профессиональный кабинет.",
@@ -5250,6 +6026,7 @@ translations = {
         "uk": "Не вдалося створити професійний кабінет.",
         "pl": 'Nie można utworzyć profilu zawodowego.',
         "de": 'Das Berufsprofil konnte nicht erstellt werden.',
+        "nl": 'Het beroepsprofiel kan niet worden aangemaakt.',
     },
     "professional_cabinet_submit_moderation_btn": {
         "ru": "Отправить на модерацию",
@@ -5258,6 +6035,7 @@ translations = {
         "uk": "Надіслати на модерацію",
         "pl": 'Prześlij do moderacji',
         "de": 'Zur Moderation einreichen',
+        "nl": 'Indienen voor moderatie',
     },
     "professional_cabinet_submitted": {
         "ru": "Кабинет отправлен на модерацию.",
@@ -5266,6 +6044,7 @@ translations = {
         "uk": "Кабінет надіслано на модерацію.",
         "pl": 'Profil został przesłany do moderacji.',
         "de": 'Das Profil wurde zur Moderation eingereicht.',
+        "nl": 'Het profiel is ter beoordeling ingediend.',
     },
     "professional_cabinet_already_pending": {
         "ru": "Кабинет уже ожидает модерации.",
@@ -5274,6 +6053,7 @@ translations = {
         "uk": "Кабінет вже очікує на модерацію.",
         "pl": 'Profil oczekuje już na moderację.',
         "de": 'Das Profil wartet bereits auf die Freigabe.',
+        "nl": 'Het profiel wacht al op moderatie.',
     },
     "professional_cabinet_submit_failed": {
         "ru": "Не удалось отправить кабинет на модерацию.",
@@ -5282,6 +6062,7 @@ translations = {
         "uk": "Не вдалося надіслати кабінет на модерацію.",
         "pl": 'Nie można przesłać profilu do moderacji.',
         "de": 'Das Profil konnte nicht zur Moderation eingereicht werden.',
+        "nl": 'Het profiel kan niet ter moderatie worden ingediend.',
     },
     "role_switch_prompt": {
         "ru": "🔄 Мои кабинеты\n\nВыберите кабинет, который хотите открыть.",
@@ -5294,6 +6075,7 @@ translations = {
             '\n'
             'Wählen Sie das Dashboard aus, das Sie öffnen möchten.'
         ),
+        "nl": '🔄 Mijn dashboards\n\nKies het dashboard dat je wilt openen.',
     },
     "role_switch_done": {
         "ru": "Открыт кабинет: {role}.",
@@ -5302,6 +6084,7 @@ translations = {
         "uk": "Відкрито кабінет: {role}.",
         "pl": 'Otwarty panel: {role}.',
         "de": 'Geöffnetes Dashboard: {role}.',
+        "nl": 'Geopend dashboard: {role}.',
     },
     "role_switch_failed": {
         "ru": "Этот кабинет недоступен.",
@@ -5310,6 +6093,7 @@ translations = {
         "uk": "Цей кабінет недоступний.",
         "pl": 'Ten panel jest niedostępny.',
         "de": 'Dieses Dashboard ist nicht verfügbar.',
+        "nl": 'Dit dashboard is niet beschikbaar.',
     },
     "role_switch_not_available": {
         "ru": "Для этого пользователя доступен только один кабинет.",
@@ -5318,6 +6102,7 @@ translations = {
         "uk": "Для цього користувача доступний лише один кабінет.",
         "pl": 'Dla tego użytkownika dostępny jest tylko jeden panel.',
         "de": 'Für diesen Benutzer ist nur ein Dashboard verfügbar.',
+        "nl": 'Er is slechts één dashboard beschikbaar voor deze gebruiker.',
     },
     "active_cabinet_menu": {
         "ru": "К текущему кабинету",
@@ -5326,6 +6111,7 @@ translations = {
         "uk": "До поточного кабінету",
         "pl": 'Aktualny panel',
         "de": 'Aktuelles Dashboard',
+        "nl": 'Huidig dashboard',
     },
     "auth_required_start": {
         "ru": "Для этого действия нужно сначала запустить бота. Нажмите /start, затем действие продолжится.",
@@ -5340,6 +6126,10 @@ translations = {
             'Starten Sie zuerst den Bot. Drücken Sie /start, dann wird diese '
             'Aktion fortgesetzt.'
         ),
+        "nl": (
+            'Start eerst de bot. Druk op /start, waarna deze actie wordt '
+            'voortgezet.'
+        ),
     },
     "auth_action_restored": {
         "ru": "Продолжаем действие, которое вы начали ранее.",
@@ -5348,6 +6138,7 @@ translations = {
         "uk": "Продовжуємо дію, яку ви розпочали раніше.",
         "pl": 'Kontynuacja akcji rozpoczętej wcześniej.',
         "de": 'Fortsetzung der zuvor gestarteten Aktion.',
+        "nl": 'De actie die je eerder hebt gestart, wordt voortgezet.',
     },
     "client_cabinet_title": {
         "ru": "👤 Мой кабинет",
@@ -5356,6 +6147,7 @@ translations = {
         "uk": "👤 Мій кабінет",
         "pl": '👤 Mój panel',
         "de": '👤 Mein Dashboard',
+        "nl": '👤 Mijn dashboard',
     },
     "client_cabinet_summary": {
         "ru": "Управляйте профилем и сохраненными специалистами.",
@@ -5364,6 +6156,7 @@ translations = {
         "uk": "Керуйте профілем і збереженими спеціалістами.",
         "pl": 'Zarządzaj swoim profilem i zapisanymi specjalistami.',
         "de": 'Verwalte dein Profil und deine gespeicherten Spezialisten.',
+        "nl": 'Beheer je profiel en opgeslagen specialisten.',
     },
     "client_dialogs_empty": {
         "ru": "💬 Сообщений пока нет.",
@@ -5372,6 +6165,7 @@ translations = {
         "uk": "💬 Повідомлень поки немає.",
         "pl": '💬 Brak wiadomości.',
         "de": '💬 Noch keine Nachrichten.',
+        "nl": '💬 Nog geen berichten.',
     },
     "client_dialogs_prev": {
         "ru": "Пред.",
@@ -5380,6 +6174,7 @@ translations = {
         "uk": "Попер.",
         "pl": 'Poprzedni',
         "de": 'Zurück',
+        "nl": 'Vorige',
     },
     "client_dialogs_next": {
         "ru": "След.",
@@ -5388,6 +6183,7 @@ translations = {
         "uk": "Наст.",
         "pl": 'Dalej',
         "de": 'Weiter',
+        "nl": 'Volgende',
     },
     "client_dialog_status_waiting_specialist": {
         "ru": "Ожидает ответа специалиста",
@@ -5396,6 +6192,7 @@ translations = {
         "uk": "Очікує відповіді спеціаліста",
         "pl": 'Oczekiwanie na odpowiedź specjalisty',
         "de": 'Warten auf die Antwort des Spezialisten',
+        "nl": 'In afwachting van antwoord van de specialist',
     },
     "client_dialog_status_waiting_client": {
         "ru": "Ожидает вашего ответа",
@@ -5404,6 +6201,7 @@ translations = {
         "uk": "Очікує вашої відповіді",
         "pl": 'Czekam na Twoją odpowiedź',
         "de": 'Warte auf Ihre Antwort',
+        "nl": 'In afwachting van uw antwoord',
     },
     "client_dialog_status_open": {
         "ru": "Переписка начата",
@@ -5412,6 +6210,7 @@ translations = {
         "uk": "Переписку розпочато",
         "pl": 'Rozmowa rozpoczęta',
         "de": 'Gespräch gestartet',
+        "nl": 'Gesprek gestart',
     },
     "client_dialog_status_in_discussion": {
         "ru": "В обсуждении",
@@ -5420,6 +6219,7 @@ translations = {
         "uk": "В обговоренні",
         "pl": 'W trakcie dyskusji',
         "de": 'In Diskussion',
+        "nl": 'In gesprek',
     },
     "client_dialog_status_completed": {
         "ru": "Завершён",
@@ -5428,6 +6228,7 @@ translations = {
         "uk": "Завершено",
         "pl": 'Zakończono',
         "de": 'Abgeschlossen',
+        "nl": 'Voltooid',
     },
     "client_dialog_status_closed": {
         "ru": "Закрыт",
@@ -5436,6 +6237,7 @@ translations = {
         "uk": "Закрито",
         "pl": 'Zamknięte',
         "de": 'Geschlossen',
+        "nl": 'Gesloten',
     },
     "client_dialog_status_other": {
         "ru": "В процессе",
@@ -5444,6 +6246,7 @@ translations = {
         "uk": "У процесі",
         "pl": 'W trakcie',
         "de": 'In Bearbeitung',
+        "nl": 'In behandeling',
     },
     "client_dialog_unread_label": {
         "ru": "Непрочитано",
@@ -5452,6 +6255,7 @@ translations = {
         "uk": "Непрочитано",
         "pl": 'Nieprzeczytane',
         "de": 'Ungelesen',
+        "nl": 'Ongelezen',
     },
     "client_dialog_last_label": {
         "ru": "Последнее",
@@ -5460,6 +6264,7 @@ translations = {
         "uk": "Останнє",
         "pl": 'Ostatni',
         "de": 'Letzte',
+        "nl": 'Laatste',
     },
     "search_advanced_filters": {
         "ru": "⚙️ Другие фильтры",
@@ -5468,6 +6273,7 @@ translations = {
         "uk": "⚙️ Інші фільтри",
         "pl": '⚙️ Więcej filtrów',
         "de": '⚙️ Weitere Filter',
+        "nl": '⚙️ Meer filters',
     },
     "search_location_without": {
         "ru": "Без локации",
@@ -5476,6 +6282,7 @@ translations = {
         "uk": "Без локації",
         "pl": 'Brak lokalizacji',
         "de": 'Kein Standort',
+        "nl": 'Geen locatie',
     },
     "search_filter_category_not_selected": {
         "ru": "не выбрана",
@@ -5484,6 +6291,7 @@ translations = {
         "uk": "не обрана",
         "pl": 'nie wybrano',
         "de": 'nicht ausgewählt',
+        "nl": 'niet geselecteerd',
     },
     "search_filter_professions_not_selected": {
         "ru": "не выбраны",
@@ -5492,6 +6300,7 @@ translations = {
         "uk": "не обрані",
         "pl": 'nie wybrano',
         "de": 'nicht ausgewählt',
+        "nl": 'niet geselecteerd',
     },
     "search_geo_other": {
         "ru": "Другие",
@@ -5500,6 +6309,7 @@ translations = {
         "uk": "Інші",
         "pl": 'Inne opcje',
         "de": 'Weitere Optionen',
+        "nl": 'Andere opties',
     },
     "search_geo_retry": {
         "ru": "Повторить",
@@ -5508,6 +6318,7 @@ translations = {
         "uk": "Повторити",
         "pl": 'Ponów próbę',
         "de": 'Erneut versuchen',
+        "nl": 'Opnieuw proberen',
     },
     "search_apply_filters": {
         "ru": "Применить",
@@ -5516,6 +6327,7 @@ translations = {
         "uk": "Застосувати",
         "pl": 'Zastosuj',
         "de": 'Übernehmen',
+        "nl": 'Toepassen',
     },
     "search_results_header": {
         "ru": "Найдено {found} специалистов\nПоказаны {range}",
@@ -5524,6 +6336,7 @@ translations = {
         "uk": "Знайдено {found} спеціалістів\nПоказано {range}",
         "pl": 'Znaleziono {found} specjalistów\nWyświetlono {range}',
         "de": '{found} Spezialisten gefunden\n{range} werden angezeigt',
+        "nl": 'Er zijn {found} specialisten gevonden\n{range} weergeven',
     },
     "search_no_reviews": {
         "ru": "Новый специалист",
@@ -5532,6 +6345,7 @@ translations = {
         "uk": "Новий спеціаліст",
         "pl": 'Nowy specjalista',
         "de": 'Neuer Spezialist',
+        "nl": 'Nieuwe specialist',
     },
     "reviews_btn": {
         "ru": "Отзывы",
@@ -5540,6 +6354,7 @@ translations = {
         "uk": "Відгуки",
         "pl": 'Recenzje',
         "de": 'Bewertungen',
+        "nl": 'Beoordelingen',
     },
     "portfolio_btn": {
         "ru": "Портфолио",
@@ -5548,6 +6363,7 @@ translations = {
         "uk": "Портфоліо",
         "pl": 'Portfolio',
         "de": 'Portfolio',
+        "nl": 'Portfolio',
     },
     "reviews_opening": {
         "ru": "Отзывы специалиста",
@@ -5556,6 +6372,7 @@ translations = {
         "uk": "Відгуки про спеціаліста",
         "pl": 'Recenzje specjalistów',
         "de": 'Fachrezensionen',
+        "nl": 'Recensies van specialisten',
     },
     "search_empty_reset_price": {
         "ru": "Сбросить цену",
@@ -5564,6 +6381,7 @@ translations = {
         "uk": "Скинути ціну",
         "pl": 'Zresetuj cenę',
         "de": 'Preis zurücksetzen',
+        "nl": 'Prijs resetten',
     },
     "contact_cancel_btn": {
         "ru": "Отмена",
@@ -5572,6 +6390,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "contact_request_existing": {
         "ru": "У вас уже есть переписка с этим специалистом. Открываю сообщения.",
@@ -5583,6 +6402,7 @@ translations = {
             'Sie führen bereits eine Unterhaltung mit diesem Spezialisten. '
             'Erste Nachrichten.'
         ),
+        "nl": 'Je hebt al een gesprek met deze specialist. Open berichten.',
     },
 
     "client_thread_specialist_label": {
@@ -5592,6 +6412,7 @@ translations = {
         "uk": "Спеціаліст",
         "pl": 'Specjalista',
         "de": 'Spezialist',
+        "nl": 'Specialist',
     },
     "client_thread_request_label": {
         "ru": "Заявка",
@@ -5600,6 +6421,7 @@ translations = {
         "uk": "Заявка",
         "pl": 'Prośba',
         "de": 'Anfrage',
+        "nl": 'Verzoek',
     },
     "client_thread_history_label": {
         "ru": "История",
@@ -5608,6 +6430,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "client_thread_no_messages": {
         "ru": "Сообщений пока нет. Текст заявки показан выше.",
@@ -5616,6 +6439,7 @@ translations = {
         "uk": "Повідомлень поки немає. Текст заявки показано вище.",
         "pl": 'Brak wiadomości. Treść prośby została wyświetlona powyżej.',
         "de": 'Noch keine Nachrichten. Der Text der Anfrage wird oben angezeigt.',
+        "nl": 'Nog geen berichten. De tekst van het verzoek staat hierboven.',
     },
     "contact_back_to_dialogs_btn": {
         "ru": "💬 К сообщениям",
@@ -5624,6 +6448,7 @@ translations = {
         "uk": "💬 До повідомлень",
         "pl": '💬 Powrót do wiadomości',
         "de": '💬 Zurück zu den Nachrichten',
+        "nl": '💬 Terug naar berichten',
     },
     "legacy_requests_unavailable": {
         "ru": "Этот раздел больше не используется. Откройте сообщения.",
@@ -5632,6 +6457,7 @@ translations = {
         "uk": "Цей розділ більше не використовується. Відкрийте повідомлення.",
         "pl": 'Ta sekcja nie jest już używana. Otwórz wiadomości.',
         "de": 'Dieser Abschnitt wird nicht mehr verwendet. Nachrichten öffnen.',
+        "nl": 'Dit gedeelte wordt niet meer gebruikt. Berichten openen.',
     },
 
     "public_reviews_title": {
@@ -5641,6 +6467,7 @@ translations = {
         "uk": "Відгуки про спеціаліста",
         "pl": 'Recenzje specjalistów',
         "de": 'Fachärztliche Gutachten',
+        "nl": 'Beoordelingen door specialisten',
     },
     "public_reviews_summary": {
         "ru": "Рейтинг: {rating}\nОтзывов: {count}",
@@ -5649,6 +6476,7 @@ translations = {
         "uk": "Рейтинг: {rating}\nВідгуків: {count}",
         "pl": 'Ocena: {rating}\nRecenzje: {count}',
         "de": 'Bewertung: {rating}\nBewertungen: {count}',
+        "nl": 'Beoordeling: {rating}\nBeoordelingen: {count}',
     },
     "public_reviews_empty": {
         "ru": "Отзывов пока нет",
@@ -5657,6 +6485,7 @@ translations = {
         "uk": "Відгуків поки немає",
         "pl": 'Jeszcze nie ma recenzji',
         "de": 'Noch keine Bewertungen',
+        "nl": 'Nog geen beoordelingen',
     },
     "public_reviews_load_error": {
         "ru": "Не удалось открыть отзывы. Попробуйте позже.",
@@ -5668,6 +6497,10 @@ translations = {
             'Bewertungen konnten nicht geöffnet werden. Bitte versuche es '
             'später erneut.'
         ),
+        "nl": (
+            'Beoordelingen konden niet worden geopend. Probeer het later nog '
+            'eens.'
+        ),
     },
     "public_review_item": {
         "ru": "{number}. Оценка: {rating}/5\n{text}",
@@ -5676,6 +6509,7 @@ translations = {
         "uk": "{number}. Оцінка: {rating}/5\n{text}",
         "pl": '{number}. Ocena: {rating}/5\n{text}',
         "de": '{number}. Bewertung: {rating}/5\n{text}',
+        "nl": '{number}. Beoordeling: {rating}/5\n{text}',
     },
     "public_review_without_text": {
         "ru": "Без текста",
@@ -5684,6 +6518,7 @@ translations = {
         "uk": "Без тексту",
         "pl": 'Brak tekstu',
         "de": 'Kein Text',
+        "nl": 'Geen tekst',
     },
     "public_review_specialist_reply": {
         "ru": "Ответ специалиста: {reply}",
@@ -5692,6 +6527,7 @@ translations = {
         "uk": "Відповідь спеціаліста: {reply}",
         "pl": 'Odpowiedź specjalisty: {reply}',
         "de": 'Antwort des Spezialisten: {reply}',
+        "nl": 'Antwoord van de specialist: {reply}',
     },
     "public_review_report_btn": {
         "ru": "Жалоба на отзыв {number}",
@@ -5700,6 +6536,7 @@ translations = {
         "uk": "Скарга на відгук {number}",
         "pl": 'Przegląd raportu {number}',
         "de": 'Berichtsprüfung {number}',
+        "nl": 'Beoordeling rapport {number}',
     },
     "prev_btn": {
         "ru": "Пред.",
@@ -5708,6 +6545,7 @@ translations = {
         "uk": "Попер.",
         "pl": 'Poprzedni',
         "de": 'Zurück',
+        "nl": 'Vorige',
     },
     "next_btn": {
         "ru": "След.",
@@ -5716,6 +6554,7 @@ translations = {
         "uk": "Наст.",
         "pl": 'Dalej',
         "de": 'Weiter',
+        "nl": 'Volgende',
     },
     "public_portfolio_title": {
         "ru": "Портфолио специалиста",
@@ -5724,6 +6563,7 @@ translations = {
         "uk": "Портфоліо спеціаліста",
         "pl": 'Specjalista portfolio',
         "de": 'Fachkraft portfolio',
+        "nl": 'Specialist portfolio',
     },
     "public_portfolio_empty": {
         "ru": "Портфолио не заполнено",
@@ -5732,6 +6572,7 @@ translations = {
         "uk": "Портфоліо не заповнено",
         "pl": 'Portfolio jest puste',
         "de": 'Portfolio ist leer',
+        "nl": 'Portfolio is leeg',
     },
     "public_portfolio_load_error": {
         "ru": "Не удалось открыть портфолио. Попробуйте позже.",
@@ -5743,6 +6584,10 @@ translations = {
             'Das portfolio konnte nicht geöffnet werden. Bitte versuchen Sie '
             'es später erneut.'
         ),
+        "nl": (
+            'Het is niet gelukt om portfolio te openen. Probeer het later nog '
+            'eens.'
+        ),
     },
     "public_portfolio_report_btn": {
         "ru": "Жалоба",
@@ -5751,6 +6596,7 @@ translations = {
         "uk": "Скарга",
         "pl": 'Raport',
         "de": 'Bericht',
+        "nl": 'Rapport',
     },
     "specialist_dialogs_btn": {
         "ru": "💬 Сообщения",
@@ -5759,6 +6605,7 @@ translations = {
         "uk": "💬 Повідомлення",
         "pl": '💬 Wiadomości',
         "de": '💬 Nachrichten',
+        "nl": '💬 Berichten',
     },
     "specialist_services_btn": {
         "ru": "Услуги",
@@ -5767,6 +6614,7 @@ translations = {
         "uk": "Послуги",
         "pl": 'Usługi',
         "de": 'Dienstleistungen',
+        "nl": 'Diensten',
     },
     "specialist_cabinet_title": {
         "ru": "Кабинет специалиста",
@@ -5775,6 +6623,7 @@ translations = {
         "uk": "Кабінет спеціаліста",
         "pl": 'Panel specjalisty',
         "de": 'Fach-Dashboard',
+        "nl": 'Dashboard voor specialisten',
     },
 
     "specialist_unread_label": {
@@ -5784,6 +6633,7 @@ translations = {
         "uk": "Непрочитані",
         "pl": 'Nieprzeczytane',
         "de": 'Ungelesen',
+        "nl": 'Ongelezen',
     },
     "specialist_no_profile_start": {
         "ru": "Профиль специалиста ещё не создан. Начните регистрацию специалиста.",
@@ -5797,6 +6647,10 @@ translations = {
         "de": (
             'Das Spezialistenprofil wurde noch nicht erstellt. Starten Sie '
             'die Spezialistenregistrierung.'
+        ),
+        "nl": (
+            'Er is nog geen specialistprofiel aangemaakt. Start de '
+            'registratie van de specialist.'
         ),
     },
     "specialist_status_pending_notice": {
@@ -5824,6 +6678,10 @@ translations = {
             'Das Profil wird mit dem Vermerk „Wartet auf Freigabe“ '
             'veröffentlicht und ist bereits in der Suche sichtbar.'
         ),
+        "nl": (
+            "Het profiel is gepubliceerd met de status 'In afwachting van "
+            "moderatie' en is al zichtbaar in de zoekresultaten."
+        ),
     },
     "specialist_status_rejected_notice": {
         "ru": "Профиль отклонён. Исправьте данные или обратитесь в поддержку.",
@@ -5838,6 +6696,10 @@ translations = {
             'Das Profil wurde abgelehnt. Aktualisieren Sie die Daten oder '
             'wenden Sie sich an den Support.'
         ),
+        "nl": (
+            'Het profiel is afgewezen. Werk de gegevens bij of neem contact '
+            'op met de helpdesk.'
+        ),
     },
     "specialist_status_generic_notice": {
         "ru": "Текущий статус профиля: {status}",
@@ -5846,6 +6708,7 @@ translations = {
         "uk": "Поточний статус профілю: {status}",
         "pl": 'Aktualny status profilu: {status}',
         "de": 'Aktueller Profilstatus: {status}',
+        "nl": 'Huidige profielstatus: {status}',
     },
     "specialist_registration_start_text": {
         "ru": "Создание кабинета специалиста.\n\nВы сможете указать профессию, локацию, описание, услуги и портфолио. Перед публикацией нужно принять обязательные документы.",
@@ -5866,6 +6729,13 @@ translations = {
             'portfolio festlegen. Die erforderlichen Dokumente müssen vor der '
             'Veröffentlichung akzeptiert werden.'
         ),
+        "nl": (
+            'Maak een specialistprofiel aan.\n'
+            '\n'
+            'U kunt uw beroep, locatie, beschrijving, diensten en portfolio '
+            'instellen. De vereiste documenten moeten worden goedgekeurd '
+            'voordat het profiel wordt gepubliceerd.'
+        ),
     },
     "specialist_registration_start_btn": {
         "ru": "Начать",
@@ -5874,6 +6744,7 @@ translations = {
         "uk": "Почати",
         "pl": 'Rozpocznij',
         "de": 'Start',
+        "nl": 'Start',
     },
     "spec_location_remote_btn": {
         "ru": "Удалённо",
@@ -5882,6 +6753,7 @@ translations = {
         "uk": "Віддалено",
         "pl": 'Praca zdalna',
         "de": 'Remote',
+        "nl": 'Op afstand',
     },
     "spec_location_remote_selected": {
         "ru": "Удалённо",
@@ -5890,6 +6762,7 @@ translations = {
         "uk": "Віддалено",
         "pl": 'Zdalny',
         "de": 'Fernbedienung',
+        "nl": 'Op afstand',
     },
     "spec_contact_visibility_prompt": {
         "ru": "Выберите видимость контакта. Заявки через платформу останутся включены.",
@@ -5901,6 +6774,10 @@ translations = {
             'Wählen Sie die Sichtbarkeit der Kontakte aus. Plattformanfragen '
             'bleiben aktiviert.'
         ),
+        "nl": (
+            'Kies de zichtbaarheid van contacten. Platformverzoeken blijven '
+            'ingeschakeld.'
+        ),
     },
     "spec_contact_visibility_platform_only": {
         "ru": "Только через платформу",
@@ -5909,6 +6786,7 @@ translations = {
         "uk": "Лише через платформу",
         "pl": 'Tylko platforma',
         "de": 'Nur Plattform',
+        "nl": 'Alleen platform',
     },
     "spec_contact_visibility_public_limited": {
         "ru": "Публично, без прямых контактов",
@@ -5917,6 +6795,7 @@ translations = {
         "uk": "Публічно, без прямих контактів",
         "pl": 'Publiczne, bez bezpośrednich kontaktów',
         "de": 'Öffentlich, keine direkten Kontakte',
+        "nl": 'Openbaar, geen directe contacten',
     },
     "spec_contact_visibility_private": {
         "ru": "Приватно",
@@ -5925,6 +6804,7 @@ translations = {
         "uk": "Приватно",
         "pl": 'Prywatne',
         "de": 'Privat',
+        "nl": 'Privé',
     },
     "spec_platform_contact_default": {
         "ru": "Связь через сообщения SGHR",
@@ -5933,6 +6813,7 @@ translations = {
         "uk": "Зв'язок через повідомлення SGHR",
         "pl": 'Kontakt poprzez wiadomości SGHR',
         "de": 'Kontakt über SGHR-Nachrichten',
+        "nl": 'Contact via SGHR-berichten',
     },
     "spec_contact_visibility_summary": {
         "ru": "Видимость контакта",
@@ -5941,6 +6822,7 @@ translations = {
         "uk": "Видимість контакту",
         "pl": 'Widoczność kontaktu',
         "de": 'Sichtbarkeit des Kontakts',
+        "nl": 'Zichtbaarheid van contacten',
     },
     "spec_draft_missing": {
         "ru": "Черновик профиля не найден. Начните регистрацию заново.",
@@ -5955,6 +6837,7 @@ translations = {
             'Der Profilentwurf wurde nicht gefunden. Bitte starten Sie die '
             'Registrierung erneut.'
         ),
+        "nl": 'Profielconcept niet gevonden. Begin opnieuw met de registratie.',
     },
     "contact_complete_btn": {
         "ru": "Запросить завершение",
@@ -5963,6 +6846,7 @@ translations = {
         "uk": "Запросити завершення",
         "pl": 'Zakończenie wniosku',
         "de": 'Anfrage abgeschlossen',
+        "nl": 'Voltooiing van het verzoek',
     },
     "search_report_btn": {
         "ru": "Жалоба",
@@ -5971,6 +6855,7 @@ translations = {
         "uk": "Скарга",
         "pl": 'Zgłoszenie',
         "de": 'Meldung',
+        "nl": 'Rapport',
     },
     "contact_thread_completion_requested": {
         "ru": "Запрос на завершение отправлен клиенту.",
@@ -5979,6 +6864,7 @@ translations = {
         "uk": "Запит на завершення надіслано клієнту.",
         "pl": 'Wniosek o zakończenie został wysłany do klienta.',
         "de": 'Die Fertigstellungsanforderung wurde an den Kunden gesendet.',
+        "nl": 'Het verzoek tot voltooiing is naar de klant verzonden.',
     },
     "contact_thread_completion_not_available": {
         "ru": (
@@ -6002,6 +6888,7 @@ translations = {
             'Öffnen Sie die Unterhaltung in „Nachrichten“ und schließen Sie '
             'sie dort ab.'
         ),
+        "nl": 'Open het gesprek in Berichten en rond het daar af.',
     },
     "cabinet_profile_title": {
         "ru": "Профиль специалиста",
@@ -6010,6 +6897,7 @@ translations = {
         "uk": "Профіль спеціаліста",
         "pl": 'Profil specjalisty',
         "de": 'Spezialistenprofil',
+        "nl": 'Profiel van de specialist',
     },
     "cabinet_profile_verified": {
         "ru": "Проверен",
@@ -6018,6 +6906,7 @@ translations = {
         "uk": "Перевірено",
         "pl": 'Zweryfikowany',
         "de": 'Verifiziert',
+        "nl": 'Geverifieerd',
     },
     "cabinet_pause_profile": {
         "ru": "Пауза",
@@ -6026,6 +6915,7 @@ translations = {
         "uk": "Пауза",
         "pl": 'Pauza',
         "de": 'Pause',
+        "nl": 'Pauze',
     },
     "cabinet_visibility_profile": {
         "ru": "Видимость",
@@ -6034,6 +6924,7 @@ translations = {
         "uk": "Видимість",
         "pl": 'Widoczność',
         "de": 'Sichtbarkeit',
+        "nl": 'Zichtbaarheid',
     },
     "cabinet_delete_profile": {
         "ru": "Удалить",
@@ -6042,6 +6933,7 @@ translations = {
         "uk": "Видалити",
         "pl": 'Usuń',
         "de": 'Löschen',
+        "nl": 'Verwijderen',
     },
     "cabinet_visibility_current": {
         "ru": "Текущая видимость: {visibility}",
@@ -6050,6 +6942,7 @@ translations = {
         "uk": "Поточна видимість: {visibility}",
         "pl": 'Aktualna widoczność: {visibility}',
         "de": 'Aktuelle Sichtbarkeit: {visibility}',
+        "nl": 'Huidige zichtbaarheid: {visibility}',
     },
     "cabinet_visibility_updated": {
         "ru": "Видимость обновлена: {visibility}",
@@ -6058,6 +6951,7 @@ translations = {
         "uk": "Видимість оновлено: {visibility}",
         "pl": 'Widoczność zaktualizowana: {visibility}',
         "de": 'Sichtbarkeit aktualisiert: {visibility}',
+        "nl": 'Zichtbaarheid bijgewerkt: {visibility}',
     },
     "specialist_profile_status_managed_by_moderation": {
         "ru": (
@@ -6084,6 +6978,10 @@ translations = {
             'Der Profilstatus wird durch Moderation verwaltet. Sie können Ihr '
             'Profil aktualisieren und zur Überprüfung einreichen.'
         ),
+        "nl": (
+            'De profielstatus wordt beheerd door moderatie. Je kunt je '
+            'profiel bijwerken en ter beoordeling indienen.'
+        ),
     },
     "cabinet_edit_work_format": {
         "ru": "Формат работы",
@@ -6092,6 +6990,7 @@ translations = {
         "uk": "Формат роботи",
         "pl": 'Forma pracy',
         "de": 'Arbeitsformate',
+        "nl": 'Werkvorm',
     },
     "cabinet_edit_languages": {
         "ru": "Языки",
@@ -6100,6 +6999,7 @@ translations = {
         "uk": "Мови",
         "pl": 'Języki',
         "de": 'Sprachen',
+        "nl": 'talen',
     },
     "cabinet_critical_edit_blocked": {
         "ru": (
@@ -6126,6 +7026,10 @@ translations = {
             'Eine Änderung dieses Feldes erfordert eine weitere '
             'Moderationsprüfung und ist derzeit nicht möglich.'
         ),
+        "nl": (
+            'Het wijzigen van dit veld vereist een nieuwe '
+            'moderatiebeoordeling en is momenteel niet beschikbaar.'
+        ),
     },
     "cabinet_profile_no_changes": {
         "ru": "Изменений нет.",
@@ -6134,6 +7038,7 @@ translations = {
         "uk": "Змін немає.",
         "pl": 'Brak zmian.',
         "de": 'Keine Änderungen.',
+        "nl": 'Geen wijzigingen.',
     },
     "specialist_services_title": {
         "ru": "Услуги специалиста",
@@ -6142,6 +7047,7 @@ translations = {
         "uk": "Послуги спеціаліста",
         "pl": 'Usługi specjalistyczne',
         "de": 'Spezialisierte Dienstleistungen',
+        "nl": 'Gespecialiseerde diensten',
     },
     "specialist_services_hint": {
         "ru": "Добавьте то, что поможет клиенту выбрать вас.",
@@ -6153,6 +7059,7 @@ translations = {
             'Fügen Sie Details hinzu, die Kunden dabei helfen, sich für Sie '
             'zu entscheiden.'
         ),
+        "nl": 'Voeg details toe die klanten helpen om voor u te kiezen.',
     },
     "specialist_services_empty": {
         "ru": "Услуг пока нет. Добавьте первую услугу.",
@@ -6164,6 +7071,7 @@ translations = {
             'Noch keine Dienstleistungen. Fügen Sie Ihre erste Dienstleistung '
             'hinzu.'
         ),
+        "nl": 'Nog geen diensten. Voeg uw eerste dienst toe.',
     },
     "specialist_service_price_not_set": {
         "ru": "Стоимость обсуждается в переписке",
@@ -6172,6 +7080,7 @@ translations = {
         "uk": "Вартість обговорюється в переписці",
         "pl": 'Cena jest ustalana w trakcie rozmowy',
         "de": 'Der Preis wird im Gespräch besprochen.',
+        "nl": 'De prijs wordt tijdens het gesprek besproken',
     },
     "specialist_service_status_active": {
         "ru": "Опубликована",
@@ -6180,6 +7089,7 @@ translations = {
         "uk": "Опубліковано",
         "pl": 'Opublikowano',
         "de": 'Veröffentlicht',
+        "nl": 'Gepubliceerd',
     },
     "specialist_service_status_paused": {
         "ru": "На паузе",
@@ -6188,6 +7098,7 @@ translations = {
         "uk": "На паузі",
         "pl": 'Wstrzymane',
         "de": 'Angehalten',
+        "nl": 'Gepauzeerd',
     },
     "specialist_service_status_pending": {
         "ru": "На модерации",
@@ -6196,6 +7107,7 @@ translations = {
         "uk": "На модерації",
         "pl": 'Oczekuje na moderację',
         "de": 'Wartet auf Freigabe',
+        "nl": 'In afwachting van moderatie',
     },
     "specialist_service_status_deleted": {
         "ru": "Удалена",
@@ -6204,6 +7116,7 @@ translations = {
         "uk": "Видалено",
         "pl": 'Usunięto',
         "de": 'Gelöscht',
+        "nl": 'Verwijderd',
     },
     "specialist_service_add_btn": {
         "ru": "Добавить",
@@ -6212,6 +7125,7 @@ translations = {
         "uk": "Додати",
         "pl": 'Dodaj',
         "de": 'Hinzufügen',
+        "nl": 'Toevoegen',
     },
     "specialist_service_edit_btn": {
         "ru": "Редактировать",
@@ -6220,6 +7134,7 @@ translations = {
         "uk": "Редагувати",
         "pl": 'Edytuj',
         "de": 'Bearbeiten',
+        "nl": 'Bewerken',
     },
     "specialist_service_pause_btn": {
         "ru": "Пауза",
@@ -6228,6 +7143,7 @@ translations = {
         "uk": "Пауза",
         "pl": 'Wstrzymaj',
         "de": 'Pause',
+        "nl": 'Pauzeren',
     },
     "specialist_service_delete_btn": {
         "ru": "Удалить",
@@ -6236,6 +7152,7 @@ translations = {
         "uk": "Видалити",
         "pl": 'Usuń',
         "de": 'Löschen',
+        "nl": 'Verwijderen',
     },
     "specialist_service_title_prompt": {
         "ru": "Введите название услуги.",
@@ -6244,6 +7161,7 @@ translations = {
         "uk": "Введіть назву послуги.",
         "pl": 'Wprowadź nazwę usługi.',
         "de": 'Geben Sie den Titel des Dienstes ein.',
+        "nl": 'Voer de servicetitel in.',
     },
     "specialist_service_title_required": {
         "ru": "Название услуги обязательно.",
@@ -6252,6 +7170,7 @@ translations = {
         "uk": "Назва послуги є обов'язковою.",
         "pl": 'Nazwa usługi jest wymagana.',
         "de": 'Der Titel der Dienstleistung ist erforderlich.',
+        "nl": 'De servicetitel is verplicht.',
     },
     "specialist_service_description_prompt": {
         "ru": "Введите описание услуги.",
@@ -6260,6 +7179,7 @@ translations = {
         "uk": "Введіть опис послуги.",
         "pl": 'Wprowadź opis usługi.',
         "de": 'Geben Sie die Leistungsbeschreibung ein.',
+        "nl": 'Voer de beschrijving van de dienst in.',
     },
     "specialist_service_description_required": {
         "ru": "Описание услуги обязательно.",
@@ -6268,6 +7188,7 @@ translations = {
         "uk": "Опис послуги є обов'язковим.",
         "pl": 'Opis usługi jest wymagany.',
         "de": 'Die Leistungsbeschreibung ist erforderlich.',
+        "nl": 'De dienstbeschrijving is verplicht.',
     },
     "specialist_service_price_prompt": {
         "ru": "Укажите цену в EUR. Можно одним числом: 50, или диапазоном: 50-100.",
@@ -6282,6 +7203,10 @@ translations = {
             'Geben Sie den Preis in EUR ein. Verwenden Sie eine Zahl: 50, '
             'oder einen Bereich: 50–100.'
         ),
+        "nl": (
+            'Voer de prijs in EUR in. Gebruik één getal: 50, of een bereik: '
+            '50-100.'
+        ),
     },
     "specialist_service_price_invalid": {
         "ru": "Цена должна быть числом >= 0. Пример: 50 или 50-100.",
@@ -6290,6 +7215,10 @@ translations = {
         "uk": "Ціна має бути числом >= 0. Приклад: 50 або 50-100.",
         "pl": 'Cena musi być liczbą >= 0. Przykład: 50 lub 50–100.',
         "de": 'Der Preis muss eine Zahl >= 0 sein. Beispiel: 50 oder 50–100.',
+        "nl": (
+            'De prijs moet een getal zijn dat groter is dan of gelijk is aan '
+            '0. Voorbeeld: 50 of 50-100.'
+        ),
     },
     "specialist_service_preview": {
         "ru": (
@@ -6336,6 +7265,14 @@ translations = {
             'Preis: {price}\n'
             'Währung: {currency}'
         ),
+        "nl": (
+            'Nieuwe dienst\n'
+            '\n'
+            'Titel: {title}\n'
+            'Beschrijving: {description}\n'
+            'Prijs: {price}\n'
+            'Valuta: {currency}'
+        ),
     },
     "specialist_service_saved": {
         "ru": "Услуга сохранена.",
@@ -6344,6 +7281,7 @@ translations = {
         "uk": "Послугу збережено.",
         "pl": 'Usługa zapisana.',
         "de": 'Dienst gespeichert.',
+        "nl": 'Service opgeslagen.',
     },
     "specialist_service_skip_price_btn": {
         "ru": "Пропустить цену",
@@ -6352,6 +7290,7 @@ translations = {
         "uk": "Пропустити ціну",
         "pl": 'Pomiń cenę',
         "de": 'Preis überspringen',
+        "nl": 'Prijs overslaan',
     },
     "specialist_service_status_changed": {
         "ru": "Статус услуги обновлен.",
@@ -6360,6 +7299,7 @@ translations = {
         "uk": "Статус послуги оновлено.",
         "pl": 'Aktualizacja statusu usługi.',
         "de": 'Servicestatus aktualisiert.',
+        "nl": 'Servicestatus bijgewerkt.',
     },
     "specialist_service_not_found": {
         "ru": "Услуга не найдена.",
@@ -6368,6 +7308,7 @@ translations = {
         "uk": "Послугу не знайдено.",
         "pl": 'Nie znaleziono usługi.',
         "de": 'Dienst nicht gefunden.',
+        "nl": 'Service niet gevonden.',
     },
     "specialist_service_delete_confirm": {
         "ru": "Удалить эту услугу? Она будет скрыта из списка.",
@@ -6376,6 +7317,7 @@ translations = {
         "uk": "Видалити цю послугу? Вона буде прихована зі списку.",
         "pl": 'Czy chcesz usunąć tę usługę? Zostanie ona ukryta na liście.',
         "de": 'Diesen Dienst löschen? Er wird aus der Liste ausgeblendet.',
+        "nl": 'Deze service verwijderen? Deze wordt dan uit de lijst verborgen.',
     },
     "specialist_service_deleted": {
         "ru": "Услуга удалена.",
@@ -6384,6 +7326,7 @@ translations = {
         "uk": "Послугу видалено.",
         "pl": 'Usługa została usunięta.',
         "de": 'Dienst gelöscht.',
+        "nl": 'Service verwijderd.',
     },
     "portfolio_caption_prompt": {
         "ru": "Добавьте подпись к файлу.",
@@ -6392,6 +7335,7 @@ translations = {
         "uk": "Додайте підпис до файлу.",
         "pl": 'Dodaj podpis do pliku.',
         "de": 'Fügen Sie eine Beschriftung für die Datei hinzu.',
+        "nl": 'Voeg een bijschrift toe aan het bestand.',
     },
     "portfolio_caption_skip_btn": {
         "ru": "Без подписи",
@@ -6400,6 +7344,7 @@ translations = {
         "uk": "Без підпису",
         "pl": 'Brak opisu',
         "de": 'Keine Bildunterschrift',
+        "nl": 'Geen bijschrift',
     },
     "portfolio_upload_preview": {
         "ru": (
@@ -6454,6 +7399,16 @@ translations = {
             '\n'
             'Nach dem Absenden wird die Datei zur Moderation weitergeleitet.'
         ),
+        "nl": (
+            'Portfolio-bestand\n'
+            '\n'
+            'Bestand: {filename}\n'
+            'Type: {file_type}\n'
+            'Grootte: {size_kb} KB\n'
+            'Bijschrift: {caption}\n'
+            '\n'
+            'Na het indienen wordt het bestand ter beoordeling doorgestuurd.'
+        ),
     },
     "portfolio_upload_confirm_btn": {
         "ru": "Подтвердить",
@@ -6462,6 +7417,7 @@ translations = {
         "uk": "Підтвердити",
         "pl": 'Potwierdź',
         "de": 'Bestätigen',
+        "nl": 'Bevestigen',
     },
     "specialist_settings_title": {
         "ru": "Настройки специалиста",
@@ -6470,6 +7426,7 @@ translations = {
         "uk": "Налаштування спеціаліста",
         "pl": 'Ustawienia specjalistyczne',
         "de": 'Spezielle Einstellungen',
+        "nl": 'Gespecialiseerde instellingen',
     },
     "settings_language_btn": {
         "ru": "Язык",
@@ -6478,6 +7435,7 @@ translations = {
         "uk": "Мова",
         "pl": 'język',
         "de": 'Sprache',
+        "nl": 'taal',
     },
     "settings_notifications_btn": {
         "ru": "Уведомления",
@@ -6486,6 +7444,7 @@ translations = {
         "uk": "Сповіщення",
         "pl": 'Powiadomienia',
         "de": 'Benachrichtigungen',
+        "nl": 'Meldingen',
     },
     "settings_visibility_btn": {
         "ru": "Видимость",
@@ -6494,6 +7453,7 @@ translations = {
         "uk": "Видимість",
         "pl": 'Widoczność',
         "de": 'Sichtbarkeit',
+        "nl": 'Zichtbaarheid',
     },
     "settings_consents_btn": {
         "ru": "Согласия",
@@ -6502,6 +7462,7 @@ translations = {
         "uk": "Згоди",
         "pl": 'Zgody',
         "de": 'Einwilligungen',
+        "nl": 'Toestemmingen',
     },
     "settings_deletion_btn": {
         "ru": "Удаление",
@@ -6510,6 +7471,7 @@ translations = {
         "uk": "Видалення",
         "pl": 'Usunięcie',
         "de": 'Löschung',
+        "nl": 'Verwijdering',
     },
     "specialist_notifications_settings": {
         "ru": (
@@ -6536,6 +7498,10 @@ translations = {
             'Benachrichtigungen sind standardmäßig für neue Nachrichten und '
             'wichtige Systemereignisse aktiviert.'
         ),
+        "nl": (
+            'Meldingen zijn standaard ingeschakeld voor nieuwe berichten en '
+            'belangrijke systeemgebeurtenissen.'
+        ),
     },
     "settings_consents_title": {
         "ru": "Согласия",
@@ -6544,6 +7510,7 @@ translations = {
         "uk": "Згоди",
         "pl": 'Zgody',
         "de": 'Einwilligungen',
+        "nl": 'Toestemmingen',
     },
     "settings_consents_empty": {
         "ru": "Действующих согласий пока нет.",
@@ -6552,6 +7519,7 @@ translations = {
         "uk": "Чинних згод поки немає.",
         "pl": 'Brak ważnych zgód.',
         "de": 'Noch keine gültigen Einwilligungen.',
+        "nl": 'Er zijn nog geen geldige toestemmingen.',
     },
     "settings_consent_active": {
         "ru": "действует",
@@ -6560,6 +7528,7 @@ translations = {
         "uk": "діє",
         "pl": 'ważne',
         "de": 'gültig',
+        "nl": 'geldig',
     },
     "settings_consent_revoked": {
         "ru": "отозвано",
@@ -6568,6 +7537,7 @@ translations = {
         "uk": "відкликано",
         "pl": 'cofnięte',
         "de": 'widerrufen',
+        "nl": 'ingetrokken',
     },
     "settings_consent_item": {
         "ru": "{number}. {consent_type} / {version} / {status}",
@@ -6576,6 +7546,7 @@ translations = {
         "uk": "{number}. {consent_type} / {version} / {status}",
         "pl": '{number}. {consent_type} / {version} / {status}',
         "de": '{number}. {consent_type} / {version} / {status}',
+        "nl": '{number}. {consent_type} / {version} / {status}',
     },
 "client_settings_title": {
     "ru": (
@@ -6616,6 +7587,13 @@ translations = {
             'Sprache der Meldungen: {message_language}\n'
             'Benachrichtigungen: {notifications}'
         ),
+        "nl": (
+            'Clientinstellingen:\n'
+            '\n'
+            'Taal van de interface: {interface_language}\n'
+            'Taal van berichten: {message_language}\n'
+            'Meldingen: {notifications}'
+        ),
     },
     "client_settings_privacy_btn": {
         "ru": "Приватность",
@@ -6624,6 +7602,7 @@ translations = {
         "uk": "Приватність",
         "pl": 'Prywatność',
         "de": 'Datenschutz',
+        "nl": 'Privacy',
     },
     "client_settings_delete_data_btn": {
         "ru": "Удаление данных",
@@ -6632,6 +7611,7 @@ translations = {
         "uk": "Видалення даних",
         "pl": 'Usuń dane',
         "de": 'Daten löschen',
+        "nl": 'Gegevens verwijderen',
     },
     "client_notifications_settings": {
         "ru": (
@@ -6657,6 +7637,10 @@ translations = {
         "de": (
             'Benachrichtigungen sind standardmäßig für neue Nachrichten und '
             'wichtige Systemereignisse aktiviert.'
+        ),
+        "nl": (
+            'Meldingen zijn standaard ingeschakeld voor nieuwe berichten en '
+            'belangrijke systeemgebeurtenissen.'
         ),
     },
     "specialist_language_settings_title": {
@@ -6710,6 +7694,15 @@ translations = {
             'Automatische Übersetzung: {auto_translate}\n'
             'Schaltfläche „Original“: {show_original}'
         ),
+        "nl": (
+            'Gespecialiseerde taalinstellingen:\n'
+            '\n'
+            'Taal van de interface: {interface_language}\n'
+            'Taal van berichten: {message_language}\n'
+            'Meldingen: {notifications}\n'
+            'Automatische vertaling: {auto_translate}\n'
+            "Knop 'Origineel': {show_original}"
+        ),
     },
     "menu_jobs": {
         "ru": "💼 Работа и вакансии",
@@ -6718,6 +7711,7 @@ translations = {
         "uk": "💼 Робота та вакансії",
         "pl": '💼 Praca i oferty pracy',
         "de": '💼 Jobs und Stellenangebote',
+        "nl": '💼 Vacatures en banen',
     },
     "jobs_menu_title": {
         "ru": "💼 Работа и вакансии\n\n🚧 Раздел находится в разработке",
@@ -6730,6 +7724,7 @@ translations = {
             '\n'
             '🚧 Dieser Bereich befindet sich derzeit im Aufbau'
         ),
+        "nl": '💼 Banen en vacatures\n\n🚧 Dit gedeelte is in ontwikkeling',
     },
     "jobs_find_work_btn": {
         "ru": "🔍 Найти работу",
@@ -6738,6 +7733,7 @@ translations = {
         "uk": "🔍 Знайти роботу",
         "pl": '🔍 Znajdź pracę',
         "de": '🔍 Arbeit finden',
+        "nl": '🔍 Werk zoeken',
     },
     "jobs_my_applications_btn": {
         "ru": "📄 Мои отклики",
@@ -6746,6 +7742,7 @@ translations = {
         "uk": "📄 Мої відгуки",
         "pl": '📄 Moje podania',
         "de": '📄 Meine Bewerbungen',
+        "nl": '📄 Mijn sollicitaties',
     },
     "jobs_my_vacancies_btn": {
         "ru": "📋 Мои вакансии",
@@ -6754,6 +7751,7 @@ translations = {
         "uk": "📋 Мої вакансії",
         "pl": '📋 Moje oferty pracy',
         "de": '📋 Meine Stellenangebote',
+        "nl": '📋 Mijn vacatures',
     },
     "jobs_employers_btn": {
         "ru": "🏢 Работодатели",
@@ -6762,6 +7760,7 @@ translations = {
         "uk": "🏢 Роботодавці",
         "pl": '🏢 Pracodawcy',
         "de": '🏢 Arbeitgeber',
+        "nl": '🏢 Werkgevers',
     },
     "jobs_under_construction": {
         "ru": "Раздел находится в разработке.",
@@ -6770,6 +7769,7 @@ translations = {
         "uk": "Розділ перебуває в розробці.",
         "pl": 'Ta sekcja jest w trakcie opracowywania.',
         "de": 'Dieser Abschnitt befindet sich derzeit im Aufbau.',
+        "nl": 'Dit gedeelte is nog in ontwikkeling.',
     },
     "support_category_request": {
         "ru": "Заявка",
@@ -6778,6 +7778,7 @@ translations = {
         "uk": "Заявка",
         "pl": 'Zapytanie',
         "de": 'Anfrage',
+        "nl": 'Aanvraag',
     },
     "support_category_dialog": {
         "ru": "Сообщения",
@@ -6786,6 +7787,7 @@ translations = {
         "uk": "Повідомлення",
         "pl": 'Wiadomości',
         "de": 'Meldungen',
+        "nl": 'Berichten',
     },
     "support_ticket_draft": {
         "ru": (
@@ -6815,6 +7817,12 @@ translations = {
             'Wiadomość: {message}'
         ),
         "de": 'Neue Supportanfrage\n\nKategorie: {category}\nNachricht: {message}',
+        "nl": (
+            'Nieuwe ondersteuningsaanvraag\n'
+            '\n'
+            'Categorie: {category}\n'
+            'Bericht: {message}'
+        ),
     },
     "support_send_btn": {
         "ru": "Отправить",
@@ -6823,6 +7831,7 @@ translations = {
         "uk": "Надіслати",
         "pl": 'Wyślij',
         "de": 'Senden',
+        "nl": 'Verzenden',
     },
     "support_edit_btn": {
         "ru": "Изменить",
@@ -6831,6 +7840,7 @@ translations = {
         "uk": "Змінити",
         "pl": 'Edytuj',
         "de": 'Bearbeiten',
+        "nl": 'Bewerken',
     },
     "support_cancel_btn": {
         "ru": "Отмена",
@@ -6839,6 +7849,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "support_ticket_cancelled": {
         "ru": "Создание обращения отменено.",
@@ -6847,6 +7858,7 @@ translations = {
         "uk": "Створення звернення скасовано.",
         "pl": 'Tworzenie zgłoszenia zostało anulowane.',
         "de": 'Ticket-Erstellung abgebrochen.',
+        "nl": 'Het aanmaken van het ticket is geannuleerd.',
     },
     "contact_thread_message_empty": {
         "ru": "Сообщение не может быть пустым.",
@@ -6855,6 +7867,7 @@ translations = {
         "uk": "Повідомлення не може бути порожнім.",
         "pl": 'Komunikat nie może być pusty.',
         "de": 'Die Nachricht darf nicht leer sein.',
+        "nl": 'Het bericht mag niet leeg zijn.',
     },
     "support_tickets_active_btn": {
         "ru": "В работе",
@@ -6863,6 +7876,7 @@ translations = {
         "uk": "У роботі",
         "pl": 'W trakcie',
         "de": 'In Bearbeitung',
+        "nl": 'Bezig',
     },
     "support_tickets_resolved_btn": {
         "ru": "Решённые",
@@ -6871,6 +7885,7 @@ translations = {
         "uk": "Вирішені",
         "pl": 'Rozwiązano',
         "de": 'Gelöst',
+        "nl": 'Opgelost',
     },
     "support_status_open": {
         "ru": "Новое",
@@ -6879,6 +7894,7 @@ translations = {
         "uk": "Нове",
         "pl": 'Nowe',
         "de": 'Neu',
+        "nl": 'Nieuw',
     },
     "support_status_in_progress": {
         "ru": "В работе",
@@ -6887,6 +7903,7 @@ translations = {
         "uk": "У роботі",
         "pl": 'W trakcie',
         "de": 'In Bearbeitung',
+        "nl": 'In behandeling',
     },
     "support_status_resolved": {
         "ru": "Решено",
@@ -6895,6 +7912,7 @@ translations = {
         "uk": "Вирішено",
         "pl": 'Rozwiązane',
         "de": 'Gelöst',
+        "nl": 'Opgelost',
     },
     "support_status_closed": {
         "ru": "Закрыто",
@@ -6903,6 +7921,7 @@ translations = {
         "uk": "Закрито",
         "pl": 'Zamknięte',
         "de": 'Geschlossen',
+        "nl": 'Gesloten',
     },
     "support_status_rejected": {
         "ru": "Отклонено",
@@ -6911,6 +7930,7 @@ translations = {
         "uk": "Відхилено",
         "pl": 'Odrzucone',
         "de": 'Abgelehnt',
+        "nl": 'Afgewezen',
     },
     "support_ticket_list_item": {
         "ru": "{number}. #{ticket_id}\nКатегория: {category}\nСтатус: {status}\nОбновлено: {updated_at}",
@@ -6929,6 +7949,12 @@ translations = {
             'Status: {status}\n'
             'Aktualisiert: {updated_at}'
         ),
+        "nl": (
+            '{number}. #{ticket_id}\n'
+            'Categorie: {category}\n'
+            'Status: {status}\n'
+            'Bijgewerkt: {updated_at}'
+        ),
     },
     "support_ticket_details_btn": {
         "ru": "Подробнее",
@@ -6937,6 +7963,7 @@ translations = {
         "uk": "Детальніше",
         "pl": 'Szczegóły',
         "de": 'Details',
+        "nl": 'Details',
     },
     "support_close_btn": {
     "ru": "Закрыть",
@@ -6945,6 +7972,7 @@ translations = {
     "uk": "Закрити",
         "pl": 'Zamknij',
         "de": 'Schließen',
+        "nl": 'Sluiten',
     },
     "support_ticket_closed": {
         "ru": "Обращение закрыто.",
@@ -6953,6 +7981,7 @@ translations = {
         "uk": "Звернення закрито.",
         "pl": 'Zgłoszenie zamknięte.',
         "de": 'Ticket geschlossen.',
+        "nl": 'Ticket gesloten.',
     },
     "support_ticket_already_closed": {
         "ru": "Обращение уже закрыто.",
@@ -6961,6 +7990,7 @@ translations = {
         "uk": "Звернення вже закрито.",
         "pl": 'Zgłoszenie zostało już zamknięte.',
         "de": 'Das Ticket ist bereits geschlossen.',
+        "nl": 'Ticket is al gesloten.',
     },
     "search_results_navigation": {
         "ru": "Другие специалисты.",
@@ -6969,6 +7999,7 @@ translations = {
         "uk": "Інші спеціалісти.",
         "pl": 'Więcej specjalistów.',
         "de": 'Weitere Spezialisten.',
+        "nl": 'Meer specialisten.',
     },
     "search_next_specialists": {
         "ru": "➡️ Следующие специалисты",
@@ -6977,6 +8008,7 @@ translations = {
         "uk": "➡️ Наступні спеціалісти",
         "pl": '➡️ Kolejni specjaliści',
         "de": '➡️ Nächste Spezialisten',
+        "nl": '➡️ Volgende specialisten',
     },
     "search_results_title": {
         "ru": "Результаты поиска",
@@ -6985,6 +8017,7 @@ translations = {
         "uk": "Результати пошуку",
         "pl": 'Wyniki wyszukiwania',
         "de": 'Suchergebnisse',
+        "nl": 'Zoekresultaten',
     },
     "search_results_found": {
         "ru": "Найдено: {total}",
@@ -6993,6 +8026,7 @@ translations = {
         "uk": "Знайдено: {total}",
         "pl": 'Znaleziono: {total}',
         "de": 'Gefunden: {total}',
+        "nl": 'Gevonden: {total}',
     },
     "search_results_page": {
         "ru": "Страница: {page}",
@@ -7001,6 +8035,7 @@ translations = {
         "uk": "Сторінка: {page}",
         "pl": 'Strona: {page}',
         "de": 'Seite: {page}',
+        "nl": 'Pagina: {page}',
     },
     "search_results_shown_total": {
         "ru": "Показано {start}-{end} из {total}",
@@ -7009,6 +8044,7 @@ translations = {
         "uk": "Показано {start}-{end} з {total}",
         "pl": 'Wyświetlono {start}–{end} z {total}',
         "de": 'Angezeigt: {start}–{end} von {total}',
+        "nl": 'Weergegeven {start}-{end} van {total}',
     },
     "search_badge_boost": {
         "ru": "Boost",
@@ -7017,6 +8053,7 @@ translations = {
         "uk": "Boost",
         "pl": 'Wzmocnienie',
         "de": 'Boost',
+        "nl": 'Boost',
     },
     "search_badge_partner": {
         "ru": "Partner",
@@ -7025,6 +8062,7 @@ translations = {
         "uk": "Partner",
         "pl": 'Partner',
         "de": 'Partner',
+        "nl": 'Partner',
     },
     "specialist_profile_status_title": {
         "ru": "Статус профиля",
@@ -7033,6 +8071,7 @@ translations = {
         "uk": "Статус профілю",
         "pl": 'Status profilu',
         "de": 'Profilstatus',
+        "nl": 'Profielstatus',
     },
 
 
@@ -7044,6 +8083,7 @@ translations = {
         "uk": "🔒 Чернетка",
         "pl": '🔒 Wersja robocza',
         "de": '🔒 Entwurf',
+        "nl": '🔒 Concept',
     },
     "specialist_profile_status_draft_hint": {
         "ru": "Не публиковать профиль",
@@ -7052,6 +8092,7 @@ translations = {
         "uk": "Не публікувати профіль",
         "pl": 'Nie publikuj profilu',
         "de": 'Profil nicht veröffentlichen',
+        "nl": 'Profiel niet publiceren',
     },
     "specialist_status_title": {
         "ru": "Статус профиля",
@@ -7060,6 +8101,7 @@ translations = {
         "uk": "Статус профілю",
         "pl": 'Status profilu',
         "de": 'Profilstatus',
+        "nl": 'Profielstatus',
     },
 
     "specialist_status_draft": {
@@ -7075,6 +8117,10 @@ translations = {
             '🔒 Das Profil ist nicht veröffentlicht\n'
             'Kunden sehen es noch nicht in der Suche'
         ),
+        "nl": (
+            '🔒 Profiel is niet gepubliceerd\n'
+            'Klanten zien het nog niet in de zoekresultaten'
+        ),
     },
     "specialist_visibility_title": {
         "ru": "Видимость профиля",
@@ -7083,6 +8129,7 @@ translations = {
         "uk": "Видимість профілю",
         "pl": 'Widoczność profilu',
         "de": 'Sichtbarkeit des Profils',
+        "nl": 'Zichtbaarheid van het profiel',
     },
     "specialist_visibility_current": {
         "ru": "Текущее значение",
@@ -7091,6 +8138,7 @@ translations = {
         "uk": "Поточне значення",
         "pl": 'Aktualna wartość',
         "de": 'Aktueller Wert',
+        "nl": 'Huidige waarde',
     },
     "specialist_visibility_platform_only": {
         "ru": "Только через платформу",
@@ -7099,6 +8147,7 @@ translations = {
         "uk": "Лише через платформу",
         "pl": 'Tylko na platformie',
         "de": 'Nur auf der Plattform',
+        "nl": 'Alleen platform',
     },
     "specialist_visibility_public_limited": {
         "ru": "Публично, без прямых контактов",
@@ -7107,6 +8156,7 @@ translations = {
         "uk": "Публічно, без прямих контактів",
         "pl": 'Publiczne, bez bezpośrednich kontaktów',
         "de": 'Öffentlich, keine direkten Kontakte',
+        "nl": 'Openbaar, geen directe contacten',
     },
     "specialist_visibility_private": {
         "ru": "Приватно",
@@ -7115,6 +8165,7 @@ translations = {
         "uk": "Приватно",
         "pl": 'Prywatne',
         "de": 'Privat',
+        "nl": 'Privé',
     },
     "specialist_visibility_unknown": {
         "ru": "Не выбран режим видимости",
@@ -7123,6 +8174,7 @@ translations = {
         "uk": "Режим видимості не обрано",
         "pl": 'Tryb widoczności nie został wybrany',
         "de": 'Sichtbarkeitsmodus nicht ausgewählt',
+        "nl": 'Weergavemodus niet geselecteerd',
     },
     "dialog_unread_badge": {
         "ru": "🔴 {count}",
@@ -7131,6 +8183,7 @@ translations = {
         "uk": "🔴 {count}",
         "pl": '🔴 {count}',
         "de": '🔴 {count}',
+        "nl": '🔴 {count}',
     },
     "dialog_last_message_short": {
         "ru": "Последнее: {message}",
@@ -7139,6 +8192,7 @@ translations = {
         "uk": "Останнє: {message}",
         "pl": 'Ostatni: {message}',
         "de": 'Letzte: {message}',
+        "nl": 'Laatste: {message}',
     },
     "dialog_list_actions_title": {
         "ru": "Действия со списком",
@@ -7147,6 +8201,7 @@ translations = {
         "uk": "Дії зі списком",
         "pl": 'Lista działań',
         "de": 'Aktionen auflisten',
+        "nl": 'Lijst met acties',
     },
     "cabinet_profile_status_visibility": {
         "ru": "Статус и видимость",
@@ -7155,6 +8210,7 @@ translations = {
         "uk": "Статус і видимість",
         "pl": 'Status i widoczność',
         "de": 'Status und Sichtbarkeit',
+        "nl": 'Status en zichtbaarheid',
     },
     "specialist_profile_publication_title": {
         "ru": "Управление профилем",
@@ -7163,6 +8219,7 @@ translations = {
         "uk": "Керування профілем",
         "pl": 'Zarządzanie profilem',
         "de": 'Profilverwaltung',
+        "nl": 'Profielbeheer',
     },
 
     "specialist_status_draft_btn": {
@@ -7172,6 +8229,7 @@ translations = {
         "uk": "🔒 Чернетка",
         "pl": '🔒 Wersja robocza',
         "de": '🔒 Entwurf',
+        "nl": '🔒 Concept',
     },
     "specialist_profile_status_updated": {
         "ru": "Статус профиля обновлён.",
@@ -7180,6 +8238,7 @@ translations = {
         "uk": "Статус профілю оновлено.",
         "pl": 'Status profilu zaktualizowany.',
         "de": 'Profilstatus aktualisiert.',
+        "nl": 'Profielstatus bijgewerkt.',
     },
     "specialist_profile_services_btn": {
     "ru": "🛠 Услуги",
@@ -7188,6 +8247,7 @@ translations = {
     "uk": "🛠 Послуги",
         "pl": '🛠 Usługi',
         "de": '🛠 Dienstleistungen',
+        "nl": '🛠 Diensten',
     },
     "specialist_profile_portfolio_btn": {
         "ru": "🖼 Портфолио",
@@ -7196,6 +8256,7 @@ translations = {
         "uk": "🖼 Портфоліо",
         "pl": '🖼 Portfolio',
         "de": '🖼 Portfolio',
+        "nl": '🖼 Portfolio',
     },
     "specialist_profile_reviews_btn": {
         "ru": "⭐ Отзывы",
@@ -7204,6 +8265,7 @@ translations = {
         "uk": "⭐ Відгуки",
         "pl": '⭐ Opinie',
         "de": '⭐ Bewertungen',
+        "nl": '⭐ Beoordelingen',
     },
     "specialist_profile_languages_btn": {
         "ru": "🌐 Языки",
@@ -7212,6 +8274,7 @@ translations = {
         "uk": "🌐 Мови",
         "pl": '🌐 Języki',
         "de": '🌐 Sprachen',
+        "nl": '🌐 Talen',
     },
     "specialist_profile_locations_btn": {
         "ru": "📍 Локации работы",
@@ -7220,6 +8283,7 @@ translations = {
         "uk": "📍 Локації роботи",
         "pl": '📍 Miejsca pracy',
         "de": '📍 Arbeitsorte',
+        "nl": '📍 Werklocaties',
     },
     "specialist_profile_settings_btn": {
         "ru": "⚙️ Настройки профиля",
@@ -7228,6 +8292,7 @@ translations = {
         "uk": "⚙️ Налаштування профілю",
         "pl": '⚙️ Ustawienia profilu',
         "de": '⚙️ Profileinstellungen',
+        "nl": '⚙️ Profielinstellingen',
     },
     "specialist_search_visibility_title": {
         "ru": "Видимость профиля",
@@ -7236,6 +8301,7 @@ translations = {
         "uk": "Видимість профілю",
         "pl": 'Widoczność profilu',
         "de": 'Profil-Sichtbarkeit',
+        "nl": 'Zichtbaarheid van het profiel',
     },
     "specialist_search_visibility_visible": {
         "ru": "🌐 Виден в поиске",
@@ -7244,6 +8310,7 @@ translations = {
         "uk": "🌐 Видно в пошуку",
         "pl": '🌐 Widoczny w wynikach wyszukiwania',
         "de": '🌐 In der Suche sichtbar',
+        "nl": '🌐 Zichtbaar in zoekresultaten',
     },
     "specialist_search_visibility_hidden": {
         "ru": "🔒 Скрыт из поиска",
@@ -7252,6 +8319,7 @@ translations = {
         "uk": "🔒 Прихований з пошуку",
         "pl": '🔒 Ukryty w wynikach wyszukiwania',
         "de": '🔒 In der Suche ausgeblendet',
+        "nl": '🔒 Verborgen in zoekresultaten',
     },
     "search_results_global_context": {
         "ru": "Все направления",
@@ -7260,6 +8328,7 @@ translations = {
         "uk": "Усі напрями",
         "pl": 'Wszystkie kierunki',
         "de": 'Alle Richtungen',
+        "nl": 'Alle richtingen',
     },
     "search_results_range": {
         "ru": "Показаны: {range}",
@@ -7268,6 +8337,7 @@ translations = {
         "uk": "Показано: {range}",
         "pl": 'Wyświetlono: {range}',
         "de": 'Angezeigt: {range}',
+        "nl": 'Weergegeven: {range}',
     },
     "search_results_of": {
         "ru": "из",
@@ -7276,6 +8346,7 @@ translations = {
         "uk": "з",
         "pl": 'z',
         "de": 'von',
+        "nl": 'van',
     },
     "support_staff_menu_title": {
         "ru": "Кабинет Support\n\nОткрытые: {open_count}\nВ работе: {in_progress_count}\nРешённые: {resolved_count}",
@@ -7296,6 +8367,13 @@ translations = {
             'In Bearbeitung: {in_progress_count}\n'
             'Gelöst: {resolved_count}'
         ),
+        "nl": (
+            'Ondersteuningsdashboard\n'
+            '\n'
+            'Open: {open_count}\n'
+            'In behandeling: {in_progress_count}\n'
+            'Opgelost: {resolved_count}'
+        ),
     },
     "support_staff_open_btn": {
         "ru": "Новые",
@@ -7304,6 +8382,7 @@ translations = {
         "uk": "Нові",
         "pl": 'Nowe',
         "de": 'Neu',
+        "nl": 'Nieuw',
     },
     "support_staff_in_progress_btn": {
         "ru": "В работе",
@@ -7312,6 +8391,7 @@ translations = {
         "uk": "У роботі",
         "pl": 'W toku',
         "de": 'In Bearbeitung',
+        "nl": 'In behandeling',
     },
     "support_staff_resolved_btn": {
         "ru": "Решённые",
@@ -7320,6 +8400,7 @@ translations = {
         "uk": "Вирішені",
         "pl": 'Rozwiązane',
         "de": 'Gelöst',
+        "nl": 'Opgelost',
     },
     "support_staff_search_btn": {
         "ru": "Поиск",
@@ -7328,6 +8409,7 @@ translations = {
         "uk": "Пошук",
         "pl": 'Wyszukiwanie',
         "de": 'Suche',
+        "nl": 'Zoeken',
     },
     "support_staff_stats_btn": {
         "ru": "Статистика",
@@ -7336,6 +8418,7 @@ translations = {
         "uk": "Статистика",
         "pl": 'Statystyki',
         "de": 'Statistiken',
+        "nl": 'Statistieken',
     },
     "contact_thread_message_error": {
         "ru": "Не удалось отправить сообщение: {error}",
@@ -7344,6 +8427,7 @@ translations = {
         "uk": "Не вдалося надіслати повідомлення: {error}",
         "pl": 'Nie udało się wysłać wiadomości: {error}',
         "de": 'Nachricht konnte nicht gesendet werden: {error}',
+        "nl": 'Bericht kon niet worden verzonden: {error}',
     },
     "contact_thread_read_only_blacklisted": {
         "ru": (
@@ -7370,6 +8454,10 @@ translations = {
             'Die Unterhaltung ist schreibgeschützt. Das Senden von '
             'Nachrichten ist gesperrt.'
         ),
+        "nl": (
+            'Het gesprek is alleen-lezen. Het verzenden van berichten is '
+            'geblokkeerd.'
+        ),
     },
     "support_staff_list_title": {
         "ru": "Очередь Support",
@@ -7378,6 +8466,7 @@ translations = {
         "uk": "Черга Support",
         "pl": 'Kolejka pomocy technicznej',
         "de": 'Support-Warteschlange',
+        "nl": 'Ondersteuningswachtrij',
     },
     "support_staff_ticket_card": {
         "ru": "{number}. #{ticket_id} | {user} | {status}\nКатегория: {category}\nПриоритет: {priority}\nВозраст: {age}",
@@ -7396,6 +8485,12 @@ translations = {
             'Priorität: {priority}\n'
             'Alter: {age}'
         ),
+        "nl": (
+            '{number}. #{ticket_id} | {user} | {status}\n'
+            'Categorie: {category}\n'
+            'Prioriteit: {priority}\n'
+            'Leeftijd: {age}'
+        ),
     },
     "support_staff_shown_range": {
     "ru": "Показано {start}-{end}",
@@ -7404,6 +8499,7 @@ translations = {
     "uk": "Показано {start}-{end}",
         "pl": 'Wyświetlono {start}–{end}',
         "de": 'Angezeigt: {start}–{end}',
+        "nl": 'Weergegeven {start}-{end}',
     },
     "support_staff_list_actions": {
         "ru": "Действия со списком",
@@ -7412,6 +8508,7 @@ translations = {
         "uk": "Дії зі списком",
         "pl": 'Działania na liście',
         "de": 'Aktionen auflisten',
+        "nl": 'Lijst met acties',
     },
     "support_staff_open_ticket_btn": {
         "ru": "{index}. Открыть",
@@ -7420,6 +8517,7 @@ translations = {
         "uk": "{index}. Відкрити",
         "pl": '{index}. Otwórz',
         "de": '{index}. Öffnen',
+        "nl": '{index}. Openen',
     },
     "support_staff_take_ticket_btn": {
         "ru": "{index}. Взять",
@@ -7428,6 +8526,7 @@ translations = {
         "uk": "{index}. Взяти",
         "pl": '{index}. Przejmij',
         "de": '{index}. Übernehmen',
+        "nl": '{index}. Overnemen',
     },
     "support_staff_filter_btn": {
         "ru": "Фильтр",
@@ -7436,6 +8535,7 @@ translations = {
         "uk": "Фільтр",
         "pl": 'Filtruj',
         "de": 'Filter',
+        "nl": 'Filter',
     },
     "support_staff_ticket_taken": {
         "ru": "Обращение взято в работу.",
@@ -7444,6 +8544,7 @@ translations = {
         "uk": "Звернення взято в роботу.",
         "pl": 'Zgłoszenie przyjęte do realizacji.',
         "de": 'Auftrag angenommen.',
+        "nl": 'Ticket in behandeling genomen.',
     },
     "support_message_too_short": {
         "ru": "Опишите проблему минимум 10 символами.",
@@ -7452,6 +8553,7 @@ translations = {
         "uk": "Опишіть проблему щонайменше 10 символами.",
         "pl": 'Opisz problem, używając co najmniej 10 znaków.',
         "de": 'Beschreiben Sie das Problem mit mindestens 10 Zeichen.',
+        "nl": 'Beschrijf het probleem in ten minste 10 tekens.',
     },
     "support_ticket_card": {
         "ru": "{number}. #{ticket_id} | {category} | {status}\nОбновлено: {updated_at}",
@@ -7466,6 +8568,10 @@ translations = {
             '{number}. #{ticket_id} | {category} | {status}\n'
             'Aktualisiert: {updated_at}'
         ),
+        "nl": (
+            '{number}. #{ticket_id} | {category} | {status}\n'
+            'Bijgewerkt: {updated_at}'
+        ),
     },
     "admin_support_assign": {
         "ru": "Назначить",
@@ -7474,6 +8580,7 @@ translations = {
         "uk": "Призначити",
         "pl": 'Przypisz',
         "de": 'Zuweisen',
+        "nl": 'Toewijzen',
     },
     "admin_support_escalate": {
         "ru": "Эскалировать Admin",
@@ -7482,6 +8589,7 @@ translations = {
         "uk": "Ескалювати Admin",
         "pl": 'Eskalacja do administratora',
         "de": 'An Administrator weiterleiten',
+        "nl": 'Doorsturen naar beheerder',
     },
     "admin_support_no_messages": {
         "ru": "Сообщений пока нет.",
@@ -7490,6 +8598,7 @@ translations = {
         "uk": "Повідомлень поки немає.",
         "pl": 'Jeszcze nie ma żadnych wiadomości.',
         "de": 'Noch keine Nachrichten.',
+        "nl": 'Nog geen berichten.',
     },
     "admin_support_escalate_reason_prompt": {
         "ru": "Укажите причину эскалации администратору.",
@@ -7498,6 +8607,7 @@ translations = {
         "uk": "Вкажіть причину ескалації адміністратору.",
         "pl": 'Wprowadź powód zgłoszenia do administratora.',
         "de": 'Geben Sie den Grund für die Eskalation an den Administrator ein.',
+        "nl": 'Voer de reden voor de escalatie naar de beheerder in.',
     },
     "admin_support_escalated": {
         "ru": "Обращение эскалировано администратору.",
@@ -7506,6 +8616,7 @@ translations = {
         "uk": "Звернення ескальовано адміністратору.",
         "pl": 'Zgłoszenie zostało przekazane do administratora.',
         "de": 'Ticket an den Administrator weitergeleitet.',
+        "nl": 'Ticket is doorgestuurd naar de beheerder.',
     },
     "support_staff_back_to_queue": {
         "ru": "К очереди Support",
@@ -7514,6 +8625,7 @@ translations = {
         "uk": "До черги Support",
         "pl": 'Powrót do kolejki pomocy technicznej',
         "de": 'Zurück zur Support-Warteschlange',
+        "nl": 'Terug naar de supportwachtrij',
     },
     "support_sender_user": {
         "ru": "Пользователь",
@@ -7522,6 +8634,7 @@ translations = {
         "uk": "Користувач",
         "pl": 'Użytkownik',
         "de": 'Benutzer',
+        "nl": 'Gebruiker',
     },
     "support_sender_support": {
         "ru": "Support",
@@ -7530,6 +8643,7 @@ translations = {
         "uk": "Support",
         "pl": 'Pomoc techniczna',
         "de": 'Support',
+        "nl": 'Ondersteuning',
     },
     "support_sender_admin": {
         "ru": "Администратор",
@@ -7538,6 +8652,7 @@ translations = {
         "uk": "Адміністратор",
         "pl": 'Administrator',
         "de": 'Admin',
+        "nl": 'Beheerder',
     },
     "support_sender_system": {
         "ru": "Система",
@@ -7546,6 +8661,7 @@ translations = {
         "uk": "Система",
         "pl": 'System',
         "de": 'System',
+        "nl": 'Systeem',
     },
     "support_message_deleted_by_user": {
         "ru": "Сообщение недоступно.",
@@ -7554,6 +8670,7 @@ translations = {
         "uk": "Повідомлення недоступне.",
         "pl": 'Wiadomość jest niedostępna.',
         "de": 'Die Nachricht ist nicht verfügbar.',
+        "nl": 'Bericht is niet beschikbaar.',
     },
     "support_staff_search_prompt": {
         "ru": "Введите номер обращения, username, Telegram ID, категорию или статус.",
@@ -7568,6 +8685,10 @@ translations = {
             'Geben Sie die Ticketnummer, den Benutzernamen, die Telegram-ID, '
             'die Kategorie oder den Status ein.'
         ),
+        "nl": (
+            'Voer het ticketnummer, de gebruikersnaam, de Telegram-ID, de '
+            'categorie of de status in.'
+        ),
     },
     "support_staff_search_results": {
         "ru": "Результаты поиска\nЗапрос: {query}\nНайдено: {count}",
@@ -7576,6 +8697,7 @@ translations = {
         "uk": "Результати пошуку\nЗапит: {query}\nЗнайдено: {count}",
         "pl": 'Wyniki wyszukiwania\nZapytanie: {query}\nZnaleziono: {count}',
         "de": 'Suchergebnisse\nSuchanfrage: {query}\nGefunden: {count}',
+        "nl": 'Zoekresultaten\nZoekopdracht: {query}\nGevonden: {count}',
     },
     "support_staff_search_empty": {
         "ru": "По запросу «{query}» обращения не найдены.",
@@ -7584,6 +8706,7 @@ translations = {
         "uk": "За запитом «{query}» звернень не знайдено.",
         "pl": 'Nie znaleziono zgłoszeń dotyczących „{query}”.',
         "de": 'Es wurden keine Tickets für „{query}“ gefunden.',
+        "nl": 'Er zijn geen tickets gevonden voor “{query}”.',
     },
     "support_panel_title": {
         "ru": "Панель поддержки",
@@ -7592,6 +8715,7 @@ translations = {
         "uk": "Панель підтримки",
         "pl": 'Panel pomocy technicznej',
         "de": 'Support-Panel',
+        "nl": 'Ondersteuningspaneel',
     },
     "support_staff_filters_title": {
         "ru": "Выберите фильтр обращений:",
@@ -7600,6 +8724,7 @@ translations = {
         "uk": "Оберіть фільтр звернень:",
         "pl": 'Wybierz filtr zgłoszeń:',
         "de": 'Ticketfilter auswählen:',
+        "nl": 'Kies een ticketfilter:',
     },
     "support_staff_stats_title": {
         "ru": (
@@ -7660,6 +8785,17 @@ translations = {
             '\n'
             'Durchschnittliche Bearbeitungszeit: {avg_response}'
         ),
+        "nl": (
+            'Ondersteuningsstatistieken\n'
+            '\n'
+            'Open: {open_count}\n'
+            'In behandeling: {in_progress_count}\n'
+            'Opgelost: {resolved_count}\n'
+            'Gesloten: {closed_count}\n'
+            'Totaal: {total_count}\n'
+            '\n'
+            'Gemiddelde reactietijd: {avg_response}'
+        ),
     },
     "support_staff_stats_avg_minutes": {
         "ru": "{minutes} мин.",
@@ -7668,6 +8804,7 @@ translations = {
         "uk": "{minutes} хв.",
         "pl": '{minutes} min.',
         "de": '{minutes} Min.',
+        "nl": '{minutes} min.',
     },
     "support_staff_stats_no_response": {
         "ru": "пока нет данных",
@@ -7676,6 +8813,7 @@ translations = {
         "uk": "поки немає даних",
         "pl": 'brak danych',
         "de": 'noch keine Daten',
+        "nl": 'nog geen gegevens',
     },
     "support_staff_stats_period_btn": {
         "ru": "Период",
@@ -7684,6 +8822,7 @@ translations = {
         "uk": "Період",
         "pl": 'Okres',
         "de": 'Zeitraum',
+        "nl": 'Periode',
     },
     "support_staff_stats_category_btn": {
         "ru": "Категория",
@@ -7692,6 +8831,7 @@ translations = {
         "uk": "Категорія",
         "pl": 'Kategoria',
         "de": 'Kategorie',
+        "nl": 'Categorie',
     },
     "support_staff_stats_filter_later": {
         "ru": "Фильтр будет добавлен после накопления статистики. Сейчас показаны общие метрики.",
@@ -7707,6 +8847,11 @@ translations = {
             'gesammelt wurden. Derzeit werden allgemeine Kennzahlen '
             'angezeigt.'
         ),
+        "nl": (
+            'Het filter wordt toegevoegd zodra er voldoende statistieken zijn '
+            'verzameld. Op dit moment worden algemene statistieken '
+            'weergegeven.'
+        ),
     },
     "support_staff_back_to_panel": {
         "ru": "К панели поддержки",
@@ -7715,6 +8860,7 @@ translations = {
         "uk": "До панелі підтримки",
         "pl": 'Powrót do panelu pomocy technicznej',
         "de": 'Zurück zum Support-Bereich',
+        "nl": 'Terug naar het ondersteuningspaneel',
     },
     "support_ticket_already_sent": {
         "ru": "Обращение уже отправлено. Откройте его в разделе «Мои обращения» или создайте новое.",
@@ -7729,6 +8875,10 @@ translations = {
             'Das Ticket wurde bereits gesendet. Öffnen Sie es unter „Meine '
             'Tickets“ oder erstellen Sie ein neues.'
         ),
+        "nl": (
+            'Het ticket is al verzonden. Open het in Mijn tickets of maak een '
+            'nieuw ticket aan.'
+        ),
     },
     "support_staff_empty_list": {
         "ru": "{view}: обращений нет.",
@@ -7737,6 +8887,7 @@ translations = {
         "uk": "{view}: звернень немає.",
         "pl": '{view}: brak zgłoszeń.',
         "de": '{view}: keine Tickets.',
+        "nl": '{view}: geen tickets.',
     },
     "admin_support_history": {
         "ru": "История:",
@@ -7745,6 +8896,7 @@ translations = {
         "uk": "Історія:",
         "pl": 'Historia:',
         "de": 'Verlauf:',
+        "nl": 'Geschiedenis:',
     },
     "admin_support_created_at": {
         "ru": "Создано: {value}",
@@ -7753,6 +8905,7 @@ translations = {
         "uk": "Створено: {value}",
         "pl": 'Utworzono: {value}',
         "de": 'Erstellt: {value}',
+        "nl": 'Aangemaakt: {value}',
     },
     "admin_support_updated_at": {
         "ru": "Обновлено: {value}",
@@ -7761,6 +8914,7 @@ translations = {
         "uk": "Оновлено: {value}",
         "pl": 'Zaktualizowano: {value}',
         "de": 'Aktualisiert: {value}',
+        "nl": 'Bijgewerkt: {value}',
     },
     "admin_support_resolved_at": {
         "ru": "Завершено: {value}",
@@ -7769,6 +8923,7 @@ translations = {
         "uk": "Завершено: {value}",
         "pl": 'Rozwiązano: {value}',
         "de": 'Gelöst: {value}',
+        "nl": 'Opgelost: {value}',
     },
     "complaint_target_specialist": {
         "ru": "Специалист",
@@ -7777,6 +8932,7 @@ translations = {
         "uk": "Спеціаліст",
         "pl": 'Specjalista',
         "de": 'Facharzt',
+        "nl": 'Specialist',
     },
     "complaint_target_professional_cabinet": {
         "ru": "Профессиональный кабинет",
@@ -7785,6 +8941,7 @@ translations = {
         "uk": "Професійний кабінет",
         "pl": 'Profil zawodowy',
         "de": 'Berufsprofil',
+        "nl": 'Professioneel profiel',
     },
     "search_report_cabinet_btn": {
         "ru": "🚩 Пожаловаться на кабинет",
@@ -7793,6 +8950,7 @@ translations = {
         "uk": "🚩 Поскаржитися на кабінет",
         "pl": '🚩 Zgłoś profil',
         "de": '🚩 Profil melden',
+        "nl": '🚩 Profiel melden',
     },
     "search_report_user_btn": {
         "ru": "👤 Пожаловаться на пользователя",
@@ -7801,6 +8959,7 @@ translations = {
         "uk": "👤 Поскаржитися на користувача",
         "pl": '👤 Zgłoś użytkownika',
         "de": '👤 Nutzer melden',
+        "nl": '👤 Gebruiker melden',
     },
     "complaint_target_user": {
         "ru": "Пользователь",
@@ -7809,6 +8968,7 @@ translations = {
         "uk": "Користувач",
         "pl": 'Użytkownik',
         "de": 'Benutzer',
+        "nl": 'Gebruiker',
     },
     "complaint_target_contact_request": {
         "ru": "Обращение к специалисту",
@@ -7817,6 +8977,7 @@ translations = {
         "uk": "Звернення до спеціаліста",
         "pl": 'Prośba o kontakt',
         "de": 'Kontaktanfrage',
+        "nl": 'Contactverzoek',
     },
     "complaint_target_review": {
         "ru": "Отзыв",
@@ -7825,6 +8986,7 @@ translations = {
         "uk": "Відгук",
         "pl": 'Recenzja',
         "de": 'Bewertung',
+        "nl": 'Beoordeling',
     },
     "complaint_target_portfolio": {
         "ru": "Портфолио",
@@ -7833,6 +8995,7 @@ translations = {
         "uk": "Елемент портфоліо",
         "pl": 'Pozycja Portfolio',
         "de": 'Portfolio Artikel',
+        "nl": 'Portfolio-item',
     },
     "complaint_target_dialog": {
         "ru": "Переписка",
@@ -7841,6 +9004,7 @@ translations = {
         "uk": "Переписка",
         "pl": 'Rozmowa',
         "de": 'Gespräch',
+        "nl": 'Gesprek',
     },
     "complaint_target_message": {
         "ru": "Сообщение",
@@ -7849,6 +9013,7 @@ translations = {
         "uk": "Повідомлення",
         "pl": 'Wiadomość',
         "de": 'Nachricht',
+        "nl": 'Bericht',
     },
     "complaint_comment_not_set": {
         "ru": "Не указан",
@@ -7857,6 +9022,7 @@ translations = {
         "uk": "Не вказано",
         "pl": 'Brak danych',
         "de": 'Nicht angegeben',
+        "nl": 'Niet opgegeven',
     },
     "complaint_draft": {
         "ru": (
@@ -7897,6 +9063,13 @@ translations = {
             'Grund: {reason}\n'
             'Kommentar: {comment}'
         ),
+        "nl": (
+            'Klacht\n'
+            '\n'
+            'Gemeld object: {target}\n'
+            'Reden: {reason}\n'
+            'Opmerking: {comment}'
+        ),
     },
     "complaint_add_comment_btn": {
         "ru": "Комментарий",
@@ -7905,6 +9078,7 @@ translations = {
         "uk": "Коментар",
         "pl": 'Komentarz',
         "de": 'Kommentar',
+        "nl": 'Opmerking',
     },
     "complaint_send_btn": {
         "ru": "Отправить",
@@ -7913,6 +9087,7 @@ translations = {
         "uk": "Надіслати",
         "pl": 'Wyślij',
         "de": 'Senden',
+        "nl": 'Verzenden',
     },
     "complaint_cancel_btn": {
         "ru": "Отмена",
@@ -7921,6 +9096,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "complaint_reason_required": {
         "ru": "Сначала выберите причину жалобы.",
@@ -7929,6 +9105,7 @@ translations = {
         "uk": "Спершу оберіть причину скарги.",
         "pl": 'Najpierw wybierz powód zgłoszenia.',
         "de": 'Wählen Sie zunächst einen Grund für die Beschwerde aus.',
+        "nl": 'Kies eerst een reden voor de klacht.',
     },
     "complaint_other_comment_required": {
         "ru": "Для причины «Другое» комментарий обязателен.",
@@ -7937,6 +9114,7 @@ translations = {
         "uk": "Для причини «Інше» коментар є обов'язковим.",
         "pl": 'W przypadku przyczyny „Inne” wymagany jest komentarz.',
         "de": 'Für den Grund „Sonstiges“ ist ein Kommentar erforderlich.',
+        "nl": "Voor de reden 'Overig' is een opmerking vereist.",
     },
     "complaint_cancelled": {
         "ru": "Создание жалобы отменено.",
@@ -7945,6 +9123,7 @@ translations = {
         "uk": "Створення скарги скасовано.",
         "pl": 'Tworzenie zgłoszenia zostało anulowane.',
         "de": 'Die Erstellung der Beschwerde wurde abgebrochen.',
+        "nl": 'Het aanmaken van de klacht is geannuleerd.',
     },
     "complaint_confirmed": {
         "ru": (
@@ -7965,6 +9144,7 @@ translations = {
         ),
         "pl": 'Skarga została złożona.\nNumer referencyjny: #{complaint_number}',
         "de": 'Beschwerde eingereicht.\nReferenznummer: #{complaint_number}',
+        "nl": 'Klacht ingediend.\nReferentienummer: #{complaint_number}',
     },
     "dialog_message_deleted": {
         "ru": "Сообщение удалено пользователем",
@@ -7973,6 +9153,7 @@ translations = {
         "uk": "Повідомлення видалено користувачем",
         "pl": 'Wiadomość usunięta przez użytkownika',
         "de": 'Nachricht vom Benutzer gelöscht',
+        "nl": 'Bericht verwijderd door de gebruiker',
     },
     "admin_review_complaint": {
         "ru": "Взять в работу",
@@ -7981,6 +9162,7 @@ translations = {
         "uk": "Взяти в роботу",
         "pl": 'Przyjmij do rozpatrzenia',
         "de": 'Zur Prüfung vorlegen',
+        "nl": 'Ter beoordeling nemen',
     },
     "complaint_duplicate_active": {
         "ru": (
@@ -8007,6 +9189,7 @@ translations = {
             'Für dieses Ziel liegt bereits eine aktive Beschwerde mit '
             'demselben Grund vor.'
         ),
+        "nl": 'Er bestaat al een actieve klacht voor dit doel met dezelfde reden.',
     },
     "complaint_create_error": {
         "ru": "Не удалось отправить жалобу. Попробуйте позже.",
@@ -8018,6 +9201,7 @@ translations = {
             'Die Beschwerde konnte nicht übermittelt werden. Bitte versuchen '
             'Sie es später erneut.'
         ),
+        "nl": 'De klacht kon niet worden ingediend. Probeer het later nog eens.',
     },
     "moderator_menu_text": {
         "ru": (
@@ -8076,6 +9260,16 @@ translations = {
             'Beschwerden: {complaints}\n'
             'Sperrliste: {blacklist}'
         ),
+        "nl": (
+            'Dashboard voor moderators\n'
+            '\n'
+            'Moderatiewachtrijen:\n'
+            'Professionele profielen: {profiles}\n'
+            'Portfolio: {portfolio}\n'
+            'Beoordelingen: {reviews}\n'
+            'Klachten: {complaints}\n'
+            'Zwarte lijst: {blacklist}'
+        ),
     },
     "moderator_profiles_btn": {
         "ru": "Кабинеты на модерации ({count})",
@@ -8084,6 +9278,7 @@ translations = {
         "uk": "Кабінети на модерації ({count})",
         "pl": 'Profile oczekujące na moderację ({count})',
         "de": 'Profile in der Moderation ({count})',
+        "nl": 'Profielen in afwachting van goedkeuring ({count})',
     },
     "admin_specialist_management_btn": {
         "ru": "Профессиональные кабинеты",
@@ -8092,6 +9287,7 @@ translations = {
         "uk": "Професійні кабінети",
         "pl": 'Profile zawodowe',
         "de": 'Professionelle Profile',
+        "nl": 'Professionele profielen',
     },
     "moderator_portfolio_btn": {
         "ru": "Портфолио ({count})",
@@ -8100,6 +9296,7 @@ translations = {
         "uk": "Портфоліо ({count})",
         "pl": 'Portfolio ({count})',
         "de": 'Portfolio ({count})',
+        "nl": 'Portfolio ({count})',
     },
     "moderator_reviews_btn": {
         "ru": "Отзывы ({count})",
@@ -8108,6 +9305,7 @@ translations = {
         "uk": "Відгуки ({count})",
         "pl": 'Recenzje ({count})',
         "de": 'Bewertungen ({count})',
+        "nl": 'Beoordelingen ({count})',
     },
     "moderator_complaints_btn": {
         "ru": "Жалобы ({count})",
@@ -8116,6 +9314,7 @@ translations = {
         "uk": "Скарги ({count})",
         "pl": 'Skargi ({count})',
         "de": 'Beschwerden ({count})',
+        "nl": 'Klachten ({count})',
     },
     "moderator_blacklist_btn": {
         "ru": "Blacklist ({count})",
@@ -8124,6 +9323,7 @@ translations = {
         "uk": "Blacklist ({count})",
         "pl": 'Czarna lista ({count})',
         "de": 'Sperrliste ({count})',
+        "nl": 'Zwarte lijst ({count})',
     },
     "moderator_profiles_header": {
         "ru": (
@@ -8155,6 +9355,11 @@ translations = {
             'Zur Freigabe anstehende Berufsprofile\n'
             'Seite: {page}\n'
             'Angezeigt: {count}'
+        ),
+        "nl": (
+            'Profielen die nog moeten worden gemodereerd\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}'
         ),
     },
     "moderator_profile_queue_item": {
@@ -8194,6 +9399,12 @@ translations = {
             'Stadt: {city}\n'
             'Datum: {date}'
         ),
+        "nl": (
+            '{number}. {name}\n'
+            'Beroep: {profession}\n'
+            'Plaats: {city}\n'
+            'Datum: {date}'
+        ),
     },
     "moderator_city_not_set": {
         "ru": "Не указан",
@@ -8202,6 +9413,7 @@ translations = {
         "uk": "Не вказано",
         "pl": 'Nie podano',
         "de": 'Nicht angegeben',
+        "nl": 'Niet opgegeven',
     },
     "moderator_open_btn": {
         "ru": "Подробнее",
@@ -8210,6 +9422,7 @@ translations = {
         "uk": "Детальніше",
         "pl": 'Szczegóły',
         "de": 'Details',
+        "nl": 'Details',
     },
     "moderator_back_btn": {
         "ru": "Назад",
@@ -8218,6 +9431,7 @@ translations = {
         "uk": "Назад",
         "pl": 'Powrót',
         "de": 'Zurück',
+        "nl": 'Terug',
     },
     "moderator_queue_actions": {
         "ru": "Действия с очередью",
@@ -8226,6 +9440,7 @@ translations = {
         "uk": "Дії з чергою",
         "pl": 'Czynności w kolejce',
         "de": 'Warteschlangenaktionen',
+        "nl": 'Wachtrijacties',
     },
     "moderator_profile_card": {
         "ru": (
@@ -8312,6 +9527,24 @@ translations = {
             'Dienstleistungen:\n'
             '{services}'
         ),
+        "nl": (
+            'Professioneel profiel\n'
+            '\n'
+            'Eigenaar: {name}\n'
+            'Beroep: {profession}\n'
+            'Plaats: {city}\n'
+            'Status: {status}\n'
+            'Contact: {contact}\n'
+            'Klachten: {complaints}\n'
+            '\n'
+            'Openstaande risicosignalen: {risk_flags}\n'
+            '\n'
+            'Beschrijving:\n'
+            '{description}\n'
+            '\n'
+            'Diensten:\n'
+            '{services}'
+        ),
     },
     "moderator_no_services": {
         "ru": "Услуги не добавлены",
@@ -8320,6 +9553,7 @@ translations = {
         "uk": "Послуги не додано",
         "pl": 'Nie dodano żadnych usług',
         "de": 'Es wurden keine Leistungen hinzugefügt',
+        "nl": 'Geen diensten toegevoegd',
     },
     "moderator_request_changes_btn": {
         "ru": "Правки",
@@ -8328,6 +9562,7 @@ translations = {
         "uk": "Правки",
         "pl": 'Poproś o zmiany',
         "de": 'Änderungen anfordern',
+        "nl": 'Wijzigingen aanvragen',
     },
     "moderator_scoped_blacklist_btn": {
         "ru": "Scoped blacklist",
@@ -8336,6 +9571,7 @@ translations = {
         "uk": "Scoped blacklist",
         "pl": 'Czarna lista organizacji',
         "de": 'Schwarze Liste der Organisation',
+        "nl": 'Zwarte lijst van organisaties',
     },
     "moderator_back_to_profiles_btn": {
         "ru": "Назад к профилям",
@@ -8344,6 +9580,7 @@ translations = {
         "uk": "Назад до профілів",
         "pl": 'Powrót do profili',
         "de": 'Zurück zu den Profilen',
+        "nl": 'Terug naar profielen',
     },
     "moderator_changes_reason_prompt": {
         "ru": "Укажите причину возврата кабинета на доработку:",
@@ -8355,6 +9592,10 @@ translations = {
             'Geben Sie den Grund für die Rücksendung des Profils zur '
             'Überarbeitung an:'
         ),
+        "nl": (
+            'Voer de reden in waarom het profiel wordt teruggestuurd voor '
+            'wijzigingen:'
+        ),
     },
     "moderator_changes_cancel_btn": {
         "ru": "Отмена",
@@ -8363,6 +9604,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "moderator_changes_confirmation": {
         "ru": (
@@ -8404,6 +9646,14 @@ translations = {
             '\n'
             'Statusänderung: pending_moderation -> draft'
         ),
+        "nl": (
+            'Bevestig het terugsturen van het professionele profiel voor '
+            'wijzigingen:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Statuswijziging: pending_moderation -> draft'
+        ),
     },
     "moderator_changes_confirm_btn": {
         "ru": "Подтвердить",
@@ -8412,6 +9662,7 @@ translations = {
         "uk": "Підтвердити",
         "pl": 'Potwierdź',
         "de": 'Bestätigen',
+        "nl": 'Bevestigen',
     },
     "moderator_changes_edit_btn": {
         "ru": "Изменить причину",
@@ -8420,6 +9671,7 @@ translations = {
         "uk": "Змінити причину",
         "pl": 'Edytuj powód',
         "de": 'Grund bearbeiten',
+        "nl": 'Reden bewerken',
     },
     "moderator_changes_submitted": {
         "ru": "Профессиональный кабинет возвращён на доработку.",
@@ -8428,6 +9680,7 @@ translations = {
         "uk": "Професійний кабінет повернуто на доопрацювання.",
         "pl": 'Profil zawodowy został zwrócony do poprawek.',
         "de": 'Das Berufsprofil wurde zur Überarbeitung zurückgesendet.',
+        "nl": 'Professioneel profiel teruggestuurd voor wijzigingen.',
     },
     "moderator_changes_cancelled": {
         "ru": "Возврат профиля на правки отменён.",
@@ -8436,6 +9689,7 @@ translations = {
         "uk": "Повернення профілю на правки скасовано.",
         "pl": 'Odebranie profilu w celu wprowadzenia zmian zostało anulowane.',
         "de": 'Die Rücksendung des Profils zur Überarbeitung wurde abgebrochen.',
+        "nl": 'Het terugsturen van het profiel voor wijzigingen is geannuleerd.',
     },
     "moderator_back_to_queue_btn": {
         "ru": "К профилям на модерации",
@@ -8444,6 +9698,7 @@ translations = {
         "uk": "До профілів на модерації",
         "pl": 'Powrót do kolejki moderacyjnej',
         "de": 'Zurück in die Moderationswarteschlange',
+        "nl": 'Terug naar de moderatiewachtrij',
     },
     "moderator_decision_reason_prompt": {
         "ru": "Укажите причину решения по профессиональному кабинету:",
@@ -8454,6 +9709,10 @@ translations = {
         "de": (
             'Geben Sie den Grund für die Entscheidung bezüglich des '
             'beruflichen Profils ein:'
+        ),
+        "nl": (
+            'Voer de reden voor de beslissing over het professionele profiel '
+            'in:'
         ),
     },
     "moderator_approve_confirmation": {
@@ -8491,6 +9750,13 @@ translations = {
             '\n'
             'Statusänderung: pending_moderation -> approved'
         ),
+        "nl": (
+            'Bevestig de goedkeuring van het professionele profiel:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Statuswijziging: pending_moderation -> approved'
+        ),
     },
     "moderator_reject_confirmation": {
         "ru": (
@@ -8526,6 +9792,13 @@ translations = {
             'Grund: {reason}\n'
             '\n'
             'Statusänderung: pending_moderation -> rejected'
+        ),
+        "nl": (
+            'Bevestig de afwijzing van het professionele profiel:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Statuswijziging: pending_moderation -> rejected'
         ),
     },
     "moderator_hide_specialist_confirmation": {
@@ -8563,6 +9836,13 @@ translations = {
             '\n'
             'Das Profil wird nicht mehr in den Suchergebnissen angezeigt.'
         ),
+        "nl": (
+            'Bevestig het verbergen van het professionele profiel:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Het profiel verschijnt niet meer in de zoekresultaten.'
+        ),
     },
     "moderator_restore_specialist_confirmation": {
         "ru": (
@@ -8599,6 +9879,13 @@ translations = {
             '\n'
             'Das Profil wird wieder in den Suchergebnissen angezeigt.'
         ),
+        "nl": (
+            'Bevestig het herstellen van het professionele profiel:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Het profiel verschijnt weer in de zoekresultaten.'
+        ),
     },
     "moderator_decision_confirm_btn": {
         "ru": "Подтвердить",
@@ -8607,6 +9894,7 @@ translations = {
         "uk": "Підтвердити",
         "pl": 'Potwierdź',
         "de": 'Bestätigen',
+        "nl": 'Bevestigen',
     },
     "moderator_decision_edit_btn": {
         "ru": "Изменить причину",
@@ -8615,6 +9903,7 @@ translations = {
         "uk": "Змінити причину",
         "pl": 'Edytuj powód',
         "de": 'Grund bearbeiten',
+        "nl": 'Reden bewerken',
     },
     "moderator_decision_approved": {
         "ru": "Профессиональный кабинет одобрен.",
@@ -8623,6 +9912,7 @@ translations = {
         "uk": "Професійний кабінет схвалено.",
         "pl": 'Profil zawodowy zatwierdzony.',
         "de": 'Berufsprofil genehmigt.',
+        "nl": 'Professioneel profiel goedgekeurd.',
     },
     "moderator_decision_rejected": {
         "ru": "Профессиональный кабинет отклонён.",
@@ -8631,6 +9921,7 @@ translations = {
         "uk": "Професійний кабінет відхилено.",
         "pl": 'Profil zawodowy odrzucony.',
         "de": 'Berufsprofil abgelehnt.',
+        "nl": 'Professioneel profiel afgewezen.',
     },
     "moderator_specialist_hidden": {
         "ru": "Профессиональный кабинет скрыт из поиска.",
@@ -8639,6 +9930,7 @@ translations = {
         "uk": "Професійний кабінет приховано з пошуку.",
         "pl": 'Profil zawodowy został ukryty przed wyszukiwaniem.',
         "de": 'Berufsprofil wurde für die Suche ausgeblendet.',
+        "nl": 'Professioneel profiel verborgen voor zoekopdrachten.',
     },
     "moderator_specialist_restored": {
         "ru": "Профессиональный кабинет снова отображается в поиске.",
@@ -8647,6 +9939,7 @@ translations = {
         "uk": "Професійний кабінет знову відображається в пошуку.",
         "pl": 'Profil zawodowy jest ponownie widoczny w wynikach wyszukiwania.',
         "de": 'Das Berufsprofil ist wieder in der Suche sichtbar.',
+        "nl": 'Het professionele profiel is weer zichtbaar in de zoekresultaten.',
     },
     "moderator_decision_cancelled": {
         "ru": "Решение отменено.",
@@ -8655,6 +9948,7 @@ translations = {
         "uk": "Рішення скасовано.",
         "pl": 'Decyzja została unieważniona.',
         "de": 'Entscheidung rückgängig gemacht.',
+        "nl": 'Beslissing geannuleerd.',
     },
     "moderator_scoped_block_reason_prompt": {
         "ru": (
@@ -8680,6 +9974,10 @@ translations = {
         "de": (
             'Geben Sie den Grund für die Sperrung des Benutzers innerhalb der '
             'aktuellen Organisation ein. Mindestens 3 Zeichen.'
+        ),
+        "nl": (
+            'Voer de reden in voor het blokkeren van de gebruiker binnen de '
+            'huidige organisatie. Minimaal 3 tekens.'
         ),
     },
     "moderator_scoped_block_confirmation": {
@@ -8723,6 +10021,14 @@ translations = {
             'Die Sperre gilt nur innerhalb der aktuellen Organisation.\n'
             'Der globale Benutzerstatus ändert sich nicht.'
         ),
+        "nl": (
+            'Bevestig de zwarte lijst van de organisatie:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'De blokkering geldt alleen binnen de huidige organisatie.\n'
+            'De algemene gebruikersstatus blijft ongewijzigd.'
+        ),
     },
     "moderator_scoped_block_confirm_btn": {
         "ru": "Подтвердить блокировку",
@@ -8731,6 +10037,7 @@ translations = {
         "uk": "Підтвердити блокування",
         "pl": 'Potwierdź blokadę',
         "de": 'Sperre bestätigen',
+        "nl": 'Blokkering bevestigen',
     },
     "moderator_scoped_block_edit_btn": {
         "ru": "Изменить причину",
@@ -8739,6 +10046,7 @@ translations = {
         "uk": "Змінити причину",
         "pl": 'Edytuj powód',
         "de": 'Grund bearbeiten',
+        "nl": 'Reden bewerken',
     },
     "moderator_scoped_block_created": {
         "ru": "Пользователь добавлен в blacklist текущего tenant.",
@@ -8750,6 +10058,10 @@ translations = {
             'Der Benutzer wurde zur Blacklist der aktuellen Organisation '
             'hinzugefügt.'
         ),
+        "nl": (
+            'De gebruiker is toegevoegd aan de zwarte lijst van de huidige '
+            'organisatie.'
+        ),
     },
     "moderator_scoped_block_cancelled": {
         "ru": "Scoped blacklist отменён.",
@@ -8758,6 +10070,7 @@ translations = {
         "uk": "Scoped blacklist скасовано.",
         "pl": 'Anulowano dodawanie do czarnej listy organizacji.',
         "de": 'Die Blacklist der Organisation wurde gelöscht.',
+        "nl": 'De zwarte lijst van de organisatie is geannuleerd.',
     },
     "moderator_portfolio_reason_prompt": {
         "ru": "Укажите причину решения. Минимум 3 символа.",
@@ -8769,6 +10082,7 @@ translations = {
             'Geben Sie den Grund für die Entscheidung ein. Mindestens 3 '
             'Zeichen.'
         ),
+        "nl": 'Voer de reden voor de beslissing in. Minimaal 3 tekens.',
     },
     "moderator_portfolio_approve_confirmation": {
         "ru": (
@@ -8793,6 +10107,7 @@ translations = {
             '\n'
             'Grund: {reason}'
         ),
+        "nl": 'Bevestig goedkeuring van item portfolio:\n\nReden: {reason}',
     },
     "moderator_portfolio_reject_confirmation": {
         "ru": (
@@ -8817,6 +10132,7 @@ translations = {
             '\n'
             'Grund: {reason}'
         ),
+        "nl": 'Bevestig afwijzing van item portfolio:\n\nReden: {reason}',
     },
     "moderator_portfolio_confirm_btn": {
         "ru": "Подтвердить",
@@ -8825,6 +10141,7 @@ translations = {
         "uk": "Підтвердити",
         "pl": 'Potwierdź',
         "de": 'Bestätigen',
+        "nl": 'Bevestig',
     },
     "moderator_portfolio_edit_reason_btn": {
         "ru": "Изменить причину",
@@ -8833,6 +10150,7 @@ translations = {
         "uk": "Змінити причину",
         "pl": 'Edytuj powód',
         "de": 'Grund bearbeiten',
+        "nl": 'Reden bewerken',
     },
     "moderator_portfolio_cancelled": {
         "ru": "Решение по portfolio item отменено.",
@@ -8841,6 +10159,7 @@ translations = {
         "uk": "Рішення щодо елемента портфоліо скасовано.",
         "pl": 'Decyzja dotycząca pozycji Portfolio została anulowana.',
         "de": 'Entscheidung zu Portfolio storniert.',
+        "nl": 'Portfolio-item: beslissing geannuleerd.',
     },
     "moderator_portfolio_approved": {
         "ru": "Portfolio item одобрен.",
@@ -8849,6 +10168,7 @@ translations = {
         "uk": "Елемент портфоліо схвалено.",
         "pl": 'Pozycja Portfolio została zatwierdzona.',
         "de": 'Portfolio-Posten genehmigt.',
+        "nl": 'Portfolio-item goedgekeurd.',
     },
     "moderator_portfolio_rejected": {
         "ru": "Portfolio item отклонён.",
@@ -8857,6 +10177,7 @@ translations = {
         "uk": "Елемент портфоліо відхилено.",
         "pl": 'Portfolio pozycja odrzucona.',
         "de": 'Portfolio Position abgelehnt.',
+        "nl": 'Portfolio item afgewezen.',
     },
     "moderator_portfolio_card": {
         "ru": (
@@ -8927,6 +10248,18 @@ translations = {
             'Größe: {size_kb} KB\n'
             'Bildunterschrift: {caption}'
         ),
+        "nl": (
+            'Portfolio in behandeling\n'
+            'Pagina: {page} | Item: {number}\n'
+            '\n'
+            'Profiel: {cabinet_title}\n'
+            'Beroep: {profession_name}\n'
+            'Type: {file_type}\n'
+            'MIME: {mime_type}\n'
+            'Eigenaar: {owner}\n'
+            'Grootte: {size_kb} KB\n'
+            'Bijschrift: {caption}'
+        ),
     },
     "moderator_portfolio_no_caption": {
         "ru": "Без подписи",
@@ -8935,6 +10268,7 @@ translations = {
         "uk": "Без підпису",
         "pl": 'Brak podpisu',
         "de": 'Keine Bildunterschrift',
+        "nl": 'Geen bijschrift',
     },
     "admin_no_pending_portfolio": {
         "ru": "Портфолио на модерации пока нет.",
@@ -8943,6 +10277,7 @@ translations = {
         "uk": "Елементів портфоліо на модерації поки немає.",
         "pl": 'Nie ma żadnych elementów portfolio oczekujących na moderację.',
         "de": 'Es sind keine portfolio Elemente zur Moderation anstehend.',
+        "nl": 'Er zijn geen portfolio items in afwachting van moderatie.',
     },
     "moderator_portfolio_load_failed": {
         "ru": (
@@ -8969,6 +10304,10 @@ translations = {
             'Die Datei portfolio konnte vorübergehend nicht geöffnet werden. '
             'Bitte versuchen Sie es erneut.'
         ),
+        "nl": (
+            'Het bestand portfolio kon tijdelijk niet worden geopend. Probeer '
+            'het nog eens.'
+        ),
     },
     "admin_show_review": {
         "ru": "Показать",
@@ -8977,6 +10316,7 @@ translations = {
         "uk": "Показати",
         "pl": 'Pokaż',
         "de": 'Anzeigen',
+        "nl": 'Weergeven',
     },
     "admin_review_author": {
         "ru": "Автор",
@@ -8985,6 +10325,7 @@ translations = {
         "uk": "Автор",
         "pl": 'Autor',
         "de": 'Autor',
+        "nl": 'Auteur',
     },
     "admin_review_target_unavailable": {
         "ru": "Объект недоступен",
@@ -8993,6 +10334,7 @@ translations = {
         "uk": "Об'єкт недоступний",
         "pl": 'Cel niedostępny',
         "de": 'Ziel nicht verfügbar',
+        "nl": 'Doel niet beschikbaar',
     },
     "admin_review_status_published": {
         "ru": "показан",
@@ -9001,6 +10343,7 @@ translations = {
         "uk": "показано",
         "pl": 'wyświetlono',
         "de": 'angezeigt',
+        "nl": 'weergegeven',
     },
     "admin_review_status_hidden": {
         "ru": "скрыт",
@@ -9009,6 +10352,7 @@ translations = {
         "uk": "приховано",
         "pl": 'ukryte',
         "de": 'ausgeblendet',
+        "nl": 'verborgen',
     },
     "admin_review_already_processed": {
         "ru": "Отзыв уже обработан. Обновите очередь.",
@@ -9020,6 +10364,7 @@ translations = {
             'Die Bewertung wurde bereits bearbeitet. Aktualisieren Sie die '
             'Warteschlange.'
         ),
+        "nl": 'De beoordeling is al verwerkt. Vernieuw de wachtrij.',
     },
     "moderator_complaint_queue_title": {
         "ru": "Жалобы\nПоказано: {count}",
@@ -9028,6 +10373,7 @@ translations = {
         "uk": "Скарги\nПоказано: {count}",
         "pl": 'Skargi\nWyświetlono: {count}',
         "de": 'Beschwerden\nAngezeigt: {count}',
+        "nl": 'Klachten\nWeergegeven: {count}',
     },
     "moderator_complaint_queue_item": {
         "ru": (
@@ -9072,6 +10418,13 @@ translations = {
             'Status: {status}\n'
             'Datum: {date}{escalation}'
         ),
+        "nl": (
+            '{number}. Melder: {reporter}\n'
+            'Gemeld object: {target}\n'
+            'Reden: {reason}\n'
+            'Status: {status}\n'
+            'Datum: {date}{escalation}'
+        ),
     },
     "moderator_complaint_admin_target": {
         "ru": "Требуется эскалация Admin",
@@ -9080,6 +10433,7 @@ translations = {
         "uk": "Потрібна ескалація Admin",
         "pl": 'Wymagana eskalacja do administratora',
         "de": 'Eskalation an den Administrator erforderlich',
+        "nl": 'Escalatie naar beheerder vereist',
     },
     "moderator_complaint_conversation_context": {
         "ru": "Контекст: переписка",
@@ -9088,6 +10442,7 @@ translations = {
         "uk": "Контекст: листування",
         "pl": 'Kontekst: rozmowa',
         "de": 'Kontext: Konversation',
+        "nl": 'Context: gesprek',
     },
     "moderator_complaint_filter_btn": {
         "ru": "Фильтр",
@@ -9096,6 +10451,7 @@ translations = {
         "uk": "Фільтр",
         "pl": 'Filtr',
         "de": 'Filter',
+        "nl": 'Filter',
     },
     "moderator_complaint_filter_title": {
         "ru": "Выберите статус жалоб:",
@@ -9104,6 +10460,7 @@ translations = {
         "uk": "Оберіть статус скарг:",
         "pl": 'Wybierz status zgłoszenia:',
         "de": 'Beschwerde-Status auswählen:',
+        "nl": 'Selecteer de status van de klacht:',
     },
     "moderator_complaint_filter_open": {
         "ru": "Требуют решения",
@@ -9112,6 +10469,7 @@ translations = {
         "uk": "Потребують рішення",
         "pl": 'Oczekuje na rozstrzygnięcie',
         "de": 'Entscheidung steht noch aus',
+        "nl": 'In afwachting van een beslissing',
     },
     "moderator_complaint_filter_new": {
         "ru": "Новые",
@@ -9120,6 +10478,7 @@ translations = {
         "uk": "Нові",
         "pl": 'Nowa',
         "de": 'Neu',
+        "nl": 'Nieuw',
     },
     "moderator_complaint_filter_review": {
         "ru": "В работе",
@@ -9128,6 +10487,7 @@ translations = {
         "uk": "У роботі",
         "pl": 'W trakcie rozpatrywania',
         "de": 'In Prüfung',
+        "nl": 'In behandeling',
     },
     "moderator_complaint_filter_resolved": {
         "ru": "Решённые",
@@ -9136,6 +10496,7 @@ translations = {
         "uk": "Вирішені",
         "pl": 'Rozpatrzone',
         "de": 'Gelöst',
+        "nl": 'Opgelost',
     },
     "moderator_complaint_filter_rejected": {
         "ru": "Отклонённые",
@@ -9144,6 +10505,7 @@ translations = {
         "uk": "Відхилені",
         "pl": 'Odrzucono',
         "de": 'Abgelehnt',
+        "nl": 'Verworpen',
     },
     "moderator_complaint_take_btn": {
         "ru": "Взять",
@@ -9152,6 +10514,7 @@ translations = {
         "uk": "Взяти",
         "pl": 'Przyjmij',
         "de": 'Annehmen',
+        "nl": 'Aannemen',
     },
     "moderator_complaint_taken": {
         "ru": "Жалоба взята в работу.",
@@ -9160,6 +10523,7 @@ translations = {
         "uk": "Скаргу взято в роботу.",
         "pl": 'Skarga przyjęta do rozpatrzenia.',
         "de": 'Beschwerde zur Prüfung entgegengenommen.',
+        "nl": 'Klacht in behandeling genomen.',
     },
     "moderator_complaint_take_unavailable": {
         "ru": "Жалоба уже взята или требует эскалации Admin.",
@@ -9173,6 +10537,10 @@ translations = {
         "de": (
             'Die Beschwerde ist bereits zugewiesen oder erfordert eine '
             'Eskalation an die Administration.'
+        ),
+        "nl": (
+            'De klacht is al toegewezen of moet worden doorverwezen naar de '
+            'beheerder.'
         ),
     },
     "moderator_complaint_card": {
@@ -9260,6 +10628,24 @@ translations = {
             'Verlauf:\n'
             '{history}{escalation}'
         ),
+        "nl": (
+            'Klacht {index}/{total}\n'
+            '\n'
+            'Melding door: {reporter}\n'
+            'Gemeld object: {target}\n'
+            'Type gemeld object: {target_type}\n'
+            'Status: {status}\n'
+            'Datum: {date}\n'
+            '\n'
+            'Reden:\n'
+            '{reason}\n'
+            '\n'
+            'Opmerking:\n'
+            '{comment}\n'
+            '\n'
+            'Geschiedenis:\n'
+            '{history}{escalation}'
+        ),
     },
     "moderator_complaint_history_empty": {
         "ru": "История действий пока пуста.",
@@ -9268,6 +10654,7 @@ translations = {
         "uk": "Історія дій поки порожня.",
         "pl": 'Historia działań jest pusta.',
         "de": 'Der Aktionsverlauf ist leer.',
+        "nl": 'De actiegeschiedenis is leeg.',
     },
     "moderator_complaint_resolve_btn": {
         "ru": "Решить",
@@ -9276,6 +10663,7 @@ translations = {
         "uk": "Вирішити",
         "pl": 'Rozpatrz',
         "de": 'Auflösen',
+        "nl": 'Oplossen',
     },
     "moderator_complaint_reject_btn": {
         "ru": "Отклонить",
@@ -9284,6 +10672,7 @@ translations = {
         "uk": "Відхилити",
         "pl": 'Odrzuć',
         "de": 'Ablehnen',
+        "nl": 'Afwijzen',
     },
     "moderator_complaint_back_queue_btn": {
         "ru": "К очереди жалоб",
@@ -9292,6 +10681,7 @@ translations = {
         "uk": "До черги скарг",
         "pl": 'Powrót do skarg',
         "de": 'Zurück zu den Beschwerden',
+        "nl": 'Terug naar klachten',
     },
     "moderator_complaint_admin_btn": {
         "ru": "Эскалировать Admin",
@@ -9300,6 +10690,7 @@ translations = {
         "uk": "Ескалювати Admin",
         "pl": 'Przekaż do administratora',
         "de": 'An den Administrator weiterleiten',
+        "nl": 'Doorsturen naar beheerder',
     },
     "moderator_complaint_admin_reason_prompt": {
         "ru": (
@@ -9325,6 +10716,10 @@ translations = {
         "de": (
             'Geben Sie den Grund für die Eskalation der Beschwerde an den '
             'Administrator ein. Mindestens 3 Zeichen.'
+        ),
+        "nl": (
+            'Voer de reden in waarom u de klacht naar de beheerder '
+            'doorstuurt. Minimaal 3 tekens.'
         ),
     },
     "moderator_complaint_admin_confirmation": {
@@ -9363,6 +10758,13 @@ translations = {
             '\n'
             'Der Status der Beschwerde ändert sich nicht.'
         ),
+        "nl": (
+            'Bevestig het doorsturen van de klacht naar de beheerder:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'De status van de klacht verandert niet.'
+        ),
     },
     "moderator_complaint_admin_confirm_btn": {
         "ru": "Подтвердить эскалацию",
@@ -9371,6 +10773,7 @@ translations = {
         "uk": "Підтвердити ескалацію",
         "pl": 'Potwierdź eskalację',
         "de": 'Eskalation bestätigen',
+        "nl": 'Escalatie bevestigen',
     },
     "moderator_complaint_admin_cancelled": {
         "ru": "Эскалация жалобы отменена.",
@@ -9379,6 +10782,7 @@ translations = {
         "uk": "Ескалацію скарги скасовано.",
         "pl": 'Eskalacja skargi została anulowana.',
         "de": 'Eskalation der Beschwerde abgebrochen.',
+        "nl": 'Escalatie van de klacht geannuleerd.',
     },
     "moderator_complaint_admin_completed": {
         "ru": "Жалоба эскалирована Admin.",
@@ -9387,6 +10791,7 @@ translations = {
         "uk": "Скаргу ескальовано Admin.",
         "pl": 'Skarga została przekazana administratorowi.',
         "de": 'Beschwerde an die Verwaltung eskaliert.',
+        "nl": 'Klacht geëscaleerd naar Admin.',
     },
     "moderator_blacklist_queue_title": {
         "ru": "Scoped blacklist\nРаздел: {view}\nПоказано: {count}",
@@ -9398,6 +10803,11 @@ translations = {
             'Schwarze Liste der Organisation\n'
             'Ansicht: {view}\n'
             'Angezeigt: {count}'
+        ),
+        "nl": (
+            'Zwarte lijst van de organisatie\n'
+            'Weergave: {view}\n'
+            'Weergegeven: {count}'
         ),
     },
     "moderator_blacklist_card": {
@@ -9453,6 +10863,14 @@ translations = {
             'Status: {status}\n'
             'Datum: {date}{revoke_line}'
         ),
+        "nl": (
+            '{number}. Gebruiker: {user}\n'
+            'Toepassingsgebied: {scope}\n'
+            'Reden: {reason}\n'
+            'Opmerking: {comment}\n'
+            'Status: {status}\n'
+            'Datum: {date}{revoke_line}'
+        ),
     },
     "moderator_blacklist_active_btn": {
         "ru": "Действующие",
@@ -9461,6 +10879,7 @@ translations = {
         "uk": "Чинні",
         "pl": 'Obecny',
         "de": 'Aktuell',
+        "nl": 'Huidige',
     },
     "moderator_blacklist_history_btn": {
         "ru": "История",
@@ -9469,6 +10888,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "moderator_blacklist_active_title": {
         "ru": "Действующие ограничения",
@@ -9477,6 +10897,7 @@ translations = {
         "uk": "Чинні обмеження",
         "pl": 'Obecne ograniczenia',
         "de": 'Aktuelle Einschränkungen',
+        "nl": 'Huidige beperkingen',
     },
     "moderator_blacklist_history_title": {
         "ru": "История",
@@ -9485,6 +10906,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Geschichte',
+        "nl": 'Geschiedenis',
     },
     "moderator_blacklist_no_comment": {
         "ru": "не указан",
@@ -9493,6 +10915,7 @@ translations = {
         "uk": "не вказано",
         "pl": 'nieokreślone',
         "de": 'nicht angegeben',
+        "nl": 'niet gespecificeerd',
     },
     "moderator_blacklist_empty": {
         "ru": "Записей scoped blacklist нет.",
@@ -9501,6 +10924,7 @@ translations = {
         "uk": "Записів scoped blacklist немає.",
         "pl": 'Nie ma żadnych wpisów na czarnej liście organizacji.',
         "de": 'Es gibt keine Einträge in der Blacklist für Organisationen.',
+        "nl": 'Er zijn geen vermeldingen op de zwarte lijst van organisaties.',
     },
     "moderator_blacklist_actions_title": {
         "ru": "Действия со списком",
@@ -9509,6 +10933,7 @@ translations = {
         "uk": "Дії зі списком",
         "pl": 'Działania związane z listą',
         "de": 'Aktionen für die Liste',
+        "nl": 'Acties op de lijst',
     },
     "moderator_blacklist_revoke_btn": {
         "ru": "Снять scoped",
@@ -9517,6 +10942,7 @@ translations = {
         "uk": "Зняти scoped",
         "pl": 'Usuń blokadę organizacji',
         "de": 'Sperre der Organisation aufheben',
+        "nl": 'Blokkering van organisatie opheffen',
     },
     "moderator_blacklist_revoke_reason_prompt": {
         "ru": (
@@ -9540,6 +10966,10 @@ translations = {
             'Geben Sie den Grund für das Entfernen des Organisationsblocks '
             'ein. Mindestens 3 Zeichen.'
         ),
+        "nl": (
+            'Voer de reden in voor het verwijderen van het organisatieblok. '
+            'Minimaal 3 tekens.'
+        ),
     },
     "moderator_blacklist_revoke_forbidden": {
         "ru": (
@@ -9556,6 +10986,7 @@ translations = {
         ),
         "pl": 'Moderator nie może usunąć tej blokady.',
         "de": 'Der Moderator kann diesen Block nicht entfernen.',
+        "nl": 'De moderator kan deze blokkering niet opheffen.',
     },
     "moderator_blacklist_revoke_confirmation": {
         "ru": (
@@ -9592,6 +11023,14 @@ translations = {
             '\n'
             'Der globale Benutzerstatus ändert sich nicht.'
         ),
+        "nl": (
+            'Bevestig het verwijderen van de zwarte lijst van de '
+            'organisatie:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'De algemene gebruikersstatus blijft ongewijzigd.'
+        ),
     },
     "moderator_blacklist_revoke_confirm_btn": {
         "ru": "Подтвердить снятие",
@@ -9600,6 +11039,7 @@ translations = {
         "uk": "Підтвердити зняття",
         "pl": 'Potwierdź usunięcie',
         "de": 'Entfernung bestätigen',
+        "nl": 'Bevestig verwijdering',
     },
     "moderator_blacklist_revoke_cancelled": {
         "ru": "Снятие scoped blacklist отменено.",
@@ -9608,6 +11048,7 @@ translations = {
         "uk": "Зняття scoped blacklist скасовано.",
         "pl": 'Usunięcie z czarnej listy organizacji zostało anulowane.',
         "de": 'Entfernung aus der Blacklist der Organisation abgebrochen.',
+        "nl": 'Verwijdering van de zwarte lijst van de organisatie geannuleerd.',
     },
     "moderator_blacklist_revoked": {
         "ru": "Scoped blacklist снят.",
@@ -9616,6 +11057,7 @@ translations = {
         "uk": "Scoped blacklist знято.",
         "pl": 'Usunięto blokadę w organizacji.',
         "de": 'Organisation aus der Blacklist entfernt.',
+        "nl": 'De organisatie is van de zwarte lijst verwijderd.',
     },
     "moderator_blacklist_revoke_reason_line": {
         "ru": "Причина снятия: {reason}",
@@ -9624,6 +11066,7 @@ translations = {
         "uk": "Причина зняття: {reason}",
         "pl": 'Powód usunięcia: {reason}',
         "de": 'Grund für die Entfernung: {reason}',
+        "nl": 'Reden voor verwijdering: {reason}',
     },
     "moderator_blacklist_no_revoke_reason": {
         "ru": "не указана",
@@ -9632,6 +11075,7 @@ translations = {
         "uk": "не вказано",
         "pl": 'nieokreślony',
         "de": 'nicht angegeben',
+        "nl": 'niet gespecificeerd',
     },
     "moderator_blacklist_add_btn": {
         "ru": "Добавить",
@@ -9640,6 +11084,7 @@ translations = {
         "uk": "Додати",
         "pl": 'Dodaj',
         "de": 'Hinzufügen',
+        "nl": 'Toevoegen',
     },
     "moderator_blacklist_add_user_prompt": {
         "ru": (
@@ -9666,6 +11111,10 @@ translations = {
             'Geben Sie die Telegram-ID des Nutzers ein, der zur Blacklist der '
             'Organisation hinzugefügt werden soll.'
         ),
+        "nl": (
+            'Voer de Telegram-ID in van de gebruiker die u aan de zwarte '
+            'lijst van de organisatie wilt toevoegen.'
+        ),
     },
     "moderator_blacklist_invalid_user": {
         "ru": "Telegram ID должен содержать только цифры.",
@@ -9674,6 +11123,7 @@ translations = {
         "uk": "Telegram ID має містити лише цифри.",
         "pl": 'ID w Telegramie musi zawierać wyłącznie cyfry.',
         "de": 'Die Telegram-ID darf nur Ziffern enthalten.',
+        "nl": 'De Telegram-ID mag alleen uit cijfers bestaan.',
     },
     "moderator_blacklist_add_confirmation": {
         "ru": (
@@ -9716,6 +11166,14 @@ translations = {
             '\n'
             'Die Sperre gilt nur innerhalb der aktuellen Organisation.'
         ),
+        "nl": (
+            'Bevestig het toevoegen aan de zwarte lijst van de organisatie:\n'
+            '\n'
+            'Telegram-ID: {telegram_id}\n'
+            'Reden: {reason}\n'
+            '\n'
+            'De blokkering geldt alleen binnen de huidige organisatie.'
+        ),
     },
     "moderator_blacklist_add_confirm_btn": {
         "ru": "Подтвердить добавление",
@@ -9724,6 +11182,7 @@ translations = {
         "uk": "Підтвердити додавання",
         "pl": 'Potwierdź dodanie',
         "de": 'Hinzufügung bestätigen',
+        "nl": 'Bevestig toevoeging',
     },
     "moderator_blacklist_add_cancelled": {
         "ru": "Добавление в scoped blacklist отменено.",
@@ -9732,6 +11191,10 @@ translations = {
         "uk": "Додавання до scoped blacklist скасовано.",
         "pl": 'Dodanie do czarnej listy organizacji zostało anulowane.',
         "de": 'Das Hinzufügen zur Blacklist der Organisation wurde abgebrochen.',
+        "nl": (
+            'Het toevoegen aan de zwarte lijst van de organisatie is '
+            'geannuleerd.'
+        ),
     },
     "moderator_portfolio_reject_type_prompt": {
         "ru": "Выберите тип отклонения:",
@@ -9740,6 +11203,7 @@ translations = {
         "uk": "Оберіть тип відхилення:",
         "pl": 'Wybierz typ odrzucenia:',
         "de": 'Wählen Sie die Art der Ablehnung aus:',
+        "nl": 'Selecteer het type afwijzing:',
     },
     "moderator_portfolio_regular_reject_btn": {
         "ru": "Обычная причина",
@@ -9748,6 +11212,7 @@ translations = {
         "uk": "Звичайна причина",
         "pl": 'Standardowy powód',
         "de": 'Allgemeiner Grund',
+        "nl": 'Standaardreden',
     },
     "moderator_portfolio_forbidden_btn": {
         "ru": "Запрещённый контент",
@@ -9756,6 +11221,7 @@ translations = {
         "uk": "Заборонений контент",
         "pl": 'Treści zabronione',
         "de": 'Unzulässiger Inhalt',
+        "nl": 'Verboden inhoud',
     },
     "moderator_portfolio_forbidden_confirmation": {
         "ru": (
@@ -9791,6 +11257,13 @@ translations = {
             'Grund: {reason}\n'
             '\n'
             'Es wird eine Risikomeldung erstellt.'
+        ),
+        "nl": (
+            'Bevestig afwijzing van verboden inhoud:\n'
+            '\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Er wordt een risico-indicator aangemaakt.'
         ),
     },
     "admin_menu_text": {
@@ -9850,6 +11323,16 @@ translations = {
             'Globale Sperrliste: {blacklist}\n'
             'Audit-Warnmeldungen: {audit_alerts}'
         ),
+        "nl": (
+            'Beheerdersdashboard\n'
+            '\n'
+            'Gebruikers: {users}\n'
+            'Professionele profielen: {specialists}\n'
+            'Ondersteuning: {tickets}\n'
+            'Klachten: {complaints}\n'
+            'Wereldwijde zwarte lijst: {blacklist}\n'
+            'Auditwaarschuwingen: {audit_alerts}'
+        ),
     },
     "admin_users_btn": {
         "ru": "Пользователи ({count})",
@@ -9858,6 +11341,7 @@ translations = {
         "uk": "Користувачі ({count})",
         "pl": 'Użytkownicy ({count})',
         "de": 'Benutzer ({count})',
+        "nl": 'Gebruikers ({count})',
     },
     "admin_specialists_btn": {
         "ru": "Профессиональные кабинеты ({count})",
@@ -9866,6 +11350,7 @@ translations = {
         "uk": "Професійні кабінети ({count})",
         "pl": 'Profile zawodowe ({count})',
         "de": 'Berufsprofile ({count})',
+        "nl": 'Professionele profielen ({count})',
     },
     "admin_support_btn": {
         "ru": "Support ({count})",
@@ -9874,6 +11359,7 @@ translations = {
         "uk": "Support ({count})",
         "pl": 'Wsparcie ({count})',
         "de": 'Support ({count})',
+        "nl": 'Ondersteuning ({count})',
     },
     "admin_moderation_btn": {
         "ru": "Moderation ({count})",
@@ -9882,6 +11368,7 @@ translations = {
         "uk": "Модерація ({count})",
         "pl": 'Moderacja ({count})',
         "de": 'Moderation ({count})',
+        "nl": 'Moderatie ({count})',
     },
     "admin_global_blacklist_btn": {
         "ru": "Глобальный черный список ({count})",
@@ -9890,6 +11377,7 @@ translations = {
         "uk": "Глобальний чорний список ({count})",
         "pl": 'Globalna czarna lista ({count})',
         "de": 'Globale Sperrliste ({count})',
+        "nl": 'Wereldwijde zwarte lijst ({count})',
     },
     "admin_audit_btn": {
         "ru": "Audit ({count})",
@@ -9898,6 +11386,7 @@ translations = {
         "uk": "Аудит ({count})",
         "pl": 'Audyt ({count})',
         "de": 'Audit ({count})',
+        "nl": 'Audit ({count})',
     },
     "admin_user_search_prompt": {
         "ru": (
@@ -9946,6 +11435,14 @@ translations = {
             '@username\n'
             'user-49ba690f'
         ),
+        "nl": (
+            'Voer de Telegram-ID, gebruikersnaam of het gebruikersnummer in.\n'
+            '\n'
+            'Voorbeelden:\n'
+            '483721727\n'
+            '@username\n'
+            'user-49ba690f'
+        ),
     },
     "admin_user_search_results": {
         "ru": "Найдено пользователей: {count}",
@@ -9954,6 +11451,7 @@ translations = {
         "uk": "Знайдено користувачів: {count}",
         "pl": 'Znaleziono użytkowników: {count}',
         "de": 'Gefundene Benutzer: {count}',
+        "nl": 'Gevonden gebruikers: {count}',
     },
     "admin_user_search_card": {
         "ru": (
@@ -9998,6 +11496,13 @@ translations = {
             'Telegram-ID: {telegram_id}\n'
             'Status: {status}'
         ),
+        "nl": (
+            '{number}. Gebruiker {user_number}\n'
+            'Naam: {display_name}\n'
+            'Gebruikersnaam: {username}\n'
+            'Telegram-ID: {telegram_id}\n'
+            'Status: {status}'
+        ),
     },
     "admin_user_open_btn": {
         "ru": "Подробнее",
@@ -10006,6 +11511,7 @@ translations = {
         "uk": "Детальніше",
         "pl": 'Szczegóły',
         "de": 'Details',
+        "nl": 'Details',
     },
     "admin_user_search_again_btn": {
         "ru": "Найти ещё",
@@ -10014,6 +11520,7 @@ translations = {
         "uk": "Знайти ще",
         "pl": 'Wyszukaj ponownie',
         "de": 'Erneut suchen',
+        "nl": 'Opnieuw zoeken',
     },
     "admin_user_search_actions": {
         "ru": "Действия с результатами",
@@ -10022,6 +11529,7 @@ translations = {
         "uk": "Дії з результатами",
         "pl": 'Działania związane z wynikami',
         "de": 'Aktionen für Ergebnisse',
+        "nl": 'Acties op resultaten',
     },
     "admin_user_search_empty": {
         "ru": "Пользователь не найден.",
@@ -10030,6 +11538,7 @@ translations = {
         "uk": "Користувача не знайдено.",
         "pl": 'Nie znaleziono użytkownika.',
         "de": 'Benutzer nicht gefunden.',
+        "nl": 'Gebruiker niet gevonden.',
     },
     "admin_user_search_error": {
         "ru": "Не удалось выполнить поиск: {error}",
@@ -10038,6 +11547,7 @@ translations = {
         "uk": "Не вдалося виконати пошук: {error}",
         "pl": 'Wyszukiwanie nie powiodło się: {error}',
         "de": 'Suche fehlgeschlagen: {error}',
+        "nl": 'Zoeken mislukt: {error}',
     },
     "admin_user_details": {
         "ru": (
@@ -10108,6 +11618,18 @@ translations = {
             'Beschwerden: {complaints}\n'
             'Globale Sperrliste: {blacklist}'
         ),
+        "nl": (
+            'Gebruikerskaart\n'
+            '\n'
+            'Nummer: {user_number}\n'
+            'Naam: {display_name}\n'
+            'Gebruikersnaam: {username}\n'
+            'Rollen: {roles}\n'
+            'Status: {status}\n'
+            'Laatste activiteit: {last_seen}\n'
+            'Klachten: {complaints}\n'
+            'Wereldwijde zwarte lijst: {blacklist}'
+        ),
     },
     "admin_user_no_roles": {
         "ru": "нет активных ролей",
@@ -10116,6 +11638,7 @@ translations = {
         "uk": "немає активних ролей",
         "pl": 'brak aktywnych ról',
         "de": 'keine aktiven Rollen',
+        "nl": 'geen actieve rollen',
     },
     "admin_user_global_blocked": {
         "ru": "заблокирован",
@@ -10124,6 +11647,7 @@ translations = {
         "uk": "заблоковано",
         "pl": 'zablokowane',
         "de": 'gesperrt',
+        "nl": 'geblokkeerd',
     },
     "admin_user_not_global_blocked": {
         "ru": "не заблокирован",
@@ -10132,6 +11656,7 @@ translations = {
         "uk": "не заблоковано",
         "pl": 'nie zablokowany',
         "de": 'nicht gesperrt',
+        "nl": 'niet geblokkeerd',
     },
     "admin_user_roles_btn": {
         "ru": "Роли",
@@ -10140,6 +11665,7 @@ translations = {
         "uk": "Ролі",
         "pl": 'Role',
         "de": 'Rollen',
+        "nl": 'Rollen',
     },
     "admin_user_history_btn": {
         "ru": "История",
@@ -10148,6 +11674,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "admin_user_global_block_btn": {
         "ru": "Global blacklist",
@@ -10156,6 +11683,7 @@ translations = {
         "uk": "Global blacklist",
         "pl": 'Globalna czarna lista',
         "de": 'Globale Sperrliste',
+        "nl": 'Wereldwijde zwarte lijst',
     },
     "admin_user_global_unblock_btn": {
         "ru": "Снять global",
@@ -10164,6 +11692,7 @@ translations = {
         "uk": "Зняти global",
         "pl": 'Usuń globalną blokadę',
         "de": 'Globale Sperre aufheben',
+        "nl": 'Globale blokkering opheffen',
     },
     "admin_user_not_found": {
         "ru": "Пользователь не найден или результат устарел.",
@@ -10172,6 +11701,7 @@ translations = {
         "uk": "Користувача не знайдено або результат застарів.",
         "pl": 'Nie znaleziono użytkownika lub wynik wyszukiwania stracił ważność.',
         "de": 'Benutzer nicht gefunden oder Suchergebnis abgelaufen.',
+        "nl": 'Gebruiker niet gevonden of zoekresultaat verlopen.',
     },
     "admin_user_history_title": {
         "ru": (
@@ -10192,6 +11722,10 @@ translations = {
         ),
         "pl": 'Historia użytkownika {user_number}\nWyświetlane zdarzenia: {count}',
         "de": 'Benutzerverlauf {user_number}\nAngezeigte Ereignisse: {count}',
+        "nl": (
+            'Gebruikersgeschiedenis {user_number}\n'
+            'Weergegeven gebeurtenissen: {count}'
+        ),
     },
     "admin_user_history_item": {
         "ru": (
@@ -10236,6 +11770,13 @@ translations = {
             'Grund: {reason}\n'
             'Quelle: {source}'
         ),
+        "nl": (
+            '{number}. {date}\n'
+            'Actie: {action}\n'
+            'Uitvoerder: {actor}\n'
+            'Reden: {reason}\n'
+            'Bron: {source}'
+        ),
     },
     "admin_user_history_empty": {
         "ru": "История пользователя пока пуста.",
@@ -10244,6 +11785,7 @@ translations = {
         "uk": "Історія користувача поки порожня.",
         "pl": 'Historia użytkownika jest pusta.',
         "de": 'Der Benutzerverlauf ist leer.',
+        "nl": 'De gebruikersgeschiedenis is leeg.',
     },
     "admin_user_history_actions": {
         "ru": "Действия с историей",
@@ -10252,6 +11794,7 @@ translations = {
         "uk": "Дії з історією",
         "pl": 'Czynności w historii',
         "de": 'Verlaufsaktionen',
+        "nl": 'Acties in de geschiedenis',
     },
     "admin_user_back_to_card_btn": {
         "ru": "Назад к пользователю",
@@ -10260,6 +11803,7 @@ translations = {
         "uk": "Назад до користувача",
         "pl": 'Powrót do użytkownika',
         "de": 'Zurück zum Benutzer',
+        "nl": 'Terug naar gebruiker',
     },
     "admin_user_global_block_reason_prompt": {
         "ru": "Укажите причину global-блокировки. Минимум 3 символа.",
@@ -10268,6 +11812,7 @@ translations = {
         "uk": "Вкажіть причину global-блокування. Мінімум 3 символи.",
         "pl": 'Wprowadź ogólny powód zablokowania. Minimum 3 znaki.',
         "de": 'Geben Sie den allgemeinen Sperrgrund ein. Mindestens 3 Zeichen.',
+        "nl": 'Voer de algemene blokkeringsreden in. Minimaal 3 tekens.',
     },
     "admin_user_global_block_confirmation": {
         "ru": (
@@ -10310,6 +11855,14 @@ translations = {
             '\n'
             'Der Benutzer verliert den Zugriff auf die gesamte Plattform.'
         ),
+        "nl": (
+            'Bevestig algemene blokkering:\n'
+            '\n'
+            'Gebruiker: {user_number}\n'
+            'Reden: {reason}\n'
+            '\n'
+            'De gebruiker verliest de toegang tot het hele platform.'
+        ),
     },
     "admin_user_global_block_confirm_btn": {
         "ru": "Подтвердить global-блокировку",
@@ -10318,6 +11871,7 @@ translations = {
         "uk": "Підтвердити global-блокування",
         "pl": 'Potwierdź blokadę globalną',
         "de": 'Globale Sperre bestätigen',
+        "nl": 'Bevestig algemene blokkering',
     },
     "admin_user_change_reason_btn": {
         "ru": "Изменить причину",
@@ -10326,6 +11880,7 @@ translations = {
         "uk": "Змінити причину",
         "pl": 'Zmień powód',
         "de": 'Grund ändern',
+        "nl": 'Reden wijzigen',
     },
     "admin_user_global_block_completed": {
         "ru": "Global-блокировка установлена. Статус: {status}",
@@ -10334,6 +11889,7 @@ translations = {
         "uk": "Global-блокування встановлено. Статус: {status}",
         "pl": 'Zastosowano blokadę globalną. Status: {status}',
         "de": 'Globale Sperre angewendet. Status: {status}',
+        "nl": 'Algemene blokkering toegepast. Status: {status}',
     },
     "admin_user_global_block_cancelled": {
         "ru": "Global-блокировка отменена.",
@@ -10342,6 +11898,7 @@ translations = {
         "uk": "Global-блокування скасовано.",
         "pl": 'Globalna blokada anulowana.',
         "de": 'Globale Sperre aufgehoben.',
+        "nl": 'Globale blokkering geannuleerd.',
     },
     "admin_user_global_unblock_reason_prompt": {
         "ru": "Укажите причину снятия global-блокировки. Минимум 3 символа.",
@@ -10352,6 +11909,10 @@ translations = {
         "de": (
             'Geben Sie den Grund für die Aufhebung der globalen Sperre ein. '
             'Mindestens 3 Zeichen.'
+        ),
+        "nl": (
+            'Voer de reden in voor het opheffen van de algemene blokkering. '
+            'Minimaal 3 tekens.'
         ),
     },
     "admin_user_global_unblock_confirmation": {
@@ -10395,6 +11956,14 @@ translations = {
             '\n'
             'Der Plattformzugang wird wiederhergestellt.'
         ),
+        "nl": (
+            'Bevestig het opheffen van de algemene blokkering:\n'
+            '\n'
+            'Gebruiker: {user_number}\n'
+            'Reden: {reason}\n'
+            '\n'
+            'De toegang tot het platform wordt hersteld.'
+        ),
     },
     "admin_user_global_unblock_confirm_btn": {
         "ru": "Подтвердить снятие",
@@ -10403,6 +11972,7 @@ translations = {
         "uk": "Підтвердити зняття",
         "pl": 'Potwierdź usunięcie',
         "de": 'Aufhebung bestätigen',
+        "nl": 'Bevestig opheffing',
     },
     "admin_user_global_unblock_completed": {
         "ru": "Global-блокировка снята. Статус: {status}",
@@ -10411,6 +11981,7 @@ translations = {
         "uk": "Global-блокування знято. Статус: {status}",
         "pl": 'Globalna blokada została usunięta. Status: {status}',
         "de": 'Globale Sperre aufgehoben. Status: {status}',
+        "nl": 'Globale blokkering verwijderd. Status: {status}',
     },
     "admin_user_global_unblock_cancelled": {
         "ru": "Снятие global-блокировки отменено.",
@@ -10419,6 +11990,7 @@ translations = {
         "uk": "Зняття global-блокування скасовано.",
         "pl": 'Usunięcie bloku globalnego zostało anulowane.',
         "de": 'Globale Sperre wurde abgebrochen.',
+        "nl": 'Verwijdering van het globale blok geannuleerd.',
     },
     "admin_user_roles_text": {
         "ru": (
@@ -10457,6 +12029,13 @@ translations = {
             'Die Verwaltung von Systemrollen steht nur dem Super-Admin zur '
             'Verfügung.'
         ),
+        "nl": (
+            'Gebruikersrollen {user_number}\n'
+            '\n'
+            '{roles}\n'
+            '\n'
+            'Systeemrolbeheer is alleen beschikbaar voor Super Admin.'
+        ),
     },
     "admin_specialists_header": {
         "ru": (
@@ -10490,6 +12069,12 @@ translations = {
             'Wyświetlono: {count}'
         ),
         "de": 'Berufsprofile\nStatus: {status}\nSeite: {page}\nAngezeigt: {count}',
+        "nl": (
+            'Professionele profielen\n'
+            'Status: {status}\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}'
+        ),
     },
     "admin_specialist_item": {
         "ru": (
@@ -10534,6 +12119,13 @@ translations = {
             'Status: {status}\n'
             'Datum: {date}'
         ),
+        "nl": (
+            '{number}. {name}\n'
+            'Beroep: {profession}\n'
+            'Stad: {city}\n'
+            'Status: {status}\n'
+            'Datum: {date}'
+        ),
     },
 "admin_specialist_city_not_set": {
         "ru": "не указан",
@@ -10542,6 +12134,7 @@ translations = {
         "uk": "не вказано",
         "pl": 'nieokreślone',
         "de": 'nicht angegeben',
+        "nl": 'niet opgegeven',
     },
     "admin_specialists_empty": {
         "ru": "Профессиональных кабинетов с таким статусом нет.",
@@ -10550,6 +12143,7 @@ translations = {
         "uk": "Професійних кабінетів із таким статусом немає.",
         "pl": 'Brak profili zawodowych o tym statusie.',
         "de": 'Es gibt keine Berufsprofile mit diesem Status.',
+        "nl": 'Geen professionele profielen met deze status.',
     },
     "admin_specialists_actions": {
         "ru": "Действия со списком кабинетов",
@@ -10558,6 +12152,7 @@ translations = {
         "uk": "Дії зі списком кабінетів",
         "pl": 'Czynności związane z listą profili',
         "de": 'Aktionen in der Profilliste',
+        "nl": 'Acties op de profielenlijst',
     },
     "admin_specialist_filter_btn": {
         "ru": "Фильтр кабинетов",
@@ -10566,6 +12161,7 @@ translations = {
         "uk": "Фільтр кабінетів",
         "pl": 'Filtr profili',
         "de": 'Profilfilter',
+        "nl": 'Profielfilter',
     },
     "admin_specialist_filter_title": {
         "ru": "Выберите статус профессионального кабинета:",
@@ -10574,6 +12170,7 @@ translations = {
         "uk": "Оберіть статус професійного кабінету:",
         "pl": 'Wybierz status profilu zawodowego:',
         "de": 'Status des beruflichen Profils auswählen:',
+        "nl": 'Selecteer de status van het professionele profiel:',
     },
     "admin_specialist_filter_all": {
         "ru": "Все",
@@ -10582,6 +12179,7 @@ translations = {
         "uk": "Усі",
         "pl": 'Wszystkie',
         "de": 'Alle',
+        "nl": 'Alle',
     },
     "admin_specialist_filter_approved": {
         "ru": "Одобренные",
@@ -10590,6 +12188,7 @@ translations = {
         "uk": "Схвалені",
         "pl": 'Zatwierdzony',
         "de": 'Genehmigt',
+        "nl": 'Goedgekeurd',
     },
     "admin_specialist_filter_pending": {
         "ru": "На модерации",
@@ -10598,6 +12197,7 @@ translations = {
         "uk": "На модерації",
         "pl": 'Oczekujące na moderację',
         "de": 'Wartet auf Freigabe',
+        "nl": 'In afwachting van moderatie',
     },
     "admin_specialist_filter_draft": {
         "ru": "Черновики",
@@ -10606,6 +12206,7 @@ translations = {
         "uk": "Чернетки",
         "pl": 'Szkice',
         "de": 'Entwürfe',
+        "nl": 'Concepten',
     },
     "admin_specialist_filter_hidden": {
         "ru": "Скрытые",
@@ -10614,6 +12215,7 @@ translations = {
         "uk": "Приховані",
         "pl": 'Ukryte',
         "de": 'Verborgen',
+        "nl": 'Verborgen',
     },
     "admin_specialist_filter_rejected": {
         "ru": "Отклонённые",
@@ -10622,6 +12224,7 @@ translations = {
         "uk": "Відхилені",
         "pl": 'Odrzucone',
         "de": 'Abgelehnt',
+        "nl": 'Afgewezen',
     },
     "admin_specialist_filter_archived": {
         "ru": "Архивные кабинеты",
@@ -10630,6 +12233,7 @@ translations = {
         "uk": "Архівні кабінети",
         "pl": 'Zarchiwizowane profile',
         "de": 'Archivierte Profile',
+        "nl": 'Gearchiveerde profielen',
     },
     "admin_professional_cabinet_active": {
         "ru": "Активность: активен",
@@ -10638,6 +12242,7 @@ translations = {
         "uk": "Активність: активний",
         "pl": 'Aktywność: aktywny',
         "de": 'Status: aktiv',
+        "nl": 'Status: actief',
     },
     "admin_professional_cabinet_archived": {
         "ru": "Активность: архивирован",
@@ -10646,6 +12251,7 @@ translations = {
         "uk": "Активність: архівовано",
         "pl": 'Aktywność: zarchiwizowany',
         "de": 'Status: archiviert',
+        "nl": 'Status: gearchiveerd',
     },
     "admin_specialist_filter_blocked": {
         "ru": "Заблокированные",
@@ -10654,6 +12260,7 @@ translations = {
         "uk": "Заблоковані",
         "pl": 'Zablokowany',
         "de": 'Gesperrt',
+        "nl": 'Geblokkeerd',
     },
     "admin_specialist_filter_deleted": {
         "ru": "Удалённые",
@@ -10662,6 +12269,7 @@ translations = {
         "uk": "Видалені",
         "pl": 'Usunięte',
         "de": 'Gelöscht',
+        "nl": 'Verwijderd',
     },
     "admin_specialist_read_only_btn": {
         "ru": "Профиль уже обработан",
@@ -10670,6 +12278,7 @@ translations = {
         "uk": "Профіль вже опрацьовано",
         "pl": 'Profil został już przetworzony',
         "de": 'Profil bereits bearbeitet',
+        "nl": 'Profiel al verwerkt',
     },
     "admin_specialist_read_only_notice": {
         "ru": (
@@ -10695,6 +12304,10 @@ translations = {
         "de": (
             'Moderationsmaßnahmen sind nur für Profile mit dem Status '
             'pending_moderation verfügbar.'
+        ),
+        "nl": (
+            'Moderatieacties zijn alleen beschikbaar voor profielen met de '
+            'status pending_moderation.'
         ),
     },
     "admin_escalated_tickets_header": {
@@ -10724,6 +12337,7 @@ translations = {
             'Wyświetlono: {count}'
         ),
         "de": 'Support-Eskalationen\nSeite: {page}\nAngezeigt: {count}',
+        "nl": 'Escalaties van ondersteuning\nPagina: {page}\nWeergegeven: {count}',
     },
     "admin_escalated_ticket_card": {
         "ru": (
@@ -10774,6 +12388,14 @@ translations = {
             'Status: {status}\n'
             'Aktualisiert: {updated_at}'
         ),
+        "nl": (
+            '{number}. Ticket #{ticket_number}\n'
+            'Gebruiker: {user_number}\n'
+            'Categorie: {category}\n'
+            'Prioriteit: {priority}\n'
+            'Status: {status}\n'
+            'Bijgewerkt: {updated_at}'
+        ),
     },
     "admin_escalated_tickets_empty": {
         "ru": "Критических или эскалированных обращений нет.",
@@ -10782,6 +12404,7 @@ translations = {
         "uk": "Критичних або ескальованих звернень немає.",
         "pl": 'Brak zgłoszeń krytycznych lub eskalowanych.',
         "de": 'Keine kritischen oder eskalierten Tickets.',
+        "nl": 'Geen kritieke of geëscaleerde tickets.',
     },
     "admin_escalated_tickets_actions": {
         "ru": "Действия с эскалациями",
@@ -10790,6 +12413,7 @@ translations = {
         "uk": "Дії з ескалаціями",
         "pl": 'Działania związane z eskalacją',
         "de": 'Eskalationsmaßnahmen',
+        "nl": 'Escalatieacties',
     },
     "admin_ticket_action_reason_prompt": {
         "ru": "Укажите причину действия «{action}». Минимум 3 символа.",
@@ -10798,6 +12422,7 @@ translations = {
         "uk": "Вкажіть причину дії «{action}». Мінімум 3 символи.",
         "pl": 'Wprowadź powód dla „{action}”. Minimum 3 znaki.',
         "de": 'Geben Sie den Grund für „{action}“ ein. Mindestens 3 Zeichen.',
+        "nl": 'Voer de reden voor “{action}” in. Minimaal 3 tekens.',
     },
     "admin_ticket_action_assign": {
         "ru": "Назначить",
@@ -10806,6 +12431,7 @@ translations = {
         "uk": "Призначити",
         "pl": 'Przypisz',
         "de": 'Zuweisen',
+        "nl": 'Toewijzen',
     },
     "admin_ticket_action_resolve": {
         "ru": "Решить",
@@ -10814,6 +12440,7 @@ translations = {
         "uk": "Вирішити",
         "pl": 'Rozwiąż',
         "de": 'Auflösen',
+        "nl": 'Oplossen',
     },
     "admin_ticket_action_completed": {
         "ru": "Действие «{action}» выполнено. Статус: {status}",
@@ -10822,6 +12449,7 @@ translations = {
         "uk": "Дію «{action}» виконано. Статус: {status}",
         "pl": 'Czynność „{action}” zakończona. Status: {status}',
         "de": 'Aktion „{action}“ abgeschlossen. Status: {status}',
+        "nl": 'Actie “{action}” voltooid. Status: {status}',
     },
     "admin_global_blacklist_queue_title": {
         "ru": "Global Blacklist\nРаздел: {view}\nПоказано: {count}",
@@ -10830,6 +12458,7 @@ translations = {
         "uk": "Global Blacklist\nРозділ: {view}\nПоказано: {count}",
         "pl": 'Globalna czarna lista\nWidok: {view}\nWyświetlono: {count}',
         "de": 'Globale Sperrliste\nAnsicht: {view}\nAngezeigt: {count}',
+        "nl": 'Globale zwarte lijst\nWeergave: {view}\nWeergegeven: {count}',
     },
     "admin_global_blacklist_card": {
         "ru": (
@@ -10880,6 +12509,14 @@ translations = {
             'Administrator: {actor}\n'
             'Datum: {date}'
         ),
+        "nl": (
+            '{number}. Gebruiker: {user}\n'
+            'Reden: {reason}\n'
+            'Opmerking: {comment}\n'
+            'Status: {status}\n'
+            'Beheerder: {actor}\n'
+            'Datum: {date}'
+        ),
     },
     "admin_global_blacklist_active_btn": {
         "ru": "Действующие",
@@ -10888,6 +12525,7 @@ translations = {
         "uk": "Чинні",
         "pl": 'Obecny',
         "de": 'Aktuell',
+        "nl": 'Huidige',
     },
     "admin_global_blacklist_history_btn": {
         "ru": "История",
@@ -10896,6 +12534,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "admin_global_blacklist_active_title": {
         "ru": "Действующие ограничения",
@@ -10904,6 +12543,7 @@ translations = {
         "uk": "Чинні обмеження",
         "pl": 'Obecne ograniczenia',
         "de": 'Aktuelle Einschränkungen',
+        "nl": 'Huidige beperkingen',
     },
     "admin_global_blacklist_history_title": {
         "ru": "История",
@@ -10912,6 +12552,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Geschichte',
+        "nl": 'Geschiedenis',
     },
     "admin_global_blacklist_add_btn": {
         "ru": "Добавить",
@@ -10920,6 +12561,7 @@ translations = {
         "uk": "Додати",
         "pl": 'Dodaj',
         "de": 'Hinzufügen',
+        "nl": 'Toevoegen',
     },
     "admin_global_blacklist_revoke_btn": {
         "ru": "Снять global",
@@ -10928,6 +12570,7 @@ translations = {
         "uk": "Зняти global",
         "pl": 'Usuń blok globalny',
         "de": 'Globalen Block entfernen',
+        "nl": 'Globale blokkering opheffen',
     },
     "admin_global_blacklist_no_comment": {
         "ru": "не указан",
@@ -10936,6 +12579,7 @@ translations = {
         "uk": "не вказано",
         "pl": 'nieokreślone',
         "de": 'nicht angegeben',
+        "nl": 'niet gespecificeerd',
     },
     "admin_global_blacklist_empty": {
         "ru": "Записей Global Blacklist нет.",
@@ -10944,6 +12588,7 @@ translations = {
         "uk": "Записів Global Blacklist немає.",
         "pl": 'Nie ma żadnych wpisów na globalnej czarnej liście.',
         "de": 'Es gibt keine Einträge in der globalen Sperrliste.',
+        "nl": 'Er zijn geen records in de globale zwarte lijst.',
     },
     "admin_global_blacklist_actions_title": {
         "ru": "Действия со списком",
@@ -10952,6 +12597,7 @@ translations = {
         "uk": "Дії зі списком",
         "pl": 'Działania związane z listą',
         "de": 'Listenaktionen',
+        "nl": 'Lijstacties',
     },
     "admin_audit_queue_title": {
         "ru": (
@@ -10980,6 +12626,7 @@ translations = {
         ),
         "pl": 'Audyt\nFiltr: {filter}\nStrona: {page}\nWyświetlono: {count}',
         "de": 'Audit\nFilter: {filter}\nSeite: {page}\nAngezeigt: {count}',
+        "nl": 'Audit\nFilter: {filter}\nPagina: {page}\nWeergegeven: {count}',
     },
     "admin_audit_card": {
         "ru": (
@@ -11030,6 +12677,14 @@ translations = {
             'Grund: {reason}\n'
             'Quelle: {source}'
         ),
+        "nl": (
+            '{number}. {date}\n'
+            'Acteur: {actor}\n'
+            'Actie: {action}\n'
+            'Doel: {target}\n'
+            'Reden: {reason}\n'
+            'Bron: {source}'
+        ),
     },
     "admin_audit_empty": {
         "ru": "Событий Audit пока нет.",
@@ -11038,6 +12693,7 @@ translations = {
         "uk": "Подій Audit поки немає.",
         "pl": 'Nie ma jeszcze żadnych zdarzeń audytowych.',
         "de": 'Es liegen noch keine Audit-Ereignisse vor.',
+        "nl": 'Er zijn nog geen auditgebeurtenissen.',
     },
     "admin_audit_actions_title": {
         "ru": "Действия с журналом",
@@ -11046,6 +12702,7 @@ translations = {
         "uk": "Дії з журналом",
         "pl": 'Czynności audytowe',
         "de": 'Audit-Aktionen',
+        "nl": 'Auditacties',
     },
     "admin_audit_filter_btn": {
         "ru": "Фильтр",
@@ -11054,6 +12711,7 @@ translations = {
         "uk": "Фільтр",
         "pl": 'Filtruj',
         "de": 'Filter',
+        "nl": 'Filter',
     },
     "admin_audit_filter_title": {
         "ru": "Выберите фильтр Audit:",
@@ -11062,6 +12720,7 @@ translations = {
         "uk": "Оберіть фільтр Audit:",
         "pl": 'Wybierz filtr audytowy:',
         "de": 'Wählen Sie einen Audit-Filter aus:',
+        "nl": 'Selecteer een auditfilter:',
     },
     "admin_audit_filter_all": {
         "ru": "Все",
@@ -11070,6 +12729,7 @@ translations = {
         "uk": "Усі",
         "pl": 'Wszystkie',
         "de": 'Alle',
+        "nl": 'Alles',
     },
     "admin_audit_filter_users": {
         "ru": "Пользователи",
@@ -11078,6 +12738,7 @@ translations = {
         "uk": "Користувачі",
         "pl": 'Użytkownicy',
         "de": 'Benutzer',
+        "nl": 'Gebruikers',
     },
     "admin_audit_filter_specialists": {
         "ru": "Специалисты",
@@ -11086,6 +12747,7 @@ translations = {
         "uk": "Спеціалісти",
         "pl": 'Specjaliści',
         "de": 'Fachleute',
+        "nl": 'Specialisten',
     },
     "admin_audit_filter_support": {
         "ru": "Support",
@@ -11094,6 +12756,7 @@ translations = {
         "uk": "Support",
         "pl": 'Wsparcie',
         "de": 'Support',
+        "nl": 'Ondersteuning',
     },
     "admin_audit_filter_complaints": {
         "ru": "Жалобы",
@@ -11102,6 +12765,7 @@ translations = {
         "uk": "Скарги",
         "pl": 'Skargi',
         "de": 'Beschwerden',
+        "nl": 'Klachten',
     },
     "admin_audit_filter_reviews": {
         "ru": "Отзывы",
@@ -11110,6 +12774,7 @@ translations = {
         "uk": "Відгуки",
         "pl": 'Recenzje',
         "de": 'Bewertungen',
+        "nl": 'Beoordelingen',
     },
     "admin_audit_filter_portfolio": {
         "ru": "Портфолио",
@@ -11118,6 +12783,7 @@ translations = {
         "uk": "Портфоліо",
         "pl": 'Portfolio',
         "de": 'Portfolio',
+        "nl": 'Portfolio',
     },
     "admin_audit_filter_blacklist": {
         "ru": "Blacklist",
@@ -11126,6 +12792,7 @@ translations = {
         "uk": "Blacklist",
         "pl": 'Czarna lista',
         "de": 'Blacklist',
+        "nl": 'Zwarte lijst',
     },
     "admin_audit_open_btn": {
         "ru": "Подробнее",
@@ -11134,6 +12801,7 @@ translations = {
         "uk": "Детальніше",
         "pl": 'Szczegóły',
         "de": 'Details',
+        "nl": 'Details',
     },
     "admin_audit_back_to_list_btn": {
         "ru": "Назад к Audit",
@@ -11142,6 +12810,7 @@ translations = {
         "uk": "Назад до Audit",
         "pl": 'Powrót do audytu',
         "de": 'Zurück zur Prüfung',
+        "nl": 'Terug naar audit',
     },
     "admin_audit_not_found": {
         "ru": "Событие Audit не найдено.",
@@ -11150,6 +12819,7 @@ translations = {
         "uk": "Подію Audit не знайдено.",
         "pl": 'Nie znaleziono zdarzenia audytowego.',
         "de": 'Protokollereignis nicht gefunden.',
+        "nl": 'Auditgebeurtenis niet gevonden.',
     },
     "admin_audit_details": {
         "ru": (
@@ -11222,6 +12892,19 @@ translations = {
             '\n'
             'Modus: schreibgeschützt'
         ),
+        "nl": (
+            'Controlegebeurtenis\n'
+            '\n'
+            'Datum: {date}\n'
+            'Uitvoerder: {actor}\n'
+            'Actie: {action}\n'
+            'Doeltype: {target_type}\n'
+            'Doel: {target}\n'
+            'Reden: {reason}\n'
+            'Bron: {source}\n'
+            '\n'
+            'Modus: alleen-lezen'
+        ),
     },
     "admin_user_global_block_final_confirmation": {
         "ru": (
@@ -11278,6 +12961,17 @@ translations = {
             '\n'
             'Diese Maßnahme wird im Audit protokolliert.'
         ),
+        "nl": (
+            'Definitieve bevestiging\n'
+            '\n'
+            'Gebruiker: {user_number}\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Na bevestiging wordt de gebruiker volledig geblokkeerd op het '
+            'platform.\n'
+            '\n'
+            'Deze actie wordt vastgelegd in Audit.'
+        ),
     },
     "admin_user_global_block_final_confirm_btn": {
         "ru": "Да, заблокировать окончательно",
@@ -11286,6 +12980,7 @@ translations = {
         "uk": "Так, заблокувати остаточно",
         "pl": 'Tak, zastosuj blokadę globalną',
         "de": 'Ja, globale Sperre anwenden',
+        "nl": 'Ja, algemene blokkering toepassen',
     },
     "admin_user_global_unblock_final_confirmation": {
         "ru": (
@@ -11342,6 +13037,17 @@ translations = {
             '\n'
             'Diese Aktion wird im Audit protokolliert.'
         ),
+        "nl": (
+            'Definitieve bevestiging\n'
+            '\n'
+            'Gebruiker: {user_number}\n'
+            'Reden: {reason}\n'
+            '\n'
+            'Na bevestiging wordt de algemene blokkering opgeheven en wordt '
+            'de toegang tot het platform hersteld.\n'
+            '\n'
+            'Deze actie wordt vastgelegd in Audit.'
+        ),
     },
     "admin_user_global_unblock_final_confirm_btn": {
         "ru": "Да, снять global-блокировку",
@@ -11350,6 +13056,7 @@ translations = {
         "uk": "Так, зняти global-блокування",
         "pl": 'Tak, usuń blokadę globalną',
         "de": 'Ja, globale Sperre aufheben',
+        "nl": 'Ja, algemene blokkering opheffen',
     },
     "super_admin_menu_text": {
         "ru": (
@@ -11431,6 +13138,18 @@ translations = {
             'Finanzwarnungen: {finance_alerts}\n'
             'Audit-Warnmeldungen: {audit_alerts}'
         ),
+        "nl": (
+            'Dashboard van de superbeheerder\n'
+            '\n'
+            'Gebruikers: {users}\n'
+            'Professionele profielen: {professional_cabinets}\n'
+            'Tickets: {tickets}\n'
+            'Klachten: {complaints}\n'
+            'Algemene zwarte lijst: {global_blacklist}\n'
+            'Systeemwaarschuwingen: {system_alerts}\n'
+            'Financiële waarschuwingen: {finance_alerts}\n'
+            'Auditwaarschuwingen: {audit_alerts}'
+        ),
     },
     "super_admin_users_btn": {
         "ru": "Пользователи",
@@ -11439,6 +13158,7 @@ translations = {
         "uk": "Користувачі",
         "pl": 'Użytkownicy',
         "de": 'Benutzer',
+        "nl": 'Gebruikers',
     },
     "super_admin_permissions_btn": {
         "ru": "Права",
@@ -11447,6 +13167,7 @@ translations = {
         "uk": "Права",
         "pl": 'Uprawnienia',
         "de": 'Berechtigungen',
+        "nl": 'Rechten',
     },
     "super_admin_scopes_btn": {
         "ru": "Scopes",
@@ -11455,6 +13176,7 @@ translations = {
         "uk": "Scopes",
         "pl": 'Zakresy',
         "de": 'Bereiche',
+        "nl": 'Toepassingsgebieden',
     },
     "super_admin_system_btn": {
         "ru": "Система",
@@ -11463,6 +13185,7 @@ translations = {
         "uk": "Система",
         "pl": 'System',
         "de": 'System',
+        "nl": 'Systeem',
     },
     "super_admin_audit_btn": {
         "ru": "Аудит",
@@ -11471,6 +13194,7 @@ translations = {
         "uk": "Аудит",
         "pl": 'Audyt',
         "de": 'Prüfung',
+        "nl": 'Audit',
     },
     "super_admin_finance_btn": {
         "ru": "Финансы",
@@ -11479,6 +13203,7 @@ translations = {
         "uk": "Фінанси",
         "pl": 'Finanse',
         "de": 'Finanzen',
+        "nl": 'Financiën',
     },
     "super_admin_regions_btn": {
         "ru": "Регионы",
@@ -11487,6 +13212,7 @@ translations = {
         "uk": "Регіони",
         "pl": 'Regiony',
         "de": 'Regionen',
+        "nl": "Regio's",
     },
     "super_admin_smoke_tests_btn": {
         "ru": "Smoke Tests",
@@ -11495,6 +13221,7 @@ translations = {
         "uk": "Smoke Tests",
         "pl": 'Testy dymne',
         "de": 'Smoke-Tests',
+        "nl": 'Rooktests',
     },
     "super_admin_user_search_prompt": {
         "ru": (
@@ -11517,6 +13244,7 @@ translations = {
             'Geben Sie die Telegram-ID, den Benutzernamen oder die '
             'benutzerseitige Benutzer-ID ein.'
         ),
+        "nl": 'Voer de Telegram-ID, gebruikersnaam of de gebruikers-ID in.',
     },
     "super_admin_user_search_too_short": {
         "ru": "Введите минимум 2 символа.",
@@ -11525,6 +13253,7 @@ translations = {
         "uk": "Введіть щонайменше 2 символи.",
         "pl": 'Wprowadź co najmniej 2 znaki.',
         "de": 'Geben Sie mindestens 2 Zeichen ein.',
+        "nl": 'Voer minimaal 2 tekens in.',
     },
     "super_admin_user_not_found": {
         "ru": "Пользователь не найден.",
@@ -11533,6 +13262,7 @@ translations = {
         "uk": "Користувача не знайдено.",
         "pl": 'Nie znaleziono użytkownika.',
         "de": 'Benutzer nicht gefunden.',
+        "nl": 'Gebruiker niet gevonden.',
     },
     "super_admin_user_search_header": {
         "ru": "Пользователи\nНайдено: {count}",
@@ -11541,6 +13271,7 @@ translations = {
         "uk": "Користувачі\nЗнайдено: {count}",
         "pl": 'Użytkownicy\nZnaleziono: {count}',
         "de": 'Benutzer\nGefunden: {count}',
+        "nl": 'Gebruikers\nGevonden: {count}',
     },
     "super_admin_user_search_card": {
         "ru": (
@@ -11591,6 +13322,14 @@ translations = {
             'Status: {status}\n'
             'Rollen: {roles}'
         ),
+        "nl": (
+            '{number}. {name}\n'
+            'Gebruikersnummer: {user_number}\n'
+            'Telegram: {telegram_id}\n'
+            'Gebruikersnaam: {username}\n'
+            'Status: {status}\n'
+            'Rollen: {roles}'
+        ),
     },
     "super_admin_back_to_menu_btn": {
         "ru": "К Super Admin",
@@ -11599,6 +13338,7 @@ translations = {
         "uk": "До Super Admin",
         "pl": 'Do superadministratora',
         "de": 'An den Super-Admin',
+        "nl": 'Aan Superbeheerder',
     },
     "super_admin_user_card": {
         "ru": (
@@ -11693,6 +13433,22 @@ translations = {
             'Beschwerden: {complaints}\n'
             'Blacklist: {blacklist}'
         ),
+        "nl": (
+            'Gebruiker\n'
+            '\n'
+            '{name}\n'
+            'Gebruikers-ID: {user_number}\n'
+            'Telegram: {telegram_id}\n'
+            'Gebruikersnaam: {username}\n'
+            'Status: {status}\n'
+            'Actieve rol: {active_role}\n'
+            'Rollen: {roles}\n'
+            'Toepassingsgebieden: {scopes}\n'
+            'Laatst gezien: {last_seen}\n'
+            'Risico-indicatoren: {risk_flags}\n'
+            'Klachten: {complaints}\n'
+            'Zwarte lijst: {blacklist}'
+        ),
     },
     "super_admin_user_profile_btn": {
         "ru": "Профиль",
@@ -11701,6 +13457,7 @@ translations = {
         "uk": "Профіль",
         "pl": 'Profil',
         "de": 'Profil',
+        "nl": 'Profiel',
     },
     "super_admin_user_roles_btn": {
         "ru": "Роли",
@@ -11709,6 +13466,7 @@ translations = {
         "uk": "Ролі",
         "pl": 'Role',
         "de": 'Rollen',
+        "nl": 'Rollen',
     },
     "super_admin_user_scopes_btn": {
         "ru": "Зоны доступа",
@@ -11717,6 +13475,7 @@ translations = {
         "uk": "Зони доступу",
         "pl": 'Zakresy',
         "de": 'Anwendungsbereiche',
+        "nl": 'Toepassingsgebieden',
     },
     "super_admin_user_audit_btn": {
         "ru": "Журнал действий",
@@ -11725,6 +13484,7 @@ translations = {
         "uk": "Журнал дій",
         "pl": 'Audyt',
         "de": 'Prüfung',
+        "nl": 'Audit',
     },
     "super_admin_impersonate_btn": {
         "ru": "Открыть кабинет пользователя",
@@ -11733,6 +13493,7 @@ translations = {
         "uk": "Відкрити кабінет користувача",
         "pl": 'Wyświetl jako użytkownik',
         "de": 'Als Benutzer anzeigen',
+        "nl": 'Weergave als gebruiker',
     },
     "super_admin_user_roles_title": {
         "ru": "Роли пользователя\nПоказано: {count}",
@@ -11741,6 +13502,7 @@ translations = {
         "uk": "Ролі користувача\nПоказано: {count}",
         "pl": 'Role użytkowników\nWyświetlono: {count}',
         "de": 'Benutzerrollen\nAngezeigt: {count}',
+        "nl": 'Gebruikersrollen\nWeergegeven: {count}',
     },
     "super_admin_user_role_card": {
         "ru": (
@@ -11785,6 +13547,13 @@ translations = {
             'Gewährt von: {granted_by}\n'
             'Datum: {granted_at}'
         ),
+        "nl": (
+            '{number}. {role}\n'
+            'Status: {status}\n'
+            'Toepassingsgebied: {scope}\n'
+            'Verleend door: {granted_by}\n'
+            'Datum: {granted_at}'
+        ),
     },
     "super_admin_user_roles_empty": {
         "ru": "У пользователя нет ролей.",
@@ -11793,6 +13562,7 @@ translations = {
         "uk": "У користувача немає ролей.",
         "pl": 'Użytkownik nie ma żadnych ról.',
         "de": 'Der Benutzer hat keine Rollen.',
+        "nl": 'De gebruiker heeft geen rollen.',
     },
     "super_admin_role_grant_btn": {
         "ru": "Выдать роль",
@@ -11801,6 +13571,7 @@ translations = {
         "uk": "Видати роль",
         "pl": 'Przyznaj rolę',
         "de": 'Rolle zuweisen',
+        "nl": 'Rol toekennen',
     },
     "super_admin_role_revoke_btn": {
         "ru": "Снять роль",
@@ -11809,6 +13580,7 @@ translations = {
         "uk": "Зняти роль",
         "pl": 'Cofnij rolę',
         "de": 'Rolle widerrufen',
+        "nl": 'Rol intrekken',
     },
     "super_admin_role_scope_btn": {
         "ru": "Изменить scope",
@@ -11817,6 +13589,7 @@ translations = {
         "uk": "Змінити scope",
         "pl": 'Zmiana zakresu',
         "de": 'Gültigkeitsbereich ändern',
+        "nl": 'Toepassingsgebied wijzigen',
     },
     "super_admin_role_history_btn": {
         "ru": "История",
@@ -11825,6 +13598,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "super_admin_role_action_format": {
         "ru": (
@@ -11911,6 +13685,22 @@ translations = {
             '\n'
             'Der Grund muss mindestens 3 Zeichen lang sein.'
         ),
+        "nl": (
+            'Voer de rol en de reden in één bericht in.\n'
+            '\n'
+            'Beschikbare rollen:\n'
+            'admin\n'
+            'moderator\n'
+            'support\n'
+            'finance_admin\n'
+            'content_manager\n'
+            'super_admin\n'
+            '\n'
+            'Formaat:\n'
+            'Reden voor wijziging door beheerder\n'
+            '\n'
+            'De reden moet uit minimaal 3 tekens bestaan.'
+        ),
     },
     "super_admin_role_bad_format": {
         "ru": "Неверный формат. Введите: роль причина.",
@@ -11919,6 +13709,7 @@ translations = {
         "uk": "Невірний формат. Введіть: роль причина.",
         "pl": 'Nieprawidłowy format. Wprowadź: powód zmiany roli.',
         "de": 'Ungültiges Format. Geben Sie Folgendes ein: Rolle Grund.',
+        "nl": 'Ongeldige indeling. Voer in: reden voor rolwijziging.',
     },
     "super_admin_role_grant_confirm": {
         "ru": (
@@ -11959,6 +13750,13 @@ translations = {
             'Rolle: {role}\n'
             'Grund: {reason}'
         ),
+        "nl": (
+            'Bevestig toekenning van rol:\n'
+            '\n'
+            'Gebruiker: {user}\n'
+            'Rol: {role}\n'
+            'Reden: {reason}'
+        ),
     },
     "super_admin_role_revoke_confirm": {
         "ru": (
@@ -11998,6 +13796,13 @@ translations = {
             'Benutzer: {user}\n'
             'Rolle: {role}\n'
             'Grund: {reason}'
+        ),
+        "nl": (
+            'Intrekking van rol bevestigen:\n'
+            '\n'
+            'Gebruiker: {user}\n'
+            'Rol: {role}\n'
+            'Reden: {reason}'
         ),
     },
     "super_admin_role_danger_confirm": {
@@ -12042,6 +13847,14 @@ translations = {
             '\n'
             'Bestätigen Sie die Aktion erneut.'
         ),
+        "nl": (
+            'Tweede bevestiging:\n'
+            '\n'
+            'U wijzigt de rol van Superbeheerder.\n'
+            'De root-stroom is niet beschikbaar in het reguliere dashboard.\n'
+            '\n'
+            'Bevestig de actie nogmaals.'
+        ),
     },
     "super_admin_role_confirm_btn": {
         "ru": "Подтвердить",
@@ -12050,6 +13863,7 @@ translations = {
         "uk": "Підтвердити",
         "pl": 'Potwierdź',
         "de": 'Bestätigen',
+        "nl": 'Bevestigen',
     },
     "super_admin_role_cancel_btn": {
         "ru": "Отмена",
@@ -12058,6 +13872,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "super_admin_role_changed": {
         "ru": "Роль обновлена.",
@@ -12066,6 +13881,7 @@ translations = {
         "uk": "Роль оновлено.",
         "pl": 'Rola zaktualizowana.',
         "de": 'Rolle aktualisiert.',
+        "nl": 'Rol bijgewerkt.',
     },
     "super_admin_role_cancelled": {
         "ru": "Изменение роли отменено.",
@@ -12074,6 +13890,7 @@ translations = {
         "uk": "Зміну ролі скасовано.",
         "pl": 'Zmiana roli została anulowana.',
         "de": 'Rollenänderung abgebrochen.',
+        "nl": 'Rolwijziging geannuleerd.',
     },
     "super_admin_impersonation_reason_prompt": {
         "ru": "Укажите причину просмотра от имени пользователя. Минимум 3 символа.",
@@ -12084,6 +13901,10 @@ translations = {
         "de": (
             'Geben Sie den Grund für die Anzeige als Benutzer ein. Mindestens '
             '3 Zeichen.'
+        ),
+        "nl": (
+            'Voer de reden in waarom u als gebruiker wilt bekijken. Minimaal '
+            '3 tekens.'
         ),
     },
     "super_admin_impersonation_menu": {
@@ -12115,6 +13936,11 @@ translations = {
             '\n'
             'Wählen Sie eine Rolle/ein Dashboard für die schreibgeschützte '
             'Vorschau aus.'
+        ),
+        "nl": (
+            "Modus 'Bekijken als gebruiker'\n"
+            '\n'
+            'Selecteer een rol/dashboard voor een alleen-lezen voorbeeld.'
         ),
     },
     "super_admin_impersonation_preview": {
@@ -12164,6 +13990,15 @@ translations = {
             '\n'
             'Schreibvorgänge deaktiviert.'
         ),
+        "nl": (
+            'Weergave in gebruikersmodus\n'
+            '\n'
+            'Gebruiker: {user}\n'
+            'Rol: {role}\n'
+            'Alleen-lezen: ja\n'
+            '\n'
+            'Schrijfacties uitgeschakeld.'
+        ),
     },
     "super_admin_impersonation_client_btn": {
         "ru": "👤 Кабинет пользователя",
@@ -12172,6 +14007,7 @@ translations = {
         "uk": "👤 Кабінет користувача",
         "pl": '👤 Panel użytkownika',
         "de": '👤 Benutzer-Dashboard',
+        "nl": '👤 Gebruikersdashboard',
     },
     "super_admin_impersonation_specialist_btn": {
         "ru": "🧰 Кабинеты специалиста",
@@ -12180,6 +14016,7 @@ translations = {
         "uk": "🧰 Кабінети спеціаліста",
         "pl": '🧰 Profile specjalistów',
         "de": '🧰 Spezialistenprofile',
+        "nl": '🧰 Profielen van specialisten',
     },
     "super_admin_impersonation_support_btn": {
         "ru": "Поддержка",
@@ -12188,6 +14025,7 @@ translations = {
         "uk": "Підтримка",
         "pl": 'Pomoc',
         "de": 'Support',
+        "nl": 'Ondersteuning',
     },
     "super_admin_impersonation_moderator_btn": {
         "ru": "Модератор",
@@ -12196,6 +14034,7 @@ translations = {
         "uk": "Модератор",
         "pl": 'Moderator',
         "de": 'Moderator',
+        "nl": 'Moderator',
     },
     "super_admin_impersonation_admin_btn": {
         "ru": "Администратор",
@@ -12204,6 +14043,7 @@ translations = {
         "uk": "Адміністратор",
         "pl": 'Administrator',
         "de": 'Admin',
+        "nl": 'Beheerder',
     },
     "super_admin_impersonation_stop_btn": {
         "ru": "Завершить просмотр",
@@ -12212,6 +14052,7 @@ translations = {
         "uk": "Завершити перегляд",
         "pl": 'Przestań przeglądać',
         "de": 'Anzeige beenden',
+        "nl": 'Weergave stoppen',
     },
     "super_admin_impersonation_stopped": {
         "ru": "Просмотр от имени пользователя завершён.",
@@ -12220,6 +14061,7 @@ translations = {
         "uk": "Перегляд від імені користувача завершено.",
         "pl": 'Tryb przeglądania jako użytkownik został wyłączony.',
         "de": 'Anzeige im Benutzermodus beendet.',
+        "nl": 'Weergave in gebruikersmodus gestopt.',
     },
     "super_admin_permissions_title": {
         "ru": "Permission Matrix\nПоказано: {count}",
@@ -12228,6 +14070,7 @@ translations = {
         "uk": "Permission Matrix\nПоказано: {count}",
         "pl": 'Macierz uprawnień\nWyświetlono: {count}',
         "de": 'Berechtigungsmatrix\nAngezeigt: {count}',
+        "nl": 'Toestemmingsmatrix\nWeergegeven: {count}',
     },
     "super_admin_permission_card": {
         "ru": (
@@ -12284,6 +14127,15 @@ translations = {
             'Datum: {created_at}\n'
             'Beschreibung: {description}'
         ),
+        "nl": (
+            '{number}. Rol: {role}\n'
+            'Recht: {permission_code}\n'
+            'Toepassingsgebied: {scope}\n'
+            'Status: {status}\n'
+            'Verleend door: {granted_by}\n'
+            'Datum: {created_at}\n'
+            'Beschrijving: {description}'
+        ),
     },
     "super_admin_permissions_empty": {
         "ru": "Permission Matrix пуста.",
@@ -12292,6 +14144,7 @@ translations = {
         "uk": "Permission Matrix порожня.",
         "pl": 'Macierz uprawnień jest pusta.',
         "de": 'Die Berechtigungsmatrix ist leer.',
+        "nl": 'De machtigingsmatrix is leeg.',
     },
     "super_admin_permission_search_btn": {
         "ru": "Найти permission",
@@ -12300,6 +14153,7 @@ translations = {
         "uk": "Знайти permission",
         "pl": 'Znajdź uprawnienie',
         "de": 'Berechtigung suchen',
+        "nl": 'Recht zoeken',
     },
     "super_admin_permission_grant_btn": {
         "ru": "Выдать",
@@ -12308,6 +14162,7 @@ translations = {
         "uk": "Видати",
         "pl": 'Przyznaj',
         "de": 'Erteilen',
+        "nl": 'Toekennen',
     },
     "super_admin_permission_revoke_btn": {
         "ru": "Отозвать",
@@ -12316,6 +14171,7 @@ translations = {
         "uk": "Відкликати",
         "pl": 'Cofnij',
         "de": 'Widerrufen',
+        "nl": 'Intrekken',
     },
     "super_admin_permission_history_btn": {
         "ru": "История",
@@ -12324,6 +14180,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "super_admin_permission_search_prompt": {
         "ru": "Введите role или permission_code для поиска.",
@@ -12332,6 +14189,7 @@ translations = {
         "uk": "Введіть role або permission_code для пошуку.",
         "pl": 'Wprowadź rolę lub permission_code, aby przeprowadzić wyszukiwanie.',
         "de": 'Geben Sie eine Rolle oder permission_code ein, um zu suchen.',
+        "nl": 'Voer een rol of permission_code in om te zoeken.',
     },
     "super_admin_permission_action_format": {
         "ru": (
@@ -12431,6 +14289,24 @@ translations = {
             '\n'
             'Der Grund muss mindestens 3 Zeichen lang sein.'
         ),
+        "nl": (
+            'Voer de functie, permission_code en de reden in één bericht in.\n'
+            '\n'
+            'Indeling:\n'
+            'admin admin.users.read reden voor wijziging\n'
+            '\n'
+            'Rollen:\n'
+            'client\n'
+            'specialist\n'
+            'support\n'
+            'moderator\n'
+            'admin\n'
+            'super_admin\n'
+            'finance_admin\n'
+            'content_manager\n'
+            '\n'
+            'De reden moet uit minimaal 3 tekens bestaan.'
+        ),
     },
     "super_admin_permission_bad_format": {
         "ru": "Неверный формат. Используйте: role permission_code причина.",
@@ -12439,6 +14315,7 @@ translations = {
         "uk": "Невірний формат. Використовуйте: role permission_code причина.",
         "pl": 'Nieprawidłowy format. Należy użyć: rola permission_code powód.',
         "de": 'Ungültiges Format. Verwenden Sie: Rolle permission_code Grund.',
+        "nl": 'Ongeldige indeling. Gebruik: rol permission_code reden.',
     },
     "super_admin_permission_grant_confirm": {
         "ru": (
@@ -12478,6 +14355,13 @@ translations = {
             'Rolle: {role}\n'
             'Berechtigung: {permission_code}\n'
             'Grund: {reason}'
+        ),
+        "nl": (
+            'Bevestig toekenning van toestemming:\n'
+            '\n'
+            'Rol: {role}\n'
+            'Toestemming: {permission_code}\n'
+            'Reden: {reason}'
         ),
     },
     "super_admin_permission_revoke_confirm": {
@@ -12519,6 +14403,13 @@ translations = {
             'Berechtigung: {permission_code}\n'
             'Grund: {reason}'
         ),
+        "nl": (
+            'Bevestig intrekking van toestemming:\n'
+            '\n'
+            'Rol: {role}\n'
+            'Toestemming: {permission_code}\n'
+            'Reden: {reason}'
+        ),
     },
     "super_admin_permission_confirm_btn": {
         "ru": "Подтвердить",
@@ -12527,6 +14418,7 @@ translations = {
         "uk": "Підтвердити",
         "pl": 'Potwierdź',
         "de": 'Bestätigen',
+        "nl": 'Bevestigen',
     },
     "super_admin_permission_cancel_btn": {
         "ru": "Отмена",
@@ -12535,6 +14427,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "super_admin_permission_changed": {
         "ru": "Permission обновлён.",
@@ -12543,6 +14436,7 @@ translations = {
         "uk": "Permission оновлено.",
         "pl": 'Uprawnienia zaktualizowane.',
         "de": 'Berechtigung aktualisiert.',
+        "nl": 'Toestemming bijgewerkt.',
     },
     "super_admin_permission_cancelled": {
         "ru": "Изменение permission отменено.",
@@ -12551,6 +14445,7 @@ translations = {
         "uk": "Зміну permission скасовано.",
         "pl": 'Zmiana uprawnień została anulowana.',
         "de": 'Berechtigungsänderung abgebrochen.',
+        "nl": 'Wijziging van de machtiging geannuleerd.',
     },
     "super_admin_audit_event_detail": {
         "ru": (
@@ -12671,6 +14566,29 @@ translations = {
             '\n'
             'Modus: schreibgeschützt'
         ),
+        "nl": (
+            'Details van de auditgebeurtenis\n'
+            '\n'
+            'Tijdstempel: {timestamp}\n'
+            'Uitvoerder: {actor}\n'
+            'Actie: {action}\n'
+            'Doeltype: {target_type}\n'
+            'Doel: {target}\n'
+            'Reden: {reason}\n'
+            'Bron: {source}\n'
+            'Correlatie-ID: {correlation_id}\n'
+            '\n'
+            'Voorheen:\n'
+            '{before_summary}\n'
+            '\n'
+            'Na:\n'
+            '{after_summary}\n'
+            '\n'
+            'Payload:\n'
+            '{payload_summary}\n'
+            '\n'
+            'Modus: alleen-lezen'
+        ),
     },
     "super_admin_system_value_unknown": {
         "ru": "Не указано",
@@ -12679,6 +14597,7 @@ translations = {
         "uk": "Не вказано",
         "pl": 'Nieokreślone',
         "de": 'Nicht angegeben',
+        "nl": 'Niet gespecificeerd',
     },
     "super_admin_system_value_ok": {
         "ru": "Работает",
@@ -12687,6 +14606,7 @@ translations = {
         "uk": "Працює",
         "pl": 'Operacyjny',
         "de": 'Betriebsbereit',
+        "nl": 'Operationeel',
     },
     "super_admin_system_value_error": {
         "ru": "Ошибка",
@@ -12695,6 +14615,7 @@ translations = {
         "uk": "Помилка",
         "pl": 'Błąd',
         "de": 'Fehler',
+        "nl": 'Fout',
     },
     "super_admin_system_value_configured": {
         "ru": "Настроено",
@@ -12703,6 +14624,7 @@ translations = {
         "uk": "Налаштовано",
         "pl": 'Skonfigurowany',
         "de": 'Konfiguriert',
+        "nl": 'Geconfigureerd',
     },
     "super_admin_system_value_not_configured": {
         "ru": "Не настроено",
@@ -12711,6 +14633,7 @@ translations = {
         "uk": "Не налаштовано",
         "pl": 'Nie skonfigurowano',
         "de": 'Nicht konfiguriert',
+        "nl": 'Niet geconfigureerd',
     },
     "super_admin_system_value_enabled": {
         "ru": "Включён",
@@ -12719,6 +14642,7 @@ translations = {
         "uk": "Увімкнено",
         "pl": 'Włączone',
         "de": 'Aktiviert',
+        "nl": 'Ingeschakeld',
     },
     "super_admin_system_value_disabled": {
         "ru": "Выключен",
@@ -12727,6 +14651,7 @@ translations = {
         "uk": "Вимкнено",
         "pl": 'Wyłączone',
         "de": 'Deaktiviert',
+        "nl": 'Uitgeschakeld',
     },
     "super_admin_system_value_env_available": {
         "ru": "Доступно, секреты скрыты",
@@ -12735,6 +14660,7 @@ translations = {
         "uk": "Доступно, секрети приховані",
         "pl": 'Dostępne, sekrety ukryte',
         "de": 'Verfügbar, Geheimnisse verborgen',
+        "nl": 'Beschikbaar, geheimen verborgen',
     },
     "super_admin_system_status": {
         "ru": (
@@ -12826,6 +14752,22 @@ translations = {
             'Geheime Daten und Werte von Umgebungsvariablen sind '
             'ausgeblendet.'
         ),
+        "nl": (
+            'Systeem\n'
+            'Status van de service en configuratie.\n'
+            '\n'
+            'Toepassingsversie: {app_version}\n'
+            'Databasestatus: {db_status}\n'
+            'Databaseversie: {db_version}\n'
+            'Telegram-verbinding: {telegram_status}\n'
+            'Migraties: {migrations_status}\n'
+            'Migratieversie: {migration_version}\n'
+            'Onderhoudsmodus: {maintenance_mode}\n'
+            'Functiebeheer: {feature_flags_status}\n'
+            'Omgeving: {env_status}\n'
+            '\n'
+            'Geheimen en waarden van omgevingsvariabelen zijn verborgen.'
+        ),
     },
     "super_admin_feature_flags_btn": {
         "ru": "Управление функциями",
@@ -12834,6 +14776,7 @@ translations = {
         "uk": "Керування функціями",
         "pl": 'Zarządzanie funkcjami',
         "de": 'Funktionsverwaltung',
+        "nl": 'Functiebeheer',
     },
     "super_admin_health_check_btn": {
         "ru": "Проверка состояния",
@@ -12842,6 +14785,7 @@ translations = {
         "uk": "Перевірка стану",
         "pl": 'Kontrola stanu',
         "de": 'Zustandsprüfung',
+        "nl": 'Statuscontrole',
     },
     "super_admin_maintenance_btn": {
         "ru": "Режим обслуживания",
@@ -12850,6 +14794,7 @@ translations = {
         "uk": "Режим обслуговування",
         "pl": 'Tryb konserwacji',
         "de": 'Wartungsmodus',
+        "nl": 'Onderhoudsmodus',
     },
     "super_admin_migrations_btn": {
         "ru": "Миграции",
@@ -12858,6 +14803,7 @@ translations = {
         "uk": "Міграції",
         "pl": 'Migracje',
         "de": 'Migrationen',
+        "nl": 'Migraties',
     },
     "super_admin_env_status_btn": {
         "ru": "Окружение",
@@ -12866,6 +14812,7 @@ translations = {
         "uk": "Оточення",
         "pl": 'Środowisko',
         "de": 'Umgebung',
+        "nl": 'Omgeving',
     },
     "super_admin_system_health_detail": {
         "ru": (
@@ -12920,6 +14867,16 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Gezondheidscontrole\n'
+            'Huidige status van de belangrijkste componenten.\n'
+            '\n'
+            'Database: {db_status}\n'
+            'Telegram: {telegram_status}\n'
+            'Onderhoudsmodus: {maintenance_mode}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_system_migrations_detail": {
         "ru": (
@@ -12968,6 +14925,15 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Migraties\n'
+            'Status van de databasestructuur.\n'
+            '\n'
+            'Status: {migrations_status}\n'
+            'Huidige versie: {migration_version}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_system_env_detail": {
         "ru": (
@@ -13010,6 +14976,14 @@ translations = {
             '\n'
             'Variablenwerte, Tokens und Geheimnisse sind ausgeblendet.'
         ),
+        "nl": (
+            'Status van de\n'
+            'Status van de applicatieconfiguratie.\n'
+            '\n'
+            '{env_status}\n'
+            '\n'
+            'Variabele waarden, tokens en geheimen zijn verborgen.'
+        ),
     },
     "super_admin_system_feature_flags_detail": {
         "ru": (
@@ -13051,6 +15025,14 @@ translations = {
             '\n'
             'Der Speicher für Feature-Einstellungen ist nicht verbunden.\n'
             'Schreibgeschützter Modus.'
+        ),
+        "nl": (
+            'Functiebeheer\n'
+            '\n'
+            'Status: {feature_flags_status}\n'
+            '\n'
+            'De opslag voor functie-instellingen is niet verbonden.\n'
+            'Alleen-lezen-modus.'
         ),
     },
     "super_admin_system_maintenance_detail": {
@@ -13095,6 +15077,15 @@ translations = {
             'Bestätigung.\n'
             'Die Verwaltung ist derzeit nicht verfügbar.'
         ),
+        "nl": (
+            'Onderhoudsmodus\n'
+            '\n'
+            'Huidige status: {maintenance_mode}\n'
+            '\n'
+            'Voor het wijzigen van deze modus is een aparte bevestiging '
+            'vereist.\n'
+            'Beheer is momenteel niet beschikbaar.'
+        ),
     },
     "super_admin_smoke_title": {
         "ru": "Smoke Tests\nПоказано: {count}",
@@ -13103,6 +15094,7 @@ translations = {
         "uk": "Smoke Tests\nПоказано: {count}",
         "pl": 'Testy sprawdzające\nWyświetlono: {count}',
         "de": 'Rauchtests\nAngezeigt: {count}',
+        "nl": 'Rooktests\nWeergegeven: {count}',
     },
     "super_admin_smoke_card": {
         "ru": (
@@ -13131,6 +15123,7 @@ translations = {
         ),
         "pl": '{number}. {title}\nKod: {code}\nStatus: {status}\n{detail}',
         "de": '{number}. {title}\nCode: {code}\nStatus: {status}\n{detail}',
+        "nl": '{number}. {title}\nCode: {code}\nStatus: {status}\n{detail}',
     },
     "super_admin_smoke_empty": {
         "ru": "Smoke tests не настроены.",
@@ -13139,6 +15132,7 @@ translations = {
         "uk": "Smoke tests не налаштовані.",
         "pl": 'Testy dymne nie są skonfigurowane.',
         "de": 'Smoke-Tests sind nicht konfiguriert.',
+        "nl": 'Er zijn geen rooktests geconfigureerd.',
     },
     "super_admin_smoke_run_all_btn": {
         "ru": "Запустить все",
@@ -13147,6 +15141,7 @@ translations = {
         "uk": "Запустити всі",
         "pl": 'Uruchom wszystkie',
         "de": 'Alle ausführen',
+        "nl": 'Alles uitvoeren',
     },
     "super_admin_smoke_run_selected_btn": {
         "ru": "Запустить выбранный",
@@ -13155,6 +15150,7 @@ translations = {
         "uk": "Запустити обраний",
         "pl": 'Uruchom wybrane',
         "de": 'Ausgewählte ausführen',
+        "nl": 'Geselecteerde uitvoeren',
     },
     "super_admin_smoke_history_btn": {
         "ru": "История",
@@ -13163,6 +15159,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "super_admin_smoke_result_title": {
         "ru": (
@@ -13203,6 +15200,13 @@ translations = {
             'Bestanden: {passed}\n'
             'Nicht bestanden: {failed}'
         ),
+        "nl": (
+            'Resultaat rooktest\n'
+            '\n'
+            'Totaal: {total}\n'
+            'Geslaagd: {passed}\n'
+            'Mislukt: {failed}'
+        ),
     },
     "super_admin_smoke_result_card": {
         "ru": (
@@ -13231,6 +15235,7 @@ translations = {
         ),
         "pl": '{number}. {title}\nKod: {code}\nStatus: {status}\n{detail}',
         "de": '{number}. {title}\nCode: {code}\nStatus: {status}\n{detail}',
+        "nl": '{number}. {title}\nCode: {code}\nStatus: {status}\n{detail}',
     },
     "super_admin_smoke_progress": {
         "ru": "Smoke tests запущены...",
@@ -13239,6 +15244,7 @@ translations = {
         "uk": "Smoke tests запущено...",
         "pl": 'Rozpoczęto testy dymne...',
         "de": 'Smoke-Tests gestartet...',
+        "nl": 'Rooktests gestart...',
     },
     "super_admin_smoke_select_title": {
         "ru": "Выберите smoke test для запуска.",
@@ -13247,6 +15253,7 @@ translations = {
         "uk": "Оберіть smoke test для запуску.",
         "pl": 'Wybierz test sprawdzający do uruchomienia.',
         "de": 'Wählen Sie einen Smoke-Test aus, der ausgeführt werden soll.',
+        "nl": 'Selecteer een rooktest om uit te voeren.',
     },
     "super_admin_smoke_history_title": {
         "ru": "Smoke Tests History\nПоказано: {count}",
@@ -13255,6 +15262,7 @@ translations = {
         "uk": "Smoke Tests History\nПоказано: {count}",
         "pl": 'Historia testów dymnych\nWyświetlono: {count}',
         "de": 'Verlauf der Smoke-Tests\nAngezeigt: {count}',
+        "nl": 'Geschiedenis van rooktests\nWeergegeven: {count}',
     },
     "super_admin_smoke_history_card": {
         "ru": (
@@ -13305,6 +15313,14 @@ translations = {
             'Fehlgeschlagen: {failed}\n'
             'Destruktiv: {destructive}'
         ),
+        "nl": (
+            '{number}. {date}\n'
+            'Geselecteerd: {selected_code}\n'
+            'Totaal: {total}\n'
+            'Geslaagd: {passed}\n'
+            'Mislukt: {failed}\n'
+            'Destructief: {destructive}'
+        ),
     },
     "super_admin_smoke_history_empty": {
         "ru": "История smoke tests пуста.",
@@ -13313,6 +15329,7 @@ translations = {
         "uk": "Історія smoke tests порожня.",
         "pl": 'Historia testów wstępnych jest pusta.',
         "de": 'Der Verlauf der Smoke-Tests ist leer.',
+        "nl": 'De geschiedenis van de rooktest is leeg.',
     },
     "main_rfq_stub": {
         "ru": (
@@ -13341,6 +15358,11 @@ translations = {
             '\n'
             'Geben Sie ein, wen Sie suchen, oder wählen Sie eine Kategorie '
             'aus.'
+        ),
+        "nl": (
+            '🔎 Zoek een specialist\n'
+            '\n'
+            'Voer de gewenste persoon in of kies een categorie.'
         ),
     },
     "main_hr_stub": {
@@ -13378,6 +15400,14 @@ translations = {
             '\n'
             'Nutzen Sie vorerst die Fachsuche.'
         ),
+        "nl": (
+            '🏢 HR / Bedrijven\n'
+            '\n'
+            'Werkgevers, uitzendbureaus en HR-portalen worden in een later '
+            'stadium toegevoegd.\n'
+            '\n'
+            'Gebruik voorlopig de zoekfunctie voor specialisten.'
+        ),
     },
     "cabinet_crm_btn": {
         "ru": "💼 CRM",
@@ -13386,6 +15416,7 @@ translations = {
         "uk": "💼 CRM",
         "pl": '💼 CRM',
         "de": '💼 CRM',
+        "nl": '💼 CRM',
     },
     "cabinet_finance_btn": {
         "ru": "💳 Подписка",
@@ -13394,6 +15425,7 @@ translations = {
         "uk": "💳 Підписка",
         "pl": '💳 Subskrypcja',
         "de": '💳 Abonnement',
+        "nl": '💳 Abonnement',
     },
     "cabinet_crm_stub": {
         "ru": (
@@ -13428,6 +15460,12 @@ translations = {
             'Kunden, Geschäfte und Arbeitsaufgaben werden hier nach dem Start '
             'des CRM angezeigt.'
         ),
+        "nl": (
+            '💼 CRM\n'
+            '\n'
+            'Klanten, deals en werktaken verschijnen hier na de lancering van '
+            'het CRM.'
+        ),
     },
     "cabinet_finance_stub": {
         "ru": (
@@ -13457,6 +15495,11 @@ translations = {
             '\n'
             'Hier werden Tarife, Zahlungen und die Abonnementverwaltung '
             'angezeigt.'
+        ),
+        "nl": (
+            '💳 Abonnement\n'
+            '\n'
+            'Hier verschijnen abonnementen, betalingen en abonnementbeheer.'
         ),
     },
     "search_start_screen": {
@@ -13518,6 +15561,17 @@ translations = {
             '• Maniküre-Spezialist\n'
             '• Klempner Lissabon'
         ),
+        "nl": (
+            '🔎 Zoek een specialist\n'
+            '\n'
+            'Voer in wat u nodig hebt,\n'
+            'of kies een categorie.\n'
+            '\n'
+            'Voorbeelden:\n'
+            '• loodgieter\n'
+            '• manicurespecialist\n'
+            '• loodgieter Lissabon'
+        ),
     },
     "search_write_query_btn": {
         "ru": "✍️ Новый поиск",
@@ -13526,6 +15580,7 @@ translations = {
         "uk": "✍️ Новий пошук",
         "pl": '✍️ Nowe wyszukiwanie',
         "de": '✍️ Neue Suche',
+        "nl": '✍️ Nieuwe zoekopdracht',
     },
     "search_choose_category_btn": {
         "ru": "📂 Выбрать категорию",
@@ -13534,6 +15589,7 @@ translations = {
         "uk": "📂 Обрати категорію",
         "pl": '📂 Wybierz kategorię',
         "de": '📂 Kategorie auswählen',
+        "nl": '📂 Kies categorie',
     },
     "search_history_btn": {
         "ru": "🕘 История поиска",
@@ -13542,6 +15598,7 @@ translations = {
         "uk": "🕘 Історія пошуку",
         "pl": '🕘 Historia wyszukiwania',
         "de": '🕘 Suchverlauf',
+        "nl": '🕘 Zoekgeschiedenis',
     },
     "search_history_title": {
         "ru": "🕘 История поиска",
@@ -13550,6 +15607,7 @@ translations = {
         "uk": "🕘 Історія пошуку",
         "pl": '🕘 Historia wyszukiwania',
         "de": '🕘 Suchverlauf',
+        "nl": '🕘 Zoekgeschiedenis',
     },
     "search_history_empty": {
         "ru": "История поиска пока пуста. Введите, кто вам нужен, или выберите категорию.",
@@ -13564,6 +15622,10 @@ translations = {
             'Der Suchverlauf ist leer. Geben Sie den gesuchten Namen ein oder '
             'wählen Sie eine Kategorie aus.'
         ),
+        "nl": (
+            'De zoekgeschiedenis is leeg. Voer de naam in van degene die u '
+            'zoekt of kies een categorie.'
+        ),
     },
     "search_history_item": {
         "ru": "{number}. {query}",
@@ -13572,6 +15634,7 @@ translations = {
         "uk": "{number}. {query}",
         "pl": '{number}. {query}',
         "de": '{number}. {query}',
+        "nl": '{number}. {query}',
     },
     "search_history_generic_item": {
         "ru": "Поиск специалистов",
@@ -13580,6 +15643,7 @@ translations = {
         "uk": "Пошук спеціалістів",
         "pl": 'Wyszukiwanie specjalistyczne',
         "de": 'Spezialistensuche',
+        "nl": 'Gespecialiseerd zoeken',
     },
     "search_favorites_btn": {
         "ru": "⭐ Избранное",
@@ -13588,6 +15652,7 @@ translations = {
         "uk": "⭐ Обране",
         "pl": '⭐ Ulubione',
         "de": '⭐ Favoriten',
+        "nl": '⭐ Favorieten',
     },
     "search_refine_location_btn": {
         "ru": "📍 Уточнить локацию",
@@ -13596,6 +15661,7 @@ translations = {
         "uk": "📍 Уточнити локацію",
         "pl": '📍 Zawęź lokalizację',
         "de": '📍 Standort verfeinern',
+        "nl": '📍 Locatie verfijnen',
     },
     "search_show_specialists_btn": {
         "ru": "✅ Показать специалистов",
@@ -13604,6 +15670,7 @@ translations = {
         "uk": "✅ Показати спеціалістів",
         "pl": '✅ Pokaż specjalistów',
         "de": '✅ Spezialisten anzeigen',
+        "nl": '✅ Specialisten weergeven',
     },
     "search_other_category_btn": {
         "ru": "➡️ Еще категории",
@@ -13612,6 +15679,7 @@ translations = {
         "uk": "➡️ Ще категорії",
         "pl": '➡️ Więcej kategorii',
         "de": '➡️ Weitere Kategorien',
+        "nl": '➡️ Meer categorieën',
     },
     "search_filters_btn": {
         "ru": "⚙️ Фильтры поиска",
@@ -13620,6 +15688,7 @@ translations = {
         "uk": "⚙️ Фільтри пошуку",
         "pl": '⚙️ Filtry wyszukiwania',
         "de": '⚙️ Suchfilter',
+        "nl": '⚙️ Zoekfilters',
     },
     "search_reset_directions_btn": {
         "ru": "↩ Сбросить выбор",
@@ -13628,6 +15697,7 @@ translations = {
         "uk": "↩ Скинути вибір",
         "pl": '↩ Wyczyść wybór',
         "de": '↩ Auswahl löschen',
+        "nl": '↩ Selectie wissen',
     },
     "search_selected_directions_required": {
         "ru": "Выберите хотя бы одно направление или нажмите «Все направления».",
@@ -13642,6 +15712,7 @@ translations = {
             'Wählen Sie mindestens eine Richtung aus oder tippen Sie auf '
             '„Alle Richtungen“.'
         ),
+        "nl": 'Kies ten minste één richting of tik op Alle richtingen.',
     },
     "search_profile_btn": {
         "ru": "👤 Профиль",
@@ -13650,6 +15721,7 @@ translations = {
         "uk": "👤 Профіль",
         "pl": '👤 Profil',
         "de": '👤 Profil',
+        "nl": '👤 Profiel',
     },
     "order_actions_unavailable": {
         "ru": "Управление заказами в переписке недоступно.",
@@ -13658,6 +15730,7 @@ translations = {
         "uk": "Керування замовленнями в переписці недоступне.",
         "pl": 'Zarządzanie zamówieniami nie jest dostępne w wiadomościach.',
         "de": 'Die Bestellverwaltung ist in Nachrichten nicht verfügbar.',
+        "nl": 'Orderbeheer is niet beschikbaar in berichten.',
     },
     "cabinet_my_profile_btn": {
         "ru": "👤 Мой профиль",
@@ -13666,6 +15739,7 @@ translations = {
         "uk": "👤 Мій профіль",
         "pl": '👤 Mój profil',
         "de": '👤 Mein Profil',
+        "nl": '👤 Mijn profiel',
     },
     "cabinet_my_roles_btn": {
         "ru": "🎭 Мои роли",
@@ -13674,6 +15748,7 @@ translations = {
         "uk": "🎭 Мої ролі",
         "pl": '🎭 Moje role',
         "de": '🎭 Meine Rollen',
+        "nl": '🎭 Mijn rollen',
     },
     "cabinet_my_orders_btn": {
         "ru": "📦 Мои заказы",
@@ -13682,6 +15757,7 @@ translations = {
         "uk": "📦 Мої замовлення",
         "pl": '📦 Moje zamówienia',
         "de": '📦 Meine Bestellungen',
+        "nl": '📦 Mijn bestellingen',
     },
     "cabinet_specialist_btn": {
         "ru": "🧰 Кабинет специалиста",
@@ -13690,6 +15766,7 @@ translations = {
         "uk": "🧰 Кабінет спеціаліста",
         "pl": '🧰 Panel specjalisty',
         "de": '🧰 Spezialisten-Dashboard',
+        "nl": '🧰 Dashboard voor specialisten',
     },
     "spec_public_profile_btn": {
         "ru": "👤 Карточка специалиста",
@@ -13698,6 +15775,7 @@ translations = {
         "uk": "👤 Картка спеціаліста",
         "pl": '👤 Karta specjalisty',
         "de": '👤 Spezialistenkarte',
+        "nl": '👤 Specialistkaart',
     },
     "spec_categories_directions_btn": {
         "ru": "📂 Профессии",
@@ -13706,6 +15784,7 @@ translations = {
         "uk": "📂 Професії",
         "pl": '📂 Zawody',
         "de": '📂 Berufe',
+        "nl": '📂 Beroepen',
     },
     "spec_skills_btn": {
         "ru": "🧩 Навыки и услуги",
@@ -13714,6 +15793,7 @@ translations = {
         "uk": "🧩 Навички та послуги",
         "pl": '🧩 Umiejętności i usługi',
         "de": '🧩 Fähigkeiten und Dienstleistungen',
+        "nl": '🧩 Vaardigheden en diensten',
     },
     "spec_geo_work_btn": {
         "ru": "📍 Локация и формат",
@@ -13722,6 +15802,7 @@ translations = {
         "uk": "📍 Локація і формат",
         "pl": '📍 Lokalizacja i forma',
         "de": '📍 Ort und Format',
+        "nl": '📍 Locatie en vorm',
     },
     "spec_availability_btn": {
         "ru": "🟢 Статус работы",
@@ -13730,6 +15811,7 @@ translations = {
         "uk": "🟢 Статус роботи",
         "pl": '🟢 Status zatrudnienia',
         "de": '🟢 Beschäftigungsstatus',
+        "nl": '🟢 Werkstatus',
     },
     "spec_moderation_btn": {
         "ru": "🛡 Проверка профиля",
@@ -13738,6 +15820,7 @@ translations = {
         "uk": "🛡 Перевірка профілю",
         "pl": '🛡 Weryfikacja profilu',
         "de": '🛡 Profilüberprüfung',
+        "nl": '🛡 Profielbeoordeling',
     },
     "search_text_query_prompt": {
         "ru": "Введите, кто вам нужен. Например: сантехник, мастер маникюра или plumber Lisbon.",
@@ -13752,6 +15835,10 @@ translations = {
             'Geben Sie ein, wen Sie benötigen. Zum Beispiel: Klempner, '
             'Maniküre-Spezialist oder Klempner in Lissabon.'
         ),
+        "nl": (
+            'Voer in wie u nodig hebt. Bijvoorbeeld: loodgieter, '
+            'manicurespecialist of loodgieter Lissabon.'
+        ),
     },
     "search_text_query_too_short": {
         "ru": "Напишите минимум 2 символа.",
@@ -13760,6 +15847,7 @@ translations = {
         "uk": "Введіть щонайменше 2 символи.",
         "pl": 'Wpisz co najmniej 2 znaki.',
         "de": 'Bitte geben Sie mindestens 2 Zeichen ein.',
+        "nl": 'Voer minimaal 2 tekens in.',
     },
     "search_text_query_no_matches": {
         "ru": "По запросу «{query}» направление не найдено. Выберите категорию вручную.",
@@ -13770,6 +15858,10 @@ translations = {
         "de": (
             'Für „{query}“ wurde keine Kategorie gefunden. Wählen Sie eine '
             'Kategorie manuell aus.'
+        ),
+        "nl": (
+            'Er is geen richting gevonden voor “{query}”. Kies handmatig een '
+            'categorie.'
         ),
     },
     "search_text_query_matches": {
@@ -13785,6 +15877,10 @@ translations = {
             'Es wurden mehrere Anfahrtsbeschreibungen für „{query}“ gefunden. '
             'Wählen Sie die richtige aus:'
         ),
+        "nl": (
+            'Er zijn meerdere routebeschrijvingen gevonden voor “{query}”. '
+            'Kies de juiste:'
+        ),
     },
     "client_thread_client_label": {
         "ru": "Клиент",
@@ -13793,6 +15889,7 @@ translations = {
         "uk": "Клієнт",
         "pl": 'Klient',
         "de": 'Client',
+        "nl": 'Klant',
     },
     "review_order_completed_required": {
         "ru": "Отзыв можно оставить только после завершения заказа.",
@@ -13804,6 +15901,10 @@ translations = {
             'Sie können erst nach Abschluss der Bestellung eine Bewertung '
             'abgeben.'
         ),
+        "nl": (
+            'U kunt pas een beoordeling achterlaten nadat de bestelling is '
+            'voltooid.'
+        ),
     },
     "review_already_exists": {
         "ru": "Отзыв по этому заказу уже оставлен.",
@@ -13812,6 +15913,7 @@ translations = {
         "uk": "Відгук на це замовлення вже залишено.",
         "pl": 'To zamówienie ma już recenzję.',
         "de": 'Zu dieser Bestellung liegt bereits eine Bewertung vor.',
+        "nl": 'Er is al een beoordeling voor deze bestelling.',
     },
     "review_invalid_rating": {
         "ru": "Выберите оценку от 1 до 5.",
@@ -13820,6 +15922,7 @@ translations = {
         "uk": "Оберіть оцінку від 1 до 5.",
         "pl": 'Wybierz ocenę od 1 do 5.',
         "de": 'Wählen Sie eine Bewertung von 1 bis 5.',
+        "nl": 'Kies een beoordeling van 1 tot 5.',
     },
     "review_missing_data": {
         "ru": (
@@ -13846,6 +15949,10 @@ translations = {
             'Es wurden keine Bewertungsdaten gefunden. Öffnen Sie die '
             'Konversation erneut.'
         ),
+        "nl": (
+            'Er zijn geen beoordelingsgegevens gevonden. Open het gesprek '
+            'opnieuw.'
+        ),
     },
     "search_profile_photo_placeholder": {
         "ru": "👤 Фото пока не добавлено",
@@ -13854,6 +15961,7 @@ translations = {
         "uk": "👤 Фото поки не додано",
         "pl": '👤 Zdjęcie nie zostało jeszcze dodane',
         "de": '👤 Foto noch nicht hinzugefügt',
+        "nl": '👤 Foto nog niet toegevoegd',
     },
     "search_experience_years": {
         "ru": "Опыт: {years} лет",
@@ -13862,6 +15970,7 @@ translations = {
         "uk": "Досвід: {years} років",
         "pl": 'Doświadczenie: {years} lat',
         "de": 'Erfahrung: {years} Jahre',
+        "nl": 'Ervaring: {years} jaar',
     },
     "search_skills_label": {
         "ru": "Навыки",
@@ -13870,6 +15979,7 @@ translations = {
         "uk": "Навички",
         "pl": 'Umiejętności',
         "de": 'Fähigkeiten',
+        "nl": 'Vaardigheden',
     },
     "cabinet_user_profile_title": {
         "ru": "👤 Мой профиль",
@@ -13878,6 +15988,7 @@ translations = {
         "uk": "👤 Мій профіль",
         "pl": '👤 Mój profil',
         "de": '👤 Mein Profil',
+        "nl": '👤 Mijn profiel',
     },
     "cabinet_user_profile_name": {
         "ru": "Имя",
@@ -13886,6 +15997,7 @@ translations = {
         "uk": "Ім'я",
         "pl": 'Imię',
         "de": 'Name',
+        "nl": 'Naam',
     },
     "cabinet_user_profile_number": {
         "ru": "Номер пользователя",
@@ -13894,6 +16006,7 @@ translations = {
         "uk": "Номер користувача",
         "pl": 'Numer użytkownika',
         "de": 'Benutzernummer',
+        "nl": 'Gebruikersnummer',
     },
     "cabinet_user_profile_language": {
         "ru": "Язык интерфейса",
@@ -13902,6 +16015,7 @@ translations = {
         "uk": "Мова інтерфейсу",
         "pl": 'Język interfejsu',
         "de": 'Sprache der Benutzeroberfläche',
+        "nl": 'Taal van de interface',
     },
     "cabinet_user_profile_city": {
         "ru": "Город",
@@ -13910,6 +16024,7 @@ translations = {
         "uk": "Місто",
         "pl": 'Miasto',
         "de": 'Stadt',
+        "nl": 'Stad',
     },
     "cabinet_user_profile_active_role": {
         "ru": "Текущий кабинет",
@@ -13918,6 +16033,7 @@ translations = {
         "uk": "Поточний кабінет",
         "pl": 'Aktualny panel',
         "de": 'Aktuelles Dashboard',
+        "nl": 'Huidig dashboard',
     },
     "role_text_finance_admin": {
         "ru": "Финансы",
@@ -13926,6 +16042,7 @@ translations = {
         "uk": "Фінанси",
         "pl": 'Finanse',
         "de": 'Finanzen',
+        "nl": 'Financiën',
     },
     "role_text_advertiser": {
         "ru": "Продвижение",
@@ -13934,6 +16051,7 @@ translations = {
         "uk": "Просування",
         "pl": 'Promocja',
         "de": 'Werbung',
+        "nl": 'Promotie',
     },
     "role_text_other": {
         "ru": "Другой кабинет",
@@ -13942,6 +16060,7 @@ translations = {
         "uk": "Інший кабінет",
         "pl": 'Kolejny panel',
         "de": 'Ein weiteres Dashboard',
+        "nl": 'Nog een dashboard',
     },
     "cabinet_user_profile_roles": {
         "ru": "Доступные кабинеты",
@@ -13950,6 +16069,7 @@ translations = {
         "uk": "Доступні кабінети",
         "pl": 'Dostępne panele',
         "de": 'Verfügbare Dashboards',
+        "nl": 'Beschikbare dashboards',
     },
     "specialist_skills_title": {
         "ru": "🧩 Навыки и услуги",
@@ -13958,6 +16078,7 @@ translations = {
         "uk": "🧩 Навички та послуги",
         "pl": '🧩 Umiejętności i usługi',
         "de": '🧩 Kompetenzen und Dienstleistungen',
+        "nl": '🧩 Vaardigheden en diensten',
     },
     "specialist_skills_hint": {
         "ru": "Добавьте то, что помогает клиенту выбрать вас.",
@@ -13969,6 +16090,7 @@ translations = {
             'Fügen Sie Details hinzu, die Kunden dabei helfen, sich für Sie '
             'zu entscheiden.'
         ),
+        "nl": 'Voeg details toe die klanten helpen om voor u te kiezen.',
     },
     "spec_skills_prompt": {
         "ru": "🧩 Выберите навыки, которые точнее описывают ваши услуги.",
@@ -13980,6 +16102,7 @@ translations = {
             '🧩 Wählen Sie Kompetenzen aus, die Ihre Dienstleistungen genauer '
             'beschreiben.'
         ),
+        "nl": '🧩 Kies vaardigheden die uw diensten nauwkeuriger beschrijven.',
     },
     "spec_selected_skills_title": {
         "ru": "Выбрано:",
@@ -13988,6 +16111,7 @@ translations = {
         "uk": "Обрано:",
         "pl": 'Wybrane:',
         "de": 'Ausgewählt:',
+        "nl": 'Geselecteerd:',
     },
     "spec_skills_empty": {
         "ru": "Для ваших направлений пока нет навыков в справочнике. Используйте описание профиля.",
@@ -14002,6 +16126,10 @@ translations = {
             'Im Verzeichnis sind noch keine Fähigkeiten für Ihre Angaben '
             'vorhanden. Verwenden Sie Ihre Profilbeschreibung.'
         ),
+        "nl": (
+            'Er staan nog geen vaardigheden in de lijst die bij jouw '
+            'aanwijzingen passen. Gebruik de beschrijving van je profiel.'
+        ),
     },
     "spec_skills_saved": {
         "ru": "Навыки сохранены.",
@@ -14010,6 +16138,7 @@ translations = {
         "uk": "Навички збережено.",
         "pl": 'Umiejętności zapisane.',
         "de": 'Fähigkeiten gespeichert.',
+        "nl": 'Vaardigheden opgeslagen.',
     },
     "spec_availability_title": {
         "ru": "🟢 Статус работы",
@@ -14018,6 +16147,7 @@ translations = {
         "uk": "🟢 Статус роботи",
         "pl": '🟢 Status pracy',
         "de": '🟢 Arbeitsstatus',
+        "nl": '🟢 Werkstatus',
     },
     "spec_availability_hint": {
         "ru": "Укажите, принимаете ли вы заказы сейчас.",
@@ -14026,6 +16156,7 @@ translations = {
         "uk": "Вкажіть, чи приймаєте ви замовлення зараз.",
         "pl": 'Poinformuj klientów, czy obecnie przyjmujesz zlecenia.',
         "de": 'Teilen Sie Ihren Kunden mit, ob Sie derzeit Anfragen annehmen.',
+        "nl": 'Laat klanten weten of je op dit moment aanvragen accepteert.',
     },
     "spec_availability_now": {
         "ru": "🟢 Принимаю заказы",
@@ -14034,6 +16165,7 @@ translations = {
         "uk": "🟢 Приймаю замовлення",
         "pl": '🟢 Dostępny na zlecenia',
         "de": '🟢 Für Anfragen verfügbar',
+        "nl": '🟢 Beschikbaar voor aanvragen',
     },
     "spec_availability_busy": {
         "ru": "🟠 Сейчас занят",
@@ -14042,6 +16174,7 @@ translations = {
         "uk": "🟠 Зараз зайнятий",
         "pl": '🟠 Obecnie zajęty',
         "de": '🟠 Derzeit beschäftigt',
+        "nl": '🟠 Momenteel bezet',
     },
     "spec_availability_from_date": {
         "ru": "🟡 Буду доступен с {date}",
@@ -14050,6 +16183,7 @@ translations = {
         "uk": "🟡 Буду доступний з {date}",
         "pl": '🟡 Dostępny od {date}',
         "de": '🟡 Verfügbar ab {date}',
+        "nl": '🟡 Beschikbaar vanaf {date}',
     },
     "spec_availability_now_btn": {
         "ru": "Свободен сейчас",
@@ -14058,6 +16192,7 @@ translations = {
         "uk": "Вільний зараз",
         "pl": 'Dostępny teraz',
         "de": 'Jetzt verfügbar',
+        "nl": 'Nu beschikbaar',
     },
     "spec_availability_busy_btn": {
         "ru": "Частично занят",
@@ -14066,6 +16201,7 @@ translations = {
         "uk": "Частково зайнятий",
         "pl": 'Częściowo zajęty',
         "de": 'Teilweise belegt',
+        "nl": 'Gedeeltelijk bezet',
     },
     "spec_availability_from_date_btn": {
         "ru": "Доступен с даты",
@@ -14074,6 +16210,7 @@ translations = {
         "uk": "Доступний з дати",
         "pl": 'Dostępny od',
         "de": 'Verfügbar ab Datum',
+        "nl": 'Beschikbaar vanaf datum',
     },
     "spec_availability_vacation": {
         "ru": "🏖 В отпуске",
@@ -14082,6 +16219,7 @@ translations = {
         "uk": "🏖 У відпустці",
         "pl": '🏖 Na wakacjach',
         "de": '🏖 Im Urlaub',
+        "nl": '🏖 Op vakantie',
     },
     "spec_availability_unavailable": {
         "ru": "⛔ Временно недоступен",
@@ -14090,6 +16228,7 @@ translations = {
         "uk": "⛔ Тимчасово недоступний",
         "pl": '⛔ Tymczasowo niedostępne',
         "de": '⛔ Vorübergehend nicht verfügbar',
+        "nl": '⛔ Tijdelijk niet beschikbaar',
     },
     "spec_availability_vacation_btn": {
         "ru": "В отпуске",
@@ -14098,6 +16237,7 @@ translations = {
         "uk": "У відпустці",
         "pl": 'Na urlopie',
         "de": 'Im Urlaub',
+        "nl": 'Op vakantie',
     },
     "spec_availability_unavailable_btn": {
         "ru": "Временно недоступен",
@@ -14106,6 +16246,7 @@ translations = {
         "uk": "Тимчасово недоступний",
         "pl": 'Tymczasowo niedostępne',
         "de": 'Vorübergehend nicht verfügbar',
+        "nl": 'Tijdelijk niet beschikbaar',
     },
     "spec_availability_date_prompt": {
         "ru": "Напишите дату или срок, когда вы будете доступны. Например: 2026-07-15 или с понедельника.",
@@ -14120,6 +16261,10 @@ translations = {
             'Geben Sie das Datum oder die Uhrzeit an, ab wann Sie verfügbar '
             'sind. Beispiel: 15.07.2026 oder ab Montag.'
         ),
+        "nl": (
+            'Geef de datum of het tijdstip door waarop je beschikbaar bent. '
+            'Voorbeeld: 15-07-2026 of vanaf maandag.'
+        ),
     },
     "spec_availability_saved": {
         "ru": "Доступность обновлена.",
@@ -14128,6 +16273,7 @@ translations = {
         "uk": "Доступність оновлено.",
         "pl": 'Dostępność zaktualizowana.',
         "de": 'Verfügbarkeit aktualisiert.',
+        "nl": 'Beschikbaarheid bijgewerkt.',
     },
     "spec_moderation_title": {
         "ru": "🛡 Модерация профиля",
@@ -14136,6 +16282,7 @@ translations = {
         "uk": "🛡 Модерація профілю",
         "pl": '🛡 Moderacja profilu',
         "de": '🛡 Profilmoderation',
+        "nl": '🛡 Profielbeheer',
     },
     "spec_moderation_status_approved": {
         "ru": "Профиль одобрен",
@@ -14144,6 +16291,7 @@ translations = {
         "uk": "Профіль схвалено",
         "pl": 'Profil zatwierdzony',
         "de": 'Profil genehmigt',
+        "nl": 'Profiel goedgekeurd',
     },
     "spec_moderation_status_approved_hint": {
         "ru": "Профиль виден клиентам в поиске.",
@@ -14152,6 +16300,7 @@ translations = {
         "uk": "Профіль видно клієнтам у пошуку.",
         "pl": 'Profil jest widoczny dla klientów w wynikach wyszukiwania.',
         "de": 'Das Profil ist für Kunden in der Suche sichtbar.',
+        "nl": 'Het profiel is zichtbaar voor klanten in de zoekresultaten.',
     },
     "spec_moderation_status_blocked": {
         "ru": "Профиль заблокирован",
@@ -14160,6 +16309,7 @@ translations = {
         "uk": "Профіль заблоковано",
         "pl": 'Profil zablokowany',
         "de": 'Profil gesperrt',
+        "nl": 'Profiel geblokkeerd',
     },
     "spec_moderation_status_blocked_hint": {
         "ru": "Профиль недоступен клиентам. Обратитесь в поддержку.",
@@ -14174,6 +16324,10 @@ translations = {
             'Das Profil ist für Kunden nicht verfügbar. Wenden Sie sich an '
             'den Support.'
         ),
+        "nl": (
+            'Het profiel is niet beschikbaar voor klanten. Neem contact op '
+            'met de ondersteuning.'
+        ),
     },
     "spec_moderation_status_deleted": {
         "ru": "Профиль удален",
@@ -14182,6 +16336,7 @@ translations = {
         "uk": "Профіль видалено",
         "pl": 'Profil został usunięty',
         "de": 'Profil gelöscht',
+        "nl": 'Profiel verwijderd',
     },
     "spec_moderation_status_deleted_hint": {
         "ru": "Профиль недоступен клиентам.",
@@ -14190,6 +16345,7 @@ translations = {
         "uk": "Профіль недоступний клієнтам.",
         "pl": 'Profil jest niedostępny dla klientów.',
         "de": 'Das Profil ist für Kunden nicht verfügbar.',
+        "nl": 'Het profiel is niet beschikbaar voor klanten.',
     },
     "spec_moderation_status_pending": {
         "ru": "Профиль на проверке",
@@ -14198,6 +16354,7 @@ translations = {
         "uk": "Профіль на перевірці",
         "pl": 'Profil jest w trakcie weryfikacji',
         "de": 'Profil wird derzeit geprüft',
+        "nl": 'Profiel wordt momenteel beoordeeld',
     },
     "spec_moderation_status_pending_hint": {
         "ru": (
@@ -14225,6 +16382,11 @@ translations = {
             '„Wartet auf Freigabe“ gekennzeichnet. Die Überprüfung dauert in '
             'der Regel bis zu 24 Stunden.'
         ),
+        "nl": (
+            "Het profiel is al zichtbaar voor klanten met het label 'In "
+            "afwachting van moderatie'. De beoordeling duurt doorgaans "
+            'maximaal 24 uur.'
+        ),
     },
     "spec_moderation_status_rejected": {
         "ru": "Профиль отклонен",
@@ -14233,6 +16395,7 @@ translations = {
         "uk": "Профіль відхилено",
         "pl": 'Profil odrzucony',
         "de": 'Profil abgelehnt',
+        "nl": 'Profiel afgewezen',
     },
     "spec_moderation_status_rejected_hint": {
         "ru": "Исправьте замечания и отправьте профиль на проверку повторно.",
@@ -14244,6 +16407,10 @@ translations = {
             'Korrigieren Sie die Angaben und reichen Sie das Profil erneut '
             'zur Überprüfung ein.'
         ),
+        "nl": (
+            'Corrigeer de opmerkingen en dien het profiel opnieuw in ter '
+            'beoordeling.'
+        ),
     },
     "spec_moderation_status_hidden": {
         "ru": "Профиль скрыт",
@@ -14252,6 +16419,7 @@ translations = {
         "uk": "Профіль приховано",
         "pl": 'Profil ukryty',
         "de": 'Profil ausgeblendet',
+        "nl": 'Profiel verborgen',
     },
     "spec_moderation_status_hidden_hint": {
         "ru": "Профиль скрыт администратором и не показывается в поиске.",
@@ -14266,6 +16434,10 @@ translations = {
             'Das Profil wurde von einem Administrator ausgeblendet und wird '
             'bei der Suche nicht angezeigt.'
         ),
+        "nl": (
+            'Het profiel is door een beheerder verborgen en wordt niet '
+            'weergegeven in de zoekresultaten.'
+        ),
     },
     "spec_moderation_status_draft": {
         "ru": "Черновик",
@@ -14274,6 +16446,7 @@ translations = {
         "uk": "Чернетка",
         "pl": 'Wersja robocza',
         "de": 'Entwurf',
+        "nl": 'Concept',
     },
     "spec_moderation_status_draft_hint": {
         "ru": "Профиль еще не опубликован и не виден клиентам.",
@@ -14288,6 +16461,10 @@ translations = {
             'Das Profil wurde noch nicht veröffentlicht und ist für Kunden '
             'nicht sichtbar.'
         ),
+        "nl": (
+            'Het profiel is nog niet gepubliceerd en is niet zichtbaar voor '
+            'klanten.'
+        ),
     },
     "spec_moderation_comment_label": {
         "ru": "Комментарий модерации",
@@ -14296,6 +16473,7 @@ translations = {
         "uk": "Коментар модерації",
         "pl": 'Komentarz moderatora',
         "de": 'Kommentar der Moderation',
+        "nl": 'Opmerking van de moderator',
     },
     "client_dialog_unknown_user": {
         "ru": "Собеседник",
@@ -14304,6 +16482,7 @@ translations = {
         "uk": "Співрозмовник",
         "pl": 'Uczestnik',
         "de": 'Teilnehmer',
+        "nl": 'Deelnemer',
     },
     "main_menu_stats": {
         "ru": "Страны: {countries}\nГорода: {cities}\nПользователи: {users}\nСпециалисты: {specialists}",
@@ -14322,6 +16501,12 @@ translations = {
             'Benutzer: {users}\n'
             'Fachkräfte: {specialists}'
         ),
+        "nl": (
+            'Landen: {countries}\n'
+            'Steden: {cities}\n'
+            'Gebruikers: {users}\n'
+            'Specialisten: {specialists}'
+        ),
     },
     "admin_users_roles_section_btn": {
         "ru": "👥 Пользователи и роли",
@@ -14330,6 +16515,7 @@ translations = {
         "uk": "👥 Користувачі та ролі",
         "pl": '👥 Użytkownicy i role',
         "de": '👥 Benutzer und Rollen',
+        "nl": '👥 Gebruikers en rollen',
     },
     "admin_dictionaries_section_btn": {
         "ru": "📚 Справочники",
@@ -14338,6 +16524,7 @@ translations = {
         "uk": "📚 Довідники",
         "pl": '📚 Słowniki',
         "de": '📚 Wörterbücher',
+        "nl": '📚 Woordenboeken',
     },
     "admin_moderation_section_btn": {
         "ru": "🧾 Модерация",
@@ -14346,6 +16533,7 @@ translations = {
         "uk": "🧾 Модерація",
         "pl": '🧾 Moderacja',
         "de": '🧾 Moderation',
+        "nl": '🧾 Moderatie',
     },
     "admin_dialogs_section_btn": {
         "ru": "💬 Сообщения",
@@ -14354,6 +16542,7 @@ translations = {
         "uk": "💬 Повідомлення",
         "pl": '💬 Wiadomości',
         "de": '💬 Nachrichten',
+        "nl": '💬 Berichten',
     },
     "admin_finance_section_btn": {
         "ru": "💰 Финансы",
@@ -14362,6 +16551,7 @@ translations = {
         "uk": "💰 Фінанси",
         "pl": '💰 Finanse',
         "de": '💰 Finanzen',
+        "nl": '💰 Financiën',
     },
     "admin_promotion_section_btn": {
         "ru": "📢 Продвижение",
@@ -14370,6 +16560,7 @@ translations = {
         "uk": "📢 Просування",
         "pl": '📢 Promocja',
         "de": '📢 Werbung',
+        "nl": '📢 Promotie',
     },
     "admin_system_section_btn": {
         "ru": "⚙️ Система",
@@ -14378,6 +16569,7 @@ translations = {
         "uk": "⚙️ Система",
         "pl": '⚙️ System',
         "de": '⚙️ System',
+        "nl": '⚙️ Systeem',
     },
     "admin_section_stub": {
         "ru": "{section}\n\nРаздел будет подключён по дорожной карте админской части.",
@@ -14395,6 +16587,12 @@ translations = {
             '\n'
             'Dieser Abschnitt wird gemäß der Admin-Roadmap eingebunden.'
         ),
+        "nl": (
+            '{section}\n'
+            '\n'
+            'Dit gedeelte wordt gekoppeld volgens de roadmap van de '
+            'beheerder.'
+        ),
     },
     "admin_dict_menu_title": {
         "ru": "📚 Справочники\n\nВыберите справочник для управления.",
@@ -14407,6 +16605,7 @@ translations = {
             '\n'
             'Wählen Sie ein Wörterbuch aus, das Sie verwalten möchten.'
         ),
+        "nl": '📚 Woordenboeken\n\nKies een woordenboek om te beheren.',
     },
     "admin_dict_categories_btn": {
         "ru": "Категории",
@@ -14415,6 +16614,7 @@ translations = {
         "uk": "Категорії",
         "pl": 'Kategorie',
         "de": 'Kategorien',
+        "nl": 'Categorieën',
     },
     "admin_dict_professions_btn": {
         "ru": "Направления",
@@ -14423,6 +16623,7 @@ translations = {
         "uk": "Напрями",
         "pl": 'Wskazówki',
         "de": 'Anleitungen',
+        "nl": 'Richtlijnen',
     },
     "admin_dict_skills_btn": {
         "ru": "Навыки",
@@ -14431,6 +16632,7 @@ translations = {
         "uk": "Навички",
         "pl": 'Umiejętności',
         "de": 'Fähigkeiten',
+        "nl": 'Vaardigheden',
     },
     "admin_dict_languages_btn": {
         "ru": "Языки",
@@ -14439,6 +16641,7 @@ translations = {
         "uk": "Мови",
         "pl": 'Języki',
         "de": 'Sprachen',
+        "nl": 'Talen',
     },
     "admin_dict_geo_btn": {
         "ru": "Страны / города",
@@ -14447,6 +16650,7 @@ translations = {
         "uk": "Країни / міста",
         "pl": 'Kraje / miasta',
         "de": 'Länder / Städte',
+        "nl": 'Landen / steden',
     },
     "admin_dict_categories_title": {
         "ru": "Категории\nПоказано: {count}",
@@ -14455,6 +16659,7 @@ translations = {
         "uk": "Категорії\nПоказано: {count}",
         "pl": 'Kategorie\nWyświetlono: {count}',
         "de": 'Kategorien\nAngezeigt: {count}',
+        "nl": 'Categorieën\nWeergegeven: {count}',
     },
     "admin_dict_categories_empty": {
         "ru": "Категории не найдены.",
@@ -14463,6 +16668,7 @@ translations = {
         "uk": "Категорій не знайдено.",
         "pl": 'Nie znaleziono żadnych kategorii.',
         "de": 'Keine Kategorien gefunden.',
+        "nl": 'Geen categorieën gevonden.',
     },
     "admin_dict_category_row": {
         "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nПорядок: {sort_order}\nНаправлений: {professions} | Специалистов: {specialists}\nРелиз: {release}",
@@ -14485,6 +16691,14 @@ translations = {
             'Anweisungen: {professions} | Spezialisten: {specialists}\n'
             'Freigabe: {release}'
         ),
+        "nl": (
+            '{number}. {title}\n'
+            'Code: {code}\n'
+            'Status: {status}\n'
+            'Bestelling: {sort_order}\n'
+            'Routebeschrijving: {professions} | Specialisten: {specialists}\n'
+            'Release: {release}'
+        ),
     },
     "admin_dict_category_create_btn": {
         "ru": "➕ Создать категорию",
@@ -14493,6 +16707,7 @@ translations = {
         "uk": "➕ Створити категорію",
         "pl": '➕ Utwórz kategorię',
         "de": '➕ Kategorie erstellen',
+        "nl": '➕ Categorie aanmaken',
     },
     "admin_dict_category_open_btn": {
         "ru": "🔍 Открыть категорию",
@@ -14501,6 +16716,7 @@ translations = {
         "uk": "🔍 Відкрити категорію",
         "pl": '🔍 Kategoria otwarta',
         "de": '🔍 Offene Kategorie',
+        "nl": '🔍 Categorie openen',
     },
     "admin_dict_category_reorder_btn": {
         "ru": "🔀 Изменить порядок",
@@ -14509,6 +16725,7 @@ translations = {
         "uk": "🔀 Змінити порядок",
             "pl": '🔀 Zmień kolejność',
             "de": '🔀 Reihenfolge ändern',
+            "nl": '🔀 Volgorde wijzigen',
         },  
     "admin_dict_category_open_prompt": {
         "ru": "Введите номер категории из текущего списка: 1-{count}.",
@@ -14520,6 +16737,7 @@ translations = {
             'Geben Sie die Kategorienummer aus der aktuellen Liste ein: '
             '1–{count}.'
         ),
+        "nl": 'Voer een categorienummer uit de huidige lijst in: 1-{count}.',
     },
     "admin_dict_category_open_bad_number": {
         "ru": "Неверный номер. Введите число от 1 до {count}.",
@@ -14531,6 +16749,7 @@ translations = {
             'Ungültige Nummer. Geben Sie eine Nummer zwischen 1 und {count} '
             'ein.'
         ),
+        "nl": 'Ongeldig nummer. Voer een nummer in tussen 1 en {count}.',
     },
     "admin_dict_category_card": {
         "ru": "Категория\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nПорядок: {sort_order}\nНаправлений: {professions}\nСпециалистов: {specialists}\nРелиз: {release}",
@@ -14559,6 +16778,17 @@ translations = {
             'Fachkräfte: {specialists}\n'
             'Freigabe: {release}'
         ),
+        "nl": (
+            'Categorie\n'
+            '\n'
+            'Titel: {title}\n'
+            'Code: {code}\n'
+            'Status: {status}\n'
+            'Volgorde: {sort_order}\n'
+            'Routebeschrijving: {professions}\n'
+            'Specialisten: {specialists}\n'
+            'Vrijgave: {release}'
+        ),
     },
     "admin_dict_category_rename_btn": {
         "ru": "✏️ Переименовать",
@@ -14567,6 +16797,7 @@ translations = {
         "uk": "✏️ Перейменувати",
         "pl": '✏️ Zmień nazwę',
         "de": '✏️ Umbenennen',
+        "nl": '✏️ Hernoemen',
     },
     "admin_dict_category_toggle_btn": {
         "ru": "👁 Скрыть / показать",
@@ -14575,6 +16806,7 @@ translations = {
         "uk": "👁 Приховати / показати",
         "pl": '👁 Ukryj / pokaż',
         "de": '👁 Ausblenden / Einblenden',
+        "nl": '👁 Verbergen / weergeven',
     },
     "admin_dict_category_archive_btn": {
         "ru": "🗄 Архивировать",
@@ -14583,6 +16815,7 @@ translations = {
         "uk": "🗄 Архівувати",
         "pl": '🗄 Archiwizuj',
         "de": '🗄 Archivieren',
+        "nl": '🗄 Archiveren',
     },
     "admin_dict_category_specialists_btn": {
         "ru": "👥 Специалисты категории",
@@ -14591,6 +16824,7 @@ translations = {
         "uk": "👥 Спеціалісти категорії",
         "pl": '👥 Specjaliści ds. kategorii',
         "de": '👥 Kategoriespezialisten',
+        "nl": '👥 Categorie-specialisten',
     },
     "admin_dict_category_rename_prompt": {
         "ru": "Введите новое название категории.",
@@ -14599,6 +16833,7 @@ translations = {
         "uk": "Введіть нову назву категорії.",
         "pl": 'Wprowadź nazwę nowej kategorii.',
         "de": 'Geben Sie den neuen Kategorienamen ein.',
+        "nl": 'Voer de nieuwe categorienaam in.',
     },
     "admin_dict_category_rename_done": {
         "ru": "Название категории обновлено.",
@@ -14607,6 +16842,7 @@ translations = {
         "uk": "Назву категорії оновлено.",
         "pl": 'Nazwa kategorii została zaktualizowana.',
         "de": 'Kategoriename aktualisiert.',
+        "nl": 'Categorienaam bijgewerkt.',
     },
     "admin_dict_category_visibility_done": {
         "ru": "Видимость категории обновлена.",
@@ -14615,6 +16851,7 @@ translations = {
         "uk": "Видимість категорії оновлено.",
         "pl": 'Widoczność kategorii została zaktualizowana.',
         "de": 'Sichtbarkeit der Kategorie aktualisiert.',
+        "nl": 'De zichtbaarheid van de categorie is bijgewerkt.',
     },
     "admin_dict_category_rename_empty": {
         "ru": "Название слишком короткое. Введите понятное название категории.",
@@ -14626,6 +16863,7 @@ translations = {
             'Der Name ist zu kurz. Geben Sie einen eindeutigen Kategorienamen '
             'ein.'
         ),
+        "nl": 'De naam is te kort. Voer een duidelijke categorienaam in.',
     },
     "admin_dict_category_rename_duplicate": {
         "ru": "Категория с таким названием уже есть.",
@@ -14634,6 +16872,7 @@ translations = {
         "uk": "Категорія з такою назвою вже є.",
         "pl": 'Kategoria o tej nazwie już istnieje.',
         "de": 'Eine Kategorie mit diesem Namen existiert bereits.',
+        "nl": 'Er bestaat al een categorie met deze naam.',
     },
     "admin_dict_category_archive_done": {
         "ru": "Категория архивирована. Старые связи сохранены.",
@@ -14645,6 +16884,7 @@ translations = {
             'zachowane.'
         ),
         "de": 'Kategorie archiviert. Vorhandene Links wurden beibehalten.',
+        "nl": 'Categorie gearchiveerd. Bestaande links zijn behouden.',
     },
     "admin_dict_category_already_archived": {
         "ru": "Категория уже находится в архиве.",
@@ -14653,6 +16893,7 @@ translations = {
         "uk": "Категорія вже перебуває в архіві.",
         "pl": 'Kategoria jest już zarchiwizowana.',
         "de": 'Die Kategorie ist bereits archiviert.',
+        "nl": 'De categorie is al gearchiveerd.',
     },
     "admin_dict_category_unarchive_done": {
         "ru": "Категория возвращена из архива. Видимость не менялась.",
@@ -14667,6 +16908,10 @@ translations = {
             'Kategorie aus dem Archiv wiederhergestellt. Die Sichtbarkeit '
             'wurde nicht geändert.'
         ),
+        "nl": (
+            'Categorie uit het archief teruggehaald. De zichtbaarheid is niet '
+            'gewijzigd.'
+        ),
     },
     "admin_dict_category_not_archived": {
         "ru": "Категория не находится в архиве.",
@@ -14675,6 +16920,7 @@ translations = {
         "uk": "Категорія не перебуває в архіві.",
         "pl": 'Kategoria nie jest zarchiwizowana.',
         "de": 'Die Kategorie ist nicht archiviert.',
+        "nl": 'De categorie is niet gearchiveerd.',
     },
     "admin_dict_category_sort_order_prompt": {
         "ru": "Введите новый порядок категории числом. Например: 10, 20, 30.",
@@ -14689,6 +16935,10 @@ translations = {
             'Geben Sie die neue Reihenfolge der Kategorie als Zahl ein. Zum '
             'Beispiel: 10, 20, 30.'
         ),
+        "nl": (
+            'Voer de nieuwe volgorde van de categorieën in als een getal. '
+            'Bijvoorbeeld: 10, 20, 30.'
+        ),
     },
     "admin_dict_category_sort_order_done": {
         "ru": "Порядок категории обновлён.",
@@ -14697,6 +16947,7 @@ translations = {
         "uk": "Порядок категорії оновлено.",
         "pl": 'Kolejność kategorii została zaktualizowana.',
         "de": 'Kategorienreihenfolge aktualisiert.',
+        "nl": 'Categorievolgorde bijgewerkt.',
     },
     "admin_dict_category_sort_order_invalid": {
         "ru": "Введите число от 0 до 10000.",
@@ -14705,6 +16956,7 @@ translations = {
         "uk": "Введіть число від 0 до 10000.",
         "pl": 'Wprowadź liczbę z zakresu od 0 do 10000.',
         "de": 'Geben Sie eine Zahl zwischen 0 und 10000 ein.',
+        "nl": 'Voer een getal tussen 0 en 10000 in.',
     },
     "admin_dict_category_create_prompt": {
         "ru": "Введите название новой категории.",
@@ -14713,6 +16965,7 @@ translations = {
         "uk": "Введіть назву нової категорії.",
         "pl": 'Wprowadź nową nazwę kategorii.',
         "de": 'Geben Sie den neuen Kategorienamen ein.',
+        "nl": 'Voer de nieuwe categorienaam in.',
     },
     "admin_dict_category_create_done": {
         "ru": "Категория создана.",
@@ -14721,6 +16974,7 @@ translations = {
         "uk": "Категорію створено.",
         "pl": 'Kategoria została utworzona.',
         "de": 'Kategorie erstellt.',
+        "nl": 'Categorie aangemaakt.',
     },
     "admin_dict_category_create_empty": {
         "ru": "Название слишком короткое. Введите понятное название категории.",
@@ -14732,6 +16986,7 @@ translations = {
             'Der Name ist zu kurz. Geben Sie einen eindeutigen Kategorienamen '
             'ein.'
         ),
+        "nl": 'De naam is te kort. Voer een duidelijke categorienaam in.',
     },
     "admin_dict_category_create_duplicate_code": {
         "ru": "Не удалось подобрать уникальный код категории. Попробуйте другое название.",
@@ -14746,6 +17001,10 @@ translations = {
             'Es konnte kein eindeutiger Kategoriecode generiert werden. '
             'Versuchen Sie es mit einem anderen Namen.'
         ),
+        "nl": (
+            'Er kon geen unieke categoriecode worden gegenereerd. Probeer een '
+            'andere naam.'
+        ),
     },
     "admin_dict_category_specialists_title": {
         "ru": "Специалисты категории\nПоказано: {count}",
@@ -14754,6 +17013,7 @@ translations = {
         "uk": "Спеціалісти категорії\nПоказано: {count}",
         "pl": 'Specjaliści ds. kategorii\nWyświetlono: {count}',
         "de": 'Kategoriespezialisten\nAngezeigt: {count}',
+        "nl": 'Categorie-specialisten\nWeergegeven: {count}',
     },
     "admin_dict_category_specialists_empty": {
         "ru": "В этой категории пока нет специалистов.",
@@ -14762,6 +17022,7 @@ translations = {
         "uk": "У цій категорії поки немає спеціалістів.",
         "pl": 'W tej kategorii nie ma jeszcze żadnych specjalistów.',
         "de": 'In dieser Kategorie gibt es noch keine Spezialisten.',
+        "nl": 'Er zijn nog geen specialisten in deze categorie.',
     },
     "admin_dict_category_specialist_row": {
         "ru": "{number}. {name}\nСтатус: {status}\nНаправления: {professions}\nПроверен: {verified}\nДоступен: {available}",
@@ -14782,6 +17043,13 @@ translations = {
             'Verifiziert: {verified}\n'
             'Verfügbar: {available}'
         ),
+        "nl": (
+            '{number}. {name}\n'
+            'Status: {status}\n'
+            'Routebeschrijving: {professions}\n'
+            'Geverifieerd: {verified}\n'
+            'Beschikbaar: {available}'
+        ),
     },
     "admin_dict_professions_title": {
         "ru": "Направления\nПоказано: {count}",
@@ -14790,6 +17058,7 @@ translations = {
         "uk": "Напрями\nПоказано: {count}",
         "pl": 'Wskazówki\nWyświetlono: {count}',
         "de": 'Anfahrt\nAngezeigt: {count}',
+        "nl": 'Routebeschrijving\nWeergegeven: {count}',
     },
     "admin_dict_professions_empty": {
         "ru": "Направления не найдены.",
@@ -14798,6 +17067,7 @@ translations = {
         "uk": "Напрямів не знайдено.",
         "pl": 'Nie znaleziono wskazówek dojazdu.',
         "de": 'Es wurden keine Wegbeschreibungen gefunden.',
+        "nl": 'Er zijn geen routebeschrijvingen gevonden.',
     },
     "admin_dict_profession_row": {
         "ru": "{number}. {title}\nКод: {code}\nКатегория: {category}\nСтатус: {status}\nПорядок: {sort_order}\nСпециалистов: {specialists}\nРелиз: {release}",
@@ -14822,6 +17092,15 @@ translations = {
             'Fachkräfte: {specialists}\n'
             'Freigabe: {release}'
         ),
+        "nl": (
+            '{number}. {title}\n'
+            'Code: {code}\n'
+            'Categorie: {category}\n'
+            'Status: {status}\n'
+            'Bestelling: {sort_order}\n'
+            'Specialisten: {specialists}\n'
+            'Release: {release}'
+        ),
     },
     "admin_dict_profession_create_btn": {
         "ru": "➕ Создать направление",
@@ -14830,6 +17109,7 @@ translations = {
         "uk": "➕ Створити напрям",
         "pl": '➕ Utwórz kierunek',
         "de": '➕ Anweisung erstellen',
+        "nl": '➕ Aanwijzing aanmaken',
     },
     "admin_dict_profession_open_btn": {
         "ru": "🔍 Открыть направление",
@@ -14838,6 +17118,7 @@ translations = {
         "uk": "🔍 Відкрити напрям",
         "pl": '🔍 Otwórz wskazówki dojazdu',
         "de": '🔍 Richtung öffnen',
+        "nl": '🔍 Route openen',
     },
     "admin_dict_profession_open_prompt": {
         "ru": "Введите номер направления из текущего списка: 1-{count}.",
@@ -14846,6 +17127,7 @@ translations = {
         "uk": "Введіть номер напряму з поточного списку: 1-{count}.",
         "pl": 'Wprowadź numer trasy z bieżącej listy: 1-{count}.',
         "de": 'Geben Sie die Routennummer aus der aktuellen Liste ein: 1-{count}.',
+        "nl": 'Voer het routenummer uit de huidige lijst in: 1-{count}.',
     },
     "admin_dict_profession_open_bad_number": {
         "ru": "Неверный номер. Введите число от 1 до {count}.",
@@ -14857,6 +17139,7 @@ translations = {
             'Ungültige Nummer. Geben Sie eine Nummer zwischen 1 und {count} '
             'ein.'
         ),
+        "nl": 'Ongeldig nummer. Voer een nummer in tussen 1 en {count}.',
     },
     "admin_dict_profession_card": {
         "ru": "Направление\n\nНазвание: {title}\nКод: {code}\nКатегория: {category}\nСтатус: {status}\nПорядок: {sort_order}\nСпециалистов: {specialists}\nРелиз: {release}",
@@ -14885,6 +17168,17 @@ translations = {
             'Fachkräfte: {specialists}\n'
             'Freigabe: {release}'
         ),
+        "nl": (
+            'Richting\n'
+            '\n'
+            'Titel: {title}\n'
+            'Code: {code}\n'
+            'Categorie: {category}\n'
+            'Status: {status}\n'
+            'Volgorde: {sort_order}\n'
+            'Specialisten: {specialists}\n'
+            'Release: {release}'
+        ),
     },
     "admin_dict_profession_rename_btn": {
         "ru": "✏️ Переименовать",
@@ -14893,6 +17187,7 @@ translations = {
         "uk": "✏️ Перейменувати",
         "pl": '✏️ Zmień nazwę',
         "de": '✏️ Umbenennen',
+        "nl": '✏️ Hernoemen',
     },
     "admin_dict_profession_move_btn": {
         "ru": "🔁 Перенести в другую категорию",
@@ -14901,6 +17196,7 @@ translations = {
         "uk": "🔁 Перенести в іншу категорію",
         "pl": '🔁 Przenieś do innej kategorii',
         "de": '🔁 In eine andere Kategorie verschieben',
+        "nl": '🔁 Verplaatsen naar een andere categorie',
     },
     "admin_dict_profession_toggle_btn": {
         "ru": "👁 Скрыть / показать",
@@ -14909,6 +17205,7 @@ translations = {
         "uk": "👁 Приховати / показати",
         "pl": '👁 Ukryj / pokaż',
         "de": '👁 Ausblenden / Einblenden',
+        "nl": '👁 Verbergen / weergeven',
     },
     "admin_dict_profession_archive_btn": {
         "ru": "🗄 Архивировать",
@@ -14917,6 +17214,7 @@ translations = {
         "uk": "🗄 Архівувати",
         "pl": '🗄 Archiwum',
         "de": '🗄 Archivieren',
+        "nl": '🗄 Archiveren',
     },
     "admin_dict_profession_specialists_btn": {
         "ru": "👥 Специалисты направления",
@@ -14925,6 +17223,7 @@ translations = {
         "uk": "👥 Спеціалісти напряму",
         "pl": '👥 Specjaliści ds. kierunków',
         "de": '👥 Fachleute für Orientierung',
+        "nl": '👥 Specialisten in richtingbepaling',
     },
     "admin_dict_profession_create_prompt_in_category": {
         "ru": "Введите название нового направления для этой категории.",
@@ -14933,6 +17232,7 @@ translations = {
         "uk": "Введіть назву нового напряму для цієї категорії.",
         "pl": 'Wprowadź nową nazwę kategorii.',
         "de": 'Geben Sie den neuen Namen für diese Kategorie ein.',
+        "nl": 'Voer de nieuwe naam voor deze categorie in.',
     },
     "admin_dict_profession_create_prompt_with_category": {
         "ru": "Введите название или код категории и название направления в формате:\nКатегория | Название направления",
@@ -14949,6 +17249,11 @@ translations = {
             'in diesem Format ein:\n'
             'Kategorie | Richtungsname'
         ),
+        "nl": (
+            'Voer de categorienaam of -code en de naam van de richting in '
+            'volgens dit formaat:\n'
+            'Categorie | Naam van de richting'
+        ),
     },
     "admin_dict_profession_create_format_error": {
         "ru": "Введите данные в формате:\nКатегория | Название направления",
@@ -14960,6 +17265,10 @@ translations = {
             'Geben Sie die Daten in diesem Format ein:\n'
             'Kategorie | Name der Richtung'
         ),
+        "nl": (
+            'Voer de gegevens in volgens dit formaat:\n'
+            'Categorie | Naam van de richting'
+        ),
     },
     "admin_dict_profession_create_done": {
         "ru": "Направление создано.",
@@ -14968,6 +17277,7 @@ translations = {
         "uk": "Напрям створено.",
         "pl": 'Kierunek utworzony.',
         "de": 'Anweisung erstellt.',
+        "nl": 'Route aangemaakt.',
     },
     "admin_dict_profession_create_empty": {
         "ru": "Название слишком короткое. Введите понятное название направления.",
@@ -14979,6 +17289,7 @@ translations = {
             'Der Name ist zu kurz. Geben Sie einen eindeutigen Namen für die '
             'Wegbeschreibung ein.'
         ),
+        "nl": 'De naam is te kort. Voer een duidelijke naam voor de route in.',
     },
     "admin_dict_profession_category_not_found": {
         "ru": "Категория не найдена. Проверьте код категории.",
@@ -14987,6 +17298,7 @@ translations = {
         "uk": "Категорію не знайдено. Перевірте код категорії.",
         "pl": 'Nie znaleziono kategorii. Sprawdź kod kategorii.',
         "de": 'Kategorie nicht gefunden. Überprüfen Sie den Kategoriecode.',
+        "nl": 'Categorie niet gevonden. Controleer de categoriecode.',
     },
     "admin_dict_profession_category_archived": {
         "ru": "Нельзя создать направление в архивной категории.",
@@ -14998,6 +17310,7 @@ translations = {
             'In einer archivierten Kategorie kann keine Wegbeschreibung '
             'erstellt werden.'
         ),
+        "nl": 'Kan geen route aanmaken in een gearchiveerde categorie.',
     },
     "admin_dict_profession_create_duplicate": {
         "ru": "В этой категории уже есть направление с таким названием.",
@@ -15009,6 +17322,7 @@ translations = {
             'In dieser Kategorie gibt es bereits eine Richtung mit diesem '
             'Namen.'
         ),
+        "nl": 'Deze categorie bevat al een richting met deze naam.',
     },
     "admin_dict_profession_create_duplicate_code": {
         "ru": "Не удалось подобрать уникальный код направления. Попробуйте другое название.",
@@ -15023,6 +17337,10 @@ translations = {
             'Es konnte kein eindeutiger Richtungscode generiert werden. '
             'Versuchen Sie es mit einem anderen Namen.'
         ),
+        "nl": (
+            'Er kon geen unieke richtingscode worden gegenereerd. Probeer een '
+            'andere naam.'
+        ),
     },
     "admin_dict_profession_rename_prompt": {
         "ru": "Введите новое название направления.",
@@ -15031,6 +17349,7 @@ translations = {
         "uk": "Введіть нову назву напряму.",
         "pl": 'Wprowadź nową nazwę kierunku.',
         "de": 'Geben Sie den neuen Namen für die Richtung ein.',
+        "nl": 'Voer de nieuwe naam voor de route in.',
     },
     "admin_dict_profession_rename_done": {
         "ru": "Название направления обновлено.",
@@ -15039,6 +17358,7 @@ translations = {
         "uk": "Назву напряму оновлено.",
         "pl": 'Nazwa kierunku została zaktualizowana.',
         "de": 'Richtungsname aktualisiert.',
+        "nl": 'De naam van de route is bijgewerkt.',
     },
     "admin_dict_profession_rename_empty": {
         "ru": "Название слишком короткое. Введите понятное название направления.",
@@ -15050,6 +17370,7 @@ translations = {
             'Der Name ist zu kurz. Geben Sie einen eindeutigen Namen für die '
             'Richtung ein.'
         ),
+        "nl": 'De naam is te kort. Voer een duidelijke naam voor de richting in.',
     },
     "admin_dict_profession_rename_duplicate": {
         "ru": "В этой категории уже есть направление с таким названием.",
@@ -15061,6 +17382,7 @@ translations = {
             'In dieser Kategorie gibt es bereits eine Richtung mit diesem '
             'Namen.'
         ),
+        "nl": 'In deze categorie bestaat al een route met deze naam.',
     },
     "admin_dict_profession_move_prompt": {
         "ru": "Введите название или код новой категории для этого направления.",
@@ -15072,6 +17394,7 @@ translations = {
             'Geben Sie den neuen Kategorienamen oder -code für diese Richtung '
             'ein.'
         ),
+        "nl": 'Voer de nieuwe categorienaam of -code voor deze richting in.',
     },
     "admin_dict_profession_move_done": {
         "ru": "Направление перенесено в другую категорию. Связи специалистов сохранены.",
@@ -15086,6 +17409,10 @@ translations = {
             'Die Richtung wurde in eine andere Kategorie verschoben. Die '
             'speziellen Links wurden beibehalten.'
         ),
+        "nl": (
+            'De richting is verplaatst naar een andere categorie. De '
+            'gespecialiseerde links zijn behouden.'
+        ),
     },
     "admin_dict_profession_move_category_empty": {
         "ru": "Введите название или код категории.",
@@ -15094,6 +17421,7 @@ translations = {
         "uk": "Введіть назву або код категорії.",
         "pl": 'Wprowadź nazwę lub kod kategorii.',
         "de": 'Geben Sie den Kategorienamen oder -code ein.',
+        "nl": 'Voer de categorienaam of -code in.',
     },
     "admin_dict_profession_move_same_category": {
         "ru": "Это уже текущая категория направления.",
@@ -15102,6 +17430,7 @@ translations = {
         "uk": "Це вже поточна категорія напряму.",
         "pl": 'To jest już aktualna kategoria kierunku.',
         "de": 'Dies ist bereits die aktuelle Kategorie für die Wegbeschreibung.',
+        "nl": 'Dit is al de huidige categorie voor de richting.',
     },
     "admin_dict_profession_move_duplicate": {
         "ru": "В целевой категории уже есть направление с таким названием.",
@@ -15110,6 +17439,7 @@ translations = {
         "uk": "У цільовій категорії вже є напрям із такою назвою.",
         "pl": 'W kategorii docelowej istnieje już kierunek o tej nazwie.',
         "de": 'Die Zielkategorie enthält bereits eine Richtung mit diesem Namen.',
+        "nl": 'De doelcategorie bevat al een richting met deze naam.',
     },
     "admin_dict_profession_visibility_done": {
         "ru": "Видимость направления обновлена.",
@@ -15118,6 +17448,7 @@ translations = {
         "uk": "Видимість напряму оновлено.",
         "pl": 'Zaktualizowano widoczność kierunku.',
         "de": 'Sichtbarkeit der Richtung aktualisiert.',
+        "nl": 'De zichtbaarheid van de richting is bijgewerkt.',
     },
     "admin_dict_profession_archive_done": {
         "ru": "Направление архивировано. Старые связи сохранены.",
@@ -15126,6 +17457,7 @@ translations = {
         "uk": "Напрям архівовано. Старі зв'язки збережено.",
         "pl": 'Trasa została zarchiwizowana. Istniejące linki zostały zachowane.',
         "de": 'Route archiviert. Vorhandene Verknüpfungen wurden beibehalten.',
+        "nl": 'Route gearchiveerd. Bestaande koppelingen zijn behouden.',
     },
     "admin_dict_profession_unarchive_done": {
         "ru": "Направление возвращено из архива. Видимость не менялась.",
@@ -15137,6 +17469,7 @@ translations = {
             'Route aus dem Archiv wiederhergestellt. Die Sichtbarkeit wurde '
             'nicht geändert.'
         ),
+        "nl": 'Route uit archief teruggehaald. Zichtbaarheid is niet gewijzigd.',
     },
     "admin_dict_profession_already_archived": {
         "ru": "Направление уже находится в архиве.",
@@ -15145,6 +17478,7 @@ translations = {
         "uk": "Напрям вже перебуває в архіві.",
         "pl": 'Wskazówka jest już zarchiwizowana.',
         "de": 'Die Wegbeschreibung ist bereits archiviert.',
+        "nl": 'De route is al gearchiveerd.',
     },
     "admin_dict_profession_not_archived": {
         "ru": "Направление не находится в архиве.",
@@ -15153,6 +17487,7 @@ translations = {
         "uk": "Напрям не перебуває в архіві.",
         "pl": 'Trasa nie jest zarchiwizowana.',
         "de": 'Die Richtung ist nicht archiviert.',
+        "nl": 'De route is niet gearchiveerd.',
     },
     "admin_dict_profession_specialists_title": {
         "ru": "Специалисты направления\nСтраница: {page}\nПоказано: {count}",
@@ -15161,6 +17496,7 @@ translations = {
         "uk": "Спеціалісти напряму\nСторінка: {page}\nПоказано: {count}",
         "pl": 'Specjaliści ds. kierunków\nStrona: {page}\nWyświetlono: {count}',
         "de": 'Fachkräfte für die Fachrichtung\nSeite: {page}\nAngezeigt: {count}',
+        "nl": 'Richtingsspecialisten\nPagina: {page}\nWeergegeven: {count}',
     },
     "admin_dict_profession_specialists_empty": {
         "ru": "В этом направлении пока нет специалистов.",
@@ -15169,6 +17505,7 @@ translations = {
         "uk": "У цьому напрямі поки немає спеціалістів.",
         "pl": 'W tej specjalizacji nie ma jeszcze żadnych specjalistów.',
         "de": 'In diesem Fachgebiet gibt es noch keine Spezialisten.',
+        "nl": 'Er zijn nog geen specialisten in deze richting.',
     },
     "admin_dict_skills_title": {
         "ru": "Навыки\nПоказано: {count}",
@@ -15177,6 +17514,7 @@ translations = {
         "uk": "Навички\nПоказано: {count}",
         "pl": 'Umiejętności\nWyświetlono: {count}',
         "de": 'Fähigkeiten\nAngezeigt: {count}',
+        "nl": 'Vaardigheden\nWeergegeven: {count}',
     },
     "admin_dict_skills_empty": {
         "ru": "Навыки не найдены.",
@@ -15185,6 +17523,7 @@ translations = {
         "uk": "Навичок не знайдено.",
         "pl": 'Nie znaleziono żadnych umiejętności.',
         "de": 'Keine Fähigkeiten gefunden.',
+        "nl": 'Er zijn geen vaardigheden gevonden.',
     },
     "admin_dict_skill_row": {
         "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nСвязи: направления {profession_links} | профессиональные кабинеты {cabinet_links} | вакансии {vacancy_links}",
@@ -15205,6 +17544,13 @@ translations = {
             'Links: Wegbeschreibung {profession_links} | Berufsprofile '
             '{cabinet_links} | Stellenangebote {vacancy_links}'
         ),
+        "nl": (
+            '{number}. {title}\n'
+            'Code: {code}\n'
+            'Status: {status}\n'
+            'Links: routebeschrijving {profession_links} | professionele '
+            'profielen {cabinet_links} | vacatures {vacancy_links}'
+        ),
     },
     "admin_dict_skill_create_btn": {
         "ru": "➕ Создать навык",
@@ -15213,6 +17559,7 @@ translations = {
         "uk": "➕ Створити навичку",
         "pl": '➕ Dodaj umiejętność',
         "de": '➕ Kompetenz anlegen',
+        "nl": '➕ Vaardigheid aanmaken',
     },
     "admin_dict_skill_open_btn": {
         "ru": "🔍 Открыть навык",
@@ -15221,6 +17568,7 @@ translations = {
         "uk": "🔍 Відкрити навичку",
         "pl": '🔍 Otwórz umiejętność',
         "de": '🔍 Kompetenz öffnen',
+        "nl": '🔍 Vaardigheid openen',
     },
     "admin_dict_skill_open_prompt": {
         "ru": "Введите номер навыка из текущего списка: 1-{count}.",
@@ -15229,6 +17577,7 @@ translations = {
         "uk": "Введіть номер навички з поточного списку: 1-{count}.",
         "pl": 'Wprowadź numer umiejętności z bieżącej listy: 1-{count}.',
         "de": 'Skill-Nummer aus der aktuellen Liste eingeben: 1–{count}.',
+        "nl": 'Voer het vaardigheidsnummer uit de huidige lijst in: 1-{count}.',
     },
     "admin_dict_skill_open_bad_number": {
         "ru": "Неверный номер. Введите число от 1 до {count}.",
@@ -15240,6 +17589,7 @@ translations = {
             'Ungültige Nummer. Geben Sie eine Nummer zwischen 1 und {count} '
             'ein.'
         ),
+        "nl": 'Ongeldig nummer. Voer een nummer in tussen 1 en {count}.',
     },
     "admin_dict_skill_card": {
         "ru": "Навык\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nСвязи с направлениями: {profession_links}\nСвязи с профессиональными кабинетами: {cabinet_links}\nСвязи с вакансиями: {vacancy_links}",
@@ -15266,6 +17616,16 @@ translations = {
             'Links zum beruflichen Profil: {cabinet_links}\n'
             'Links zu Stellenangeboten: {vacancy_links}'
         ),
+        "nl": (
+            'Vaardigheid\n'
+            '\n'
+            'Titel: {title}\n'
+            'Code: {code}\n'
+            'Status: {status}\n'
+            'Links naar functies: {profession_links}\n'
+            'Links naar het professionele profiel: {cabinet_links}\n'
+            'Links naar vacatures: {vacancy_links}'
+        ),
     },
     "admin_dict_skill_rename_btn": {
         "ru": "✏️ Переименовать",
@@ -15274,6 +17634,7 @@ translations = {
         "uk": "✏️ Перейменувати",
         "pl": '✏️ Zmień nazwę',
         "de": '✏️ Umbenennen',
+        "nl": '✏️ Naam wijzigen',
     },
     "admin_dict_skill_toggle_btn": {
         "ru": "👁 Скрыть / показать",
@@ -15282,6 +17643,7 @@ translations = {
         "uk": "👁 Приховати / показати",
         "pl": '👁 Ukryj / pokaż',
         "de": '👁 Ausblenden / Anzeigen',
+        "nl": '👁 Verbergen / weergeven',
     },
     "admin_dict_skill_merge_btn": {
         "ru": "🔀 Объединить дубли",
@@ -15290,6 +17652,7 @@ translations = {
         "uk": "🔀 Об'єднати дублі",
         "pl": '🔀 Połącz duplikaty',
         "de": '🔀 Duplikate zusammenführen',
+        "nl": '🔀 Duplicaten samenvoegen',
     },
     "admin_dict_skill_create_prompt": {
         "ru": "Введите название нового навыка.",
@@ -15298,6 +17661,7 @@ translations = {
         "uk": "Введіть назву нової навички.",
         "pl": 'Wprowadź nową nazwę umiejętności.',
         "de": 'Geben Sie den neuen Namen der Fähigkeit ein.',
+        "nl": 'Voer de nieuwe vaardigheidsnaam in.',
     },
     "admin_dict_skill_create_done": {
         "ru": "Навык создан.",
@@ -15306,6 +17670,7 @@ translations = {
         "uk": "Навичку створено.",
         "pl": 'Umiejętność została utworzona.',
         "de": 'Fähigkeit erstellt.',
+        "nl": 'Vaardigheid aangemaakt.',
     },
     "admin_dict_skill_create_empty": {
         "ru": "Название слишком короткое. Введите понятное название навыка.",
@@ -15317,6 +17682,7 @@ translations = {
             'Der Name ist zu kurz. Geben Sie einen eindeutigen Namen für die '
             'Fertigkeit ein.'
         ),
+        "nl": 'De naam is te kort. Voer een duidelijke vaardigheidsnaam in.',
     },
     "admin_dict_skill_create_duplicate": {
         "ru": "Навык с таким названием уже есть.",
@@ -15325,6 +17691,7 @@ translations = {
         "uk": "Навичка з такою назвою вже є.",
         "pl": 'Umiejętność o tej nazwie już istnieje.',
         "de": 'Eine Fertigkeit mit diesem Namen existiert bereits.',
+        "nl": 'Er bestaat al een vaardigheid met deze naam.',
     },
     "admin_dict_skill_create_duplicate_code": {
         "ru": "Не удалось подобрать уникальный код навыка. Попробуйте другое название.",
@@ -15339,6 +17706,10 @@ translations = {
             'Es konnte kein eindeutiger Fertigkeitscode generiert werden. '
             'Versuche es mit einem anderen Namen.'
         ),
+        "nl": (
+            'Er kon geen unieke vaardigheidscode worden gegenereerd. Probeer '
+            'een andere naam.'
+        ),
     },
     "admin_dict_skill_rename_prompt": {
         "ru": "Введите новое название навыка.",
@@ -15347,6 +17718,7 @@ translations = {
         "uk": "Введіть нову назву навички.",
         "pl": 'Wprowadź nową nazwę umiejętności.',
         "de": 'Geben Sie den neuen Skill-Namen ein.',
+        "nl": 'Voer de nieuwe vaardigheidsnaam in.',
     },
     "admin_dict_skill_rename_done": {
         "ru": "Название навыка обновлено.",
@@ -15355,6 +17727,7 @@ translations = {
         "uk": "Назву навички оновлено.",
         "pl": 'Nazwa umiejętności została zaktualizowana.',
         "de": 'Fähigkeitsname aktualisiert.',
+        "nl": 'De vaardigheidsnaam is bijgewerkt.',
     },
     "admin_dict_skill_rename_empty": {
         "ru": "Название слишком короткое. Введите понятное название навыка.",
@@ -15366,6 +17739,7 @@ translations = {
             'Der Name ist zu kurz. Geben Sie einen eindeutigen Namen für die '
             'Fertigkeit ein.'
         ),
+        "nl": 'De naam is te kort. Voer een duidelijke vaardigheidsnaam in.',
     },
     "admin_dict_skill_rename_duplicate": {
         "ru": "Навык с таким названием уже есть.",
@@ -15374,6 +17748,7 @@ translations = {
         "uk": "Навичка з такою назвою вже є.",
         "pl": 'Umiejętność o tej nazwie już istnieje.',
         "de": 'Eine Fertigkeit mit diesem Namen existiert bereits.',
+        "nl": 'Er bestaat al een vaardigheid met deze naam.',
     },
     "admin_dict_skill_visibility_done": {
         "ru": "Видимость навыка обновлена.",
@@ -15382,6 +17757,7 @@ translations = {
         "uk": "Видимість навички оновлено.",
         "pl": 'Zaktualizowano widoczność umiejętności.',
         "de": 'Sichtbarkeit der Fertigkeit aktualisiert.',
+        "nl": 'De zichtbaarheid van de vaardigheid is bijgewerkt.',
     },
     "admin_dict_skill_merge_prompt": {
         "ru": "Введите код или название основного навыка, в который нужно объединить текущий дубль.",
@@ -15395,6 +17771,10 @@ translations = {
         "de": (
             'Geben Sie den Code oder den Titel der Haupt-Skill ein, die '
             'dieses Duplikat erhalten soll.'
+        ),
+        "nl": (
+            'Voer de code of titel in van de hoofdvaardigheid waaraan dit '
+            'duplicaat moet worden toegewezen.'
         ),
     },
     "admin_dict_skill_merge_done": {
@@ -15422,6 +17802,17 @@ translations = {
             'Doppelte Links zu beruflichen Profilen wurden entfernt: '
             '{removed_duplicate_cabinet_links}'
         ),
+        "nl": (
+            'Duplicaten zijn samengevoegd.\n'
+            '\n'
+            'Verplaatste richtingslinks: {moved_profession_links}\n'
+            'Verwijderde dubbele koppelingen naar richtingen: '
+            '{removed_duplicate_profession_links}\n'
+            'Verplaatste links naar professionele profielen: '
+            '{moved_cabinet_links}\n'
+            'Dubbele links naar professionele profielen verwijderd: '
+            '{removed_duplicate_cabinet_links}'
+        ),
     },
     "admin_dict_skill_merge_empty": {
         "ru": "Введите код или название основного навыка.",
@@ -15430,6 +17821,7 @@ translations = {
         "uk": "Введіть код або назву основної навички.",
         "pl": 'Wprowadź kod lub nazwę głównej umiejętności.',
         "de": 'Geben Sie den Code oder die Bezeichnung der Hauptkompetenz ein.',
+        "nl": 'Voer de code of de titel van de hoofdvaardigheid in.',
     },
     "admin_dict_skill_merge_target_not_found": {
         "ru": "Основной навык не найден. Введите точный код или название навыка.",
@@ -15444,6 +17836,10 @@ translations = {
             'Hauptkompetenz nicht gefunden. Geben Sie den genauen '
             'Kompetenzcode oder -titel ein.'
         ),
+        "nl": (
+            'Hoofdvaardigheid niet gevonden. Voer de exacte vaardigheidscode '
+            'of -titel in.'
+        ),
     },
     "admin_dict_skill_merge_same_skill": {
         "ru": "Нельзя объединить навык сам с собой. Выберите другой основной навык.",
@@ -15457,6 +17853,10 @@ translations = {
         "de": (
             'Eine Fertigkeit kann nicht mit sich selbst zusammengeführt '
             'werden. Wählen Sie eine andere Hauptfertigkeit aus.'
+        ),
+        "nl": (
+            'Een vaardigheid kan niet met zichzelf worden samengevoegd. Kies '
+            'een andere hoofdvaardigheid.'
         ),
     },
     "admin_dict_skill_merge_confirm_text": {
@@ -15492,6 +17892,21 @@ translations = {
             'Nach der Bestätigung wird der Duplikat-Eintrag ausgeblendet und '
             'seine Verknüpfungen werden zur Hauptkompetenz verschoben.'
         ),
+        "nl": (
+            'Bevestig het samenvoegen van vaardigheden.\n'
+            '\n'
+            'Duplicaat: {source_title}\n'
+            'Dubbele code: {source_code}\n'
+            'Dubbele koppelingen: routebeschrijvingen '
+            '{source_profession_links}, professionele profielen '
+            '{source_cabinet_links}\n'
+            '\n'
+            'Hoofdvaardigheid: {target_title}\n'
+            'Hoofdvaardigheidscode: {target_code}\n'
+            '\n'
+            'Na bevestiging wordt het duplicaat verborgen en worden de '
+            'bijbehorende links verplaatst naar de hoofdvaardigheid.'
+        ),
     },
     "admin_dict_skill_merge_confirm_btn": {
         "ru": "✅ Подтвердить объединение",
@@ -15500,6 +17915,7 @@ translations = {
         "uk": "✅ Підтвердити об'єднання",
         "pl": '✅ Potwierdź połączenie',
         "de": '✅ Zusammenführung bestätigen',
+        "nl": '✅ Samenvoeging bevestigen',
     },
     "admin_cancel": {
         "ru": "⬅️ Отмена",
@@ -15508,6 +17924,7 @@ translations = {
         "uk": "⬅️ Скасувати",
         "pl": '⬅️ Anuluj',
         "de": '⬅️ Abbrechen',
+        "nl": '⬅️ Annuleren',
     },
     "admin_cancelled": {
         "ru": "Действие отменено.",
@@ -15516,6 +17933,7 @@ translations = {
         "uk": "Дію скасовано.",
         "pl": 'Czynność anulowana.',
         "de": 'Aktion abgebrochen.',
+        "nl": 'Actie geannuleerd.',
     },
     "admin_dict_languages_title": {
         "ru": "Языки\nПоказано: {count}",
@@ -15524,6 +17942,7 @@ translations = {
         "uk": "Мови\nПоказано: {count}",
         "pl": 'Języki\nWyświetlane: {count}',
         "de": 'Sprachen\nAngezeigt: {count}',
+        "nl": 'Talen\nWeergegeven: {count}',
     },
     "admin_dict_languages_empty": {
         "ru": "Языки не найдены.",
@@ -15532,6 +17951,7 @@ translations = {
         "uk": "Мов не знайдено.",
         "pl": 'Nie znaleziono żadnych języków.',
         "de": 'Keine Sprachen gefunden.',
+        "nl": 'Geen talen gevonden.',
     },
     "admin_dict_language_row": {
         "ru": "{number}. {title}\nКод: {code}\nРодное название: {native_name}\nСтатус: {status}\nСвязи со специалистами: {specialist_links}",
@@ -15552,6 +17972,13 @@ translations = {
             'Status: {status}\n'
             'Fachliche Verknüpfungen: {specialist_links}'
         ),
+        "nl": (
+            '{number}. {title}\n'
+            'Code: {code}\n'
+            'Oorspronkelijke naam: {native_name}\n'
+            'Status: {status}\n'
+            'Specialistische links: {specialist_links}'
+        ),
     },
     "admin_dict_language_create_btn": {
         "ru": "➕ Создать язык",
@@ -15560,6 +17987,7 @@ translations = {
         "uk": "➕ Створити мову",
         "pl": '➕ Utwórz język',
         "de": '➕ Sprache erstellen',
+        "nl": '➕ Taal aanmaken',
     },
     "admin_dict_language_open_btn": {
         "ru": "🔍 Открыть язык",
@@ -15568,6 +17996,7 @@ translations = {
         "uk": "🔍 Відкрити мову",
         "pl": '🔍 Otwórz język',
         "de": '🔍 Sprache öffnen',
+        "nl": '🔍 Taal openen',
     },
     "admin_dict_language_open_prompt": {
         "ru": "Введите номер языка из текущего списка: 1-{count}.",
@@ -15576,6 +18005,7 @@ translations = {
         "uk": "Введіть номер мови з поточного списку: 1-{count}.",
         "pl": 'Wprowadź numer języka z bieżącej listy: 1-{count}.',
         "de": 'Geben Sie die Sprachnummer aus der aktuellen Liste ein: 1-{count}.',
+        "nl": 'Voer het taalnummer uit de huidige lijst in: 1-{count}.',
     },
     "admin_dict_language_open_bad_number": {
         "ru": "Неверный номер. Введите число от 1 до {count}.",
@@ -15587,6 +18017,7 @@ translations = {
             'Ungültige Nummer. Geben Sie eine Nummer zwischen 1 und {count} '
             'ein.'
         ),
+        "nl": 'Ongeldig nummer. Voer een nummer in tussen 1 en {count}.',
     },
     "admin_dict_language_card": {
         "ru": "Язык\n\nНазвание: {title}\nКод: {code}\nРодное название: {native_name}\nСтатус: {status}\nСвязи со специалистами: {specialist_links}",
@@ -15611,6 +18042,15 @@ translations = {
             'Status: {status}\n'
             'Links für Spezialisten: {specialist_links}'
         ),
+        "nl": (
+            'Taal\n'
+            '\n'
+            'Titel: {title}\n'
+            'Code: {code}\n'
+            'Oorspronkelijke naam: {native_name}\n'
+            'Status: {status}\n'
+            'Links naar specialisten: {specialist_links}'
+        ),
     },
     "admin_dict_language_rename_btn": {
         "ru": "✏️ Переименовать",
@@ -15619,6 +18059,7 @@ translations = {
         "uk": "✏️ Перейменувати",
         "pl": '✏️ Zmień nazwę',
         "de": '✏️ Umbenennen',
+        "nl": '✏️ Hernoemen',
     },
     "admin_dict_language_toggle_btn": {
         "ru": "👁 Скрыть / показать",
@@ -15627,6 +18068,7 @@ translations = {
         "uk": "👁 Приховати / показати",
         "pl": '👁 Ukryj / pokaż',
         "de": '👁 Ausblenden / Einblenden',
+        "nl": '👁 Verbergen / weergeven',
     },
     "admin_dict_language_create_prompt": {
         "ru": "Введите язык в формате:\ncode | name | native_name\n\nПример:\nfr | French | Français",
@@ -15647,6 +18089,13 @@ translations = {
             'Beispiel:\n'
             'fr | Französisch | Français'
         ),
+        "nl": (
+            'Voer de taal in dit formaat in:\n'
+            'code | name | native_name\n'
+            '\n'
+            'Voorbeeld:\n'
+            'fr | Frans | Français'
+        ),
     },
     "admin_dict_language_create_done": {
         "ru": "Язык создан.",
@@ -15655,6 +18104,7 @@ translations = {
         "uk": "Мову створено.",
         "pl": 'Język utworzony.',
         "de": 'Sprache angelegt.',
+        "nl": 'Taal aangemaakt.',
     },
     "admin_dict_language_bad_format": {
         "ru": "Неверный формат. Используйте:\ncode | name | native_name\n\nПример:\nfr | French | Français",
@@ -15675,6 +18125,13 @@ translations = {
             'Beispiel:\n'
             'fr | Französisch | Français'
         ),
+        "nl": (
+            'Ongeldige indeling. Gebruik:\n'
+            'code | name | native_name\n'
+            '\n'
+            'Voorbeeld:\n'
+            'fr | Frans | Français'
+        ),
     },
     "admin_dict_language_code_invalid": {
         "ru": "Код языка должен быть латиницей от 2 до 10 символов. Например: fr, de, es.",
@@ -15689,6 +18146,10 @@ translations = {
             'Der Sprachcode muss aus 2 bis 10 lateinischen Buchstaben '
             'bestehen. Zum Beispiel: fr, de, es.'
         ),
+        "nl": (
+            'De taalcode moet uit 2 tot 10 Latijnse letters bestaan. '
+            'Bijvoorbeeld: fr, de, es.'
+        ),
     },
     "admin_dict_language_name_empty": {
         "ru": "Название языка слишком короткое.",
@@ -15697,6 +18158,7 @@ translations = {
         "uk": "Назва мови занадто коротка.",
         "pl": 'Nazwa języka jest zbyt krótka.',
         "de": 'Der Sprachname ist zu kurz.',
+        "nl": 'De taalnaam is te kort.',
     },
     "admin_dict_language_code_duplicate": {
         "ru": "Язык с таким кодом уже есть.",
@@ -15705,6 +18167,7 @@ translations = {
         "uk": "Мова з таким кодом вже є.",
         "pl": 'Język o tym kodzie już istnieje.',
         "de": 'Eine Sprache mit diesem Code existiert bereits.',
+        "nl": 'Er bestaat al een taal met deze code.',
     },
     "admin_dict_language_name_duplicate": {
         "ru": "Язык с таким названием уже есть.",
@@ -15713,6 +18176,7 @@ translations = {
         "uk": "Мова з такою назвою вже є.",
         "pl": 'Język o tej nazwie już istnieje.',
         "de": 'Eine Sprache mit diesem Namen existiert bereits.',
+        "nl": 'Er bestaat al een taal met deze naam.',
     },
     "admin_dict_language_rename_prompt": {
         "ru": "Введите новое название языка в формате:\nname | native_name\n\nПример:\nPortuguese | Português\n\nКод языка не меняется, чтобы не ломать связи со специалистами.",
@@ -15739,6 +18203,16 @@ translations = {
             'Der Sprachcode wird nicht geändert, um die Sicherheit der '
             'Fachlinks zu gewährleisten.'
         ),
+        "nl": (
+            'Voer de nieuwe taalnaam in dit formaat in:\n'
+            'name | native_name\n'
+            '\n'
+            'Voorbeeld:\n'
+            'Portugees | Português\n'
+            '\n'
+            'De taalcode wordt niet gewijzigd om specialistische links te '
+            'behouden.'
+        ),
     },
     "admin_dict_language_rename_done": {
         "ru": "Название языка обновлено.",
@@ -15747,6 +18221,7 @@ translations = {
         "uk": "Назву мови оновлено.",
         "pl": 'Zaktualizowano nazwę języka.',
         "de": 'Sprachname aktualisiert.',
+        "nl": 'Taalnaam bijgewerkt.',
     },
     "admin_dict_language_visibility_done": {
         "ru": "Видимость языка обновлена.",
@@ -15755,6 +18230,7 @@ translations = {
         "uk": "Видимість мови оновлено.",
         "pl": 'Zaktualizowano widoczność języka.',
         "de": 'Sichtbarkeit der Sprache aktualisiert.',
+        "nl": 'De zichtbaarheid van de taal is bijgewerkt.',
     },
     "admin_dict_countries_title": {
         "ru": "Страны\nПоказано: {count}",
@@ -15763,6 +18239,7 @@ translations = {
         "uk": "Країни\nПоказано: {count}",
         "pl": 'Kraje\nWyświetlane: {count}',
         "de": 'Länder\nAngezeigt: {count}',
+        "nl": 'Landen\nWeergegeven: {count}',
     },
     "admin_dict_countries_empty": {
         "ru": "Страны не найдены.",
@@ -15771,6 +18248,7 @@ translations = {
         "uk": "Країн не знайдено.",
         "pl": 'Nie znaleziono żadnych krajów.',
         "de": 'Keine Länder gefunden.',
+        "nl": 'Geen landen gevonden.',
     },
     "admin_dict_country_row": {
         "ru": "{number}. {title}\nКод: {code}\nСтатус: {status}\nГородов: {cities} | Профессиональных кабинетов: {professional_cabinets}",
@@ -15789,6 +18267,13 @@ translations = {
             'Status: {status}\n'
             'Städte: {cities} | Berufsprofile: {professional_cabinets}'
         ),
+        "nl": (
+            '{number}. {title}\n'
+            'Code: {code}\n'
+            'Status: {status}\n'
+            'Steden: {cities} | Professionele profielen: '
+            '{professional_cabinets}'
+        ),
     },
     "admin_dict_country_open_btn": {
         "ru": "🔍 Открыть страну",
@@ -15797,6 +18282,7 @@ translations = {
         "uk": "🔍 Відкрити країну",
         "pl": '🔍 Wybierz kraj',
         "de": '🔍 Land auswählen',
+        "nl": '🔍 Land selecteren',
     },
     "admin_dict_country_open_prompt": {
         "ru": "Введите номер страны из текущего списка: 1-{count}.",
@@ -15808,6 +18294,7 @@ translations = {
             'Geben Sie eine Länderkennung aus der aktuellen Liste ein: '
             '1–{count}.'
         ),
+        "nl": 'Voer een landnummer in uit de huidige lijst: 1-{count}.',
     },
     "admin_dict_country_open_bad_number": {
         "ru": "Неверный номер. Введите число от 1 до {count}.",
@@ -15819,6 +18306,7 @@ translations = {
             'Ungültige Nummer. Geben Sie eine Nummer zwischen 1 und {count} '
             'ein.'
         ),
+        "nl": 'Ongeldig nummer. Voer een nummer in tussen 1 en {count}.',
     },
     "admin_dict_country_card": {
         "ru": "Страна\n\nНазвание: {title}\nКод: {code}\nСтатус: {status}\nЯзык по умолчанию: {default_language}\nВалюта: {default_currency}\nТелефонный код: {phone_code}\nГородов: {cities}\nПрофессиональных кабинетов: {professional_cabinets}",
@@ -15849,6 +18337,18 @@ translations = {
             'Städte: {cities}\n'
             'Berufsprofile: {professional_cabinets}'
         ),
+        "nl": (
+            'Land\n'
+            '\n'
+            'Titel: {title}\n'
+            'Code: {code}\n'
+            'Status: {status}\n'
+            'Standaardtaal: {default_language}\n'
+            'Valuta: {default_currency}\n'
+            'Telefooncode: {phone_code}\n'
+            'Steden: {cities}\n'
+            'Profielen: {professional_cabinets}'
+        ),
     },
     "admin_dict_country_cities_btn": {
         "ru": "🏙 Города страны",
@@ -15857,6 +18357,7 @@ translations = {
         "uk": "🏙 Міста країни",
         "pl": '🏙 Miasta w kraju',
         "de": '🏙 Städte des Landes',
+        "nl": '🏙 Steden in het land',
     },
     "admin_dict_cities_title": {
         "ru": "Города\nПоказано: {count}",
@@ -15865,6 +18366,7 @@ translations = {
         "uk": "Міста\nПоказано: {count}",
         "pl": 'Miasta\nWyświetlono: {count}',
         "de": 'Städte\nAngezeigt: {count}',
+        "nl": 'Steden\nWeergegeven: {count}',
     },
     "admin_dict_cities_empty": {
         "ru": "Города не найдены.",
@@ -15873,6 +18375,7 @@ translations = {
         "uk": "Міст не знайдено.",
         "pl": 'Nie znaleziono żadnych miast.',
         "de": 'Keine Städte gefunden.',
+        "nl": 'Geen steden gevonden.',
     },
     "admin_dict_city_row": {
         "ru": "{number}. {title}\nСтатус: {status}\nЧасовой пояс: {timezone}\nПрофессиональных кабинетов: {professional_cabinets}",
@@ -15891,6 +18394,12 @@ translations = {
             'Zeitzone: {timezone}\n'
             'Berufsprofile: {professional_cabinets}'
         ),
+        "nl": (
+            '{number}. {title}\n'
+            'Status: {status}\n'
+            'Tijdzone: {timezone}\n'
+            'Profielen: {professional_cabinets}'
+        ),
     },
     "admin_dict_city_open_btn": {
         "ru": "🔍 Открыть город",
@@ -15899,6 +18408,7 @@ translations = {
         "uk": "🔍 Відкрити місто",
         "pl": '🔍 Wybierz miasto',
         "de": '🔍 Stadt auswählen',
+        "nl": '🔍 Stad kiezen',
     },
     "admin_dict_city_open_prompt": {
         "ru": "Введите номер города из текущего списка: 1-{count}.",
@@ -15907,6 +18417,7 @@ translations = {
         "uk": "Введіть номер міста з поточного списку: 1-{count}.",
         "pl": 'Wprowadź numer miasta z aktualnej listy: 1–{count}.',
         "de": 'Geben Sie die Stadtnummer aus der aktuellen Liste ein: 1–{count}.',
+        "nl": 'Voer een stadsnummer in uit de huidige lijst: 1-{count}.',
     },
     "admin_dict_city_open_bad_number": {
         "ru": "Неверный номер. Введите число от 1 до {count}.",
@@ -15918,6 +18429,7 @@ translations = {
             'Ungültige Nummer. Geben Sie eine Nummer zwischen 1 und {count} '
             'ein.'
         ),
+        "nl": 'Ongeldig nummer. Voer een nummer in tussen 1 en {count}.',
     },
     "admin_dict_city_card": {
         "ru": "Город\n\nНазвание: {title}\nСтрана: {country}\nСтатус: {status}\nЧасовой пояс: {timezone}\nКоординаты: {coordinates}\nПрофессиональных кабинетов: {professional_cabinets}",
@@ -15944,6 +18456,16 @@ translations = {
             'Koordinaten: {coordinates}\n'
             'Berufsprofile: {professional_cabinets}'
         ),
+        "nl": (
+            'Stad\n'
+            '\n'
+            'Titel: {title}\n'
+            'Land: {country}\n'
+            'Status: {status}\n'
+            'Tijdzone: {timezone}\n'
+            'Coördinaten: {coordinates}\n'
+            'Profielen: {professional_cabinets}'
+        ),
     },
     "admin_dict_country_toggle_btn": {
         "ru": "👁 Скрыть / показать",
@@ -15952,6 +18474,7 @@ translations = {
         "uk": "👁 Приховати / показати",
         "pl": '👁 Ukryj / pokaż',
         "de": '👁 Ausblenden / Einblenden',
+        "nl": '👁 Verbergen / weergeven',
     },
     "admin_dict_country_visibility_done": {
         "ru": "Видимость страны обновлена.",
@@ -15960,6 +18483,7 @@ translations = {
         "uk": "Видимість країни оновлено.",
         "pl": 'Zaktualizowano widoczność kraju.',
         "de": 'Ländersichtbarkeit aktualisiert.',
+        "nl": 'Zichtbaarheid per land bijgewerkt.',
     },
     "admin_dict_city_toggle_btn": {
         "ru": "👁 Скрыть / показать",
@@ -15968,6 +18492,7 @@ translations = {
         "uk": "👁 Приховати / показати",
         "pl": '👁 Ukryj / pokaż',
         "de": '👁 Ausblenden / anzeigen',
+        "nl": '👁 Verbergen / weergeven',
     },
     "admin_dict_city_visibility_done": {
         "ru": "Видимость города обновлена.",
@@ -15976,6 +18501,7 @@ translations = {
         "uk": "Видимість міста оновлено.",
         "pl": 'Zaktualizowano widoczność miasta.',
         "de": 'Sichtbarkeit der Stadt aktualisiert.',
+        "nl": 'Zichtbaarheid van de stad bijgewerkt.',
     },
     "admin_dict_country_update_btn": {
         "ru": "✏️ Редактировать страну",
@@ -15984,6 +18510,7 @@ translations = {
         "uk": "✏️ Редагувати країну",
         "pl": '✏️ Edytuj kraj',
         "de": '✏️ Land bearbeiten',
+        "nl": '✏️ Land bewerken',
     },
     "admin_dict_country_update_prompt": {
         "ru": "Введите данные страны в формате:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code\n\nПример:\nPoland | Польша | Poland | Polônia | pl | PLN | +48",
@@ -16006,6 +18533,14 @@ translations = {
             'Beispiel:\n'
             'Polen | Польша | Poland | Polônia | pl | PLN | +48'
         ),
+        "nl": (
+            'Voer de landgegevens in dit formaat in:\n'
+            'name | name_ru | name_en | name_pt | default_language | '
+            'default_currency | phone_code\n'
+            '\n'
+            'Voorbeeld:\n'
+            'Polen | Польша | Poland | Polônia | pl | PLN | +48'
+        ),
     },
     "admin_dict_country_update_done": {
         "ru": "Страна обновлена.",
@@ -16014,6 +18549,7 @@ translations = {
         "uk": "Країну оновлено.",
         "pl": 'Kraj zaktualizowany.',
         "de": 'Land aktualisiert.',
+        "nl": 'Land bijgewerkt.',
     },
     "admin_dict_country_update_bad_format": {
         "ru": "Неверный формат. Используйте:\nname | name_ru | name_en | name_pt | default_language | default_currency | phone_code",
@@ -16030,6 +18566,11 @@ translations = {
             'name | name_ru | name_en | name_pt | default_language | '
             'default_currency | phone_code'
         ),
+        "nl": (
+            'Ongeldige indeling. Gebruik:\n'
+            'name | name_ru | name_en | name_pt | default_language | '
+            'default_currency | phone_code'
+        ),
     },
     "admin_dict_country_update_name_empty": {
         "ru": "Название страны слишком короткое.",
@@ -16038,6 +18579,7 @@ translations = {
         "uk": "Назва країни занадто коротка.",
         "pl": 'Nazwa kraju jest zbyt krótka.',
         "de": 'Der Ländername ist zu kurz.',
+        "nl": 'De landnaam is te kort.',
     },
     "admin_dict_city_update_btn": {
         "ru": "✏️ Редактировать город",
@@ -16046,6 +18588,7 @@ translations = {
         "uk": "✏️ Редагувати місто",
         "pl": '✏️ Edytuj miasto',
         "de": '✏️ Stadt bearbeiten',
+        "nl": '✏️ Stad bewerken',
     },
     "admin_dict_city_update_prompt": {
         "ru": "Введите данные города в формате:\nname | name_ru | name_en | name_pt | timezone\n\nПример:\nTallinn | Таллинн | Tallinn | Tallinn | Europe/Tallinn",
@@ -16066,6 +18609,13 @@ translations = {
             'Beispiel:\n'
             'Tallinn | Таллинн | Tallinn | Tallinn | Europe/Tallinn'
         ),
+        "nl": (
+            'Voer de gegevens van de stad in dit formaat in:\n'
+            'name | name_ru | name_en | name_pt | timezone\n'
+            '\n'
+            'Voorbeeld:\n'
+            'Tallinn | Таллинн | Tallinn | Tallinn | Europe/Tallinn'
+        ),
     },
     "admin_dict_city_update_done": {
         "ru": "Город обновлен.",
@@ -16074,6 +18624,7 @@ translations = {
         "uk": "Місто оновлено.",
         "pl": 'Miasto zaktualizowane.',
         "de": 'Stadt aktualisiert.',
+        "nl": 'Stad bijgewerkt.',
     },
     "admin_dict_city_update_bad_format": {
         "ru": "Неверный формат. Используйте:\nname | name_ru | name_en | name_pt | timezone",
@@ -16088,6 +18639,10 @@ translations = {
             'Ungültiges Format. Verwenden Sie:\n'
             'name | name_ru | name_en | name_pt | timezone'
         ),
+        "nl": (
+            'Ongeldige indeling. Gebruik:\n'
+            'name | name_ru | name_en | name_pt | timezone'
+        ),
     },
     "admin_dict_city_update_name_empty": {
         "ru": "Название города слишком короткое.",
@@ -16096,6 +18651,7 @@ translations = {
         "uk": "Назва міста занадто коротка.",
         "pl": 'Nazwa miasta jest zbyt krótka.',
         "de": 'Der Name der Stadt ist zu kurz.',
+        "nl": 'De naam van de stad is te kort.',
     },
     "admin_dict_city_update_latitude_invalid": {
         "ru": "Широта должна быть числом от -90 до 90.",
@@ -16104,6 +18660,7 @@ translations = {
         "uk": "Широта має бути числом від -90 до 90.",
         "pl": 'Szerokość geograficzna musi być liczbą z przedziału od -90 do 90.',
         "de": 'Der Breitengrad muss eine Zahl zwischen -90 und 90 sein.',
+        "nl": 'De breedtegraad moet een getal zijn tussen -90 en 90.',
     },
     "admin_dict_city_update_longitude_invalid": {
         "ru": "Долгота должна быть числом от -180 до 180.",
@@ -16112,6 +18669,7 @@ translations = {
         "uk": "Довгота має бути числом від -180 до 180.",
         "pl": 'Długość geograficzna musi być liczbą z przedziału od -180 do 180.',
         "de": 'Der Längengrad muss eine Zahl zwischen -180 und 180 sein.',
+        "nl": 'De lengtegraad moet een getal zijn tussen -180 en 180.',
     },
     "admin_dict_city_geo_update_btn": {
         "ru": "📍 Обновить координаты",
@@ -16120,6 +18678,7 @@ translations = {
         "uk": "📍 Оновити координати",
         "pl": '📍 Zaktualizuj współrzędne',
         "de": '📍 Koordinaten aktualisieren',
+        "nl": '📍 Coördinaten bijwerken',
     },
     "admin_dict_city_geo_update_prompt": {
         "ru": "Введите координаты города в формате:\nlat, lon\n\nПример:\n38.7223, -9.1393",
@@ -16140,6 +18699,13 @@ translations = {
             'Beispiel:\n'
             '38,7223, -9,1393'
         ),
+        "nl": (
+            'Voer de coördinaten van de stad in dit formaat in:\n'
+            'lat, lon\n'
+            '\n'
+            'Voorbeeld:\n'
+            '38,7223, -9,1393'
+        ),
     },
     "admin_dict_city_geo_update_done": {
         "ru": "Координаты города обновлены.",
@@ -16148,6 +18714,7 @@ translations = {
         "uk": "Координати міста оновлено.",
         "pl": 'Współrzędne miasta zostały zaktualizowane.',
         "de": 'Stadtkoordinaten aktualisiert.',
+        "nl": 'De coördinaten van de stad zijn bijgewerkt.',
     },
     "admin_dict_city_geo_bad_format": {
         "ru": "Неверный формат. Используйте:\nlat, lon\n\nПример:\n38.7223, -9.1393",
@@ -16168,6 +18735,13 @@ translations = {
             'Beispiel:\n'
             '38,7223, -9,1393'
         ),
+        "nl": (
+            'Ongeldige indeling. Gebruik:\n'
+            'lat, lon\n'
+            '\n'
+            'Voorbeeld:\n'
+            '38,7223, -9,1393'
+        ),
     },
     "admin_dict_city_geo_latitude_invalid": {
         "ru": "Широта должна быть числом от -90 до 90.",
@@ -16176,6 +18750,7 @@ translations = {
         "uk": "Широта має бути числом від -90 до 90.",
         "pl": 'Szerokość geograficzna musi być liczbą z przedziału od -90 do 90.',
         "de": 'Der Breitengrad muss eine Zahl zwischen -90 und 90 sein.',
+        "nl": 'De breedtegraad moet een getal zijn tussen -90 en 90.',
     },
     "admin_dict_city_geo_longitude_invalid": {
         "ru": "Долгота должна быть числом от -180 до 180.",
@@ -16184,6 +18759,7 @@ translations = {
         "uk": "Довгота має бути числом від -180 до 180.",
         "pl": 'Długość geograficzna musi być liczbą z przedziału od -180 do 180.',
         "de": 'Der Längengrad muss eine Zahl zwischen -180 und 180 sein.',
+        "nl": 'De lengtegraad moet een getal zijn tussen -180 en 180.',
     },
     "admin_dict_country_create_btn": {
         "ru": "➕ Создать страну",
@@ -16192,6 +18768,7 @@ translations = {
         "uk": "➕ Створити країну",
         "pl": '➕ Utwórz kraj',
         "de": '➕ Land anlegen',
+        "nl": '➕ Land aanmaken',
     },
     "admin_dict_country_create_prompt": {
         "ru": "Введите страну в формате:\ncode | name_ru | name_en | name_pt\n\nПример:\nLV | Латвия | Latvia | Letônia\n\nВалюту, язык по умолчанию и телефонный код можно добавить позже через редактирование страны.",
@@ -16218,6 +18795,16 @@ translations = {
             'Währung, Standardsprache und Vorwahl können später durch '
             'Bearbeiten des Landes hinzugefügt werden.'
         ),
+        "nl": (
+            'Voer het land in dit formaat in:\n'
+            'code | name_ru | name_en | name_pt\n'
+            '\n'
+            'Voorbeeld:\n'
+            'LV | Латвия | Letland | Letônia\n'
+            '\n'
+            'Valuta, standaardtaal en telefooncode kunnen later worden '
+            'toegevoegd door het land te bewerken.'
+        ),
     },
     "admin_dict_country_create_done": {
         "ru": "Страна создана.",
@@ -16226,6 +18813,7 @@ translations = {
         "uk": "Країну створено.",
             "pl": 'Kraj utworzony.',
             "de": 'Land angelegt.',
+            "nl": 'Land aangemaakt.',
         },
     "admin_dict_country_create_bad_format": {
         "ru": "Неверный формат. Используйте:\ncode | name_ru | name_en | name_pt\n\nПример:\nLV | Латвия | Latvia | Letônia",
@@ -16246,6 +18834,13 @@ translations = {
             'Beispiel:\n'
             'LV | Латвия | Lettland | Letônia'
         ),
+        "nl": (
+            'Ongeldige indeling. Gebruik:\n'
+            'code | name_ru | name_en | name_pt\n'
+            '\n'
+            'Voorbeeld:\n'
+            'LV | Латвия | Letland | Letônia'
+        ),
     },
     "admin_dict_country_code_invalid": {
         "ru": "Код страны должен быть ISO-2: две латинские буквы. Например: LV, EE, PL.",
@@ -16260,6 +18855,10 @@ translations = {
             'Der Ländercode muss dem ISO-2-Standard entsprechen: zwei '
             'lateinische Buchstaben. Zum Beispiel: LV, EE, PL.'
         ),
+        "nl": (
+            'De landcode moet voldoen aan ISO-2: twee Latijnse letters. '
+            'Bijvoorbeeld: LV, EE, PL.'
+        ),
     },
     "admin_dict_country_create_name_empty": {
         "ru": "Все три названия страны должны быть заполнены: RU, EN и PT.",
@@ -16268,6 +18867,7 @@ translations = {
         "uk": "Усі три назви країни мають бути заповнені: RU, EN і PT.",
         "pl": 'Należy podać wszystkie trzy nazwy kraju: RU, EN i PT.',
         "de": 'Alle drei Ländernamen müssen angegeben werden: RU, EN und PT.',
+        "nl": 'Alle drie de landnamen moeten worden ingevuld: RU, EN en PT.',
     },
     "admin_dict_country_code_duplicate": {
         "ru": "Страна с таким кодом уже есть.",
@@ -16276,6 +18876,7 @@ translations = {
         "uk": "Країна з таким кодом вже є.",
         "pl": 'Kraj o tym kodzie już istnieje.',
         "de": 'Ein Land mit diesem Code existiert bereits.',
+        "nl": 'Er bestaat al een land met deze code.',
     },
     "admin_dict_country_name_duplicate": {
         "ru": "Страна с таким названием уже есть.",
@@ -16284,6 +18885,7 @@ translations = {
         "uk": "Країна з такою назвою вже є.",
         "pl": 'Kraj o tej nazwie już istnieje.',
         "de": 'Ein Land mit diesem Namen existiert bereits.',
+        "nl": 'Er bestaat al een land met deze naam.',
     },
     "admin_dict_city_create_btn": {
         "ru": "➕ Создать город",
@@ -16292,6 +18894,7 @@ translations = {
         "uk": "➕ Створити місто",
         "pl": '➕ Utwórz miasto',
         "de": '➕ Stadt anlegen',
+        "nl": '➕ Stad aanmaken',
     },
     "admin_dict_city_create_prompt": {
         "ru": "Введите город для выбранной страны в формате:\nname_ru | name_en | name_pt | timezone\n\nПример:\nРига | Riga | Riga | Europe/Riga\n\nКоординаты добавляются отдельно через кнопку “Обновить координаты”.",
@@ -16320,6 +18923,17 @@ translations = {
             'Koordinaten werden separat über die Schaltfläche „Koordinaten '
             'aktualisieren“ hinzugefügt.'
         ),
+        "nl": (
+            'Voer de stad voor het geselecteerde land in volgens dit '
+            'formaat:\n'
+            'name_ru | name_en | name_pt | timezone\n'
+            '\n'
+            'Voorbeeld:\n'
+            'Рига | Riga | Riga | Europe/Riga\n'
+            '\n'
+            'Coördinaten worden apart toegevoegd met de knop ‘Coördinaten '
+            'bijwerken’.'
+        ),
     },
     "admin_dict_city_create_done": {
         "ru": "Город создан.",
@@ -16328,6 +18942,7 @@ translations = {
         "uk": "Місто створено.",
         "pl": 'Miasto zostało założone.',
         "de": 'Stadt gegründet.',
+        "nl": 'Stad gesticht.',
     },
 "admin_dict_city_create_bad_format": {
         "ru": "Неверный формат. Используйте:\nname_ru | name_en | name_pt | timezone",
@@ -16342,6 +18957,10 @@ translations = {
             'Ungültiges Format. Verwenden Sie:\n'
             'name_ru | name_en | name_pt | timezone'
         ),
+        "nl": (
+            'Ongeldige indeling. Gebruik:\n'
+            'name_ru | name_en | name_pt | timezone'
+        ),
     },
     "admin_dict_city_create_name_empty": {
         "ru": "Все три названия города должны быть заполнены: RU, EN и PT.",
@@ -16350,6 +18969,7 @@ translations = {
         "uk": "Усі три назви міста мають бути заповнені: RU, EN та PT.",
         "pl": 'Należy podać nazwy wszystkich trzech miast: RU, EN i PT.',
         "de": 'Alle drei Städtenamen müssen angegeben werden: RU, EN und PT.',
+        "nl": 'Alle drie de stadsnamen moeten worden ingevuld: RU, EN en PT.',
     },
     "admin_dict_city_name_duplicate": {
         "ru": "Город с таким названием уже есть в этой стране.",
@@ -16358,6 +18978,7 @@ translations = {
         "uk": "Місто з такою назвою вже є в цій країні.",
         "pl": 'W tym kraju istnieje już miasto o tej nazwie.',
         "de": 'Eine Stadt mit diesem Namen existiert bereits in diesem Land.',
+        "nl": 'Er bestaat al een stad met deze naam in dit land.',
     },
     "admin_dict_country_import_btn": {
         "ru": "⬆️ Импорт стран",
@@ -16366,6 +18987,7 @@ translations = {
         "uk": "⬆️ Імпорт країн",
         "pl": '⬆️ Kraje importu',
         "de": '⬆️ Importländer',
+        "nl": '⬆️ Importlanden',
     },
     "admin_dict_city_import_btn": {
         "ru": "⬆️ Импорт городов",
@@ -16374,6 +18996,7 @@ translations = {
         "uk": "⬆️ Імпорт міст",
         "pl": '⬆️ Miasta importujące',
         "de": '⬆️ Importstädte',
+        "nl": '⬆️ Importsteden',
     },
     "admin_dict_country_import_prompt": {
         "ru": (
@@ -16425,6 +19048,16 @@ translations = {
             'code,name_ru,name_en,name_pt,default_language,default_currency,phone_code\n'
             '\n'
             'Beispiel:\n'
+            'LV,Латвия,Latvia,Letônia,lv,EUR,+371\n'
+            'EE,Эстония,Estonia,Estônia,et,EUR,+372'
+        ),
+        "nl": (
+            'CSV verzenden naar importlanden.\n'
+            '\n'
+            'Formaat:\n'
+            'code,name_ru,name_en,name_pt,default_language,default_currency,phone_code\n'
+            '\n'
+            'Voorbeeld:\n'
             'LV,Латвия,Latvia,Letônia,lv,EUR,+371\n'
             'EE,Эстония,Estonia,Estônia,et,EUR,+372'
         ),
@@ -16484,6 +19117,17 @@ translations = {
             'Рига,Riga,Riga,Europe/Riga,56.9496,24.1052\n'
             'Даугавпилс,Daugavpils,Daugavpils,Europe/Riga,55.8714,26.5161'
         ),
+        "nl": (
+            'Stuur een CSV-bestand om steden voor het geselecteerde land te '
+            'importeren.\n'
+            '\n'
+            'Indeling:\n'
+            'name_ru,name_en,name_pt,tijdzone,breedtegraad,lengtegraad\n'
+            '\n'
+            'Voorbeeld:\n'
+            'Рига,Riga,Riga,Europe/Riga,56.9496,24.1052\n'
+            'Даугавпилс,Daugavpils,Daugavpils,Europe/Riga,55.8714,26.5161'
+        ),
     },
     "admin_dict_import_empty": {
         "ru": "CSV пустой. Отправьте текст с заголовком и строками данных.",
@@ -16497,6 +19141,10 @@ translations = {
         "de": (
             'Die CSV-Datei ist leer. Senden Sie Text mit einer Kopfzeile und '
             'Datenzeilen.'
+        ),
+        "nl": (
+            'Het CSV-bestand is leeg. Stuur tekst met een koptekst en '
+            'gegevensrijen.'
         ),
     },
     "admin_dict_import_done": {
@@ -16548,6 +19196,16 @@ translations = {
             'Fehler:\n'
             '{errors}'
         ),
+        "nl": (
+            'Import voltooid.\n'
+            '\n'
+            'Aangemaakt: {created}\n'
+            'Bijgewerkt: {updated}\n'
+            'Overgeslagen: {skipped}\n'
+            '\n'
+            'Fouten:\n'
+            '{errors}'
+        ),
     },
     "admin_dict_import_file_required": {
         "ru": "Отправьте CSV текстом или прикрепите .csv файл.",
@@ -16559,6 +19217,7 @@ translations = {
             'Senden Sie die CSV-Datei als Text oder fügen Sie eine CSV-Datei '
             'als Anhang hinzu.'
         ),
+        "nl": 'Stuur CSV als tekst of voeg een .csv-bestand toe.',
     },
     "admin_dict_import_file_invalid": {
         "ru": "Нужен файл в формате .csv.",
@@ -16567,6 +19226,7 @@ translations = {
         "uk": "Потрібен файл у форматі .csv.",
         "pl": 'Wymagany jest plik .csv.',
         "de": 'Eine CSV-Datei ist erforderlich.',
+        "nl": 'Een .csv-bestand is vereist.',
     },
     "admin_dict_import_file_encoding_error": {
         "ru": "Не удалось прочитать CSV. Сохраните файл в UTF-8 и отправьте снова.",
@@ -16581,6 +19241,10 @@ translations = {
             'Die CSV-Datei konnte nicht gelesen werden. Speichern Sie die '
             'Datei im UTF-8-Format und senden Sie sie erneut.'
         ),
+        "nl": (
+            'CSV-bestand kon niet worden gelezen. Sla het bestand op als '
+            'UTF-8 en verstuur het opnieuw.'
+        ),
     },
     "admin_dict_specialist_move_empty": {
         "ru": "Выберите хотя бы одного специалиста для переноса.",
@@ -16592,6 +19256,7 @@ translations = {
             'Wählen Sie mindestens einen Spezialisten aus, der versetzt '
             'werden soll.'
         ),
+        "nl": 'Selecteer ten minste één specialist om te verplaatsen.',
     },
     "admin_dict_specialist_move_btn": {
         "ru": "🔀 Перенести специалистов",
@@ -16600,6 +19265,7 @@ translations = {
         "uk": "🔀 Перенести спеціалістів",
         "pl": '🔀 Przenieś specjalistów',
         "de": '🔀 Spezialisten versetzen',
+        "nl": '🔀 Specialisten verplaatsen',
     },
     "admin_dict_specialist_move_select_prompt": {
         "ru": (
@@ -16630,6 +19296,12 @@ translations = {
             '\n'
             'Beispiel: 1, 3, 5'
         ),
+        "nl": (
+            'Voer de nummers van de specialisten uit de huidige lijst in, '
+            "gescheiden door komma's.\n"
+            '\n'
+            'Voorbeeld: 1, 3, 5'
+        ),
     },
     "admin_dict_specialist_move_bad_numbers": {
         "ru": "Неверные номера. Введите числа из текущего списка: 1-{count}.",
@@ -16640,6 +19312,10 @@ translations = {
         "de": (
             'Ungültige Nummern. Geben Sie Nummern aus der aktuellen Liste '
             'ein: 1-{count}.'
+        ),
+        "nl": (
+            'Ongeldige nummers. Voer nummers uit de huidige lijst in: '
+            '1-{count}.'
         ),
     },
     "admin_dict_specialist_move_target_prompt": {
@@ -16675,6 +19351,12 @@ translations = {
             '\n'
             'Beispiel: electrician_general'
         ),
+        "nl": (
+            'Voer het nummer van het gewenste beroep uit de huidige '
+            'beroepenlijst of de exacte beroepscode in.\n'
+            '\n'
+            'Voorbeeld: electrician_general'
+        ),
     },
     "admin_dict_category_specialist_move_all_btn": {
         "ru": "🔁 Перенести всех из категории",
@@ -16683,6 +19365,7 @@ translations = {
         "uk": "🔁 Перенести всіх з категорії",
         "pl": '🔁 Przenieś wszystkie z kategorii',
         "de": '🔁 Alle aus der Kategorie verschieben',
+        "nl": '🔁 Alles uit categorie verplaatsen',
     },
     "admin_dict_specialist_move_all_btn": {
         "ru": "🔁 Перенести всех из направления",
@@ -16691,6 +19374,7 @@ translations = {
         "uk": "🔁 Перенести всіх з напрямку",
         "pl": '🔁 Przenieś wszystkie z zawodu',
         "de": '🔁 Alle aus dem Beruf verschieben',
+        "nl": '👉 Alles uit het beroep verplaatsen',
     },
     "admin_dict_specialist_move_target_not_found": {
         "ru": (
@@ -16716,6 +19400,10 @@ translations = {
         "de": (
             'Es wurde kein aktiver Beruf mit diesem Namen gefunden. '
             'Überprüfen Sie den Namen und versuchen Sie es erneut.'
+        ),
+        "nl": (
+            'Er is geen actief beroep met deze naam gevonden. Controleer de '
+            'naam en probeer het opnieuw.'
         ),
     },
     "admin_dict_specialist_move_target_multiple": {
@@ -16743,6 +19431,10 @@ translations = {
             'Es wurden mehrere Berufe mit diesem Namen gefunden.\n'
             'Gib die Nummer des gewünschten Berufs ein:'
         ),
+        "nl": (
+            'Er zijn meerdere beroepen met deze naam gevonden.\n'
+            'Voer het nummer van het gewenste beroep in:'
+        ),
     },
     "admin_dict_specialist_move_target_bad_number": {
         "ru": "Введите номер направления из показанного списка: 1-{count}.",
@@ -16754,6 +19446,7 @@ translations = {
             'Geben Sie eine Berufsnummer aus der angezeigten Liste ein: '
             '1-{count}.'
         ),
+        "nl": 'Voer een beroepsnummer in uit de weergegeven lijst: 1-{count}.',
     },
     "admin_dict_specialist_move_preview": {
         "ru": (
@@ -16824,6 +19517,20 @@ translations = {
             'Nach der Bestätigung werden nur die Zuordnungen zu '
             'Fachkategorien und Berufen geändert.'
         ),
+        "nl": (
+            'Bevestig de overdracht van de specialist.\n'
+            '\n'
+            'Van: {source_profession}\n'
+            'Categorie: {source_category}\n'
+            '\n'
+            'Naar: {target_profession}\n'
+            'Categorie: {target_category}\n'
+            '\n'
+            'Specialisten: {count}\n'
+            '\n'
+            'Na bevestiging worden alleen de relaties tussen de '
+            'specialistencategorieën en de beroepen gewijzigd.'
+        ),
     },
     "admin_dict_specialist_move_confirm_btn": {
         "ru": "✅ Подтвердить перенос",
@@ -16832,6 +19539,7 @@ translations = {
         "uk": "✅ Підтвердити перенесення",
         "pl": '✅ Potwierdź przeniesienie',
         "de": '✅ Übertragung bestätigen',
+        "nl": '✅ Overdracht bevestigen',
     },
     "admin_dict_specialist_move_cancel_btn": {
         "ru": "Отмена",
@@ -16840,6 +19548,7 @@ translations = {
         "uk": "Скасувати",
         "pl": 'Anuluj',
         "de": 'Abbrechen',
+        "nl": 'Annuleren',
     },
     "admin_dict_specialist_move_done": {
         "ru": (
@@ -16905,6 +19614,16 @@ translations = {
             'Aktive Profile synchronisiert: {synchronized_count}\n'
             'Spezialisten nicht gefunden: {missing_count}'
         ),
+        "nl": (
+            'Het bewerken van het professionele profiel is voltooid.\n'
+            '\n'
+            'Beroep: {target_profession}\n'
+            'Categorie: {target_category}\n'
+            'Aantal aangemaakte nieuwe profielen: {moved_count}\n'
+            'Gebruikte bestaande profielen: {duplicate_count}\n'
+            'Gesynchroniseerde actieve profielen: {synchronized_count}\n'
+            'Niet-gevonden specialisten: {missing_count}'
+        ),
     },
     "admin_dict_specialist_move_select_page_prompt": {
         "ru": (
@@ -16945,6 +19664,13 @@ translations = {
             'Verfügbare Nummern: {start}–{end}\n'
             'Beispiel: {example}'
         ),
+        "nl": (
+            'Voer de nummers van de specialisten uit de huidige lijst in, '
+            "gescheiden door komma's.\n"
+            '\n'
+            'Beschikbare nummers: {start}-{end}\n'
+            'Voorbeeld: {example}'
+        ),
     },
     "admin_dict_specialist_move_bad_page_numbers": {
         "ru": (
@@ -16970,6 +19696,10 @@ translations = {
         "de": (
             'Ungültige Nummern. Geben Sie Nummern aus der aktuellen Liste '
             'ein: {start}-{end}.'
+        ),
+        "nl": (
+            'Ongeldige nummers. Voer nummers uit de huidige lijst in: '
+            '{start}-{end}.'
         ),
     },
     "admin_dict_category_specialist_move_preview": {
@@ -17043,6 +19773,21 @@ translations = {
             'Quellkategorie werden verschoben oder archiviert. Profile, '
             'Bewertungen, Nachrichten, Aufträge und Zahlungen bleiben '
             'unverändert.'
+        ),
+        "nl": (
+            'Bevestig de overdracht vanuit de categorie.\n'
+            '\n'
+            'Broncategorie: {source_category}\n'
+            '\n'
+            'Doelberoep: {target_profession}\n'
+            'Doelcategorie: {target_category}\n'
+            '\n'
+            'Specialisten: {count}\n'
+            '\n'
+            'Actieve relaties van de geselecteerde specialisten binnen de '
+            'broncategorie worden verplaatst of gearchiveerd. Profielen, '
+            'beoordelingen, berichten, bestellingen en betalingen blijven '
+            'ongewijzigd.'
         ),
     },
     "admin_dict_category_specialist_move_done": {
@@ -17119,6 +19864,17 @@ translations = {
             'Aktive Profile synchronisiert: {synchronized_count}\n'
             'Spezialisten nicht gefunden: {missing_count}'
         ),
+        "nl": (
+            'Categorieprofielbewerking voltooid.\n'
+            '\n'
+            'Beroep: {target_profession}\n'
+            'Categorie: {target_category}\n'
+            'Aantal aangemaakte nieuwe profielen: {moved_count}\n'
+            'Gebruikte bestaande profielen: {duplicate_count}\n'
+            'Extra profielen gearchiveerd: {extra_cabinets_count}\n'
+            'Gesynchroniseerde actieve profielen: {synchronized_count}\n'
+            'Specialisten niet gevonden: {missing_count}'
+        ),
     },
     "admin_dict_move_target_category_prompt": {
         "ru": (
@@ -17147,6 +19903,11 @@ translations = {
             '\n'
             'Beispiel: Bau und Reparatur'
         ),
+        "nl": (
+            'Voer de exacte naam van de doelcategorie in.\n'
+            '\n'
+            'Voorbeeld: Bouw en reparatie'
+        ),
     },
     "admin_dict_target_category_not_found": {
         "ru": (
@@ -17173,6 +19934,10 @@ translations = {
             'Es wurde keine aktive Kategorie mit diesem Namen gefunden. '
             'Überprüfen Sie den Namen und versuchen Sie es erneut.'
         ),
+        "nl": (
+            'Er is geen actieve categorie met deze naam gevonden. Controleer '
+            'de naam en probeer het opnieuw.'
+        ),
     },
     "admin_dict_target_category_unavailable": {
         "ru": "Выбранная категория скрыта или находится в архиве.",
@@ -17181,6 +19946,7 @@ translations = {
         "uk": "Вибрана категорія прихована або перебуває в архіві.",
         "pl": 'Wybrana kategoria jest ukryta lub zarchiwizowana.',
         "de": 'Die ausgewählte Kategorie ist ausgeblendet oder archiviert.',
+        "nl": 'De geselecteerde categorie is verborgen of gearchiveerd.',
     },
     "admin_dict_target_category_multiple": {
         "ru": (
@@ -17207,6 +19973,10 @@ translations = {
             'Es wurden mehrere Kategorien mit diesem Namen gefunden.\n'
             'Geben Sie die gewünschte Kategorienummer ein:'
         ),
+        "nl": (
+            'Er zijn meerdere categorieën met deze naam gevonden.\n'
+            'Voer het gewenste categorienummer in:'
+        ),
     },
     "admin_dict_target_category_bad_number": {
         "ru": "Введите номер категории из показанного списка: 1-{count}.",
@@ -17218,6 +19988,7 @@ translations = {
             'Geben Sie eine Kategorienummer aus der angezeigten Liste ein: '
             '1-{count}.'
         ),
+        "nl": 'Voer een categorienummer in uit de weergegeven lijst: 1-{count}.',
     },
     "admin_dict_target_category_no_professions": {
         "ru": "В выбранной категории нет доступных направлений.",
@@ -17226,6 +19997,7 @@ translations = {
         "uk": "У вибраній категорії немає доступних напрямків.",
         "pl": 'W wybranej kategorii nie ma dostępnych zawodów.',
         "de": 'In der ausgewählten Kategorie sind keine Berufe verfügbar.',
+        "nl": 'De geselecteerde categorie bevat geen beschikbare beroepen.',
     },
     "admin_dict_move_professions_prompt": {
         "ru": (
@@ -17268,6 +20040,14 @@ translations = {
             '\n'
             'Beispiel: 1,3,5'
         ),
+        "nl": (
+            'Selecteer een of meer beroepen.\n'
+            "Voer de nummers in, gescheiden door komma's.\n"
+            '\n'
+            '{items}\n'
+            '\n'
+            'Voorbeeld: 1,3,5'
+        ),
     },
     "admin_dict_move_professions_bad_numbers": {
         "ru": "Введите номера направлений из списка: 1-{count}.",
@@ -17276,6 +20056,7 @@ translations = {
         "uk": "Введіть номери напрямків зі списку: 1-{count}.",
         "pl": 'Wprowadź numery profesji z listy: 1–{count}.',
         "de": 'Geben Sie die Berufsnummern aus der Liste ein: 1–{count}.',
+        "nl": 'Voer beroepsnummers uit de lijst in: 1-{count}.',
     },
     "admin_dict_move_mode_prompt": {
         "ru": "Выберите режим переноса направлений:",
@@ -17284,6 +20065,7 @@ translations = {
         "uk": "Виберіть режим перенесення напрямків:",
         "pl": 'Wybierz tryb przeniesienia zawodu:',
         "de": 'Wählen Sie den Berufsübertragungsmodus aus:',
+        "nl": 'Selecteer de modus voor beroepsoverschrijving:',
     },
     "admin_dict_move_mode_replace_btn": {
         "ru": "Заменить старые направления",
@@ -17292,6 +20074,7 @@ translations = {
         "uk": "Замінити старі напрямки",
         "pl": 'Zastąp stare profesje',
         "de": 'Alte Berufe ersetzen',
+        "nl": 'Oude beroepen vervangen',
     },
     "admin_dict_move_mode_add_btn": {
         "ru": "Добавить к существующим",
@@ -17300,6 +20083,7 @@ translations = {
         "uk": "Додати до наявних",
         "pl": 'Dodaj do istniejących profesji',
         "de": 'Zu bestehenden Berufen hinzufügen',
+        "nl": 'Toevoegen aan bestaande beroepen',
     },
     "admin_dict_move_choose_category": {
         "ru": "Выберите целевую категорию:",
@@ -17308,6 +20092,7 @@ translations = {
         "uk": "Виберіть цільову категорію:",
         "pl": 'Wybierz kategorię docelową:',
         "de": 'Wähle die Zielkategorie aus:',
+        "nl": 'Selecteer de doelcategorie:',
     },
     "admin_dict_move_choose_professions": {
         "ru": (
@@ -17334,6 +20119,10 @@ translations = {
             'Wählen Sie einen oder mehrere Berufe aus.\n'
             'Ausgewählte Berufe sind mit ✓ markiert.'
         ),
+        "nl": (
+            'Selecteer een of meer beroepen.\n'
+            'Geselecteerde beroepen worden gemarkeerd met ✓.'
+        ),
     },
     "admin_dict_move_selected_professions": {
         "ru": "Выбрано: {items}",
@@ -17342,6 +20131,7 @@ translations = {
         "uk": "Вибрано: {items}",
         "pl": 'Wybrano: {items}',
         "de": 'Ausgewählt: {items}',
+        "nl": 'Geselecteerd: {items}',
     },
     "admin_dict_move_selected_professions_empty": {
         "ru": "Выбрано: —",
@@ -17350,6 +20140,7 @@ translations = {
         "uk": "Вибрано: —",
         "pl": 'Wybrano: —',
         "de": 'Ausgewählt: —',
+        "nl": 'Geselecteerd: —',
     },
     "admin_dict_move_professions_done_btn": {
         "ru": "✅ Готово",
@@ -17358,6 +20149,7 @@ translations = {
         "uk": "✅ Готово",
         "pl": '✅ Gotowe',
         "de": '✅ Fertig',
+        "nl": '✅ Klaar',
     },
     "admin_dict_move_back_categories_btn": {
         "ru": "⬅️ Назад к категориям",
@@ -17366,6 +20158,7 @@ translations = {
         "uk": "⬅️ Назад до категорій",
         "pl": '⬅️ Powrót do kategorii',
         "de": '⬅️ Zurück zu den Kategorien',
+        "nl": '⬅️ Terug naar categorieën',
     },
     "admin_dict_move_mode_invalid": {
         "ru": "Выбран неизвестный режим переноса.",
@@ -17374,6 +20167,7 @@ translations = {
         "uk": "Вибрано невідомий режим перенесення.",
         "pl": 'Wybrano nieznany tryb transferu.',
         "de": 'Es wurde ein unbekannter Übertragungsmodus ausgewählt.',
+        "nl": 'Er is een onbekende overdrachtsmodus geselecteerd.',
     },
     "admin_dict_move_profession_category_mismatch": {
         "ru": (
@@ -17394,6 +20188,10 @@ translations = {
         ),
         "pl": 'Jeden z wybranych zawodów nie należy do kategorii docelowej.',
         "de": 'Einer der ausgewählten Berufe gehört nicht zur Zielkategorie.',
+        "nl": (
+            'Een van de geselecteerde beroepen behoort niet tot de '
+            'doelcategorie.'
+        ),
     },
     "admin_dict_move_mode_replace_label": {
         "ru": "Заменить старые направления",
@@ -17402,6 +20200,7 @@ translations = {
         "uk": "Замінити старі напрямки",
         "pl": 'Zastąp stare zawody',
         "de": 'Alte Berufe ersetzen',
+        "nl": 'Oude beroepen vervangen',
     },
     "admin_dict_move_mode_add_label": {
         "ru": "Добавить к существующим",
@@ -17410,6 +20209,7 @@ translations = {
         "uk": "Додати до наявних",
         "pl": 'Dodaj do istniejących zawodów',
         "de": 'Zu bestehenden Berufen hinzufügen',
+        "nl": 'Toevoegen aan bestaande beroepen',
     },
     "admin_dict_multi_move_preview": {
         "ru": (
@@ -17471,6 +20271,18 @@ translations = {
             '\n'
             'Es werden nur die Zuordnungen zwischen Kategorie und Beruf '
             'geändert.'
+        ),
+        "nl": (
+            'Bevestig de overdracht naar de specialist.\n'
+            '\n'
+            'Bron: {source}\n'
+            'Doelcategorie: {target_category}\n'
+            'Functies: {target_professions}\n'
+            'Modus: {mode}\n'
+            'Specialisten: {specialists_count}\n'
+            '\n'
+            'Alleen de relaties tussen categorieën en beroepen worden '
+            'gewijzigd.'
         ),
     },
     "admin_dict_multi_move_done": {
@@ -17558,6 +20370,20 @@ translations = {
             'Aktive Profile synchronisiert: {synchronized_count}\n'
             'Spezialisten nicht gefunden: {missing_count}'
         ),
+        "nl": (
+            'Profielbewerking voltooid.\n'
+            '\n'
+            'Categorie: {target_category}\n'
+            'Beroepen: {target_professions}\n'
+            'Modus: {mode}\n'
+            'Specialisten: {specialists_count}\n'
+            'Aangemaakte profielen: {created_count}\n'
+            'Herstelde profielen: {reactivated_count}\n'
+            'Reeds bestaande profielen: {existing_count}\n'
+            'Gearchiveerde oude profielen: {archived_count}\n'
+            'Gesynchroniseerde actieve profielen: {synchronized_count}\n'
+            'Specialisten niet gevonden: {missing_count}'
+        ),
     },
     "admin_dict_move_selected_category": {
         "ru": "Целевая категория: {category}",
@@ -17566,6 +20392,7 @@ translations = {
         "uk": "Цільова категорія: {category}",
         "pl": 'Kategoria docelowa: {category}',
         "de": 'Zielkategorie: {category}',
+        "nl": 'Doelcategorie: {category}',
     },
     "admin_dialog_queue_title": {
         "ru": (
@@ -17592,6 +20419,11 @@ translations = {
             '💬 Servicemeldungen\n'
             'Es sind nur Konversationen mit einer Beschwerde- oder '
             'Risikomarkierung verfügbar.'
+        ),
+        "nl": (
+            '💬 Serviceberichten\n'
+            'Alleen gesprekken met een klacht of risicomelding zijn '
+            'beschikbaar.'
         ),
     },
     "admin_dialog_detail": {
@@ -17649,6 +20481,17 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            '💬 Serviceberichten #{number}\n'
+            '\n'
+            'Reden voor beoordeling: {context}\n'
+            'Deelnemers: Klant / Specialist\n'
+            'Status: {status}\n'
+            '\n'
+            '{history}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "admin_dialog_sender_client": {
         "ru": "Клиент",
@@ -17657,6 +20500,7 @@ translations = {
         "uk": "Клієнт",
         "pl": 'Klient',
         "de": 'Mandant',
+        "nl": 'Cliënt',
     },
     "admin_dialog_sender_specialist": {
         "ru": "Специалист",
@@ -17665,6 +20509,7 @@ translations = {
         "uk": "Спеціаліст",
         "pl": 'Specjalista',
         "de": 'Facharzt',
+        "nl": 'Specialist',
     },
     "admin_dialog_empty_message": {
         "ru": "[пустое сообщение]",
@@ -17673,6 +20518,7 @@ translations = {
         "uk": "[порожнє повідомлення]",
         "pl": '[pusta wiadomość]',
         "de": '[leere Nachricht]',
+        "nl": '[leeg bericht]',
     },
     "admin_dialog_queue_empty": {
         "ru": "Переписок с жалобами или risk flags пока нет.",
@@ -17687,6 +20533,7 @@ translations = {
             'Es gibt noch keine Konversationen mit Beschwerden oder '
             'Risikomeldungen.'
         ),
+        "nl": 'Er zijn nog geen gesprekken met klachten of risicosignalen.',
     },
     "admin_dialog_open_btn": {
         "ru": "💬 Открыть переписку №{number}",
@@ -17695,6 +20542,7 @@ translations = {
         "uk": "💬 Відкрити переписку №{number}",
         "pl": '💬 Otwórz rozmowę #{number}',
         "de": '💬 Konversation #{number} öffnen',
+        "nl": '💬 Open gesprek #{number}',
     },
     "admin_dialog_back_btn": {
         "ru": "⬅️ К админ-панели",
@@ -17703,6 +20551,7 @@ translations = {
         "uk": "⬅️ До адмін-панелі",
         "pl": '⬅️ Panel administratora',
         "de": '⬅️ Admin-Bereich',
+        "nl": '⬅️ Beheerderspaneel',
     },
     "admin_dialog_context_complaint": {
         "ru": "Скарга",
@@ -17711,6 +20560,7 @@ translations = {
         "uk": "Скарга",
         "pl": 'Skarga',
         "de": 'Beschwerde',
+        "nl": 'Klacht',
     },
     "admin_dialog_context_risk": {
         "ru": "Risk flag",
@@ -17719,6 +20569,7 @@ translations = {
         "uk": "Risk flag",
         "pl": 'Oznaczenie ryzyka',
         "de": 'Risikomeldung',
+        "nl": 'Risico-indicatie',
     },
     "admin_dialog_status_waiting_specialist": {
         "ru": "Ожидается ответ специалиста",
@@ -17727,6 +20578,7 @@ translations = {
         "uk": "Очікується відповідь спеціаліста",
         "pl": 'Oczekiwanie na odpowiedź specjalisty',
         "de": 'Warten auf Antwort des Spezialisten',
+        "nl": 'In afwachting van antwoord van specialist',
     },
     "admin_dialog_status_waiting_client": {
         "ru": "Ожидается ответ клиента",
@@ -17735,6 +20587,7 @@ translations = {
         "uk": "Очікується відповідь клієнта",
         "pl": 'Oczekiwanie na odpowiedź klienta',
         "de": 'Warten auf Antwort des Kunden',
+        "nl": 'In afwachting van antwoord van de klant',
     },
     "admin_dialog_status_open": {
         "ru": "Переписка начата",
@@ -17743,6 +20596,7 @@ translations = {
         "uk": "Переписку розпочато",
         "pl": 'Rozmowa rozpoczęta',
         "de": 'Gespräch gestartet',
+        "nl": 'Gesprek gestart',
     },
     "admin_dialog_status_in_discussion": {
         "ru": "Обсуждение",
@@ -17751,6 +20605,7 @@ translations = {
         "uk": "Обговорення",
         "pl": 'W trakcie rozmowy',
         "de": 'Im Gespräch',
+        "nl": 'In gesprek',
     },
     "admin_dialog_status_completed": {
         "ru": "Завершено",
@@ -17759,6 +20614,7 @@ translations = {
         "uk": "Завершено",
         "pl": 'Zakończono',
         "de": 'Abgeschlossen',
+        "nl": 'Voltooid',
     },
     "admin_dialog_status_closed": {
         "ru": "Закрыто",
@@ -17767,6 +20623,7 @@ translations = {
         "uk": "Закрито",
         "pl": 'Zamknięte',
         "de": 'Geschlossen',
+        "nl": 'Gesloten',
     },
     "admin_dialog_status_other": {
         "ru": "В процессе",
@@ -17775,6 +20632,7 @@ translations = {
         "uk": "У процесі",
         "pl": 'W trakcie realizacji',
         "de": 'In Bearbeitung',
+        "nl": 'In uitvoering',
     },
     "admin_dialog_queue_button": {
         "ru": "💬 №{number} · {context} · {status} · сообщений: {messages_count}",
@@ -17783,6 +20641,7 @@ translations = {
         "uk": "💬 №{number} · {context} · {status} · повідомлень: {messages_count}",
         "pl": '💬 #{number} · {context} · {status} · wiadomości: {messages_count}',
         "de": '💬 #{number} · {context} · {status} · Nachrichten: {messages_count}',
+        "nl": '💬 #{number} · {context} · {status} · berichten: {messages_count}',
     },
     "admin_dialog_back_to_list_btn": {
         "ru": "⬅️ К служебным сообщениям",
@@ -17791,6 +20650,7 @@ translations = {
         "uk": "⬅️ До службових повідомлень",
         "pl": '⬅️ Powrót do komunikatów serwisowych',
         "de": '⬅️ Zurück zu den Servicemeldungen',
+        "nl": '⬅️ Terug naar serviceberichten',
     },
     "admin_dialog_masked_message": {
         "ru": "Сообщение скрыто системой.\nПричина: {reasons}.\nУровень риска: {severity}.",
@@ -17807,6 +20667,11 @@ translations = {
             'Grund: {reasons}.\n'
             'Risikostufe: {severity}.'
         ),
+        "nl": (
+            'Bericht verborgen door het systeem.\n'
+            'Reden: {reasons}.\n'
+            'Risiconiveau: {severity}.'
+        ),
     },
     "admin_dialog_detection_phone": {
         "ru": "номер телефона",
@@ -17815,6 +20680,7 @@ translations = {
         "uk": "номер телефону",
         "pl": 'numer telefonu',
         "de": 'Telefonnummer',
+        "nl": 'telefoonnummer',
     },
     "admin_dialog_detection_email": {
         "ru": "email",
@@ -17823,6 +20689,7 @@ translations = {
         "uk": "email",
         "pl": 'adres e-mail',
         "de": 'E-Mail',
+        "nl": 'e-mail',
     },
     "admin_dialog_detection_telegram_username": {
         "ru": "Telegram username",
@@ -17831,6 +20698,7 @@ translations = {
         "uk": "Telegram username",
         "pl": 'Nazwa użytkownika w Telegramie',
         "de": 'Telegram-Benutzername',
+        "nl": 'Telegram-gebruikersnaam',
     },
     "admin_dialog_detection_messenger_phone": {
         "ru": "контакт в мессенджере",
@@ -17839,6 +20707,7 @@ translations = {
         "uk": "контакт у месенджері",
         "pl": 'Kontakt w komunikatorze',
         "de": 'Messenger-Kontakt',
+        "nl": 'Messenger-contact',
     },
     "admin_dialog_detection_external_payment": {
         "ru": "попытка внешней оплаты",
@@ -17847,6 +20716,7 @@ translations = {
         "uk": "спроба зовнішньої оплати",
         "pl": 'próba płatności zewnętrznej',
         "de": 'Versuchte externe Zahlung',
+        "nl": 'poging tot externe betaling',
     },
     "admin_dialog_detection_unknown": {
         "ru": "контактные данные вне платформы",
@@ -17855,6 +20725,7 @@ translations = {
         "uk": "контактні дані поза платформою",
         "pl": 'dane kontaktowe poza platformą',
         "de": 'Kontaktdaten außerhalb der Plattform',
+        "nl": 'contactgegevens buiten het platform',
     },
     "admin_dialog_risk_low": {
         "ru": "низкий",
@@ -17863,6 +20734,7 @@ translations = {
         "uk": "низький",
         "pl": 'niski',
         "de": 'niedrig',
+        "nl": 'laag',
     },
     "admin_dialog_risk_medium": {
         "ru": "средний",
@@ -17871,6 +20743,7 @@ translations = {
         "uk": "середній",
         "pl": 'średni',
         "de": 'mittel',
+        "nl": 'gemiddeld',
     },
     "admin_dialog_risk_high": {
         "ru": "высокий",
@@ -17879,6 +20752,7 @@ translations = {
         "uk": "високий",
         "pl": 'wysoka',
         "de": 'hoch',
+        "nl": 'hoog',
     },
     "admin_dialog_risk_critical": {
         "ru": "критический",
@@ -17887,6 +20761,7 @@ translations = {
         "uk": "критичний",
         "pl": 'krytyczny',
         "de": 'kritisch',
+        "nl": 'kritiek',
     },
     "super_admin_user_status_active": {
         "ru": "Доступен",
@@ -17895,6 +20770,7 @@ translations = {
         "uk": "Доступний",
         "pl": 'Dostępne',
         "de": 'Verfügbar',
+        "nl": 'Beschikbaar',
     },
     "super_admin_user_status_blocked": {
         "ru": "Заблокирован",
@@ -17903,6 +20779,7 @@ translations = {
         "uk": "Заблоковано",
         "pl": 'Zablokowane',
         "de": 'Gesperrt',
+        "nl": 'Geblokkeerd',
     },
     "super_admin_user_status_deleted": {
         "ru": "Удален",
@@ -17911,6 +20788,7 @@ translations = {
         "uk": "Видалено",
         "pl": 'Usunięto',
         "de": 'Gelöscht',
+        "nl": 'Verwijderd',
     },
     "super_admin_user_role_client": {
         "ru": "Клиент",
@@ -17919,6 +20797,7 @@ translations = {
         "uk": "Клієнт",
         "pl": 'Klient',
         "de": 'Kunde',
+        "nl": 'Klant',
     },
     "super_admin_user_role_specialist": {
         "ru": "Специалист",
@@ -17927,6 +20806,7 @@ translations = {
         "uk": "Спеціаліст",
         "pl": 'Specjalista',
         "de": 'Facharzt',
+        "nl": 'Specialist',
     },
     "super_admin_user_role_support": {
         "ru": "Поддержка",
@@ -17935,6 +20815,7 @@ translations = {
         "uk": "Підтримка",
         "pl": 'Wsparcie',
         "de": 'Support',
+        "nl": 'Ondersteuning',
     },
     "super_admin_user_role_moderator": {
         "ru": "Модератор",
@@ -17943,6 +20824,7 @@ translations = {
         "uk": "Модератор",
         "pl": 'Moderator',
         "de": 'Moderator',
+        "nl": 'Moderator',
     },
     "super_admin_user_role_admin": {
         "ru": "Администратор",
@@ -17951,6 +20833,7 @@ translations = {
         "uk": "Адміністратор",
         "pl": 'Administrator',
         "de": 'Administrator',
+        "nl": 'Beheerder',
     },
     "super_admin_user_role_super_admin": {
         "ru": "Супер-администратор",
@@ -17959,6 +20842,7 @@ translations = {
         "uk": "Супер-адміністратор",
         "pl": 'Superadministrator',
         "de": 'Super-Admin',
+        "nl": 'Superbeheerder',
     },
     "super_admin_user_role_finance_admin": {
         "ru": "Финансовый администратор",
@@ -17967,6 +20851,7 @@ translations = {
         "uk": "Фінансовий адміністратор",
         "pl": 'Administrator ds. finansów',
         "de": 'Finanzadministrator',
+        "nl": 'Financieel beheerder',
     },
     "super_admin_user_role_content_manager": {
         "ru": "Контент-менеджер",
@@ -17975,6 +20860,7 @@ translations = {
         "uk": "Контент-менеджер",
         "pl": 'Menedżer treści',
         "de": 'Content-Manager',
+        "nl": 'Contentmanager',
     },
     "super_admin_user_scopes_empty": {
         "ru": "Не назначены",
@@ -17983,6 +20869,7 @@ translations = {
         "uk": "Не призначено",
         "pl": 'Nieprzypisany',
         "de": 'Nicht zugewiesen',
+        "nl": 'Niet toegewezen',
     },
     "super_admin_user_risk_none": {
         "ru": "Нет текущих рисков",
@@ -17991,6 +20878,7 @@ translations = {
         "uk": "Немає поточних ризиків",
         "pl": 'Brak aktualnych zagrożeń',
         "de": 'Derzeit keine Risiken',
+        "nl": "Geen actuele risico's",
     },
     "super_admin_user_risk_score": {
         "ru": "Уровень {score}",
@@ -17999,6 +20887,7 @@ translations = {
         "uk": "Рівень {score}",
         "pl": 'Poziom {score}',
         "de": 'Stufe {score}',
+        "nl": 'Niveau {score}',
     },
     "super_admin_scopes_title": {
         "ru": "Зоны доступа",
@@ -18007,6 +20896,7 @@ translations = {
         "uk": "Зони доступу",
         "pl": 'Zakresy dostępu',
         "de": 'Zugriffsbereiche',
+        "nl": 'Toegangsbereiken',
     },
     "super_admin_scopes_section": {
         "ru": "Раздел: {view}",
@@ -18015,6 +20905,7 @@ translations = {
         "uk": "Розділ: {view}",
         "pl": 'Sekcja: {view}',
         "de": 'Abschnitt: {view}',
+        "nl": 'Sectie: {view}',
     },
     "super_admin_scopes_count": {
         "ru": "Показано: {count}",
@@ -18023,6 +20914,7 @@ translations = {
         "uk": "Показано: {count}",
         "pl": 'Wyświetlono: {count}',
         "de": 'Angezeigt: {count}',
+        "nl": 'Weergegeven: {count}',
     },
     "super_admin_scopes_for_user": {
         "ru": "Для пользователя: {user_number}",
@@ -18031,6 +20923,7 @@ translations = {
         "uk": "Для користувача: {user_number}",
         "pl": 'Dla użytkownika: {user_number}',
         "de": 'Für Benutzer: {user_number}',
+        "nl": 'Voor gebruiker: {user_number}',
     },
     "super_admin_scopes_view_active": {
         "ru": "Действующие",
@@ -18039,6 +20932,7 @@ translations = {
         "uk": "Чинні",
         "pl": 'Prawidłowe',
         "de": 'Gültig',
+        "nl": 'Geldig',
     },
     "super_admin_scopes_view_history": {
         "ru": "История",
@@ -18047,6 +20941,7 @@ translations = {
         "uk": "Історія",
         "pl": 'Historia',
         "de": 'Verlauf',
+        "nl": 'Geschiedenis',
     },
     "super_admin_scopes_empty": {
         "ru": "Зоны доступа не назначены.",
@@ -18055,6 +20950,7 @@ translations = {
         "uk": "Зони доступу не призначено.",
         "pl": 'Nie przypisano żadnych zakresów dostępu.',
         "de": 'Es sind keine Zugriffsbereiche zugewiesen.',
+        "nl": 'Er zijn geen toegangsbereiken toegewezen.',
     },
     "super_admin_scopes_actions": {
         "ru": "Действия с зонами доступа",
@@ -18063,6 +20959,7 @@ translations = {
         "uk": "Дії із зонами доступу",
         "pl": 'Czynności związane z zakresami dostępu',
         "de": 'Aktionen für Zugriffsbereiche',
+        "nl": 'Acties voor toegangsbereik',
     },
     "super_admin_scopes_add_btn": {
         "ru": "Добавить зону доступа",
@@ -18071,6 +20968,7 @@ translations = {
         "uk": "Додати зону доступу",
         "pl": 'Dodaj zakres dostępu',
         "de": 'Zugriffsbereich hinzufügen',
+        "nl": 'Toegangsbereik toevoegen',
     },
     "super_admin_scopes_revoke_btn": {
         "ru": "Отозвать зону доступа",
@@ -18079,6 +20977,7 @@ translations = {
         "uk": "Відкликати зону доступу",
         "pl": 'Cofnij zakres dostępu',
         "de": 'Zugriffsbereich widerrufen',
+        "nl": 'Toegangsbereik intrekken',
     },
     "super_admin_scopes_to_list_btn": {
         "ru": "К зонам доступа",
@@ -18087,6 +20986,7 @@ translations = {
         "uk": "До зон доступу",
         "pl": 'Zakresy dostępu',
         "de": 'Auf Zugriffsbereiche zugreifen',
+        "nl": 'Toegangsbereiken',
     },
     "super_admin_scopes_to_panel_btn": {
         "ru": "К Super Admin",
@@ -18095,6 +20995,7 @@ translations = {
         "uk": "До Super Admin",
         "pl": 'Do superadministratora',
         "de": 'An den Super-Admin',
+        "nl": 'Aan Superbeheerder',
     },
     "super_admin_value_not_specified": {
         "ru": "не указано",
@@ -18103,6 +21004,7 @@ translations = {
         "uk": "не вказано",
         "pl": 'nieokreślone',
         "de": 'nicht angegeben',
+        "nl": 'niet gespecificeerd',
     },
     "super_admin_scope_type_country": {
         "ru": "Страна",
@@ -18111,6 +21013,7 @@ translations = {
         "uk": "Країна",
         "pl": 'Kraj',
         "de": 'Land',
+        "nl": 'Land',
     },
     "super_admin_scope_type_city": {
         "ru": "Город",
@@ -18119,6 +21022,7 @@ translations = {
         "uk": "Місто",
         "pl": 'Miasto',
         "de": 'Stadt',
+        "nl": 'Stad',
     },
     "super_admin_scope_type_region": {
         "ru": "Регион",
@@ -18127,6 +21031,7 @@ translations = {
         "uk": "Регіон",
         "pl": 'Region',
         "de": 'Region',
+        "nl": 'Regio',
     },
     "super_admin_scope_type_agency": {
         "ru": "Агентство",
@@ -18135,6 +21040,7 @@ translations = {
         "uk": "Агентство",
         "pl": 'Agencja',
         "de": 'Behörde',
+        "nl": 'Instantie',
     },
     "super_admin_scope_type_community": {
         "ru": "Сообщество",
@@ -18143,6 +21049,7 @@ translations = {
         "uk": "Спільнота",
         "pl": 'Społeczność',
         "de": 'Gemeinde',
+        "nl": 'Gemeenschap',
     },
     "super_admin_scope_status_active": {
         "ru": "Действует",
@@ -18151,6 +21058,7 @@ translations = {
         "uk": "Діє",
         "pl": 'Prawidłowe',
         "de": 'Gültig',
+        "nl": 'Geldig',
     },
     "super_admin_scope_status_revoked": {
         "ru": "Отозвана",
@@ -18159,6 +21067,7 @@ translations = {
         "uk": "Відкликано",
         "pl": 'Unieważniony',
         "de": 'Widerrufen',
+        "nl": 'Ingetrokken',
     },
     "super_admin_scope_card_user": {
         "ru": "{number}. Пользователь: {user_number}",
@@ -18167,6 +21076,7 @@ translations = {
         "uk": "{number}. Користувач: {user_number}",
         "pl": '{number}. Użytkownik: {user_number}',
         "de": '{number}. Benutzer: {user_number}',
+        "nl": '{number}. Gebruiker: {user_number}',
     },
     "super_admin_scope_card_role": {
         "ru": "Роль: {role}",
@@ -18175,6 +21085,7 @@ translations = {
         "uk": "Роль: {role}",
         "pl": 'Rola: {role}',
         "de": 'Rolle: {role}',
+        "nl": 'Rol: {role}',
     },
     "super_admin_scope_card_type": {
         "ru": "Тип зоны: {scope_type}",
@@ -18183,6 +21094,7 @@ translations = {
         "uk": "Тип зони: {scope_type}",
         "pl": 'Typ zakresu: {scope_type}',
         "de": 'Gültigkeitsbereichstyp: {scope_type}',
+        "nl": 'Toepassingsgebiedtype: {scope_type}',
     },
     "super_admin_scope_card_value": {
         "ru": "Зона доступа: {scope_value}",
@@ -18191,6 +21103,7 @@ translations = {
         "uk": "Зона доступу: {scope_value}",
         "pl": 'Zakres dostępu: {scope_value}',
         "de": 'Zugriffsbereich: {scope_value}',
+        "nl": 'Toegangsbereik: {scope_value}',
     },
     "super_admin_scope_card_status": {
         "ru": "Статус: {status}",
@@ -18199,6 +21112,7 @@ translations = {
         "uk": "Статус: {status}",
         "pl": 'Status: {status}',
         "de": 'Status: {status}',
+        "nl": 'Status: {status}',
     },
     "super_admin_scope_card_reason": {
         "ru": "Причина: {reason}",
@@ -18207,6 +21121,7 @@ translations = {
         "uk": "Причина: {reason}",
         "pl": 'Powód: {reason}',
         "de": 'Grund: {reason}',
+        "nl": 'Reden: {reason}',
     },
     "super_admin_scope_card_granted_by": {
         "ru": "Выдал: {user_number}",
@@ -18215,6 +21130,7 @@ translations = {
         "uk": "Видав: {user_number}",
         "pl": 'Przyznane przez: {user_number}',
         "de": 'Gewährt von: {user_number}',
+        "nl": 'Toegekend door: {user_number}',
     },
     "super_admin_scope_card_created_at": {
         "ru": "Дата выдачи: {created_at}",
@@ -18223,6 +21139,7 @@ translations = {
         "uk": "Дата видачі: {created_at}",
         "pl": 'Przyznano w: {created_at}',
         "de": 'Gewährt am: {created_at}',
+        "nl": 'Toegekend op: {created_at}',
     },
     "super_admin_scope_card_revoked_by": {
         "ru": "Отозвал: {user_number}",
@@ -18231,6 +21148,7 @@ translations = {
         "uk": "Відкликав: {user_number}",
         "pl": 'Cofnięte przez: {user_number}',
         "de": 'Widerrufen von: {user_number}',
+        "nl": 'Ingetrokken door: {user_number}',
     },
     "super_admin_scope_card_revoked_at": {
         "ru": "Дата отзыва: {revoked_at}",
@@ -18239,6 +21157,7 @@ translations = {
         "uk": "Дата відкликання: {revoked_at}",
         "pl": 'Unieważniono w: {revoked_at}',
         "de": 'Widerrufen am: {revoked_at}',
+        "nl": 'Ingetrokken op: {revoked_at}',
     },
     "super_admin_scope_not_found": {
         "ru": "Зона доступа не найдена.",
@@ -18247,6 +21166,7 @@ translations = {
         "uk": "Зону доступу не знайдено.",
         "pl": 'Nie znaleziono zakresu dostępu.',
         "de": 'Zugriffsbereich nicht gefunden.',
+        "nl": 'Toegangsbereik niet gevonden.',
     },
     "super_admin_scope_add_invalid_format": {
         "ru": (
@@ -18267,6 +21187,7 @@ translations = {
         ),
         "pl": 'Nieprawidłowy format.\nUżyj znaku | do oddzielenia pól.',
         "de": 'Ungültiges Format.\nVerwenden Sie | zur Trennung der Felder.',
+        "nl": 'Ongeldige indeling.\nGebruik | om de velden te scheiden.',
     },
     "super_admin_scope_add_multiple_users": {
         "ru": (
@@ -18292,6 +21213,10 @@ translations = {
         "de": (
             'Es wurden mehrere Benutzer gefunden. Geben Sie die Benutzer-ID, '
             'die Telegram-ID oder den Benutzernamen an.'
+        ),
+        "nl": (
+            'Er zijn meerdere gebruikers gevonden. Geef de gebruikers-ID, '
+            'Telegram-ID of gebruikersnaam op.'
         ),
     },
     "super_admin_scope_add_confirmation": {
@@ -18345,6 +21270,15 @@ translations = {
             'Bereich: {scope}\n'
             'Grund: {reason}'
         ),
+        "nl": (
+            'Bevestig het toevoegen van het toegangsbereik:\n'
+            '\n'
+            'Gebruiker: {user}\n'
+            'Rol: {role}\n'
+            'Toegangsbereiktype: {scope_type}\n'
+            'Toegangsbereik: {scope}\n'
+            'Reden: {reason}'
+        ),
     },
     "super_admin_scope_add_confirm_btn": {
         "ru": "Подтвердить",
@@ -18353,6 +21287,7 @@ translations = {
         "uk": "Підтвердити",
         "pl": 'Potwierdź',
         "de": 'Bestätigen',
+        "nl": 'Bevestigen',
     },
     "super_admin_scope_add_filtered_prompt": {
         "ru": (
@@ -18396,6 +21331,16 @@ translations = {
             'moderator | city | Lissabon | Begründungstext\n'
             '\n'
             'Gültigkeitsbereichstypen: country, city, region, agency, '
+            'community.'
+        ),
+        "nl": (
+            'Voer de rol, scope_type, het toepassingsgebied en de reden in, '
+            'gescheiden door by |.\n'
+            '\n'
+            'Indeling:\n'
+            'moderator | city | Lissabon | reden\n'
+            '\n'
+            'Toepassingsgebiedstypen: country, city, region, agency, '
             'community.'
         ),
     },
@@ -18443,6 +21388,16 @@ translations = {
             'Gültigkeitsbereichstypen: country, city, region, agency, '
             'community.'
         ),
+        "nl": (
+            'Voer gebruiker, rol, scope_type, toepassingsgebied en reden '
+            'gescheiden in by |.\n'
+            '\n'
+            'Indeling:\n'
+            'user-49ba690f | moderator | city | Lissabon | reden\n'
+            '\n'
+            'Toepassingsgebiedstypen: country, city, region, agency, '
+            'community.'
+        ),
     },
     "super_admin_scope_revoke_reason_prompt": {
         "ru": "Укажите причину отзыва зоны доступа. Минимум 3 символа.",
@@ -18453,6 +21408,10 @@ translations = {
         "de": (
             'Geben Sie einen Grund für den Widerruf des Zugriffsbereichs ein. '
             'Mindestens 3 Zeichen.'
+        ),
+        "nl": (
+            'Voer een reden in voor het intrekken van het toegangsbereik. '
+            'Minimaal 3 tekens.'
         ),
     },
     "super_admin_scope_revoke_confirm": {
@@ -18472,6 +21431,12 @@ translations = {
             'Bereich: {scope_label}\n'
             'Grund: {reason}'
         ),
+        "nl": (
+            'Bevestig intrekking van het toegangsbereik:\n'
+            '\n'
+            'Toegangsbereik: {scope_label}\n'
+            'Reden: {reason}'
+        ),
     },
     "super_admin_scope_revoke_confirm_btn": {
         "ru": "Подтвердить отзыв",
@@ -18480,6 +21445,7 @@ translations = {
         "uk": "Підтвердити відкликання",
         "pl": 'Potwierdź cofnięcie',
         "de": 'Widerruf bestätigen',
+        "nl": 'Intrekking bevestigen',
     },
     "super_admin_scope_add_cancelled": {
         "ru": "Добавление зоны доступа отменено.",
@@ -18488,6 +21454,7 @@ translations = {
         "uk": "Додавання зони доступу скасовано.",
         "pl": 'Dodanie zakresu dostępu zostało anulowane.',
         "de": 'Das Hinzufügen des Zugriffsbereichs wurde abgebrochen.',
+        "nl": 'Het toevoegen van het toegangsbereik is geannuleerd.',
     },
     "super_admin_scope_add_success": {
         "ru": "Зона доступа добавлена. Статус: {status}",
@@ -18496,6 +21463,7 @@ translations = {
         "uk": "Зону доступу додано. Статус: {status}",
         "pl": 'Zakres dostępu dodany. Status: {status}',
         "de": 'Zugriffsbereich hinzugefügt. Status: {status}',
+        "nl": 'Toegangsbereik toegevoegd. Status: {status}',
     },
     "super_admin_scope_revoke_success": {
         "ru": "Зона доступа отозвана.",
@@ -18504,6 +21472,7 @@ translations = {
         "uk": "Зону доступу відкликано.",
         "pl": 'Zakres dostępu został cofnięty.',
         "de": 'Zugriffsbereich widerrufen.',
+        "nl": 'Toegangsbereik ingetrokken.',
     },
     "super_admin_scope_revoke_cancelled": {
         "ru": "Отзыв зоны доступа отменен.",
@@ -18512,6 +21481,7 @@ translations = {
         "uk": "Відкликання зони доступу скасовано.",
         "pl": 'Anulowano cofnięcie zakresu dostępu.',
         "de": 'Widerruf des Zugriffsbereichs abgebrochen.',
+        "nl": 'Intrekking van toegangsbereik geannuleerd.',
     },
     "super_admin_impersonation_role_unavailable": {
         "ru": "Кабинет для выбранной роли недоступен у этого пользователя.",
@@ -18523,6 +21493,7 @@ translations = {
             'Dieser Benutzer verfügt über kein Dashboard für die ausgewählte '
             'Rolle.'
         ),
+        "nl": 'Deze gebruiker heeft geen dashboard voor de geselecteerde rol.',
     },
     "super_admin_impersonation_client_cabinet": {
         "ru": (
@@ -18587,6 +21558,18 @@ translations = {
             '\n'
             'Schreibgeschützter Modus. Änderungen sind deaktiviert.'
         ),
+        "nl": (
+            "Weergavemodus 'Als gebruiker'\n"
+            '\n'
+            'Dashboard van de klant\n'
+            'Gebruiker: {user_number}\n'
+            'Naam: {display_name}\n'
+            'Stad: {city_name}\n'
+            '\n'
+            'Ongelezen berichten: {dialogs_unread}\n'
+            '\n'
+            'Alleen-lezenmodus. Wijzigingen zijn uitgeschakeld.'
+        ),
     },
     "super_admin_impersonation_change_cabinet_btn": {
         "ru": "Выбрать другой кабинет",
@@ -18595,6 +21578,7 @@ translations = {
         "uk": "Вибрати інший кабінет",
         "pl": 'Wybierz inny panel',
         "de": 'Anderes Dashboard auswählen',
+        "nl": 'Kies een ander dashboard',
     },
     "super_admin_impersonation_specialist_cabinet": {
         "ru": (
@@ -18670,6 +21654,20 @@ translations = {
             '\n'
             'Schreibgeschützter Modus. Änderungen sind deaktiviert.'
         ),
+        "nl": (
+            'Weergave in gebruikersmodus\n'
+            '\n'
+            'Professioneel profiel\n'
+            'Gebruiker: {user_number}\n'
+            'Naam: {display_name}\n'
+            'Beroep: {profession}\n'
+            'Profielstatus: {status}\n'
+            'Beschikbaarheid: {availability}\n'
+            '\n'
+            'Ongelezen berichten: {dialogs_unread}\n'
+            '\n'
+            'Alleen-lezen-modus. Wijzigingen zijn uitgeschakeld.'
+        ),
     },
     "super_admin_preview_status_draft": {
         "ru": "Черновик",
@@ -18678,6 +21676,7 @@ translations = {
         "uk": "Чернетка",
         "pl": 'Wersja robocza',
         "de": 'Entwurf',
+        "nl": 'Concept',
     },
     "super_admin_preview_status_pending_moderation": {
         "ru": "Ожидает модерации",
@@ -18686,6 +21685,7 @@ translations = {
         "uk": "Очікує модерації",
         "pl": 'Oczekuje na moderację',
         "de": 'Wartet auf Freigabe',
+        "nl": 'In afwachting van moderatie',
     },
     "super_admin_preview_status_approved": {
         "ru": "Одобрен",
@@ -18694,6 +21694,7 @@ translations = {
         "uk": "Схвалено",
         "pl": 'Zatwierdzono',
         "de": 'Genehmigt',
+        "nl": 'Goedgekeurd',
     },
     "super_admin_preview_status_rejected": {
         "ru": "Отклонен",
@@ -18702,6 +21703,7 @@ translations = {
         "uk": "Відхилено",
         "pl": 'Odrzucone',
         "de": 'Abgelehnt',
+        "nl": 'Afgewezen',
     },
     "super_admin_preview_status_hidden": {
         "ru": "Скрыт",
@@ -18710,6 +21712,7 @@ translations = {
         "uk": "Приховано",
         "pl": 'Ukryte',
         "de": 'Ausgeblendet',
+        "nl": 'Verborgen',
     },
     "super_admin_preview_status_blocked": {
         "ru": "Заблокирован",
@@ -18718,6 +21721,7 @@ translations = {
         "uk": "Заблоковано",
         "pl": 'Zablokowane',
         "de": 'Gesperrt',
+        "nl": 'Geblokkeerd',
     },
     "super_admin_preview_status_deleted": {
         "ru": "Удален",
@@ -18726,6 +21730,7 @@ translations = {
         "uk": "Видалено",
         "pl": 'Usunięte',
         "de": 'Gelöscht',
+        "nl": 'Verwijderd',
     },
     "super_admin_preview_availability_available": {
         "ru": "Доступен",
@@ -18734,6 +21739,7 @@ translations = {
         "uk": "Доступний",
         "pl": 'Dostępne',
         "de": 'Verfügbar',
+        "nl": 'Beschikbaar',
     },
     "super_admin_preview_availability_unavailable": {
         "ru": "Недоступен",
@@ -18742,6 +21748,7 @@ translations = {
         "uk": "Недоступний",
         "pl": 'Niedostępne',
         "de": 'Nicht verfügbar',
+        "nl": 'Niet beschikbaar',
     },
     "super_admin_impersonation_support_cabinet": {
         "ru": (
@@ -18806,6 +21813,18 @@ translations = {
             '\n'
             'Schreibgeschützter Modus. Änderungen sind deaktiviert.'
         ),
+        "nl": (
+            'Weergave in gebruikersmodus\n'
+            '\n'
+            'Ondersteuningsdashboard\n'
+            'Medewerker: {user_number}\n'
+            '\n'
+            'Open tickets: {open_tickets}\n'
+            'Tickets in behandeling: {in_progress_tickets}\n'
+            'Opgeloste tickets: {resolved_tickets}\n'
+            '\n'
+            'Alleen-lezenmodus. Wijzigingen zijn uitgeschakeld.'
+        ),
     },
     "super_admin_impersonation_to_user_btn": {
         "ru": "К профилю пользователя",
@@ -18814,6 +21833,7 @@ translations = {
         "uk": "До профілю користувача",
         "pl": 'Do profilu użytkownika',
         "de": 'Zum Benutzerprofil',
+        "nl": 'Naar gebruikersprofiel',
     },
     "super_admin_ro_support_list_title": {
         "ru": "Тикеты поддержки\nРаздел: {view}\nСтраница: {page}\nПоказано: {count}",
@@ -18831,6 +21851,12 @@ translations = {
             'Abschnitt: {view}\n'
             'Seite: {page}\n'
             'Angezeigt: {count}'
+        ),
+        "nl": (
+            'Supporttickets\n'
+            'Sectie: {view}\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}'
         ),
     },
     "super_admin_ro_support_ticket_item": {
@@ -18850,6 +21876,12 @@ translations = {
             'Priorität: {priority}\n'
             'Aktualisiert: {updated_at}'
         ),
+        "nl": (
+            '{number}. {category}\n'
+            'Status: {status}\n'
+            'Prioriteit: {priority}\n'
+            'Bijgewerkt: {updated_at}'
+        ),
     },
     "super_admin_ro_support_open_ticket_btn": {
         "ru": "Открыть тикет №{number}",
@@ -18858,6 +21890,7 @@ translations = {
         "uk": "Відкрити тікет №{number}",
         "pl": 'Otwarte zgłoszenie nr {number}',
         "de": 'Offenes Ticket Nr. {number}',
+        "nl": 'Open ticket #{number}',
     },
     "super_admin_ro_support_ticket_title": {
         "ru": "Тикет №{number}",
@@ -18866,6 +21899,7 @@ translations = {
         "uk": "Тікет №{number}",
         "pl": 'Zgłoszenie nr {number}',
         "de": 'Ticket-Nr. {number}',
+        "nl": 'Ticket #{number}',
     },
     "super_admin_ro_support_back_btn": {
         "ru": "К кабинету поддержки",
@@ -18874,6 +21908,7 @@ translations = {
         "uk": "До кабінету підтримки",
         "pl": 'Do panelu wsparcia',
         "de": 'An den Dashboard-Support',
+        "nl": 'Ter ondersteuning van het dashboard',
     },
     "super_admin_ro_support_back_to_list_btn": {
         "ru": "К списку тикетов",
@@ -18882,6 +21917,7 @@ translations = {
         "uk": "До списку тікетів",
         "pl": 'Do listy zgłoszeń',
         "de": 'Zur Ticketliste',
+        "nl": 'Naar de ticketlijst',
     },
     "super_admin_ro_read_only_label": {
         "ru": "Режим: только просмотр. Изменение данных недоступно.",
@@ -18890,6 +21926,7 @@ translations = {
         "uk": "Режим: лише перегляд. Зміна даних недоступна.",
         "pl": 'Tryb tylko do odczytu. Zmiany są wyłączone.',
         "de": 'Schreibgeschützter Modus. Änderungen sind deaktiviert.',
+        "nl": 'Alleen-lezenmodus. Wijzigingen zijn uitgeschakeld.',
     },
     "super_admin_impersonation_moderator_cabinet": {
         "ru": (
@@ -18944,6 +21981,17 @@ translations = {
             '\n'
             'Schreibgeschützter Modus. Datenänderungen sind deaktiviert.'
         ),
+        "nl": (
+            'Bekijken namens gebruiker\n'
+            '\n'
+            'Moderator-dashboard\n'
+            'Medewerker: {user_number}\n'
+            '\n'
+            'De moderatiewachtrij voor professionele profielen is '
+            'beschikbaar.\n'
+            '\n'
+            'Alleen-lezenmodus. Het wijzigen van gegevens is uitgeschakeld.'
+        ),
     },
     "super_admin_ro_moderator_pending_btn": {
         "ru": "Кабинеты на модерации",
@@ -18952,6 +22000,7 @@ translations = {
         "uk": "Кабінети на модерації",
         "pl": 'Profile oczekujące na moderację',
         "de": 'Profile in der Moderation',
+        "nl": 'Profielen in moderatie',
     },
     "super_admin_ro_moderator_queue_title": {
         "ru": (
@@ -18992,6 +22041,13 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Profielen in moderatie\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_moderator_open_profile_btn": {
         "ru": "Открыть кабинет №{number}",
@@ -19000,6 +22056,7 @@ translations = {
         "uk": "Відкрити кабінет №{number}",
         "pl": 'Otwórz profil nr {number}',
         "de": 'Profil #{number} öffnen',
+        "nl": 'Profiel #{number} openen',
     },
     "super_admin_ro_moderator_back_to_queue_btn": {
         "ru": "К кабинетам на модерации",
@@ -19008,6 +22065,7 @@ translations = {
         "uk": "До кабінетів на модерації",
         "pl": 'Do profili oczekujących na moderację',
         "de": 'Zu den Profilen in der Moderation',
+        "nl": 'Naar profielen in moderatie',
     },
     "super_admin_ro_moderator_complaints_btn": {
         "ru": "Жалобы",
@@ -19016,6 +22074,7 @@ translations = {
         "uk": "Скарги",
         "pl": 'Skargi',
         "de": 'Beschwerden',
+        "nl": 'Klachten',
     },
     "super_admin_ro_moderator_complaints_title": {
         "ru": (
@@ -19062,6 +22121,14 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Klachten\n'
+            'Status: {view}\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_moderator_open_complaint_btn": {
         "ru": "Открыть жалобу №{number}",
@@ -19070,6 +22137,7 @@ translations = {
         "uk": "Відкрити скаргу №{number}",
         "pl": 'Otwórz skargę nr {number}',
         "de": 'Offene Beschwerde Nr. {number}',
+        "nl": 'Openstaande klacht #{number}',
     },
     "super_admin_ro_moderator_back_to_complaints_btn": {
         "ru": "К списку жалоб",
@@ -19078,6 +22146,7 @@ translations = {
         "uk": "До списку скарг",
         "pl": 'Do listy skarg',
         "de": 'Zur Beschwerdeliste',
+        "nl": 'Naar de klachtenlijst',
     },
     "super_admin_ro_moderator_portfolio_btn": {
         "ru": "Портфолио на модерации",
@@ -19086,6 +22155,7 @@ translations = {
         "uk": "Портфоліо на модерації",
         "pl": 'Portfolio w moderacji',
         "de": 'Portfolio in der Moderation',
+        "nl": 'Portfolio in moderatie',
     },
     "super_admin_ro_moderator_portfolio_title": {
         "ru": (
@@ -19126,6 +22196,13 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Portfolio in moderatie\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_moderator_back_to_portfolio_btn": {
         "ru": "К портфолио на модерации",
@@ -19134,6 +22211,7 @@ translations = {
         "uk": "До портфоліо на модерації",
         "pl": 'Do portfolio w moderacji',
         "de": 'An portfolio zur Moderation',
+        "nl": 'Naar portfolio in de moderatie',
     },
     "super_admin_ro_moderator_reviews_btn": {
         "ru": "Отзывы на модерации",
@@ -19142,6 +22220,7 @@ translations = {
         "uk": "Відгуки на модерації",
         "pl": 'Recenzje w moderacji',
         "de": 'Bewertungen in der Moderation',
+        "nl": 'Beoordelingen in moderatie',
     },
     "super_admin_ro_moderator_reviews_title": {
         "ru": (
@@ -19182,6 +22261,13 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Beoordelingen in moderatie\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_moderator_back_to_reviews_btn": {
         "ru": "К отзывам на модерации",
@@ -19190,6 +22276,7 @@ translations = {
         "uk": "До відгуків на модерації",
         "pl": 'Do recenzji oczekujących na zatwierdzenie',
         "de": 'Zu den zur Freigabe anstehenden Bewertungen',
+        "nl": 'Naar beoordelingen in afwachting van goedkeuring',
     },
     "super_admin_ro_moderator_blacklist_btn": {
         "ru": "Черный список",
@@ -19198,6 +22285,7 @@ translations = {
         "uk": "Чорний список",
         "pl": 'Czarna lista',
         "de": 'Blacklist',
+        "nl": 'Zwarte lijst',
     },
     "super_admin_ro_moderator_blacklist_title": {
         "ru": (
@@ -19244,6 +22332,14 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Zwarte lijst\n'
+            'Sectie: {view}\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_moderator_back_to_blacklist_btn": {
         "ru": "К черному списку",
@@ -19252,6 +22348,7 @@ translations = {
         "uk": "До чорного списку",
         "pl": 'Do czarnej listy',
         "de": 'Auf die Sperrliste setzen',
+        "nl": 'Op de zwarte lijst zetten',
     },
     "super_admin_impersonation_admin_cabinet": {
         "ru": (
@@ -19302,6 +22399,16 @@ translations = {
             '\n'
             'Schreibgeschützter Modus. Datenänderungen sind deaktiviert.'
         ),
+        "nl": (
+            'Bekijken namens gebruiker\n'
+            '\n'
+            'Beheerdersdashboard\n'
+            'Medewerker: {user_number}\n'
+            '\n'
+            'Werkgebieden zijn beschikbaar in de alleen-lezenmodus.\n'
+            '\n'
+            'Alleen-lezenmodus. Het wijzigen van gegevens is uitgeschakeld.'
+        ),
     },
     "super_admin_ro_admin_audit_btn": {
         "ru": "Журнал действий",
@@ -19310,6 +22417,7 @@ translations = {
         "uk": "Журнал дій",
         "pl": 'Dziennik aktywności',
         "de": 'Aktivitätsprotokoll',
+        "nl": 'Activiteitenlogboek',
     },
     "super_admin_ro_admin_audit_title": {
         "ru": (
@@ -19356,6 +22464,14 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Activiteitenlogboek van de beheerder\n'
+            'Sectie: {target_type}\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezenmodus.'
+        ),
     },
     "super_admin_ro_admin_back_to_audit_btn": {
         "ru": "К журналу действий",
@@ -19364,6 +22480,7 @@ translations = {
         "uk": "До журналу дій",
         "pl": 'Do dziennika aktywności',
         "de": 'Zum Aktivitätsprotokoll',
+        "nl": 'Naar activiteitenlogboek',
     },
     "super_admin_ro_admin_global_blacklist_btn": {
         "ru": "Глобальный черный список",
@@ -19372,6 +22489,7 @@ translations = {
         "uk": "Глобальний чорний список",
         "pl": 'Globalna czarna lista',
         "de": 'Globale Sperrliste',
+        "nl": 'Wereldwijde zwarte lijst',
     },
     "super_admin_ro_admin_global_blacklist_title": {
         "ru": (
@@ -19418,6 +22536,14 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Globale zwarte lijst\n'
+            'Sectie: {view}\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezenmodus.'
+        ),
     },
     "super_admin_ro_admin_escalated_tickets_btn": {
         "ru": "Эскалированные обращения",
@@ -19426,6 +22552,7 @@ translations = {
         "uk": "Ескальовані звернення",
         "pl": 'Zgłoszenia z eskalacją',
         "de": 'Eskalierte Tickets',
+        "nl": 'Geëscaleerde tickets',
     },
     "super_admin_ro_admin_back_to_tickets_btn": {
         "ru": "К эскалированным обращениям",
@@ -19434,6 +22561,7 @@ translations = {
         "uk": "До ескальованих звернень",
         "pl": 'Do zgłoszeń z eskalacją',
         "de": 'An eskalierte Tickets',
+        "nl": 'Naar geëscaleerde tickets',
     },
     "super_admin_ro_admin_specialists_btn": {
         "ru": "Профессиональные кабинеты",
@@ -19442,6 +22570,7 @@ translations = {
         "uk": "Професійні кабінети",
         "pl": 'Profile zawodowe',
         "de": 'Fachprofile',
+        "nl": 'Profielen van professionals',
     },
     "super_admin_ro_admin_specialists_title": {
         "ru": (
@@ -19470,6 +22599,7 @@ translations = {
             'Wyświetlono: {count}'
         ),
         "de": 'Administrator-Fachprofile\nSeite: {page}\nAngezeigt: {count}',
+        "nl": 'Profielen van beheerders\nPagina: {page}\nWeergegeven: {count}',
     },
     "super_admin_ro_admin_open_specialist_btn": {
         "ru": "Открыть кабинет {number}",
@@ -19478,6 +22608,7 @@ translations = {
         "uk": "Відкрити кабінет {number}",
         "pl": 'Otwórz profil {number}',
         "de": 'Dashboard öffnen {number}',
+        "nl": 'Dashboard openen {number}',
     },
     "super_admin_ro_admin_back_to_specialists_btn": {
         "ru": "Назад к кабинетам",
@@ -19486,6 +22617,7 @@ translations = {
         "uk": "Назад до кабінетів",
         "pl": 'Powrót do paneli',
         "de": 'Zurück zu den Dashboards',
+        "nl": 'Terug naar dashboards',
     },
     "super_admin_ro_admin_users_btn": {
         "ru": "Пользователи",
@@ -19494,6 +22626,7 @@ translations = {
         "uk": "Користувачі",
         "pl": 'Użytkownicy',
         "de": 'Benutzer',
+        "nl": 'Gebruikers',
     },
     "super_admin_ro_admin_user_search_prompt": {
         "ru": (
@@ -19524,6 +22657,11 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Voer een Telegram-ID, gebruikersnaam of gebruikers-ID in.\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_admin_back_to_users_btn": {
         "ru": "К поиску пользователей",
@@ -19532,6 +22670,7 @@ translations = {
         "uk": "До пошуку користувачів",
         "pl": 'Wyszukiwanie użytkowników',
         "de": 'Zur Benutzersuche',
+        "nl": 'Naar gebruikers zoeken',
     },
     "super_admin_ro_admin_moderation_btn": {
         "ru": "Модерация",
@@ -19540,6 +22679,7 @@ translations = {
         "uk": "Модерація",
         "pl": 'Moderacja',
         "de": 'Moderation',
+        "nl": 'Moderatie',
     },
     "super_admin_ro_admin_moderation_cabinet": {
         "ru": (
@@ -19592,6 +22732,17 @@ translations = {
             '\n'
             'Schreibgeschützter Modus. Datenänderungen sind deaktiviert.'
         ),
+        "nl": (
+            'Bekijken namens gebruiker\n'
+            '\n'
+            'Gedeelte voor moderatie door beheerders\n'
+            'Medewerker: {user_number}\n'
+            '\n'
+            'Profielen, portfolio, beoordelingen, klachten en de zwarte lijst '
+            'zijn beschikbaar.\n'
+            '\n'
+            'Alleen-lezenmodus. Wijzigingen aan gegevens zijn uitgeschakeld.'
+        ),
     },
     "super_admin_ro_admin_back_to_dashboard_btn": {
         "ru": "К кабинету администратора",
@@ -19600,6 +22751,7 @@ translations = {
         "uk": "До кабінету адміністратора",
         "pl": 'Do panelu administratora',
         "de": 'Zum Administrator-Dashboard',
+        "nl": 'Naar het dashboard voor beheerders',
     },
     "super_admin_ro_client_dialogs_btn": {
         "ru": "💬 Сообщения",
@@ -19608,6 +22760,7 @@ translations = {
         "uk": "💬 Повідомлення",
         "pl": '💬 Wiadomości',
         "de": '💬 Nachrichten',
+        "nl": '💬 Berichten',
     },
 
     "super_admin_ro_client_dialogs_title": {
@@ -19648,6 +22801,13 @@ translations = {
             'Angezeigt: {count}\n'
             '\n'
             'Schreibgeschützter Modus.'
+        ),
+        "nl": (
+            'Berichten van klanten\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezen-modus.'
         ),
     },
     "super_admin_ro_client_dialog_item": {
@@ -19693,6 +22853,13 @@ translations = {
             'Ungelesen: {unread}\n'
             'Letzte Nachricht: {message}'
         ),
+        "nl": (
+            '{number}. Specialist: {specialist}\n'
+            'Beroep: {profession}\n'
+            'Status: {status}\n'
+            'Ongelezen: {unread}\n'
+            'Laatste bericht: {message}'
+        ),
     },
     "super_admin_ro_client_open_dialog_btn": {
         "ru": "Открыть переписку №{number}",
@@ -19701,6 +22868,7 @@ translations = {
         "uk": "Відкрити переписку №{number}",
         "pl": 'Otwórz rozmowę nr {number}',
         "de": 'Offene Unterhaltung #{number}',
+        "nl": 'Open gesprek #{number}',
     },
     "super_admin_ro_client_dialog_detail": {
         "ru": (
@@ -19751,6 +22919,16 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Gesprek met {specialist}\n'
+            'Beroep: {profession}\n'
+            'Status: {status}\n'
+            '\n'
+            'Berichtengeschiedenis:\n'
+            '{messages}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_client_back_to_dialogs_btn": {
         "ru": "⬅️ К сообщениям клиента",
@@ -19759,6 +22937,7 @@ translations = {
         "uk": "⬅️ До повідомлень клієнта",
         "pl": '⬅️ Powrót do wiadomości klienta',
         "de": '⬅️ Zurück zu den Client-Nachrichten',
+        "nl": '⬅️ Terug naar klantberichten',
     },
     "super_admin_ro_specialist_dialogs_btn": {
         "ru": "💬 Сообщения",
@@ -19767,6 +22946,7 @@ translations = {
         "uk": "💬 Повідомлення",
         "pl": '💬 Wiadomości',
         "de": '💬 Nachrichten',
+        "nl": '💬 Berichten',
     },
     "super_admin_ro_specialist_dialogs_title": {
         "ru": (
@@ -19806,6 +22986,13 @@ translations = {
             'Angezeigt: {count}\n'
             '\n'
             'Schreibgeschützter Modus.'
+        ),
+        "nl": (
+            'Berichten van specialisten\n'
+            'Pagina: {page}\n'
+            'Weergegeven: {count}\n'
+            '\n'
+            'Alleen-lezen-modus.'
         ),
     },
     "super_admin_ro_specialist_dialog_item": {
@@ -19851,6 +23038,13 @@ translations = {
             'Ungelesen: {unread}\n'
             'Letzte Nachricht: {message}'
         ),
+        "nl": (
+            '{number}. Klant: {client}\n'
+            'Beroep: {profession}\n'
+            'Status: {status}\n'
+            'Ongelezen: {unread}\n'
+            'Laatste bericht: {message}'
+        ),
     },
     "super_admin_ro_specialist_open_dialog_btn": {
         "ru": "Открыть переписку №{number}",
@@ -19859,6 +23053,7 @@ translations = {
         "uk": "Відкрити переписку №{number}",
         "pl": 'Otwórz rozmowę nr #{number}',
         "de": 'Offene Unterhaltung #{number}',
+        "nl": 'Open gesprek #{number}',
     },
     "super_admin_ro_specialist_dialog_detail": {
         "ru": (
@@ -19909,6 +23104,16 @@ translations = {
             '\n'
             'Schreibgeschützter Modus.'
         ),
+        "nl": (
+            'Gesprek met klant: {client}\n'
+            'Beroep: {profession}\n'
+            'Status: {status}\n'
+            '\n'
+            'Berichtengeschiedenis:\n'
+            '{messages}\n'
+            '\n'
+            'Alleen-lezen-modus.'
+        ),
     },
     "super_admin_ro_specialist_back_to_dialogs_btn": {
         "ru": "⬅️ К сообщениям специалиста",
@@ -19917,6 +23122,7 @@ translations = {
         "uk": "⬅️ До повідомлень спеціаліста",
         "pl": '⬅️ Powrót do komunikatów specjalistycznych',
         "de": '⬅️ Zurück zu den Fachnachrichten',
+        "nl": '⬅️ Terug naar berichten van specialisten',
     },
 "super_admin_ro_specialist_profile_btn": {
     "ru": "Профиль специалиста",
@@ -19925,6 +23131,7 @@ translations = {
     "uk": "Профіль спеціаліста",
     "pl": 'Profil specjalisty',
     "de": 'Facharztprofil',
+    "nl": 'Profiel van de specialist',
 },
 "super_admin_ro_specialist_profile": {
     "ru": (
@@ -19991,6 +23198,18 @@ translations = {
         '\n'
         'Schreibgeschützter Modus. Änderungen sind nicht möglich.'
     ),
+    "nl": (
+        'Professioneel profiel\n'
+        '\n'
+        'Naam: {display_name}\n'
+        'Beroep: {profession}\n'
+        'Locatie: {location}\n'
+        'Beschrijving: {description}\n'
+        'Profielstatus: {status}\n'
+        'Beschikbaarheid: {availability}\n'
+        '\n'
+        'Alleen-lezen-modus. Wijzigingen zijn niet mogelijk.'
+    ),
 },
     "search_result_details_btn": {
         "ru": "👤 Подробнее",
@@ -19999,6 +23218,7 @@ translations = {
         "uk": "👤 Детальніше",
         "pl": '👤 Szczegóły',
         "de": '👤 Details',
+        "nl": '👤 Details',
     },
     "search_result_message_btn": {
         "ru": "💬 Написать сообщение",
@@ -20007,6 +23227,7 @@ translations = {
         "uk": "💬 Написати повідомлення",
         "pl": '💬 Wyślij wiadomość',
         "de": '💬 Nachricht senden',
+        "nl": '💬 Bericht verzenden',
     },
     "search_result_save_btn": {
         "ru": "⭐ Сохранить",
@@ -20015,6 +23236,7 @@ translations = {
         "uk": "⭐ Зберегти",
         "pl": '⭐ Zapisz',
         "de": '⭐ Speichern',
+        "nl": '⭐ Opslaan',
     },
     "search_result_saved_btn": {
         "ru": "⭐ Сохранено",
@@ -20023,6 +23245,7 @@ translations = {
         "uk": "⭐ Збережено",
         "pl": '⭐ Zapisano',
         "de": '⭐ Gespeichert',
+        "nl": '⭐ Opgeslagen',
     },
     "search_unavailable_now": {
         "ru": "Сейчас занят",
@@ -20031,6 +23254,7 @@ translations = {
         "uk": "Зараз зайнятий",
         "pl": 'Obecnie zajęty',
         "de": 'Derzeit beschäftigt',
+        "nl": 'Momenteel bezet',
     },
     "contact_chat_error": {
         "ru": "Не удалось отправить сообщение. Попробуйте ещё раз.",
@@ -20042,6 +23266,7 @@ translations = {
             'Die Nachricht konnte nicht gesendet werden. Bitte versuche es '
             'erneut.'
         ),
+        "nl": 'Het bericht kon niet worden verzonden. Probeer het nog eens.',
     },
     "contact_chat_message_received": {
         "ru": "💬 Новое сообщение\n\n{message}",
@@ -20050,6 +23275,7 @@ translations = {
         "uk": "💬 Нове повідомлення\n\n{message}",
         "pl": '💬 Nowa wiadomość\n\n{message}',
         "de": '💬 Neue Nachricht\n\n{message}',
+        "nl": '💬 Nieuw bericht\n\n{message}',
     },
     "contact_chat_you_label": {
         "ru": "Вы",
@@ -20058,6 +23284,7 @@ translations = {
         "uk": "Ви",
         "pl": 'Ty',
         "de": 'Du',
+        "nl": 'Jij',
     },
     "contact_chat_title": {
         "ru": "💬 Чат с {name}",
@@ -20066,6 +23293,7 @@ translations = {
         "uk": "💬 Чат з {name}",
         "pl": '💬 Czat z {name}',
         "de": '💬 Mit {name} chatten',
+        "nl": '💬 Chat met {name}',
     },
     "contact_chat_waiting_specialist": {
         "ru": "⏳ Ждём ответа специалиста.",
@@ -20074,6 +23302,7 @@ translations = {
         "uk": "⏳ Чекаємо на відповідь спеціаліста.",
         "pl": '⏳ Czekam na odpowiedź specjalisty.',
         "de": '⏳ Ich warte auf die Antwort des Spezialisten.',
+        "nl": '⏳ Wachten op het antwoord van de specialist.',
     },
     "contact_chat_finish_btn": {
         "ru": "✅ Завершить переписку",
@@ -20082,6 +23311,7 @@ translations = {
         "uk": "✅ Завершити переписку",
         "pl": '✅ Zakończ rozmowę',
         "de": '✅ Gespräch beenden',
+        "nl": '✅ Gesprek beëindigen',
     },
     "contact_chat_report_btn": {
         "ru": "⚠️ Жалоба",
@@ -20090,6 +23320,7 @@ translations = {
         "uk": "⚠️ Скарга",
         "pl": '⚠️ Zgłoś',
         "de": '⚠️ Melden',
+        "nl": '⚠️ Melden',
     },
     "contact_chat_attach_btn": {
         "ru": "📎 Прикрепить файл",
@@ -20098,6 +23329,7 @@ translations = {
         "uk": "📎 Прикріпити файл",
         "pl": '📎 Załącz plik',
         "de": '📎 Datei anhängen',
+        "nl": '📎 Bestand bijvoegen',
     },
     "contact_chat_attach_prompt": {
         "ru": "Прикрепите фото или документ через стандартную кнопку Telegram.",
@@ -20112,6 +23344,7 @@ translations = {
             'Füge ein Foto oder Dokument über die '
             'Standard-Telegram-Schaltfläche hinzu.'
         ),
+        "nl": 'Voeg een foto of document toe met de standaardknop van Telegram.',
     },
     "contact_attachment_photo_label": {
         "ru": "Фото",
@@ -20120,6 +23353,7 @@ translations = {
         "uk": "Фото",
         "pl": 'Zdjęcie',
         "de": 'Foto',
+        "nl": 'Foto',
     },
     "contact_attachment_file_label": {
         "ru": "Файл",
@@ -20128,6 +23362,7 @@ translations = {
         "uk": "Файл",
         "pl": 'Plik',
         "de": 'Datei',
+        "nl": 'Bestand',
     },
     "contact_attachment_unsupported": {
         "ru": "Можно отправить только фото или документ.",
@@ -20136,6 +23371,7 @@ translations = {
         "uk": "Можна надіслати лише фото або документ.",
         "pl": 'Możesz wysłać tylko zdjęcie lub dokument.',
         "de": 'Sie können nur ein Foto oder ein Dokument senden.',
+        "nl": 'U kunt alleen een foto of document verzenden.',
     },
     "contact_attachment_too_large": {
         "ru": "Файл слишком большой. Максимальный размер — 20 МБ.",
@@ -20144,6 +23380,7 @@ translations = {
         "uk": "Файл занадто великий. Максимальний розмір — 20 МБ.",
         "pl": 'Plik jest za duży. Maksymalny rozmiar to 20 MB.',
         "de": 'Die Datei ist zu groß. Die maximale Größe beträgt 20 MB.',
+        "nl": 'Het bestand is te groot. De maximale grootte is 20 MB.',
     },
     "contact_attachment_send_error": {
         "ru": "Не удалось отправить файл. Попробуйте ещё раз.",
@@ -20155,6 +23392,7 @@ translations = {
             'Die Datei konnte nicht gesendet werden. Bitte versuchen Sie es '
             'erneut.'
         ),
+        "nl": 'Het bestand kon niet worden verzonden. Probeer het nog eens.',
     },
     "contact_chat_back_btn": {
         "ru": "⬅️ К сообщениям",
@@ -20163,6 +23401,7 @@ translations = {
         "uk": "⬅️ До повідомлень",
         "pl": '⬅️ Powrót do wiadomości',
         "de": '⬅️ Zurück zu den Nachrichten',
+        "nl": '⬅️ Terug naar berichten',
     },
     "messages_completion_requested": {
         "ru": "✅ Запрос на завершение отправлен. Ждём подтверждения собеседника.",
@@ -20176,6 +23415,10 @@ translations = {
         "de": (
             '✅ Abschlussanfrage gesendet. Warten auf die Bestätigung der '
             'anderen Person.'
+        ),
+        "nl": (
+            '✅ Voltooiingsverzoek verzonden. Wachten op bevestiging van de '
+            'andere persoon.'
         ),
     },
     "messages_completion_already_requested": {
@@ -20203,6 +23446,10 @@ translations = {
             'Die Abschlussanfrage wurde bereits gesendet. Ich warte auf die '
             'Bestätigung der anderen Person.'
         ),
+        "nl": (
+            'Het verzoek om afsluiting is al verzonden. Wachten op '
+            'bevestiging van de andere persoon.'
+        ),
     },
     "messages_completion_request_received": {
         "ru": (
@@ -20229,6 +23476,10 @@ translations = {
             'Die andere Person möchte das Gespräch abschließen. Bestätigen '
             'Sie den Abschluss, um zur Bewertung zu gelangen.'
         ),
+        "nl": (
+            'De andere persoon wil het gesprek afsluiten. Bevestig de '
+            'afsluiting om door te gaan naar de beoordeling.'
+        ),
     },
     "messages_completion_confirm_btn": {
         "ru": "✅ Подтвердить завершение",
@@ -20237,6 +23488,7 @@ translations = {
         "uk": "✅ Підтвердити завершення",
         "pl": '✅ Potwierdź zakończenie',
         "de": '✅ Abschluss bestätigen',
+        "nl": '✅ Bevestig dat het gesprek is afgerond',
     },
     "messages_completion_confirmed": {
         "ru": "✅ Переписка завершена. Оцените сотрудничество.",
@@ -20245,6 +23497,7 @@ translations = {
         "uk": "✅ Переписку завершено. Оцініть співпрацю.",
         "pl": '✅ Rozmowa zakończona. Oceń współpracę.',
         "de": '✅ Gespräch abgeschlossen. Bewerten Sie die Zusammenarbeit.',
+        "nl": '✅ Gesprek voltooid. Beoordeel de samenwerking.',
     },
     "messages_tab_new": {
         "ru": "🆕 Новые сообщения",
@@ -20253,6 +23506,7 @@ translations = {
         "uk": "🆕 Нові повідомлення",
         "pl": '🆕 Nowe wiadomości',
         "de": '🆕 Neue Nachrichten',
+        "nl": '🆕 Nieuwe berichten',
     },
     "messages_tab_correspondence": {
         "ru": "💬 Переписка",
@@ -20261,6 +23515,7 @@ translations = {
         "uk": "💬 Переписка",
         "pl": '💬 Rozmowy',
         "de": '💬 Unterhaltungen',
+        "nl": '💬 Gesprekken',
     },
     "messages_tab_completed": {
         "ru": "✅ Завершённые",
@@ -20269,6 +23524,7 @@ translations = {
         "uk": "✅ Завершені",
         "pl": '✅ Zakończone',
         "de": '✅ Abgeschlossen',
+        "nl": '✅ Voltooid',
     },
     "messages_tab_archive": {
         "ru": "📦 Архив",
@@ -20277,6 +23533,7 @@ translations = {
         "uk": "📦 Архів",
         "pl": '📦 Archiwum',
         "de": '📦 Archiv',
+        "nl": '📦 Archief',
     },
     "messages_title": {
         "ru": "💬 Сообщения",
@@ -20285,6 +23542,7 @@ translations = {
         "uk": "💬 Повідомлення",
         "pl": '💬 Wiadomości',
         "de": '💬 Nachrichten',
+        "nl": '💬 Berichten',
     },
     "messages_title_with_unread": {
         "ru": "💬 Сообщения ({count})",
@@ -20293,6 +23551,7 @@ translations = {
         "uk": "💬 Повідомлення ({count})",
         "pl": '💬 Wiadomości ({count})',
         "de": '💬 Nachrichten ({count})',
+        "nl": '💬 Berichten ({count})',
     },
     "messages_hint": {
         "ru": "Все ваши переписки с клиентами и специалистами.",
@@ -20301,6 +23560,7 @@ translations = {
         "uk": "Усі ваші переписки з клієнтами та спеціалістами.",
         "pl": 'Wszystkie Twoje rozmowy z klientami i specjalistami.',
         "de": 'Alle Ihre Unterhaltungen mit Kunden und Spezialisten.',
+        "nl": 'Al je gesprekken met klanten en specialisten.',
     },
     "messages_empty": {
         "ru": "В этой вкладке пока нет сообщений.",
@@ -20309,6 +23569,7 @@ translations = {
         "uk": "У цій вкладці поки немає повідомлень.",
         "pl": 'W tej zakładce nie ma jeszcze żadnych wiadomości.',
         "de": 'In diesem Reiter befinden sich noch keine Nachrichten.',
+        "nl": 'Er staan nog geen berichten op dit tabblad.',
     },
     "messages_open_chat": {
         "ru": "💬 Открыть чат",
@@ -20317,6 +23578,7 @@ translations = {
         "uk": "💬 Відкрити чат",
         "pl": '💬 Otwórz czat',
         "de": '💬 Chat öffnen',
+        "nl": '💬 Chat openen',
     },
     "messages_card_status_new": {
         "ru": "🆕 Новое сообщение",
@@ -20325,6 +23587,7 @@ translations = {
         "uk": "🆕 Нове повідомлення",
         "pl": '🆕 Nowa wiadomość',
         "de": '🆕 Neue Nachricht',
+        "nl": '🆕 Nieuw bericht',
     },
     "messages_card_status_in_progress": {
         "ru": "💬 В работе",
@@ -20333,6 +23596,7 @@ translations = {
         "uk": "💬 У роботі",
         "pl": '💬 W toku',
         "de": '💬 In Bearbeitung',
+        "nl": '💬 Bezig',
     },
     "messages_card_status_waiting_you": {
         "ru": "⏳ Ждём вашего ответа",
@@ -20341,6 +23605,7 @@ translations = {
         "uk": "⏳ Чекаємо на вашу відповідь",
         "pl": '⏳ Czekam na Twoją odpowiedź',
         "de": '⏳ Ich warte auf deine Antwort',
+        "nl": '⏳ In afwachting van je antwoord',
     },
     "messages_card_status_waiting_other": {
         "ru": "⏳ Ждём ответа собеседника",
@@ -20349,6 +23614,7 @@ translations = {
         "uk": "⏳ Чекаємо на відповідь співрозмовника",
         "pl": '⏳ Czekam na odpowiedź drugiej osoby',
         "de": '⏳ Warte auf die Antwort des anderen',
+        "nl": '⏳ Wachten op het antwoord van de ander',
     },
     "messages_card_status_completed": {
         "ru": "✅ Завершено",
@@ -20357,6 +23623,7 @@ translations = {
         "uk": "✅ Завершено",
         "pl": '✅ Zakończono',
         "de": '✅ Abgeschlossen',
+        "nl": '✅ Voltooid',
     },
     "messages_card_unread": {
         "ru": "🔴 {count} новых сообщений",
@@ -20365,6 +23632,7 @@ translations = {
         "uk": "🔴 {count} нових повідомлень",
         "pl": '🔴 {count} nowych wiadomości',
         "de": '🔴 {count} neue Nachrichten',
+        "nl": '🔴 {count} nieuwe berichten',
     },
     "messages_search_btn": {
         "ru": "🔎 Поиск сообщений",
@@ -20373,6 +23641,7 @@ translations = {
         "uk": "🔎 Пошук повідомлень",
         "pl": '🔎 Wyszukaj wiadomości',
         "de": '🔎 Nachrichten suchen',
+        "nl": '🔎 Berichten zoeken',
     },
     "messages_search_prompt": {
         "ru": (
@@ -20400,6 +23669,7 @@ translations = {
             'Geben Sie einen Namen, einen Beruf oder einen Nachrichtentext '
             'ein.'
         ),
+        "nl": '🔎 Berichten zoeken\nVoer een naam, beroep of berichttekst in.',
     },
     "messages_search_empty_query": {
         "ru": "Введите текст для поиска.",
@@ -20408,6 +23678,7 @@ translations = {
         "uk": "Введіть текст для пошуку.",
         "pl": 'Wpisz tekst do wyszukiwania.',
         "de": 'Geben Sie den Suchtext ein.',
+        "nl": 'Voer de tekst in die u wilt zoeken.',
     },
     "specialist_cabinet_published": {
         "ru": "🟢 Профиль опубликован.\nКлиенты видят его в поиске.",
@@ -20419,6 +23690,10 @@ translations = {
             'Klienci mogą go znaleźć w wynikach wyszukiwania.'
         ),
         "de": '🟢 Profil veröffentlicht.\nKunden können es über die Suche finden.',
+        "nl": (
+            '🟢 Profiel gepubliceerd.\n'
+            'Klanten kunnen het vinden via de zoekfunctie.'
+        ),
     },
     "specialist_cabinet_pending": {
         "ru": (
@@ -20445,6 +23720,11 @@ translations = {
             '🟡 Profil mit dem Hinweis „Wartet auf Freigabe“ veröffentlicht.\n'
             'Kunden können es bereits über die Suche finden.'
         ),
+        "nl": (
+            "🟡 Profiel gepubliceerd met het label 'In afwachting van "
+            "moderatie'.\n"
+            'Klanten kunnen het al vinden via de zoekfunctie.'
+        ),
     },
     "specialist_cabinet_draft": {
         "ru": "⚪ Профиль ещё не опубликован.",
@@ -20453,6 +23733,7 @@ translations = {
         "uk": "⚪ Профіль ще не опубліковано.",
         "pl": '⚪ Profil nie został jeszcze opublikowany.',
         "de": '⚪ Das Profil wurde noch nicht veröffentlicht.',
+        "nl": '⚪ Het profiel is nog niet gepubliceerd.',
     },
     "specialist_cabinet_rejected": {
         "ru": "⚠️ Профилю нужны изменения перед публикацией.",
@@ -20461,6 +23742,10 @@ translations = {
         "uk": "⚠️ Профілю потрібні зміни перед публікацією.",
         "pl": '⚠️ Profil wymaga zmian przed opublikowaniem.',
         "de": '⚠️ Das Profil muss vor der Veröffentlichung geändert werden.',
+        "nl": (
+            '⚠️ Het profiel moet worden aangepast voordat het wordt '
+            'gepubliceerd.'
+        ),
     },
     "specialist_cabinet_hidden": {
         "ru": "⚪ Профиль временно скрыт из поиска.",
@@ -20469,6 +23754,7 @@ translations = {
         "uk": "⚪ Профіль тимчасово приховано з пошуку.",
         "pl": '⚪ Profil jest tymczasowo ukryty przed wyszukiwaniem.',
         "de": '⚪ Das Profil ist vorübergehend für die Suche ausgeblendet.',
+        "nl": '⚪ Het profiel is tijdelijk verborgen voor zoekopdrachten.',
     },
     "specialist_cabinet_blocked": {
         "ru": "⛔ Профиль заблокирован и не виден клиентам.",
@@ -20477,6 +23763,7 @@ translations = {
         "uk": "⛔ Профіль заблоковано, і він не видимий клієнтам.",
         "pl": '⛔ Profil jest zablokowany i niewidoczny dla klientów.',
         "de": '⛔ Das Profil ist gesperrt und für Kunden nicht sichtbar.',
+        "nl": '⛔ Het profiel is geblokkeerd en niet zichtbaar voor klanten.',
     },
     "specialist_cabinet_deleted": {
         "ru": "🗑 Профиль удален и недоступен клиентам.",
@@ -20488,6 +23775,7 @@ translations = {
             '🗑 Das Profil wurde gelöscht und ist für Kunden nicht mehr '
             'verfügbar.'
         ),
+        "nl": '🗑 Het profiel is verwijderd en niet beschikbaar voor klanten.',
     },
     "specialist_cabinet_unread": {
         "ru": "💬 Новые сообщения: {count}",
@@ -20496,6 +23784,7 @@ translations = {
         "uk": "💬 Нові повідомлення: {count}",
         "pl": '💬 Nowe wiadomości: {count}',
         "de": '💬 Neue Nachrichten: {count}',
+        "nl": '💬 Nieuwe berichten: {count}',
     },
     "specialist_card_title": {
         "ru": "👤 Моя карточка",
@@ -20504,6 +23793,7 @@ translations = {
         "uk": "👤 Моя картка",
         "pl": '👤 Moja karta',
         "de": '👤 Meine Karte',
+        "nl": '👤 Mijn kaart',
     },
     "specialist_card_profession": {
         "ru": "💼 Профессия: {profession}",
@@ -20512,6 +23802,7 @@ translations = {
         "uk": "💼 Професія: {profession}",
         "pl": '💼 Zawód: {profession}',
         "de": '💼 Beruf: {profession}',
+        "nl": '💼 Beroep: {profession}',
     },
     "specialist_card_rating_new": {
         "ru": "⭐ Рейтинг: Новый · Пока без отзывов",
@@ -20520,6 +23811,7 @@ translations = {
         "uk": "⭐ Рейтинг: Новий · Поки без відгуків",
         "pl": '⭐ Ocena: Nowa · Brak recenzji',
         "de": '⭐ Bewertung: Neu · Noch keine Bewertungen',
+        "nl": '⭐ Beoordeling: Nieuw · Nog geen beoordelingen',
     },
     "specialist_card_rating_value": {
         "ru": "⭐ Рейтинг: {rating} ({count})",
@@ -20528,6 +23820,7 @@ translations = {
         "uk": "⭐ Рейтинг: {rating} ({count})",
         "pl": '⭐ Ocena: {rating} ({count})',
         "de": '⭐ Bewertung: {rating} ({count})',
+        "nl": '⭐ Beoordeling: {rating} ({count})',
     },
     "specialist_card_status_available": {
         "ru": "🟢 Принимаю заказы",
@@ -20536,6 +23829,7 @@ translations = {
         "uk": "🟢 Приймаю замовлення",
         "pl": '🟢 Dostępne na zamówienie',
         "de": '🟢 Für Anfragen verfügbar',
+        "nl": '🟢 Beschikbaar voor aanvragen',
     },
     "specialist_card_status_busy": {
         "ru": "🟠 Сейчас занят",
@@ -20544,6 +23838,7 @@ translations = {
         "uk": "🟠 Зараз зайнятий",
         "pl": '🟠 Obecnie zajęty',
         "de": '🟠 Derzeit beschäftigt',
+        "nl": '🟠 Momenteel bezet',
     },
     "specialist_card_show_full": {
         "ru": "📖 Показать полностью",
@@ -20552,6 +23847,7 @@ translations = {
         "uk": "📖 Показати повністю",
         "pl": '📖 Pokaż pełny profil',
         "de": '📖 Vollständiges Profil anzeigen',
+        "nl": '📖 Volledig profiel weergeven',
     },
     "specialist_card_edit": {
         "ru": "✏️ Редактировать",
@@ -20560,6 +23856,7 @@ translations = {
         "uk": "✏️ Редагувати",
         "pl": '✏️ Edytuj',
         "de": '✏️ Bearbeiten',
+        "nl": '✏️ Bewerken',
     },
     "specialist_card_full_title": {
         "ru": "📖 Полное описание",
@@ -20568,6 +23865,7 @@ translations = {
         "uk": "📖 Повний опис",
         "pl": '📖 Pełny opis',
         "de": '📖 Vollständige Beschreibung',
+        "nl": '📖 Volledige beschrijving',
     },
     "specialist_card_full_empty": {
         "ru": "Полное описание пока не добавлено.",
@@ -20576,6 +23874,7 @@ translations = {
         "uk": "Повний опис поки не додано.",
         "pl": 'Pełny opis nie został jeszcze dodany.',
         "de": 'Eine vollständige Beschreibung wurde noch nicht hinzugefügt.',
+        "nl": 'Er is nog geen volledige beschrijving toegevoegd.',
     },
     "search_previous_categories": {
         "ru": "⬅️ Предыдущие категории",
@@ -20584,6 +23883,7 @@ translations = {
         "uk": "⬅️ Попередні категорії",
         "pl": '⬅️ Poprzednie kategorie',
         "de": '⬅️ Vorherige Kategorien',
+        "nl": '⬅️ Vorige categorieën',
     },
     "search_more_categories": {
         "ru": "➡️ Ещё категории",
@@ -20592,6 +23892,7 @@ translations = {
         "uk": "➡️ Ще категорії",
         "pl": '➡️ Więcej kategorii',
         "de": '➡️ Weitere Kategorien',
+        "nl": '➡️ Meer categorieën',
     },
     "search_previous_professions": {
         "ru": "⬅️ Предыдущие профессии",
@@ -20600,6 +23901,7 @@ translations = {
         "uk": "⬅️ Попередні професії",
         "pl": '⬅️ Poprzednie zawody',
         "de": '⬅️ Vorherige Berufe',
+        "nl": '⬅️ Vorige beroepen',
     },
     "search_more_professions": {
         "ru": "➡️ Ещё профессии",
@@ -20608,6 +23910,7 @@ translations = {
         "uk": "➡️ Ще професії",
         "pl": '➡️ Więcej zawodów',
         "de": '➡️ Weitere Berufe',
+        "nl": '➡️ Meer beroepen',
     },
     "specialist_location_work_title": {
         "ru": "📍 Локация и формат",
@@ -20616,6 +23919,7 @@ translations = {
         "uk": "📍 Локація та формат",
         "pl": '📍 Lokalizacja i format',
         "de": '📍 Ort und Format',
+        "nl": '📍 Locatie en vorm',
     },
     "specialist_location_work_hint": {
         "ru": (
@@ -20642,6 +23946,10 @@ translations = {
             'Sie können das Arbeitsformat ändern. Die Bearbeitung des '
             'Standorts ist vorübergehend nicht verfügbar.'
         ),
+        "nl": (
+            'Je kunt de werkvorm wijzigen. Het bewerken van de locatie is '
+            'tijdelijk niet beschikbaar.'
+        ),
     },
     "contact_thread_sender_role_client": {
         "ru": "Клиент",
@@ -20650,6 +23958,7 @@ translations = {
         "uk": "Клієнт",
         "pl": 'Klient',
         "de": 'Kunde',
+        "nl": 'Klant',
     },
     "contact_thread_sender_role_specialist": {
         "ru": "Специалист",
@@ -20658,6 +23967,7 @@ translations = {
         "uk": "Спеціаліст",
         "pl": 'Specjalista',
         "de": 'Facharzt',
+        "nl": 'Specialist',
     },
     "contact_thread_message_notification": {
         "ru": (
@@ -20704,6 +24014,14 @@ translations = {
             '\n'
             '{message}'
         ),
+        "nl": (
+            '💬 Nieuw bericht\n'
+            'Van: {sender}\n'
+            'Rol afzender: {sender_role}\n'
+            'Beroep: {profession}\n'
+            '\n'
+            '{message}'
+        ),
     },
     "contact_thread_translated_notification": {
         "ru": (
@@ -20747,6 +24065,14 @@ translations = {
             'Von: {sender}\n'
             'Rolle des Absenders: {sender_role}\n'
             'Beruf: {profession}\n'
+            '\n'
+            '{message}'
+        ),
+        "nl": (
+            '💬 Nieuw vertaald bericht\n'
+            'Van: {sender}\n'
+            'Rol afzender: {sender_role}\n'
+            'Beroep: {profession}\n'
             '\n'
             '{message}'
         ),
@@ -20808,6 +24134,16 @@ translations = {
             '\n'
             '{message}'
         ),
+        "nl": (
+            '💬 Nieuw bericht\n'
+            'Van: {sender}\n'
+            'Rol afzender: {sender_role}\n'
+            'Beroep: {profession}\n'
+            'Vertaling is tijdelijk niet beschikbaar. Het origineel wordt '
+            'weergegeven:\n'
+            '\n'
+            '{message}'
+        ),
     },
     "super_admin_ro_specialist_cabinets_btn": {
         "ru": "🧰 Выбрать кабинет специалиста",
@@ -20816,6 +24152,7 @@ translations = {
         "uk": "🧰 Обрати кабінет спеціаліста",
         "pl": '🧰 Wybierz profil specjalisty',
         "de": '🧰 Fachprofil auswählen',
+        "nl": '🧰 Kies een specialistprofiel',
     },
     "super_admin_ro_specialist_cabinets_title": {
         "ru": (
@@ -20856,6 +24193,13 @@ translations = {
             '\n'
             'Wählen Sie ein Profil aus, das Sie anzeigen möchten.'
         ),
+        "nl": (
+            'Profielen van specialisten\n'
+            'Pagina: {page}\n'
+            'Totaal: {count}\n'
+            '\n'
+            'Kies een profiel om te bekijken.'
+        ),
     },
     "super_admin_ro_specialist_cabinets_empty": {
         "ru": "У специалиста нет профессиональных кабинетов.",
@@ -20864,6 +24208,7 @@ translations = {
         "uk": "У спеціаліста немає професійних кабінетів.",
         "pl": 'Ten specjalista nie ma żadnych profili zawodowych.',
         "de": 'Dieser Spezialist hat keine Berufsprofile.',
+        "nl": 'Deze specialist heeft geen professionele profielen.',
     },
     "super_admin_ro_specialist_cabinet_item": {
         "ru": (
@@ -20888,6 +24233,7 @@ translations = {
         ),
         "pl": '{number}. {profession}\nTytuł: {title}\nStatus: {status}',
         "de": '{number}. {profession}\nTitel: {title}\nStatus: {status}',
+        "nl": '{number}. {profession}\nTitel: {title}\nStatus: {status}',
     },
     "super_admin_ro_specialist_open_cabinet_btn": {
         "ru": "Открыть кабинет №{number}",
@@ -20896,6 +24242,7 @@ translations = {
         "uk": "Відкрити кабінет №{number}",
         "pl": 'Otwórz profil nr {number}',
         "de": 'Profil öffnen #{number}',
+        "nl": 'Profiel openen #{number}',
     },
     "super_admin_ro_specialist_cabinets_back_btn": {
         "ru": "⬅️ К кабинету специалиста",
@@ -20904,6 +24251,7 @@ translations = {
         "uk": "⬅️ До кабінету спеціаліста",
         "pl": '⬅️ Powrót do profilu specjalisty',
         "de": '⬅️ Zurück zum Facharztprofil',
+        "nl": '⬅️ Terug naar het profiel van de specialist',
     },
     }
 def t(key: str, lang: str = "ru") -> str:

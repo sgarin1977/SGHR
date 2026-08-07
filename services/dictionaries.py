@@ -230,6 +230,7 @@ class DictionaryService:
             "uk": row.name_ru,
             "pl": row.name_en,
             "de": row.name_en,
+            "nl": row.name_en,
         }.get(
             language
         ) or (
@@ -273,6 +274,11 @@ class DictionaryService:
                 "active": "Aktiv",
                 "hidden": "Ausgeblendet",
                 "archived": "Archiviert",
+            },
+            "nl": {
+                "active": "Actief",
+                "hidden": "Verborgen",
+                "archived": "Gearchiveerd",
             },
         }
 
@@ -1126,6 +1132,7 @@ class DictionaryService:
             "uk": row.name_ru,
             "pl": row.name_en,
             "de": row.name_en,
+            "nl": row.name_en,
         }.get(
             language
         ) or row.name
@@ -1160,6 +1167,10 @@ class DictionaryService:
             "de": {
                 "active": "Aktiv",
                 "hidden": "Ausgeblendet",
+            },
+            "nl": {
+                "active": "Actief",
+                "hidden": "Verborgen",
             },
         }
 
@@ -1536,6 +1547,7 @@ class DictionaryService:
             "uk": row.name_ru,
             "pl": row.name_en,
             "de": row.name_en,
+            "nl": row.name_en,
         }.get(
             language
         ) or row.name
@@ -1570,6 +1582,10 @@ class DictionaryService:
             "de": {
                 "active": "Aktiv",
                 "hidden": "Ausgeblendet",
+            },
+            "nl": {
+                "active": "Actief",
+                "hidden": "Verborgen",
             },
         }
 
@@ -2097,6 +2113,7 @@ class DictionaryService:
             "uk": row.name_ru,
             "pl": row.name_en,
             "de": row.name_en,
+            "nl": row.name_en,
         }.get(
             language
         ) or (
@@ -2145,6 +2162,11 @@ class DictionaryService:
                 "active": "Aktiv",
                 "hidden": "Ausgeblendet",
                 "archived": "Archiviert",
+            },
+            "nl": {
+                "active": "Actief",
+                "hidden": "Verborgen",
+                "archived": "Gearchiveerd",
             },
         }
 
@@ -3436,6 +3458,7 @@ class DictionaryService:
             "uk": row.name_ru,
             "pl": row.name_en,
             "de": row.name_en,
+            "nl": row.name_en,
         }.get(
             language
         ) or (
@@ -3471,6 +3494,10 @@ class DictionaryService:
             "de": {
                 "active": "Aktiv",
                 "hidden": "Ausgeblendet",
+            },
+            "nl": {
+                "active": "Actief",
+                "hidden": "Verborgen",
             },
         }
 

@@ -229,6 +229,7 @@ class GeoService:
             "uk",
             "pl",
             "de",
+            "nl",
         }:
             return normalized_language
 

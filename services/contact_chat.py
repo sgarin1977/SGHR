@@ -382,6 +382,7 @@ class ContactChatService:
                 "uk",
                 "pl",
                 "de",
+                "nl",
             }
             else "ru"
         )

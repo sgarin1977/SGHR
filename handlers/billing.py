@@ -2428,6 +2428,8 @@ def profile_languages_keyboard(
                         "CAB_LANG_TOGGLE:uk"
                     ),
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     text=(
                         f"{marker('pl')}PL"
@@ -2442,6 +2444,14 @@ def profile_languages_keyboard(
                     ),
                     callback_data=(
                         "CAB_LANG_TOGGLE:de"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text=(
+                        f"{marker('nl')}NL"
+                    ),
+                    callback_data=(
+                        "CAB_LANG_TOGGLE:nl"
                     ),
                 ),
             ],
@@ -2495,6 +2505,10 @@ def format_profile_languages_text(
         ),
         "de": t(
             "search_language_de",
+            language,
+        ),
+        "nl": t(
+            "search_language_nl",
             language,
         ),
     }
@@ -3465,6 +3479,7 @@ def billing_status_label(
             "uk": "Очікує оплати",
             "pl": "Oczekuje na płatność",
             "de": "Zahlung ausstehend",
+            "nl": "In afwachting van betaling",
         },
         "claimed": {
             "ru": (
@@ -3485,6 +3500,9 @@ def billing_status_label(
             "de": (
                 "Zahlung zur Prüfung eingereicht"
             ),
+            "nl": (
+                "Betaling ter controle ingediend"
+            ),
         },
         "paid": {
             "ru": "Оплачено",
@@ -3493,6 +3511,7 @@ def billing_status_label(
             "uk": "Оплачено",
             "pl": "Opłacono",
             "de": "Bezahlt",
+            "nl": "Betaald",
         },
         "cancelled": {
             "ru": "Отменено",
@@ -3501,6 +3520,7 @@ def billing_status_label(
             "uk": "Скасовано",
             "pl": "Anulowano",
             "de": "Storniert",
+            "nl": "Geannuleerd",
         },
         "failed": {
             "ru": "Не удалось оплатить",
@@ -3509,6 +3529,7 @@ def billing_status_label(
             "uk": "Не вдалося оплатити",
             "pl": "Płatność nie powiodła się",
             "de": "Zahlung fehlgeschlagen",
+            "nl": "Betaling mislukt",
         },
     }
 
@@ -3521,6 +3542,7 @@ def billing_status_label(
             "uk",
             "pl",
             "de",
+            "nl",
         }
         else "ru"
     )
@@ -6010,6 +6032,8 @@ def specialist_language_settings_keyboard(
                         "SPEC_SET_UI_LANG:uk"
                     ),
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     text="PL",
                     callback_data=(
@@ -6020,6 +6044,12 @@ def specialist_language_settings_keyboard(
                     text="DE",
                     callback_data=(
                         "SPEC_SET_UI_LANG:de"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="NL",
+                    callback_data=(
+                        "SPEC_SET_UI_LANG:nl"
                     ),
                 ),
             ],
@@ -6057,6 +6087,8 @@ def specialist_language_settings_keyboard(
                         "SPEC_SET_MSG_LANG:uk"
                     ),
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     text="PL",
                     callback_data=(
@@ -6067,6 +6099,12 @@ def specialist_language_settings_keyboard(
                     text="DE",
                     callback_data=(
                         "SPEC_SET_MSG_LANG:de"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="NL",
+                    callback_data=(
+                        "SPEC_SET_MSG_LANG:nl"
                     ),
                 ),
             ],

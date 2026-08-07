@@ -124,6 +124,7 @@ class UserRepository:
             "uk": City.name_ru,
             "pl": City.name_en,
             "de": City.name_en,
+            "nl": City.name_en,
         }.get(
             language,
             City.name_ru,
@@ -197,6 +198,7 @@ class UserRepository:
             "uk": Profession.name_ru,
             "pl": Profession.name_en,
             "de": Profession.name_en,
+            "nl": Profession.name_en,
         }.get(
             language,
             Profession.name_ru,

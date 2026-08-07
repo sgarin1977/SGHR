@@ -88,6 +88,7 @@ def normalize_language(language: str | None) -> str:
             "uk",
             "pl",
             "de",
+            "nl",
         }
         else "ru"
     )
@@ -133,6 +134,7 @@ async def get_search_language(
         "uk",
         "pl",
         "de",
+        "nl",
     }:
         return stored_language
 
@@ -209,6 +211,10 @@ def language_filter_label(
         ),
         "de": t(
             "search_language_de",
+            language,
+        ),
+        "nl": t(
+            "search_language_nl",
             language,
         ),
     }
@@ -3408,6 +3414,17 @@ def search_language_keyboard(
             [
                 InlineKeyboardButton(
                     text=t(
+                        "search_language_nl",
+                        language,
+                    ),
+                    callback_data=(
+                        "search_lang:nl"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
                         "search_back_to_filters_btn",
                         language,
                     ),
@@ -6348,6 +6365,7 @@ async def choose_language_filter(
         "uk",
         "pl",
         "de",
+        "nl",
     }:
         await callback.answer()
         return

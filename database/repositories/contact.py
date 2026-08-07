@@ -1119,6 +1119,7 @@ class ContactChatRepository:
             "uk": Profession.name_ru,
             "pl": Profession.name_en,
             "de": Profession.name_en,
+            "nl": Profession.name_en,
         }.get(
             language,
             Profession.name_ru,
@@ -1344,6 +1345,7 @@ class ContactChatRepository:
             "uk": Profession.name_ru,
             "pl": Profession.name_en,
             "de": Profession.name_en,
+            "nl": Profession.name_en,
         }.get(
             language,
             Profession.name_ru,
@@ -1400,6 +1402,7 @@ class ContactChatRepository:
             "uk": Profession.name_ru,
             "pl": Profession.name_en,
             "de": Profession.name_en,
+            "nl": Profession.name_en,
         }.get(
             language,
             Profession.name_ru,
@@ -1456,6 +1459,7 @@ class ContactChatRepository:
             "uk": Profession.name_ru,
             "pl": Profession.name_en,
             "de": Profession.name_en,
+            "nl": Profession.name_en,
         }.get(
             language,
             Profession.name_ru,
@@ -1523,6 +1527,7 @@ class ContactChatRepository:
             "uk": Profession.name_ru,
             "pl": Profession.name_en,
             "de": Profession.name_en,
+            "nl": Profession.name_en,
         }.get(
             language,
             Profession.name_ru,
@@ -1579,6 +1584,7 @@ class ContactChatRepository:
             "uk": Profession.name_ru,
             "pl": Profession.name_en,
             "de": Profession.name_en,
+            "nl": Profession.name_en,
         }.get(
             language,
             Profession.name_ru,

@@ -460,6 +460,7 @@ class SpecialistSearchRepository:
             "uk": Skill.name_ru,
             "pl": Skill.name_en,
             "de": Skill.name_en,
+            "nl": Skill.name_en,
         }.get(
             language,
             Skill.name_ru,
@@ -507,6 +508,7 @@ class SpecialistSearchRepository:
             "uk": Skill.name_ru,
             "pl": Skill.name_en,
             "de": Skill.name_en,
+            "nl": Skill.name_en,
         }.get(
             language,
             Skill.name_ru,

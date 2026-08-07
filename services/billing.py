@@ -280,6 +280,7 @@ class BillingService:
                 "uk",
                 "pl",
                 "de",
+                "nl",
             }
             else "ru"
         )
@@ -330,6 +331,10 @@ class BillingService:
             "de": (
                 "Die Zahlungsdaten sind noch nicht konfiguriert. "
                 "Wenden Sie sich an den Administrator von SGHR Beta."
+            ),
+            "nl": (
+                "De betalingsgegevens zijn nog niet geconfigureerd. "
+                "Neem contact op met de beheerder van SGHR Beta."
             ),
         }
 
