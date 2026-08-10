@@ -2422,7 +2422,7 @@ def profile_languages_keyboard(
                 ),
                 InlineKeyboardButton(
                     text=(
-                        f"{marker('uk')}UK"
+                        f"{marker('uk')}UA"
                     ),
                     callback_data=(
                         "CAB_LANG_TOGGLE:uk"
@@ -6027,7 +6027,7 @@ def specialist_language_settings_keyboard(
                     ),
                 ),
                 InlineKeyboardButton(
-                    text="UK",
+                    text="UA",
                     callback_data=(
                         "SPEC_SET_UI_LANG:uk"
                     ),
@@ -6082,7 +6082,7 @@ def specialist_language_settings_keyboard(
                     ),
                 ),
                 InlineKeyboardButton(
-                    text="UK",
+                    text="UA",
                     callback_data=(
                         "SPEC_SET_MSG_LANG:uk"
                     ),
