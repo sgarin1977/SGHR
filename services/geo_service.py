@@ -120,9 +120,13 @@ class GeoService:
         self,
         candidate: GeoPlaceCandidate | dict,
         *,
+        language: str = "ru",
         commit: bool = True,
     ) -> SavedGeoPlace:
         place = GeoPlaceCandidate.from_state(candidate)
+        normalized_language = (
+            self._normalize_language(language)
+        )
 
         if not place.name:
             raise GeoServiceError("Place name is required.")
@@ -130,24 +134,74 @@ class GeoService:
         if not place.country_name or len(place.country_code) != 2:
             raise GeoServiceError("Country data is required.")
 
-        country = await self.repository.ensure_country(place)
+        country = await self.repository.ensure_country(
+            place,
+            language=normalized_language,
+        )
         city = await self.repository.ensure_city(
             country=country,
             candidate=place,
+            language=normalized_language,
         )
 
         if commit:
             await self.repository.session.commit()
 
+        country_name = (
+            getattr(
+                country,
+                f"name_{normalized_language}",
+                None,
+            )
+            or country.name
+        )
+        city_name = (
+            getattr(
+                city,
+                f"name_{normalized_language}",
+                None,
+            )
+            or city.name
+        )
+
+        metadata = dict(
+            city.extra_metadata or {}
+        )
+        stored_display_names = metadata.get(
+            "localized_display_names"
+        )
+        localized_display_names = (
+            stored_display_names
+            if isinstance(
+                stored_display_names,
+                dict,
+            )
+            else {}
+        )
+
         return SavedGeoPlace(
             country_id=country.id,
             city_id=city.id,
-            country_name=country.name,
+            country_name=country_name,
             country_code=country.code,
-            city_name=city.name,
-            latitude=float(city.latitude) if city.latitude is not None else place.latitude,
-            longitude=float(city.longitude) if city.longitude is not None else place.longitude,
-            display_name=(city.extra_metadata or {}).get("display_name") or place.display_name,
+            city_name=city_name,
+            latitude=(
+                float(city.latitude)
+                if city.latitude is not None
+                else place.latitude
+            ),
+            longitude=(
+                float(city.longitude)
+                if city.longitude is not None
+                else place.longitude
+            ),
+            display_name=(
+                localized_display_names.get(
+                    normalized_language
+                )
+                or place.display_name
+                or metadata.get("display_name")
+            ),
         )
 
     async def confirm_search_place(
@@ -156,6 +210,7 @@ class GeoService:
         *,
         tenant_id: UUID | None,
         user_id: UUID | None,
+        language: str = "ru",
         source: str = "search_filter",
     ) -> SavedGeoPlace:
         normalized_source = (
@@ -171,6 +226,7 @@ class GeoService:
 
             place = await self.confirm_place(
                 candidate,
+                language=language,
                 commit=False,
             )
 

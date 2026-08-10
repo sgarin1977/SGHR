@@ -6177,6 +6177,7 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
                 candidate,
                 tenant_id=tenant_id,
                 user_id=actor_user_id,
+                language=language,
                 source="search_filter",
             )
 

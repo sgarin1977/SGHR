@@ -644,6 +644,18 @@ class SpecialistRepository:
                     literal(normalized_query).ilike(
                         func.concat("% ", func.lower(City.name_pt), "%")
                     ),
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name_uk), "%")
+                    ),
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name_pl), "%")
+                    ),
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name_de), "%")
+                    ),
+                    literal(normalized_query).ilike(
+                        func.concat("% ", func.lower(City.name_nl), "%")
+                    ),
                 ),
             )
             .order_by(

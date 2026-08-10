@@ -201,6 +201,10 @@ class SpecialistSearchTextService:
                 city.name_ru,
                 city.name_en,
                 city.name_pt,
+                city.name_uk,
+                city.name_pl,
+                city.name_de,
+                city.name_nl,
             ]
             for city_name in city_names:
                 if city_name:
@@ -1718,6 +1722,7 @@ class SpecialistService:
         user_id: UUID,
         specialist_id: UUID,
         candidate: dict,
+        language: str = "ru",
     ) -> SavedGeoPlace:
         specialist = await self.repository.get_by_user_id(
             user_id
@@ -1758,6 +1763,7 @@ class SpecialistService:
                 )
             ).confirm_place(
                 candidate,
+                language=language,
                 commit=False,
             )
 
@@ -1808,6 +1814,7 @@ class SpecialistService:
         user_id: UUID,
         specialist_id: UUID,
         candidate: dict,
+        language: str = "ru",
     ) -> None:
         specialist = await self.repository.get_by_user_id(
             user_id
@@ -1870,7 +1877,8 @@ class SpecialistService:
             country = await GeoRepository(
                 self.repository.session
             ).ensure_country(
-                place_candidate
+                place_candidate,
+                language=language,
             )
 
             await self.repository.update_active_cabinet_location(

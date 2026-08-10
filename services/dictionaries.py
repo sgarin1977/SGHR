@@ -1141,13 +1141,22 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-            "uk": row.name_ru,
-            "pl": row.name_en,
-            "de": row.name_en,
-            "nl": row.name_en,
+            "uk": row.name_uk,
+            "pl": row.name_pl,
+            "de": row.name_de,
+            "nl": row.name_nl,
         }.get(
             language
-        ) or row.name
+        ) or (
+            row.name_ru
+            or row.name_en
+            or row.name_pt
+            or row.name_uk
+            or row.name_pl
+            or row.name_de
+            or row.name_nl
+            or row.name
+        )
 
         status_code = (
             "active"
@@ -1556,13 +1565,43 @@ class DictionaryService:
             "ru": row.name_ru,
             "en": row.name_en,
             "pt": row.name_pt,
-            "uk": row.name_ru,
-            "pl": row.name_en,
-            "de": row.name_en,
-            "nl": row.name_en,
+            "uk": row.name_uk,
+            "pl": row.name_pl,
+            "de": row.name_de,
+            "nl": row.name_nl,
         }.get(
             language
-        ) or row.name
+        ) or (
+            row.name_ru
+            or row.name_en
+            or row.name_pt
+            or row.name_uk
+            or row.name_pl
+            or row.name_de
+            or row.name_nl
+            or row.name
+        )
+
+        country_name = {
+            "ru": row.country_name_ru,
+            "en": row.country_name_en,
+            "pt": row.country_name_pt,
+            "uk": row.country_name_uk,
+            "pl": row.country_name_pl,
+            "de": row.country_name_de,
+            "nl": row.country_name_nl,
+        }.get(
+            language
+        ) or (
+            row.country_name_ru
+            or row.country_name_en
+            or row.country_name_pt
+            or row.country_name_uk
+            or row.country_name_pl
+            or row.country_name_de
+            or row.country_name_nl
+            or row.country_name
+        )
 
         status_code = (
             "active"
@@ -1613,7 +1652,7 @@ class DictionaryService:
             city_id=row.city_id,
             country_id=row.country_id,
             title=title,
-            country_name=row.country_name,
+            country_name=country_name,
             status=status,
             status_code=status_code,
             latitude=row.latitude,

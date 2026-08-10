@@ -9706,6 +9706,7 @@ async def choose_specialist_location_update(callback: CallbackQuery, state: FSMC
                     specialist_id
                 ),
                 candidate=candidate,
+                language=language,
             )
 
     except RateLimitError as exc:
@@ -9828,6 +9829,7 @@ async def choose_specialist_country_update(
                     specialist_id
                 ),
                 candidate=candidate,
+                language=language,
             )
 
     except RateLimitError:

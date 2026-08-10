@@ -2612,6 +2612,10 @@ class ModerationRepository:
                         func.lower(Country.name_ru) == normalized_lookup,
                         func.lower(Country.name_en) == normalized_lookup,
                         func.lower(Country.name_pt) == normalized_lookup,
+                        func.lower(Country.name_uk) == normalized_lookup,
+                        func.lower(Country.name_pl) == normalized_lookup,
+                        func.lower(Country.name_de) == normalized_lookup,
+                        func.lower(Country.name_nl) == normalized_lookup,
                     )
                 )
                 .limit(1)
@@ -2632,6 +2636,10 @@ class ModerationRepository:
                         func.lower(City.name_ru) == normalized_lookup,
                         func.lower(City.name_en) == normalized_lookup,
                         func.lower(City.name_pt) == normalized_lookup,
+                        func.lower(City.name_uk) == normalized_lookup,
+                        func.lower(City.name_pl) == normalized_lookup,
+                        func.lower(City.name_de) == normalized_lookup,
+                        func.lower(City.name_nl) == normalized_lookup,
                     )
                 )
                 .order_by(City.name.asc())

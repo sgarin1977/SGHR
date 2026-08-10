@@ -110,6 +110,10 @@ class AdminCountryDictionaryRow:
     name_ru: str | None
     name_en: str | None
     name_pt: str | None
+    name_uk: str | None
+    name_pl: str | None
+    name_de: str | None
+    name_nl: str | None
     default_language: str | None
     default_currency: str | None
     phone_code: str | None
@@ -169,10 +173,21 @@ class AdminCityDictionaryRow:
     city_id: UUID
     country_id: UUID
     country_name: str
+    country_name_ru: str | None
+    country_name_en: str | None
+    country_name_pt: str | None
+    country_name_uk: str | None
+    country_name_pl: str | None
+    country_name_de: str | None
+    country_name_nl: str | None
     name: str
     name_ru: str | None
     name_en: str | None
     name_pt: str | None
+    name_uk: str | None
+    name_pl: str | None
+    name_de: str | None
+    name_nl: str | None
     latitude: float | None
     longitude: float | None
     timezone: str | None
@@ -3199,6 +3214,10 @@ class DictionaryRepository:
                 func.lower(func.trim(Country.name_ru)) == normalized_name,
                 func.lower(func.trim(Country.name_en)) == normalized_name,
                 func.lower(func.trim(Country.name_pt)) == normalized_name,
+                func.lower(func.trim(Country.name_uk)) == normalized_name,
+                func.lower(func.trim(Country.name_pl)) == normalized_name,
+                func.lower(func.trim(Country.name_de)) == normalized_name,
+                func.lower(func.trim(Country.name_nl)) == normalized_name,
             )
         )
 
@@ -3264,6 +3283,10 @@ class DictionaryRepository:
                 Country.name_ru,
                 Country.name_en,
                 Country.name_pt,
+                Country.name_uk,
+                Country.name_pl,
+                Country.name_de,
+                Country.name_nl,
                 Country.default_language,
                 Country.default_currency,
                 Country.phone_code,
@@ -3308,6 +3331,10 @@ class DictionaryRepository:
                 name_ru=row.name_ru,
                 name_en=row.name_en,
                 name_pt=row.name_pt,
+                name_uk=row.name_uk,
+                name_pl=row.name_pl,
+                name_de=row.name_de,
+                name_nl=row.name_nl,
                 default_language=(
                     row.default_language
                 ),
@@ -3385,6 +3412,10 @@ class DictionaryRepository:
                 Country.name_ru,
                 Country.name_en,
                 Country.name_pt,
+                Country.name_uk,
+                Country.name_pl,
+                Country.name_de,
+                Country.name_nl,
                 Country.default_language,
                 Country.default_currency,
                 Country.phone_code,
@@ -3430,6 +3461,10 @@ class DictionaryRepository:
             name_ru=row.name_ru,
             name_en=row.name_en,
             name_pt=row.name_pt,
+            name_uk=row.name_uk,
+            name_pl=row.name_pl,
+            name_de=row.name_de,
+            name_nl=row.name_nl,
             default_language=(
                 row.default_language
             ),
@@ -3586,6 +3621,10 @@ class DictionaryRepository:
                 func.lower(func.trim(City.name_ru)) == normalized_name,
                 func.lower(func.trim(City.name_en)) == normalized_name,
                 func.lower(func.trim(City.name_pt)) == normalized_name,
+                func.lower(func.trim(City.name_uk)) == normalized_name,
+                func.lower(func.trim(City.name_pl)) == normalized_name,
+                func.lower(func.trim(City.name_de)) == normalized_name,
+                func.lower(func.trim(City.name_nl)) == normalized_name,
             ),
         )
 
@@ -3634,10 +3673,35 @@ class DictionaryRepository:
                 Country.name.label(
                     "country_name"
                 ),
+                Country.name_ru.label(
+                    "country_name_ru"
+                ),
+                Country.name_en.label(
+                    "country_name_en"
+                ),
+                Country.name_pt.label(
+                    "country_name_pt"
+                ),
+                Country.name_uk.label(
+                    "country_name_uk"
+                ),
+                Country.name_pl.label(
+                    "country_name_pl"
+                ),
+                Country.name_de.label(
+                    "country_name_de"
+                ),
+                Country.name_nl.label(
+                    "country_name_nl"
+                ),
                 City.name,
                 City.name_ru,
                 City.name_en,
                 City.name_pt,
+                City.name_uk,
+                City.name_pl,
+                City.name_de,
+                City.name_nl,
                 City.latitude,
                 City.longitude,
                 City.timezone,
@@ -3675,10 +3739,21 @@ class DictionaryRepository:
                 city_id=row.id,
                 country_id=row.country_id,
                 country_name=row.country_name,
+                country_name_ru=row.country_name_ru,
+                country_name_en=row.country_name_en,
+                country_name_pt=row.country_name_pt,
+                country_name_uk=row.country_name_uk,
+                country_name_pl=row.country_name_pl,
+                country_name_de=row.country_name_de,
+                country_name_nl=row.country_name_nl,
                 name=row.name,
                 name_ru=row.name_ru,
                 name_en=row.name_en,
                 name_pt=row.name_pt,
+                name_uk=row.name_uk,
+                name_pl=row.name_pl,
+                name_de=row.name_de,
+                name_nl=row.name_nl,
                 latitude=(
                     float(row.latitude)
                     if row.latitude is not None
@@ -3737,10 +3812,35 @@ class DictionaryRepository:
                 Country.name.label(
                     "country_name"
                 ),
+                Country.name_ru.label(
+                    "country_name_ru"
+                ),
+                Country.name_en.label(
+                    "country_name_en"
+                ),
+                Country.name_pt.label(
+                    "country_name_pt"
+                ),
+                Country.name_uk.label(
+                    "country_name_uk"
+                ),
+                Country.name_pl.label(
+                    "country_name_pl"
+                ),
+                Country.name_de.label(
+                    "country_name_de"
+                ),
+                Country.name_nl.label(
+                    "country_name_nl"
+                ),
                 City.name,
                 City.name_ru,
                 City.name_en,
                 City.name_pt,
+                City.name_uk,
+                City.name_pl,
+                City.name_de,
+                City.name_nl,
                 City.latitude,
                 City.longitude,
                 City.timezone,
@@ -3776,10 +3876,21 @@ class DictionaryRepository:
             city_id=row.id,
             country_id=row.country_id,
             country_name=row.country_name,
+            country_name_ru=row.country_name_ru,
+            country_name_en=row.country_name_en,
+            country_name_pt=row.country_name_pt,
+            country_name_uk=row.country_name_uk,
+            country_name_pl=row.country_name_pl,
+            country_name_de=row.country_name_de,
+            country_name_nl=row.country_name_nl,
             name=row.name,
             name_ru=row.name_ru,
             name_en=row.name_en,
             name_pt=row.name_pt,
+            name_uk=row.name_uk,
+            name_pl=row.name_pl,
+            name_de=row.name_de,
+            name_nl=row.name_nl,
             latitude=(
                 float(row.latitude)
                 if row.latitude is not None
@@ -3842,6 +3953,10 @@ class DictionaryRepository:
                     func.lower(func.trim(City.name_ru)).in_(normalized_names),
                     func.lower(func.trim(City.name_en)).in_(normalized_names),
                     func.lower(func.trim(City.name_pt)).in_(normalized_names),
+                    func.lower(func.trim(City.name_uk)).in_(normalized_names),
+                    func.lower(func.trim(City.name_pl)).in_(normalized_names),
+                    func.lower(func.trim(City.name_de)).in_(normalized_names),
+                    func.lower(func.trim(City.name_nl)).in_(normalized_names),
                 ),
             )
         )
