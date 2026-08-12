@@ -142,6 +142,7 @@ class SupportService:
             await self.repository
             .list_admin_escalated_tickets(
                 tenant_id=tenant_id,
+                admin_user_id=admin_user_id,
                 limit=normalized_page_size + 1,
                 offset=(
                     normalized_page
@@ -196,6 +197,7 @@ class SupportService:
 
         return await self.repository.list_staff_tickets(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
             statuses=normalized_statuses,
             limit=limit,
             offset=offset,
@@ -223,6 +225,7 @@ class SupportService:
 
         return await self.repository.search_staff_tickets(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
             query=search_query,
             limit=limit,
             offset=offset,
@@ -249,6 +252,7 @@ class SupportService:
 
         return await self.repository.get_staff_ticket_counts(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
             statuses=normalized_statuses,
         )
 
@@ -265,6 +269,7 @@ class SupportService:
 
         return await self.repository.get_staff_ticket_stats(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
         )
 
     async def get_user_ticket_view(
@@ -301,8 +306,9 @@ class SupportService:
             staff_user_id=staff_user_id,
         )
 
-        ticket = await self.repository.get_ticket(
+        ticket = await self.repository.get_staff_ticket(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
             ticket_id=ticket_id,
         )
         if not ticket or ticket.tenant_id != tenant_id:
@@ -389,9 +395,11 @@ class SupportService:
             staff_user_id=staff_user_id,
         )
 
-        ticket = await self.repository.get_ticket(
+        ticket = await self.repository.get_staff_ticket(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
             ticket_id=ticket_id,
+            for_update=True,
         )
         if not ticket or ticket.tenant_id != tenant_id:
             raise SupportServiceError(
@@ -426,6 +434,17 @@ class SupportService:
             )
         )
 
+        (
+            scope_country_id,
+            scope_language_code,
+        ) = await (
+            self.repository
+            .get_ticket_scope_snapshot(
+                tenant_id=tenant_id,
+                ticket_id=ticket_id,
+            )
+        )
+
         await self.events.create_event(
             event_type="reply",
             tenant_id=tenant_id,
@@ -437,6 +456,10 @@ class SupportService:
                 "message_length": len(validated_message),
             },
             platform="telegram",
+            scope_country_id=scope_country_id,
+            scope_language_code=(
+                scope_language_code
+            ),
         )
 
         await self.repository.session.commit()
@@ -465,6 +488,18 @@ class SupportService:
             staff_user_id=staff_user_id,
         )
 
+        ticket = await self.repository.get_staff_ticket(
+            tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
+            ticket_id=ticket_id,
+            for_update=True,
+        )
+
+        if not ticket:
+            raise SupportServiceError(
+                "Support ticket not found."
+            )
+
         status = self._validate_status(status)
         ticket = await self.repository.update_ticket_status(
             tenant_id=tenant_id,
@@ -490,8 +525,9 @@ class SupportService:
             admin_user_id=admin_user_id,
         )
 
-        ticket = await self.repository.get_ticket(
+        ticket = await self.repository.get_admin_ticket(
             tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
             ticket_id=ticket_id,
         )
 
@@ -545,9 +581,11 @@ class SupportService:
             reason
         )
 
-        ticket = await self.repository.get_ticket(
+        ticket = await self.repository.get_admin_ticket(
             tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
             ticket_id=ticket_id,
+            for_update=True,
         )
 
         if (
@@ -625,9 +663,11 @@ class SupportService:
             reason
         )
 
-        ticket = await self.repository.get_ticket(
+        ticket = await self.repository.get_admin_ticket(
             tenant_id=tenant_id,
+            admin_user_id=admin_user_id,
             ticket_id=ticket_id,
+            for_update=True,
         )
 
         if (
@@ -772,9 +812,11 @@ class SupportService:
 
         reason_text = self._validate_message_text(reason)
 
-        ticket = await self.repository.get_ticket(
+        ticket = await self.repository.get_staff_ticket(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
             ticket_id=ticket_id,
+            for_update=True,
         )
         if not ticket:
             raise SupportServiceError("Support ticket not found.")

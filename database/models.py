@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy import (
     String,
     ForeignKey,
+    ForeignKeyConstraint,
     DateTime,
     Text,
     Integer,
@@ -86,17 +87,347 @@ class RoleScope(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
-    user_role_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("user_roles.id"), nullable=False)
+    user_role_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey(
+            "user_roles.id",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     role: Mapped[str] = mapped_column(Text, nullable=False)
     scope_type: Mapped[str] = mapped_column(Text, nullable=False)
-    scope_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    scope_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        nullable=True,
+    )
+    scope_code: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        ForeignKey(
+            "languages.code",
+            onupdate="RESTRICT",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(Text, default="active")
-    reason: Mapped[str] = mapped_column(Text, nullable=False)
-    created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    created_by_root_identity_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "root_identities.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    revoked_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    revoked_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+    revoked_by_root_identity_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "root_identities.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+class RootIdentity(Base):
+    __tablename__ = "root_identities"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    linked_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        unique=True,
+        nullable=True,
+    )
+    identity_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    totp_secret_encrypted: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    totp_confirmed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="pending_enrollment",
+        nullable=False,
+    )
+    failed_password_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    locked_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_authenticated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class RootRecoverySession(Base):
+    __tablename__ = "root_recovery_sessions"
+    __table_args__ = (
+        UniqueConstraint(
+            "id",
+            "tenant_id",
+            name="uq_root_session_id_tenant",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    root_identity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("root_identities.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(
+        Text,
+        unique=True,
+        nullable=False,
+    )
+    state: Mapped[str] = mapped_column(
+        Text,
+        default="mfa_pending",
+        nullable=False,
+    )
+    mfa_method: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    mfa_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    password_verified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    mfa_verified_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    activated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class RootRecoveryCode(Base):
+    __tablename__ = "root_recovery_codes"
+    __table_args__ = (
+        UniqueConstraint(
+            "root_identity_id",
+            "code_hash",
+            name="uq_root_recovery_code_hash",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    root_identity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("root_identities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    code_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    used_by_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("root_recovery_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    used_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class RootRecoveryAction(Base):
+    __tablename__ = "root_recovery_actions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["root_session_id", "tenant_id"],
+            [
+                "root_recovery_sessions.id",
+                "root_recovery_sessions.tenant_id",
+            ],
+            name="fk_root_action_session",
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    root_session_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    action_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    target_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    action_payload: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+    reason: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    confirmation_token_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    state: Mapped[str] = mapped_column(
+        Text,
+        default="pending_confirmation",
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    executed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class RootSecurityEvent(Base):
+    __tablename__ = "root_security_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    root_identity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("root_identities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    root_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("root_recovery_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    root_action_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("root_recovery_actions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    target_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    event_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    success: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+    )
+    reason_code: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    payload: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
 
 class EventLog(Base):
     __tablename__ = "event_logs"
@@ -107,6 +438,27 @@ class EventLog(Base):
     event_type: Mapped[str] = mapped_column(Text, nullable=False)
     entity_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    scope_country_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "countries.id",
+            onupdate="RESTRICT",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    scope_language_code: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        String(10),
+        ForeignKey(
+            "languages.code",
+            onupdate="RESTRICT",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     platform: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     trace_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -1206,6 +1558,27 @@ class AdminAction(Base):
     action_type: Mapped[str] = mapped_column(Text, nullable=False)
     target_type: Mapped[str] = mapped_column(Text, nullable=False)
     target_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    scope_country_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "countries.id",
+            onupdate="RESTRICT",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    scope_language_code: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        String(10),
+        ForeignKey(
+            "languages.code",
+            onupdate="RESTRICT",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
     before_state: Mapped[dict] = mapped_column(JSONB, default=dict)
     after_state: Mapped[dict] = mapped_column(JSONB, default=dict)
     reason: Mapped[str] = mapped_column(Text, nullable=False)

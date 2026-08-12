@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
@@ -10,9 +10,14 @@ from database.models import (
     ProfessionalCabinet,
     Specialist,
     SpecialistPortfolioItem,
+    User,
     UserRoleMapping,
 )
 
+
+from database.repositories.admin_scope import (
+    AdminScopeRepository,
+)
 
 PORTFOLIO_MODERATION_ROLES = {
     "super_admin",
@@ -82,6 +87,35 @@ class PortfolioRepository:
             )
 
         return roles
+
+    async def _moderation_scope_predicate(
+        self,
+        *,
+        roles: set[str],
+        moderator_user_id: UUID,
+        tenant_id: UUID,
+    ):
+        if (
+            "super_admin" in roles
+            or "admin" not in roles
+        ):
+            return literal(True)
+
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+        )
+
+        return scope_context.sql_predicate(
+            country_column=(
+                ProfessionalCabinet.country_id
+            ),
+            language_column=(
+                User.language_code
+            ),
+        )
 
     async def get_portfolio_counts(
         self,
@@ -313,9 +347,19 @@ class PortfolioRepository:
             Profession,
         ]
     ]:
-        await self.require_moderator(
+        roles = await self.require_moderator(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
+        )
+
+        scope_predicate = await (
+            self._moderation_scope_predicate(
+                roles=roles,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
+                tenant_id=tenant_id,
+            )
         )
 
         normalized_limit = max(
@@ -353,6 +397,18 @@ class PortfolioRepository:
                 Profession.id
                 == ProfessionalCabinet.profession_id,
             )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
             .where(
                 SpecialistPortfolioItem.tenant_id
                 == tenant_id,
@@ -362,6 +418,7 @@ class PortfolioRepository:
                 == tenant_id,
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
+                scope_predicate,
                 FileStorageObject.owner_user_id
                 != moderator_user_id,
             )
@@ -395,9 +452,19 @@ class PortfolioRepository:
             Profession,
         ]
     ]:
-        await self.require_moderator(
+        roles = await self.require_moderator(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
+        )
+
+        scope_predicate = await (
+            self._moderation_scope_predicate(
+                roles=roles,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
+                tenant_id=tenant_id,
+            )
         )
 
         normalized_limit = max(
@@ -431,6 +498,18 @@ class PortfolioRepository:
                 Profession.id
                 == ProfessionalCabinet.profession_id,
             )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
             .where(
                 SpecialistPortfolioItem.tenant_id
                 == tenant_id,
@@ -440,6 +519,7 @@ class PortfolioRepository:
                 == tenant_id,
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
+                scope_predicate,
             )
             .order_by(
                 SpecialistPortfolioItem.created_at.desc(),
@@ -467,9 +547,19 @@ class PortfolioRepository:
         FileStorageObject,
         str,
     ]:
-        await self.require_moderator(
+        roles = await self.require_moderator(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
+        )
+
+        scope_predicate = await (
+            self._moderation_scope_predicate(
+                roles=roles,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
+                tenant_id=tenant_id,
+            )
         )
 
         if status not in {"active", "rejected"}:
@@ -489,15 +579,32 @@ class PortfolioRepository:
                 == SpecialistPortfolioItem.file_id,
             )
             .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == SpecialistPortfolioItem
+                .professional_cabinet_id,
+            )
+            .join(
                 Specialist,
                 Specialist.id
                 == SpecialistPortfolioItem.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
             )
             .where(
                 SpecialistPortfolioItem.id == item_id,
                 SpecialistPortfolioItem.tenant_id == tenant_id,
                 FileStorageObject.tenant_id == tenant_id,
-                Specialist.tenant_id == tenant_id,
+                Specialist.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                scope_predicate,
             )
             .with_for_update()
         )
@@ -546,9 +653,19 @@ class PortfolioRepository:
         FileStorageObject,
         str,
     ]:
-        await self.require_moderator(
+        roles = await self.require_moderator(
             tenant_id=tenant_id,
             user_id=moderator_user_id,
+        )
+
+        scope_predicate = await (
+            self._moderation_scope_predicate(
+                roles=roles,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
+                tenant_id=tenant_id,
+            )
         )
 
         result = await self.session.execute(
@@ -563,9 +680,22 @@ class PortfolioRepository:
                 == SpecialistPortfolioItem.file_id,
             )
             .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == SpecialistPortfolioItem
+                .professional_cabinet_id,
+            )
+            .join(
                 Specialist,
                 Specialist.id
                 == SpecialistPortfolioItem.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
             )
             .where(
                 SpecialistPortfolioItem.id
@@ -576,6 +706,9 @@ class PortfolioRepository:
                 == tenant_id,
                 Specialist.tenant_id
                 == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                scope_predicate,
             )
             .with_for_update()
         )

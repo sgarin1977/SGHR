@@ -4,6 +4,9 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from database.role_policy import (
+    ADMINISTRATIVE_ROLES,
+)
 from database.models import (
     ContactRequest,
     DataSubjectRequest,
@@ -25,7 +28,9 @@ from database.models import (
 
 
 DELETED_TEXT = "[deleted by user request]"
-ADMIN_ROLES = {"super_admin", "admin", "moderator", "support", "finance_admin"}
+ADMIN_ROLES = set(
+    ADMINISTRATIVE_ROLES
+)
 
 
 class PrivacyRepository:

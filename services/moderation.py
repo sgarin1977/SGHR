@@ -523,6 +523,7 @@ class ModerationService:
             await self.repository.require_admin_role(
                 admin_user_id,
                 {"super_admin"},
+                tenant_id=tenant_id,
             )
 
             user_service = UserService(
@@ -602,6 +603,7 @@ class ModerationService:
             await self.repository.require_admin_role(
                 admin_user_id,
                 {"super_admin"},
+                tenant_id=tenant_id,
             )
 
             user_service = UserService(
@@ -704,6 +706,7 @@ class ModerationService:
             await self.repository.require_admin_role(
                 admin_user_id,
                 {"super_admin"},
+                tenant_id=tenant_id,
             )
 
             user_service = UserService(
@@ -895,6 +898,7 @@ class ModerationService:
             await self.repository.require_admin_role(
                 admin_user_id,
                 {"super_admin"},
+                tenant_id=tenant_id,
             )
 
             user_service = UserService(
@@ -978,12 +982,28 @@ class ModerationService:
             status="stopped",
         )
 
-    async def get_admin_roles(self, user_id: UUID) -> set[str]:
-        return await self.repository.get_admin_roles(user_id)
+    async def get_admin_roles(
+        self,
+        user_id: UUID,
+        *,
+        tenant_id: UUID | None = None,
+    ) -> set[str]:
+        return await self.repository.get_admin_roles(
+            user_id,
+            tenant_id=tenant_id,
+        )
 
-    async def ensure_admin_access(self, user_id: UUID) -> set[str]:
+    async def ensure_admin_access(
+        self,
+        user_id: UUID,
+        *,
+        tenant_id: UUID | None = None,
+    ) -> set[str]:
         try:
-            return await self.repository.require_admin_role(user_id)
+            return await self.repository.require_admin_role(
+                user_id,
+                tenant_id=tenant_id,
+            )
         except ModerationAccessError as exc:
             raise ModerationError(str(exc)) from exc
 
@@ -1351,7 +1371,7 @@ class ModerationService:
             raise ModerationError("Search query must be at least 2 characters.")
 
         try:
-            roles = await self.repository.get_admin_roles(admin_user_id)
+            roles = await self.repository.get_admin_roles(admin_user_id, tenant_id=tenant_id)
 
             if "super_admin" not in roles:
                 raise ModerationAccessError("Super Admin access required.")
@@ -1433,7 +1453,7 @@ class ModerationService:
         target_user_id: UUID,
     ) -> SuperAdminUserDetailsCard:
         try:
-            roles = await self.repository.get_admin_roles(admin_user_id)
+            roles = await self.repository.get_admin_roles(admin_user_id, tenant_id=tenant_id)
 
             if "super_admin" not in roles:
                 raise ModerationAccessError("Super Admin access required.")
@@ -1471,7 +1491,7 @@ class ModerationService:
         target_user_id: UUID,
     ) -> list[SuperAdminUserRoleCard]:
         try:
-            roles = await self.repository.get_admin_roles(admin_user_id)
+            roles = await self.repository.get_admin_roles(admin_user_id, tenant_id=tenant_id)
 
             if "super_admin" not in roles:
                 raise ModerationAccessError("Super Admin access required.")
@@ -1692,7 +1712,7 @@ class ModerationService:
             scope_type=row.scope_type,
             scope_value=row.scope_value,
             status=row.status,
-            reason=row.reason,
+            reason=row.reason or "-",
             created_by=created_by,
             created_at=created_at,
             revoked_by=revoked_by,
@@ -1708,7 +1728,7 @@ class ModerationService:
         limit: int = 10,
     ) -> list[SuperAdminPermissionMatrixCard]:
         try:
-            roles = await self.repository.get_admin_roles(admin_user_id)
+            roles = await self.repository.get_admin_roles(admin_user_id, tenant_id=tenant_id)
 
             if "super_admin" not in roles:
                 raise ModerationAccessError("Super Admin access required.")
@@ -1990,7 +2010,7 @@ class ModerationService:
         tenant_id: UUID,
     ) -> SuperAdminMenuSummary:
         try:
-            roles = await self.repository.get_admin_roles(admin_user_id)
+            roles = await self.repository.get_admin_roles(admin_user_id, tenant_id=tenant_id)
 
             if "super_admin" not in roles:
                 raise ModerationAccessError("Super Admin access required.")
@@ -2810,12 +2830,14 @@ class ModerationService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         limit: int = 10,
         offset: int = 0,
     ) -> list[Complaint]:
         try:
             return await self.repository.list_open_complaints(
                 admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
                 limit=limit,
                 offset=offset,
             )
@@ -3652,7 +3674,8 @@ class ModerationService:
     ) -> SuperAdminSmokeTestRunCard:
         try:
             roles = await self.repository.get_admin_roles(
-                admin_user_id
+                admin_user_id,
+                tenant_id=tenant_id,
             )
 
             if "super_admin" not in roles:

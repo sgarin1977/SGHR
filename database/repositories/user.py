@@ -6,6 +6,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from database.role_policy import (
+    ADMINISTRATIVE_ROLES,
+)
 from database.models import (
     City,
     Country,
@@ -159,6 +162,16 @@ class UserRepository:
         tenant_id: uuid.UUID,
         role: str,
     ) -> bool:
+        normalized_role = (
+            role or ""
+        ).strip().lower()
+
+        if normalized_role in ADMINISTRATIVE_ROLES:
+            raise PermissionError(
+                "Administrative roles can only "
+                "be changed through Root CLI."
+            )
+
         result = await self.session.execute(
             select(UserRoleMapping).where(
                 UserRoleMapping.user_id == user_id,
@@ -315,6 +328,16 @@ class UserRepository:
         language_code: str,
         role: str,
     ) -> uuid.UUID:
+        normalized_role = (
+            role or ""
+        ).strip().lower()
+
+        if normalized_role in ADMINISTRATIVE_ROLES:
+            raise PermissionError(
+                "Administrative roles can only "
+                "be changed through Root CLI."
+            )
+
         existing_account = await self.get_by_platform_account("telegram", platform_user_id)
         if existing_account:
             return existing_account.user_id

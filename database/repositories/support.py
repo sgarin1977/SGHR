@@ -1,17 +1,34 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import (
+    String,
+    and_,
+    cast,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
     EventLog,
+    Language,
     SupportMessage,
     SupportTicket,
+    User,
+    Specialist,
+    ProfessionalCabinet,
     UserAccount,
     UserRoleMapping,
 )
 
+
+from database.repositories.admin_scope import (
+    AdminScopeRepository,
+)
 
 SUPPORT_TICKET_STATUSES = {
     "open",
@@ -57,6 +74,103 @@ SUPPORT_STAFF_ROLES = {
 class SupportRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def _admin_ticket_scope_predicate(
+        self,
+        *,
+        admin_user_id: UUID,
+        tenant_id: UUID,
+    ):
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+        )
+
+        if scope_context.is_global:
+            return literal(True)
+
+        statement = (
+            select(literal(1))
+            .select_from(User)
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .where(
+                User.id == SupportTicket.user_id,
+                User.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=func.coalesce(
+                        User.country_id,
+                        ProfessionalCabinet.country_id,
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
+            )
+            .correlate_except(
+                User,
+                Specialist,
+                ProfessionalCabinet,
+            )
+        )
+
+        return exists(statement)
+
+    async def _staff_ticket_scope_predicate(
+        self,
+        *,
+        staff_user_id: UUID,
+        tenant_id: UUID,
+    ):
+        roles_result = await self.session.execute(
+            select(UserRoleMapping.role).where(
+                UserRoleMapping.user_id
+                == staff_user_id,
+                UserRoleMapping.tenant_id
+                == tenant_id,
+                UserRoleMapping.status == "active",
+                UserRoleMapping.role.in_(
+                    SUPPORT_STAFF_ROLES
+                ),
+            )
+        )
+        roles = set(
+            roles_result.scalars().all()
+        )
+
+        if (
+            "super_admin" in roles
+            or "support" in roles
+        ):
+            return literal(True)
+
+        if "admin" in roles:
+            return await (
+                self._admin_ticket_scope_predicate(
+                    admin_user_id=staff_user_id,
+                    tenant_id=tenant_id,
+                )
+            )
+
+        return literal(False)
 
     async def user_has_support_access(
         self,
@@ -182,6 +296,68 @@ class SupportRepository:
     ) -> SupportTicket | None:
         return await self.session.get(SupportTicket, ticket_id)
 
+    async def get_staff_ticket(
+        self,
+        *,
+        tenant_id: UUID,
+        staff_user_id: UUID,
+        ticket_id: UUID,
+        for_update: bool = False,
+    ) -> SupportTicket | None:
+        scope_predicate = await (
+            self._staff_ticket_scope_predicate(
+                staff_user_id=staff_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
+        statement = select(
+            SupportTicket
+        ).where(
+            SupportTicket.id == ticket_id,
+            SupportTicket.tenant_id == tenant_id,
+            scope_predicate,
+        )
+
+        if for_update:
+            statement = statement.with_for_update()
+
+        result = await self.session.execute(
+            statement
+        )
+        return result.scalar_one_or_none()
+
+    async def get_admin_ticket(
+        self,
+        *,
+        tenant_id: UUID,
+        admin_user_id: UUID,
+        ticket_id: UUID,
+        for_update: bool = False,
+    ) -> SupportTicket | None:
+        scope_predicate = await (
+            self._admin_ticket_scope_predicate(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
+        statement = select(
+            SupportTicket
+        ).where(
+            SupportTicket.id == ticket_id,
+            SupportTicket.tenant_id == tenant_id,
+            scope_predicate,
+        )
+
+        if for_update:
+            statement = statement.with_for_update()
+
+        result = await self.session.execute(
+            statement
+        )
+        return result.scalar_one_or_none()
+
     async def get_user_ticket(
         self,
         *,
@@ -231,13 +407,22 @@ class SupportRepository:
         self,
         *,
         tenant_id: UUID,
+        admin_user_id: UUID,
         limit: int = 5,
         offset: int = 0,
     ) -> list[SupportTicket]:
+        scope_predicate = await (
+            self._admin_ticket_scope_predicate(
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
         result = await self.session.execute(
             select(SupportTicket)
             .where(
                 SupportTicket.tenant_id == tenant_id,
+                scope_predicate,
                 SupportTicket.priority == "P1",
                 SupportTicket.status.in_(
                     {"open", "in_progress"}
@@ -257,16 +442,25 @@ class SupportRepository:
         self,
         *,
         tenant_id: UUID,
+        staff_user_id: UUID,
         statuses: set[str] | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> list[SupportTicket]:
+        scope_predicate = await (
+            self._staff_ticket_scope_predicate(
+                staff_user_id=staff_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
         allowed_statuses = statuses or {"open", "in_progress"}
 
         result = await self.session.execute(
             select(SupportTicket)
             .where(
                 SupportTicket.tenant_id == tenant_id,
+                scope_predicate,
                 SupportTicket.status.in_(allowed_statuses),
             )
             .order_by(
@@ -283,10 +477,18 @@ class SupportRepository:
         self,
         *,
         tenant_id: UUID,
+        staff_user_id: UUID,
         query: str,
         limit: int = 5,
         offset: int = 0,
     ) -> list[SupportTicket]:
+        scope_predicate = await (
+            self._staff_ticket_scope_predicate(
+                staff_user_id=staff_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
         search = f"%{query}%"
         id_prefix = f"{query}%"
 
@@ -295,6 +497,7 @@ class SupportRepository:
             .outerjoin(UserAccount, UserAccount.user_id == SupportTicket.user_id)
             .where(
                 SupportTicket.tenant_id == tenant_id,
+                scope_predicate,
                 or_(
                     cast(SupportTicket.id, String).ilike(id_prefix),
                     UserAccount.username.ilike(search),
@@ -317,14 +520,23 @@ class SupportRepository:
         self,
         *,
         tenant_id: UUID,
+        staff_user_id: UUID,
         statuses: set[str] | None = None,
     ) -> dict[str, int]:
+        scope_predicate = await (
+            self._staff_ticket_scope_predicate(
+                staff_user_id=staff_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
         allowed_statuses = statuses or {"open", "in_progress", "resolved"}
 
         result = await self.session.execute(
             select(SupportTicket.status, func.count(SupportTicket.id))
             .where(
                 SupportTicket.tenant_id == tenant_id,
+                scope_predicate,
                 SupportTicket.status.in_(allowed_statuses),
             )
             .group_by(SupportTicket.status)
@@ -336,9 +548,18 @@ class SupportRepository:
         self,
         *,
         tenant_id: UUID,
+        staff_user_id: UUID,
     ) -> dict:
+        scope_predicate = await (
+            self._staff_ticket_scope_predicate(
+                staff_user_id=staff_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+
         counts = await self.get_staff_ticket_counts(
             tenant_id=tenant_id,
+            staff_user_id=staff_user_id,
             statuses={"open", "in_progress", "resolved", "closed", "rejected"},
         )
 
@@ -350,6 +571,7 @@ class SupportRepository:
             .join(SupportMessage, SupportMessage.ticket_id == SupportTicket.id)
             .where(
                 SupportTicket.tenant_id == tenant_id,
+                scope_predicate,
                 SupportMessage.sender_role.in_(("support", "admin")),
                 SupportMessage.is_internal.is_(False),
             )
@@ -399,6 +621,68 @@ class SupportRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_ticket_scope_snapshot(
+        self,
+        *,
+        tenant_id: UUID,
+        ticket_id: UUID,
+    ) -> tuple[UUID | None, str | None]:
+        result = await self.session.execute(
+            select(
+                func.coalesce(
+                    User.country_id,
+                    ProfessionalCabinet.country_id,
+                ).label("scope_country_id"),
+                Language.code.label(
+                    "scope_language_code"
+                ),
+            )
+            .select_from(SupportTicket)
+            .join(
+                User,
+                User.id == SupportTicket.user_id,
+            )
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                Language,
+                func.lower(Language.code)
+                == func.lower(User.language_code),
+            )
+            .where(
+                SupportTicket.id == ticket_id,
+                SupportTicket.tenant_id
+                == tenant_id,
+                User.tenant_id == tenant_id,
+            )
+            .limit(1)
+        )
+        row = result.one_or_none()
+
+        if not row:
+            return None, None
+
+        return (
+            row.scope_country_id,
+            row.scope_language_code,
+        )
+
     async def log_admin_ticket_event(
         self,
         *,
@@ -408,6 +692,18 @@ class SupportRepository:
         action: str,
         payload: dict | None = None,
     ) -> EventLog:
+        scope_country_id = None
+        scope_language_code = None
+
+        if ticket_id is not None:
+            (
+                scope_country_id,
+                scope_language_code,
+            ) = await self.get_ticket_scope_snapshot(
+                tenant_id=tenant_id,
+                ticket_id=ticket_id,
+            )
+
         event = EventLog(
             tenant_id=tenant_id,
             user_id=admin_user_id,
@@ -419,6 +715,10 @@ class SupportRepository:
                 **(payload or {}),
             },
             platform="telegram",
+            scope_country_id=scope_country_id,
+            scope_language_code=(
+                scope_language_code
+            ),
         )
         self.session.add(event)
         await self.session.flush()

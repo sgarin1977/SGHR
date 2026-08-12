@@ -7,6 +7,7 @@ from sqlalchemy import (
     case,
     cast,
     func,
+    exists,
     literal,
     or_,
     select,
@@ -25,6 +26,7 @@ from database.models import (
     Specialist,
     SupportTicket,
     ConversationThread,
+    ContactRequest,
     Message,
     User,
     UserAccount,
@@ -38,19 +40,20 @@ from database.models import (
     Profession,
     ProfessionalCabinet,
     Country,
+    Language,
+)
+from database.role_policy import (
+    ADMINISTRATIVE_ROLES,
+)
+from database.repositories.admin_scope import (
+    AdminScopeRepository,
 )
 
-
-ADMIN_ROLES = {
-    "super_admin",
-    "admin",
-    "moderator",
-    "support",
-    "finance_admin",
-    "content_manager",
-}
+ADMIN_ROLES = set(
+    ADMINISTRATIVE_ROLES
+)
 MODERATION_ROLES = {"super_admin", "admin", "moderator"}
-BLOCK_USER_ROLES = {"super_admin", "admin"}
+BLOCK_USER_ROLES = {"super_admin"}
 ROLE_MANAGEMENT_ROLES = {"super_admin"}
 GRANTABLE_ADMIN_ROLES = {
     "admin",
@@ -305,8 +308,8 @@ class SuperAdminRoleScopeRow:
     scope_type: str
     scope_value: str
     status: str
-    reason: str
-    created_by: UUID
+    reason: str | None
+    created_by: UUID | None
     created_at: datetime
     revoked_by: UUID | None
     revoked_at: datetime | None
@@ -408,12 +411,26 @@ class ModerationRepository:
             or 0
         )
 
-    async def get_admin_roles(self, user_id: UUID) -> set[str]:
+    async def get_admin_roles(
+        self,
+        user_id: UUID,
+        *,
+        tenant_id: UUID | None = None,
+    ) -> set[str]:
+        conditions = [
+            UserRoleMapping.user_id == user_id,
+            UserRoleMapping.status == "active",
+            UserRoleMapping.role.in_(ADMIN_ROLES),
+        ]
+
+        if tenant_id is not None:
+            conditions.append(
+                UserRoleMapping.tenant_id == tenant_id
+            )
+
         result = await self.session.execute(
             select(UserRoleMapping.role).where(
-                UserRoleMapping.user_id == user_id,
-                UserRoleMapping.status == "active",
-                UserRoleMapping.role.in_(ADMIN_ROLES),
+                *conditions
             )
         )
         return set(result.scalars().all())
@@ -422,14 +439,428 @@ class ModerationRepository:
         self,
         user_id: UUID,
         allowed_roles: set[str] | None = None,
+        *,
+        tenant_id: UUID | None = None,
     ) -> set[str]:
-        roles = await self.get_admin_roles(user_id)
+        roles = await self.get_admin_roles(
+            user_id,
+            tenant_id=tenant_id,
+        )
         allowed = allowed_roles or MODERATION_ROLES
 
         if not roles.intersection(allowed):
             raise ModerationAccessError("Admin access denied.")
 
         return roles
+
+    async def _regional_scope_predicate(
+        self,
+        *,
+        roles: set[str],
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        country_column,
+        language_column,
+    ):
+        if (
+            "super_admin" in roles
+            or "admin" not in roles
+        ):
+            return literal(True)
+
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+        )
+
+        return scope_context.sql_predicate(
+            country_column=country_column,
+            language_column=language_column,
+        )
+
+    @staticmethod
+    def _professional_cabinet_scope_exists(
+        *,
+        scope_context,
+        tenant_id: UUID,
+        cabinet_id_column,
+    ):
+        statement = (
+            select(literal(1))
+            .select_from(ProfessionalCabinet)
+            .join(
+                Specialist,
+                and_(
+                    Specialist.id
+                    == ProfessionalCabinet.specialist_id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .where(
+                ProfessionalCabinet.id
+                == cabinet_id_column,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=(
+                        ProfessionalCabinet.country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
+            )
+            .correlate_except(
+                ProfessionalCabinet,
+                Specialist,
+                User,
+            )
+        )
+
+        return exists(statement)
+
+    @staticmethod
+    def _user_scope_exists(
+        *,
+        scope_context,
+        tenant_id: UUID,
+        user_id_column,
+    ):
+        statement = (
+            select(literal(1))
+            .select_from(User)
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .where(
+                User.id == user_id_column,
+                User.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=func.coalesce(
+                        User.country_id,
+                        ProfessionalCabinet.country_id,
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
+            )
+            .correlate_except(
+                User,
+                Specialist,
+                ProfessionalCabinet,
+            )
+        )
+
+        return exists(statement)
+
+    async def _user_scope_predicate(
+        self,
+        *,
+        roles: set[str],
+        admin_user_id: UUID,
+        tenant_id: UUID,
+        user_id_column,
+    ):
+        if (
+            "super_admin" in roles
+            or "admin" not in roles
+        ):
+            return literal(True)
+
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+        )
+
+        return self._user_scope_exists(
+            scope_context=scope_context,
+            tenant_id=tenant_id,
+            user_id_column=user_id_column,
+        )
+
+    @staticmethod
+    def _complaint_context_cabinet_id():
+        thread_cabinet_id = (
+            select(
+                ConversationThread
+                .professional_cabinet_id
+            )
+            .where(
+                ConversationThread.id
+                == Complaint.conversation_thread_id,
+                ConversationThread.tenant_id
+                == Complaint.tenant_id,
+            )
+            .correlate(Complaint)
+            .scalar_subquery()
+        )
+
+        message_cabinet_id = (
+            select(
+                ConversationThread
+                .professional_cabinet_id
+            )
+            .select_from(Message)
+            .join(
+                ConversationThread,
+                ConversationThread.id
+                == Message.thread_id,
+            )
+            .where(
+                Message.id == Complaint.target_id,
+                Message.tenant_id
+                == Complaint.tenant_id,
+                ConversationThread.tenant_id
+                == Complaint.tenant_id,
+            )
+            .correlate(Complaint)
+            .scalar_subquery()
+        )
+
+        contact_cabinet_id = (
+            select(
+                ContactRequest
+                .professional_cabinet_id
+            )
+            .where(
+                ContactRequest.id
+                == Complaint.target_id,
+                ContactRequest.tenant_id
+                == Complaint.tenant_id,
+            )
+            .correlate(Complaint)
+            .scalar_subquery()
+        )
+
+        portfolio_cabinet_id = (
+            select(
+                SpecialistPortfolioItem
+                .professional_cabinet_id
+            )
+            .where(
+                SpecialistPortfolioItem.id
+                == Complaint.target_id,
+                SpecialistPortfolioItem.tenant_id
+                == Complaint.tenant_id,
+            )
+            .correlate(Complaint)
+            .scalar_subquery()
+        )
+
+        review_cabinet_id = (
+            select(
+                Review.professional_cabinet_id
+            )
+            .where(
+                Review.id == Complaint.target_id,
+                Review.tenant_id
+                == Complaint.tenant_id,
+            )
+            .correlate(Complaint)
+            .scalar_subquery()
+        )
+
+        target_cabinet_id = case(
+            (
+                Complaint.target_type
+                == "professional_cabinet",
+                Complaint.target_id,
+            ),
+            (
+                Complaint.target_type == "message",
+                message_cabinet_id,
+            ),
+            (
+                Complaint.target_type
+                == "contact_request",
+                contact_cabinet_id,
+            ),
+            (
+                Complaint.target_type
+                == "portfolio_item",
+                portfolio_cabinet_id,
+            ),
+            (
+                Complaint.target_type == "review",
+                review_cabinet_id,
+            ),
+            else_=None,
+        )
+
+        return case(
+            (
+                Complaint.professional_cabinet_id
+                .is_not(None),
+                Complaint.professional_cabinet_id,
+            ),
+            (
+                Complaint.conversation_thread_id
+                .is_not(None),
+                thread_cabinet_id,
+            ),
+            else_=target_cabinet_id,
+        )
+
+    async def _complaint_scope_predicate(
+        self,
+        *,
+        roles: set[str],
+        admin_user_id: UUID,
+        tenant_id: UUID,
+    ):
+        if (
+            "super_admin" in roles
+            or "admin" not in roles
+        ):
+            return literal(True)
+
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+        )
+
+        context_cabinet_id = (
+            self._complaint_context_cabinet_id()
+        )
+        context_scope_exists = (
+            self._professional_cabinet_scope_exists(
+                scope_context=scope_context,
+                tenant_id=tenant_id,
+                cabinet_id_column=(
+                    context_cabinet_id
+                ),
+            )
+        )
+
+        user_scope_statement = (
+            select(literal(1))
+            .select_from(User)
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .where(
+                User.id == Complaint.target_id,
+                User.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=func.coalesce(
+                        User.country_id,
+                        ProfessionalCabinet.country_id,
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
+            )
+            .correlate_except(
+                User,
+                Specialist,
+                ProfessionalCabinet,
+            )
+        )
+        user_scope_exists = exists(
+            user_scope_statement
+        )
+
+        specialist_scope_statement = (
+            select(literal(1))
+            .select_from(Specialist)
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .where(
+                Specialist.id == Complaint.target_id,
+                Specialist.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=(
+                        Specialist.country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
+            )
+            .correlate_except(
+                Specialist,
+                User,
+            )
+        )
+        specialist_scope_exists = exists(
+            specialist_scope_statement
+        )
+
+        no_explicit_context = and_(
+            Complaint.professional_cabinet_id
+            .is_(None),
+            Complaint.conversation_thread_id
+            .is_(None),
+        )
+
+        return and_(
+            Complaint.tenant_id == tenant_id,
+            or_(
+                context_scope_exists,
+                and_(
+                    no_explicit_context,
+                    Complaint.target_type == "user",
+                    user_scope_exists,
+                ),
+                and_(
+                    no_explicit_context,
+                    Complaint.target_type
+                    == "specialist",
+                    specialist_scope_exists,
+                ),
+            ),
+        )
 
     async def list_admin_thread_contexts(
         self,
@@ -438,10 +869,36 @@ class ModerationRepository:
         tenant_id: UUID,
         limit: int = 20,
     ) -> list[AdminThreadContextRow]:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             {"super_admin", "admin", "moderator"},
+            tenant_id=tenant_id,
         )
+
+        thread_scope_predicate = literal(True)
+
+        if (
+            "super_admin" not in roles
+            and "admin" in roles
+        ):
+            scope_context = (
+                await AdminScopeRepository(
+                    self.session
+                ).get_context(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                )
+            )
+            thread_scope_predicate = (
+                scope_context.sql_predicate(
+                    country_column=(
+                        ProfessionalCabinet.country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                )
+            )
 
         complaint_exists = select(Complaint.id).where(
             Complaint.tenant_id == tenant_id,
@@ -501,8 +958,31 @@ class ModerationRepository:
                 messages_count.label("messages_count"),
                 ConversationThread.updated_at,
             )
+            .join(
+                Specialist,
+                Specialist.id
+                == ConversationThread.specialist_id,
+            )
+            .join(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == ConversationThread
+                    .professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
             .where(
                 ConversationThread.tenant_id == tenant_id,
+                thread_scope_predicate,
                 or_(
                     complaint_exists,
                     risk_exists,
@@ -538,15 +1018,70 @@ class ModerationRepository:
         thread_id: UUID,
         limit: int = 50,
     ) -> list[AdminThreadMessageRow]:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             {"super_admin", "admin", "moderator"},
+            tenant_id=tenant_id,
         )
 
-        thread = await self.session.get(
-            ConversationThread,
-            thread_id,
+        thread_scope_predicate = literal(True)
+
+        if (
+            "super_admin" not in roles
+            and "admin" in roles
+        ):
+            scope_context = (
+                await AdminScopeRepository(
+                    self.session
+                ).get_context(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                )
+            )
+            thread_scope_predicate = (
+                scope_context.sql_predicate(
+                    country_column=(
+                        ProfessionalCabinet.country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                )
+            )
+
+        thread_result = await self.session.execute(
+            select(ConversationThread)
+            .join(
+                Specialist,
+                Specialist.id
+                == ConversationThread.specialist_id,
+            )
+            .join(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == ConversationThread
+                    .professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .where(
+                ConversationThread.id == thread_id,
+                ConversationThread.tenant_id
+                == tenant_id,
+                thread_scope_predicate,
+            )
+            .limit(1)
         )
+        thread = thread_result.scalar_one_or_none()
 
         if not thread or thread.tenant_id != tenant_id:
             raise ModerationNotFoundError(
@@ -602,7 +1137,7 @@ class ModerationRepository:
             raise ModerationAccessError(
                 "Thread can be viewed only with an open complaint or risk flag."
             )
-        
+
 
         result = await self.session.execute(
             select(
@@ -742,9 +1277,38 @@ class ModerationRepository:
         tenant_id: UUID | None = None,
         limit: int = 10,
     ) -> list[EventLog]:
-        await self.require_admin_role(admin_user_id, LOG_VIEW_ROLES)
+        roles = await self.require_admin_role(
+            admin_user_id,
+            LOG_VIEW_ROLES,
+            tenant_id=tenant_id,
+        )
 
-        query = select(EventLog).order_by(EventLog.created_at.desc())
+        query = select(EventLog).order_by(
+            EventLog.created_at.desc()
+        )
+
+        if "super_admin" not in roles:
+            if not tenant_id:
+                return []
+
+            scope_context = (
+                await AdminScopeRepository(
+                    self.session
+                ).get_context(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                )
+            )
+            query = query.where(
+                scope_context.sql_predicate(
+                    country_column=(
+                        EventLog.scope_country_id
+                    ),
+                    language_column=(
+                        EventLog.scope_language_code
+                    ),
+                )
+            )
 
         if tenant_id:
             query = query.where(EventLog.tenant_id == tenant_id)
@@ -761,9 +1325,39 @@ class ModerationRepository:
         tenant_id: UUID | None = None,
         limit: int = 10,
     ) -> list[AdminAction]:
-        await self.require_admin_role(admin_user_id, FULL_LOG_VIEW_ROLES)
+        roles = await self.require_admin_role(
+            admin_user_id,
+            FULL_LOG_VIEW_ROLES,
+            tenant_id=tenant_id,
+        )
 
-        query = select(AdminAction).order_by(AdminAction.created_at.desc())
+        query = select(AdminAction).order_by(
+            AdminAction.created_at.desc()
+        )
+
+        if "super_admin" not in roles:
+            if not tenant_id:
+                return []
+
+            scope_context = (
+                await AdminScopeRepository(
+                    self.session
+                ).get_context(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                )
+            )
+            query = query.where(
+                scope_context.sql_predicate(
+                    country_column=(
+                        AdminAction.scope_country_id
+                    ),
+                    language_column=(
+                        AdminAction
+                        .scope_language_code
+                    ),
+                )
+            )
 
         if tenant_id:
             query = query.where(AdminAction.tenant_id == tenant_id)
@@ -785,6 +1379,14 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             FULL_LOG_VIEW_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
         )
 
         normalized_limit = max(
@@ -809,6 +1411,14 @@ class ModerationRepository:
             AdminAction.created_at.label("created_at"),
         ).where(
             AdminAction.tenant_id == tenant_id,
+            scope_context.sql_predicate(
+                country_column=(
+                    AdminAction.scope_country_id
+                ),
+                language_column=(
+                    AdminAction.scope_language_code
+                ),
+            ),
         )
 
         event_logs_query = select(
@@ -828,6 +1438,14 @@ class ModerationRepository:
         ).where(
             EventLog.tenant_id == tenant_id,
             EventLog.event_type != "audit_viewed",
+            scope_context.sql_predicate(
+                country_column=(
+                    EventLog.scope_country_id
+                ),
+                language_column=(
+                    EventLog.scope_language_code
+                ),
+            ),
         )
 
         combined = union_all(
@@ -977,12 +1595,29 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             FULL_LOG_VIEW_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
         )
 
         admin_result = await self.session.execute(
             select(AdminAction).where(
                 AdminAction.id == action_id,
                 AdminAction.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=(
+                        AdminAction.scope_country_id
+                    ),
+                    language_column=(
+                        AdminAction
+                        .scope_language_code
+                    ),
+                ),
             )
         )
         admin_action = admin_result.scalar_one_or_none()
@@ -1004,6 +1639,15 @@ class ModerationRepository:
                 EventLog.id == action_id,
                 EventLog.tenant_id == tenant_id,
                 EventLog.event_type != "audit_viewed",
+                scope_context.sql_predicate(
+                    country_column=(
+                        EventLog.scope_country_id
+                    ),
+                    language_column=(
+                        EventLog
+                        .scope_language_code
+                    ),
+                ),
             )
         )
         event = event_result.scalar_one_or_none()
@@ -1175,74 +1819,11 @@ class ModerationRepository:
         role: str,
         reason: str,
     ) -> UserRoleMapping:
-        await self.require_admin_role(admin_user_id, ROLE_MANAGEMENT_ROLES)
-
-        normalized_role = (role or "").strip().lower()
-        if normalized_role not in GRANTABLE_ADMIN_ROLES:
-            raise ValueError("Unsupported role for manual grant.")
-
-        target_user = await self.get_user_by_telegram_id(target_platform_user_id)
-        if not target_user:
-            raise ModerationNotFoundError("Target user not found.")
-
-        action_tenant_id = target_user.tenant_id or tenant_id
-
-        existing = (
-            await self.session.execute(
-                select(UserRoleMapping)
-                .where(
-                    UserRoleMapping.user_id == target_user.id,
-                    UserRoleMapping.role == normalized_role,
-                )
-                .order_by(UserRoleMapping.granted_at.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-
-        before_state = self._role_audit_state(existing)
-
-        if existing:
-            existing.status = "active"
-            existing.tenant_id = action_tenant_id
-            existing.granted_by = admin_user_id
-            existing.granted_at = datetime.utcnow()
-            role_mapping = existing
-        else:
-            role_mapping = UserRoleMapping(
-                user_id=target_user.id,
-                tenant_id=action_tenant_id,
-                role=normalized_role,
-                status="active",
-                granted_by=admin_user_id,
-            )
-            self.session.add(role_mapping)
-
-        await self.session.flush()
-
-        await self.log_admin_action(
-            admin_user_id=admin_user_id,
-            tenant_id=action_tenant_id,
-            action_type="grant_admin_role",
-            target_type="user",
-            target_id=target_user.id,
-            before_state=before_state,
-            after_state=self._role_audit_state(role_mapping),
-            reason=reason,
+        raise ModerationAccessError(
+            "Administrative roles and scopes "
+            "can only be changed through "
+            "Root CLI."
         )
-        await self.log_event(
-            tenant_id=action_tenant_id,
-            user_id=admin_user_id,
-            event_type="admin_role_granted",
-            entity_type="user",
-            entity_id=target_user.id,
-            payload={
-                "role": normalized_role,
-                "target_platform_user_id": str(target_platform_user_id),
-                "reason": reason,
-            },
-        )
-        await self.session.flush()
-        return role_mapping
 
     async def revoke_admin_role(
         self,
@@ -1253,60 +1834,11 @@ class ModerationRepository:
         role: str,
         reason: str,
     ) -> UserRoleMapping:
-        await self.require_admin_role(admin_user_id, ROLE_MANAGEMENT_ROLES)
-
-        normalized_role = (role or "").strip().lower()
-        if normalized_role not in GRANTABLE_ADMIN_ROLES:
-            raise ValueError("Unsupported role for manual revoke.")
-
-        target_user = await self.get_user_by_telegram_id(target_platform_user_id)
-        if not target_user:
-            raise ModerationNotFoundError("Target user not found.")
-
-        role_mapping = (
-            await self.session.execute(
-                select(UserRoleMapping).where(
-                    UserRoleMapping.user_id == target_user.id,
-                    UserRoleMapping.role == normalized_role,
-                    UserRoleMapping.status == "active",
-                )
-            )
-        ).scalar_one_or_none()
-
-        if not role_mapping:
-            raise ModerationNotFoundError("Active role not found.")
-
-        action_tenant_id = target_user.tenant_id or tenant_id
-        before_state = self._role_audit_state(role_mapping)
-
-        role_mapping.status = "revoked"
-
-        await self.session.flush()
-
-        await self.log_admin_action(
-            admin_user_id=admin_user_id,
-            tenant_id=action_tenant_id,
-            action_type="revoke_admin_role",
-            target_type="user",
-            target_id=target_user.id,
-            before_state=before_state,
-            after_state=self._role_audit_state(role_mapping),
-            reason=reason,
+        raise ModerationAccessError(
+            "Administrative roles and scopes "
+            "can only be changed through "
+            "Root CLI."
         )
-        await self.log_event(
-            tenant_id=action_tenant_id,
-            user_id=admin_user_id,
-            event_type="admin_role_revoked",
-            entity_type="user",
-            entity_id=target_user.id,
-            payload={
-                "role": normalized_role,
-                "target_platform_user_id": str(target_platform_user_id),
-                "reason": reason,
-            },
-        )
-        await self.session.flush()
-        return role_mapping
 
     async def grant_super_admin_user_role(
         self,
@@ -1317,94 +1849,11 @@ class ModerationRepository:
         role: str,
         reason: str,
     ) -> UserRoleMapping:
-        await self.require_admin_role(
-            admin_user_id,
-            {"super_admin"},
+        raise ModerationAccessError(
+            "Administrative roles and scopes "
+            "can only be changed through "
+            "Root CLI."
         )
-
-        normalized_role = (role or "").strip().lower()
-
-        if normalized_role == "root":
-            raise ValueError("Root role is disabled outside recovery flow.")
-
-        if normalized_role not in SUPER_ADMIN_GRANTABLE_ROLES:
-            raise ValueError("Unsupported role for Super Admin grant.")
-
-        target_user = await self.session.get(User, target_user_id)
-
-        if not target_user or target_user.tenant_id != tenant_id:
-            raise ModerationNotFoundError("Target user not found.")
-
-        existing = (
-            await self.session.execute(
-                select(UserRoleMapping)
-                .where(
-                    UserRoleMapping.user_id == target_user.id,
-                    UserRoleMapping.role == normalized_role,
-                )
-                .order_by(UserRoleMapping.granted_at.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-
-        before_state = self._role_audit_state(existing)
-
-        if existing:
-            existing.status = "active"
-            existing.tenant_id = target_user.tenant_id
-            existing.granted_by = admin_user_id
-            existing.granted_at = datetime.utcnow()
-            role_mapping = existing
-        else:
-            role_mapping = UserRoleMapping(
-                user_id=target_user.id,
-                tenant_id=target_user.tenant_id,
-                role=normalized_role,
-                status="active",
-                granted_by=admin_user_id,
-            )
-            self.session.add(role_mapping)
-
-        await self.session.flush()
-
-        await self.log_admin_action(
-            admin_user_id=admin_user_id,
-            tenant_id=tenant_id,
-            action_type="user_role_changed",
-            target_type="user",
-            target_id=target_user.id,
-            before_state=before_state,
-            after_state=self._role_audit_state(role_mapping),
-            reason=reason,
-        )
-
-        await self.log_event(
-            tenant_id=tenant_id,
-            user_id=admin_user_id,
-            event_type="user_role_changed",
-            entity_type="user",
-            entity_id=target_user.id,
-            payload={
-                "action": "granted",
-                "role": normalized_role,
-                "reason": reason,
-            },
-        )
-
-        await self.log_event(
-            tenant_id=tenant_id,
-            user_id=admin_user_id,
-            event_type="role_change_confirmed",
-            entity_type="user",
-            entity_id=target_user.id,
-            payload={
-                "action": "granted",
-                "role": normalized_role,
-            },
-        )
-
-        await self.session.flush()
-        return role_mapping
 
     async def revoke_super_admin_user_role(
         self,
@@ -1415,97 +1864,11 @@ class ModerationRepository:
         role: str,
         reason: str,
     ) -> UserRoleMapping:
-        await self.require_admin_role(
-            admin_user_id,
-            {"super_admin"},
+        raise ModerationAccessError(
+            "Administrative roles and scopes "
+            "can only be changed through "
+            "Root CLI."
         )
-
-        normalized_role = (role or "").strip().lower()
-
-        if normalized_role == "root":
-            raise ValueError("Root role is disabled outside recovery flow.")
-
-        if normalized_role not in SUPER_ADMIN_GRANTABLE_ROLES:
-            raise ValueError("Unsupported role for Super Admin revoke.")
-
-        target_user = await self.session.get(User, target_user_id)
-
-        if not target_user or target_user.tenant_id != tenant_id:
-            raise ModerationNotFoundError("Target user not found.")
-
-        role_mapping = (
-            await self.session.execute(
-                select(UserRoleMapping)
-                .where(
-                    UserRoleMapping.user_id == target_user.id,
-                    UserRoleMapping.role == normalized_role,
-                    UserRoleMapping.status == "active",
-                )
-                .order_by(UserRoleMapping.granted_at.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-
-        if not role_mapping:
-            raise ModerationNotFoundError("Active role not found.")
-
-        if normalized_role == "super_admin":
-            active_super_admins = await self.session.scalar(
-                select(func.count(UserRoleMapping.id)).where(
-                    UserRoleMapping.role == "super_admin",
-                    UserRoleMapping.status == "active",
-                    UserRoleMapping.tenant_id == tenant_id,
-                )
-            )
-
-            if int(active_super_admins or 0) <= 1:
-                raise ValueError(
-                    "Cannot revoke the last Super Admin without Root recovery flow."
-                )
-
-        before_state = self._role_audit_state(role_mapping)
-
-        role_mapping.status = "revoked"
-        await self.session.flush()
-
-        await self.log_admin_action(
-            admin_user_id=admin_user_id,
-            tenant_id=tenant_id,
-            action_type="user_role_changed",
-            target_type="user",
-            target_id=target_user.id,
-            before_state=before_state,
-            after_state=self._role_audit_state(role_mapping),
-            reason=reason,
-        )
-
-        await self.log_event(
-            tenant_id=tenant_id,
-            user_id=admin_user_id,
-            event_type="user_role_changed",
-            entity_type="user",
-            entity_id=target_user.id,
-            payload={
-                "action": "revoked",
-                "role": normalized_role,
-                "reason": reason,
-            },
-        )
-
-        await self.log_event(
-            tenant_id=tenant_id,
-            user_id=admin_user_id,
-            event_type="role_change_confirmed",
-            entity_type="user",
-            entity_id=target_user.id,
-            payload={
-                "action": "revoked",
-                "role": normalized_role,
-            },
-        )
-
-        await self.session.flush()
-        return role_mapping
 
     async def log_super_admin_impersonation_view(
         self,
@@ -1520,6 +1883,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         target_user = await self.session.get(User, target_user_id)
@@ -1570,8 +1934,21 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"admin", "super_admin"},
+            tenant_id=tenant_id,
+        )
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
         )
 
+        effective_user_country_id = (
+            func.coalesce(
+                User.country_id,
+                ProfessionalCabinet.country_id,
+            )
+        )
         async def count_rows(model, *conditions) -> int:
             result = await self.session.execute(
                 select(func.count())
@@ -1579,7 +1956,47 @@ class ModerationRepository:
                 .where(*conditions)
             )
             return int(result.scalar_one())
-
+        users_result = await self.session.execute(
+            select(
+                func.count(
+                    func.distinct(User.id)
+                )
+            )
+            .select_from(User)
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .where(
+                User.tenant_id == tenant_id,
+                User.status != "deleted",
+                scope_context.sql_predicate(
+                    country_column=(
+                        effective_user_country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
+            )
+        )
+        users_count = int(
+            users_result.scalar_one() or 0
+        )
         global_blacklist_result = await self.session.execute(
             select(
                 func.count(
@@ -1590,6 +2007,24 @@ class ModerationRepository:
             .join(
                 User,
                 User.id == Blacklist.user_id,
+            )
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
             )
             .join(
                 EventLog,
@@ -1611,6 +2046,14 @@ class ModerationRepository:
                 Blacklist.tenant_id == tenant_id,
                 Blacklist.status == "active",
                 User.status == "blocked",
+                scope_context.sql_predicate(
+                    country_column=(
+                        effective_user_country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
             )
         )
 
@@ -1642,6 +2085,19 @@ class ModerationRepository:
                     == tenant_id,
                     Specialist.tenant_id
                     == tenant_id,
+                    scope_context.sql_predicate(
+                        country_column=(
+                            func.coalesce(
+                                ProfessionalCabinet
+                                .country_id,
+                                Specialist.country_id,
+                                User.country_id,
+                            )
+                        ),
+                        language_column=(
+                            User.language_code
+                        ),
+                    ),
                     ProfessionalCabinet.is_active.is_(
                         True
                     ),
@@ -1660,31 +2116,66 @@ class ModerationRepository:
             professional_cabinets_result.scalar_one()
             or 0
         )
-        return {
-            "users": await count_rows(
+        tickets_result = await self.session.execute(
+            select(
+                func.count(
+                    func.distinct(
+                        SupportTicket.id
+                    )
+                )
+            )
+            .select_from(SupportTicket)
+            .join(
                 User,
+                User.id == SupportTicket.user_id,
+            )
+            .where(
+                SupportTicket.tenant_id
+                == tenant_id,
+                SupportTicket.status.in_(
+                    {
+                        "open",
+                        "in_progress",
+                    }
+                ),
                 User.tenant_id == tenant_id,
-                User.status != "deleted",
-            ),
-            "professional_cabinets": (
-                professional_cabinets_count
-            ),
-            "tickets": await count_rows(
-                SupportTicket,
-                SupportTicket.tenant_id == tenant_id,
-                SupportTicket.status.in_({"open", "in_progress"}),
-            ),
-            "complaints": await count_rows(
+                scope_context.sql_predicate(
+                    country_column=User.country_id,
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
+            )
+        )
+        tickets_count = int(
+            tickets_result.scalar_one() or 0
+        )
+
+        if scope_context.is_global:
+            complaints_count = await count_rows(
                 Complaint,
                 Complaint.tenant_id == tenant_id,
-                Complaint.status.in_(COMPLAINT_OPEN_STATUSES),
-            ),
-            "blacklist": global_blacklist_count,
-            "audit_alerts": await count_rows(
+                Complaint.status.in_(
+                    COMPLAINT_OPEN_STATUSES
+                ),
+            )
+            audit_alerts_count = await count_rows(
                 RiskFlag,
                 RiskFlag.tenant_id == tenant_id,
                 RiskFlag.status == "open",
+            )
+        else:
+            complaints_count = 0
+            audit_alerts_count = 0
+        return {
+            "users": users_count,
+            "professional_cabinets": (
+                professional_cabinets_count
             ),
+            "tickets": tickets_count,
+            "complaints": complaints_count,
+            "blacklist": global_blacklist_count,
+            "audit_alerts": audit_alerts_count,
         }
 
     async def get_super_admin_menu_counts(
@@ -1696,6 +2187,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         users_count = await self.session.scalar(
@@ -1801,12 +2293,50 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"admin", "super_admin"},
+            tenant_id=tenant_id,
+        )
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
         )
 
+        effective_country_id = func.coalesce(
+            User.country_id,
+            ProfessionalCabinet.country_id,
+        )
         target_exists = await self.session.execute(
-            select(User.id).where(
+            select(User.id)
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .where(
                 User.id == target_user_id,
                 User.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=(
+                        effective_country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
             )
         )
 
@@ -1887,8 +2417,19 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"admin", "super_admin"},
+            tenant_id=tenant_id,
+        )
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
         )
 
+        effective_country_id = func.coalesce(
+            User.country_id,
+            ProfessionalCabinet.country_id,
+        )
         user_result = await self.session.execute(
             select(
                 User.id,
@@ -1902,9 +2443,35 @@ class ModerationRepository:
                 UserAccount,
                 UserAccount.user_id == User.id,
             )
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
             .where(
                 User.id == target_user_id,
                 User.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=(
+                        effective_country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
             )
             .order_by(UserAccount.created_at.asc())
             .limit(1)
@@ -1986,8 +2553,19 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"admin", "super_admin"},
+            tenant_id=tenant_id,
+        )
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
         )
 
+        effective_country_id = func.coalesce(
+            User.country_id,
+            ProfessionalCabinet.country_id,
+        )
         normalized_query = query.strip().lstrip("@")
         user_id_query = normalized_query.removeprefix("user-")
         contains_query = f"%{normalized_query}%"
@@ -2006,9 +2584,35 @@ class ModerationRepository:
                 UserAccount,
                 UserAccount.user_id == User.id,
             )
+            .outerjoin(
+                Specialist,
+                and_(
+                    Specialist.user_id == User.id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                ),
+            )
+            .outerjoin(
+                ProfessionalCabinet,
+                and_(
+                    ProfessionalCabinet.id
+                    == Specialist
+                    .active_professional_cabinet_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                ),
+            )
             .where(
                 User.tenant_id == tenant_id,
                 UserAccount.platform == "telegram",
+                scope_context.sql_predicate(
+                    country_column=(
+                        effective_country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
                 or_(
                     UserAccount.platform_user_id == normalized_query,
                     UserAccount.username.ilike(contains_query),
@@ -2042,6 +2646,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         normalized_query = (query or "").strip()
@@ -2131,6 +2736,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         roles_subquery = (
@@ -2232,6 +2838,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         target_user = await self.session.get(User, target_user_id)
@@ -2273,7 +2880,8 @@ class ModerationRepository:
     ) -> list[SuperAdminRoleScopeRow]:
         await self.require_admin_role(
             admin_user_id,
-            {"super_admin", "root"},
+            {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         allowed_statuses = {"active", "revoked"}
@@ -2287,11 +2895,17 @@ class ModerationRepository:
 
         country_name = func.coalesce(
             Country.name,
+            Country.code,
             cast(RoleScope.scope_id, String),
         )
         city_name = func.coalesce(
             City.name,
             cast(RoleScope.scope_id, String),
+        )
+        language_name = func.coalesce(
+            Language.native_name,
+            Language.name,
+            RoleScope.scope_code,
         )
 
         scope_value = case(
@@ -2300,10 +2914,17 @@ class ModerationRepository:
                 country_name,
             ),
             (
+                RoleScope.scope_type == "language",
+                language_name,
+            ),
+            (
                 RoleScope.scope_type == "city",
                 city_name,
             ),
-            else_=cast(RoleScope.scope_id, String),
+            else_=func.coalesce(
+                RoleScope.scope_code,
+                cast(RoleScope.scope_id, String),
+            ),
         )
 
         conditions = [
@@ -2342,6 +2963,13 @@ class ModerationRepository:
                     City.id == RoleScope.scope_id,
                 ),
             )
+            .outerjoin(
+                Language,
+                and_(
+                    RoleScope.scope_type == "language",
+                    Language.code == RoleScope.scope_code,
+                ),
+            )
             .where(*conditions)
             .order_by(
                 RoleScope.created_at.desc(),
@@ -2367,140 +2995,11 @@ class ModerationRepository:
         scope_value: str,
         reason: str,
     ) -> RoleScope:
-        await self.require_admin_role(
-            admin_user_id,
-            {"super_admin", "root"},
+        raise ModerationAccessError(
+            "Administrative roles and scopes "
+            "can only be changed through "
+            "Root CLI."
         )
-
-        normalized_role = (role or "").strip().lower()
-        normalized_scope_type = (scope_type or "").strip().lower()
-        normalized_scope_value = (scope_value or "").strip()
-        normalized_reason = (reason or "").strip()
-
-        if not normalized_role:
-            raise ValueError("Role is required.")
-
-        if normalized_scope_type not in {
-            "country",
-            "city",
-            "region",
-            "agency",
-            "community",
-        }:
-            raise ValueError("Unsupported scope type.")
-
-        if not normalized_scope_value:
-            raise ValueError("Scope value is required.")
-
-        if len(normalized_reason) < 3:
-            raise ValueError("Reason is required.")
-
-        target_user = await self.session.get(User, user_id)
-
-        if not target_user or target_user.tenant_id != tenant_id:
-            raise ModerationNotFoundError("User not found.")
-
-        if admin_user_id == user_id:
-            raise ModerationAccessError(
-                "Regional role cannot change its own scope."
-            )
-
-        role_result = await self.session.execute(
-            select(UserRoleMapping)
-            .where(
-                UserRoleMapping.tenant_id == tenant_id,
-                UserRoleMapping.user_id == user_id,
-                UserRoleMapping.role == normalized_role,
-                UserRoleMapping.status == "active",
-            )
-            .order_by(UserRoleMapping.granted_at.desc())
-            .limit(1)
-        )
-        user_role = role_result.scalar_one_or_none()
-
-        if not user_role:
-            raise ModerationNotFoundError(
-                "Active role not found for this user."
-            )
-
-        scope_id = await self._resolve_role_scope_id(
-            scope_type=normalized_scope_type,
-            scope_value=normalized_scope_value,
-        )
-
-        existing_result = await self.session.execute(
-            select(RoleScope)
-            .where(
-                RoleScope.tenant_id == tenant_id,
-                RoleScope.user_id == user_id,
-                RoleScope.role == normalized_role,
-                RoleScope.scope_type == normalized_scope_type,
-                RoleScope.scope_id == scope_id,
-                RoleScope.status == "active",
-            )
-            .limit(1)
-        )
-        existing = existing_result.scalar_one_or_none()
-
-        if existing:
-            raise ModerationAccessError(
-                "Active scope already exists."
-            )
-
-        role_scope = RoleScope(
-            tenant_id=tenant_id,
-            user_role_id=user_role.id,
-            user_id=user_id,
-            role=normalized_role,
-            scope_type=normalized_scope_type,
-            scope_id=scope_id,
-            status="active",
-            reason=normalized_reason,
-            created_by=admin_user_id,
-        )
-        self.session.add(role_scope)
-        await self.session.flush()
-
-        after_state = {
-            "scope_id": str(role_scope.id),
-            "tenant_id": str(tenant_id),
-            "user_id": str(user_id),
-            "role": normalized_role,
-            "scope_type": normalized_scope_type,
-            "scope_value": normalized_scope_value,
-            "scope_entity_id": str(scope_id),
-            "status": "active",
-        }
-
-        await self.log_admin_action(
-            admin_user_id=admin_user_id,
-            tenant_id=tenant_id,
-            action_type="scope_changed",
-            target_type="role_scope",
-            target_id=role_scope.id,
-            before_state={},
-            after_state=after_state,
-            reason=normalized_reason,
-        )
-
-        await self.log_event(
-            tenant_id=tenant_id,
-            user_id=admin_user_id,
-            event_type="scope_changed",
-            entity_type="role_scope",
-            entity_id=role_scope.id,
-            payload={
-                "action": "added",
-                "user": f"user-{user_id.hex[:8]}",
-                "role": normalized_role,
-                "scope_type": normalized_scope_type,
-                "scope_value": normalized_scope_value,
-                "reason": normalized_reason,
-            },
-        )
-
-        await self.session.flush()
-        return role_scope
 
     async def revoke_super_admin_role_scope(
         self,
@@ -2510,154 +3009,108 @@ class ModerationRepository:
         scope_id: UUID,
         reason: str,
     ) -> RoleScope:
-        await self.require_admin_role(
-            admin_user_id,
-            {"super_admin", "root"},
+        raise ModerationAccessError(
+            "Administrative roles and scopes "
+            "can only be changed through "
+            "Root CLI."
         )
 
-        normalized_reason = (reason or "").strip()
-
-        if len(normalized_reason) < 3:
-            raise ValueError("Reason is required.")
-
-        role_scope = await self.session.get(RoleScope, scope_id)
-
-        if not role_scope or role_scope.tenant_id != tenant_id:
-            raise ModerationNotFoundError("Role scope not found.")
-
-        if role_scope.status != "active":
-            raise ModerationAccessError(
-                "Role scope is not active."
-            )
-
-        if admin_user_id == role_scope.user_id:
-            raise ModerationAccessError(
-                "Regional role cannot change its own scope."
-            )
-
-        before_state = {
-            "scope_id": str(role_scope.id),
-            "tenant_id": str(role_scope.tenant_id),
-            "user_id": str(role_scope.user_id),
-            "role": role_scope.role,
-            "scope_type": role_scope.scope_type,
-            "scope_entity_id": str(role_scope.scope_id),
-            "status": role_scope.status,
-            "reason": role_scope.reason,
-        }
-
-        role_scope.status = "revoked"
-        role_scope.revoked_by = admin_user_id
-        role_scope.revoked_at = datetime.utcnow()
-
-        after_state = {
-            **before_state,
-            "status": "revoked",
-            "revoked_by": str(admin_user_id),
-            "revoked_at": (
-                role_scope.revoked_at.isoformat()
-                if role_scope.revoked_at
-                else None
-            ),
-            "revoke_reason": normalized_reason,
-        }
-
-        await self.log_admin_action(
-            admin_user_id=admin_user_id,
-            tenant_id=tenant_id,
-            action_type="scope_changed",
-            target_type="role_scope",
-            target_id=role_scope.id,
-            before_state=before_state,
-            after_state=after_state,
-            reason=normalized_reason,
-        )
-
-        await self.log_event(
-            tenant_id=tenant_id,
-            user_id=admin_user_id,
-            event_type="scope_changed",
-            entity_type="role_scope",
-            entity_id=role_scope.id,
-            payload={
-                "action": "revoked",
-                "user": f"user-{role_scope.user_id.hex[:8]}",
-                "role": role_scope.role,
-                "scope_type": role_scope.scope_type,
-                "scope_id": str(role_scope.scope_id),
-                "reason": normalized_reason,
-            },
-        )
-
-        await self.session.flush()
-        return role_scope
-
-    async def _resolve_role_scope_id(
+    async def _resolve_role_scope_entity(
         self,
         *,
         scope_type: str,
         scope_value: str,
-    ) -> UUID:
-        normalized_scope_type = (scope_type or "").strip().lower()
-        normalized_scope_value = (scope_value or "").strip()
-        normalized_lookup = normalized_scope_value.lower()
+    ) -> tuple[UUID | None, str | None]:
+        normalized_scope_type = (
+            scope_type or ""
+        ).strip().lower()
+        normalized_scope_value = (
+            scope_value or ""
+        ).strip()
+        normalized_lookup = (
+            normalized_scope_value.lower()
+        )
 
         if normalized_scope_type == "country":
             result = await self.session.execute(
                 select(Country.id)
                 .where(
+                    Country.is_active.is_(True),
                     or_(
-                        func.lower(Country.code) == normalized_lookup,
-                        func.lower(Country.name) == normalized_lookup,
-                        func.lower(Country.name_ru) == normalized_lookup,
-                        func.lower(Country.name_en) == normalized_lookup,
-                        func.lower(Country.name_pt) == normalized_lookup,
-                        func.lower(Country.name_uk) == normalized_lookup,
-                        func.lower(Country.name_pl) == normalized_lookup,
-                        func.lower(Country.name_de) == normalized_lookup,
-                        func.lower(Country.name_nl) == normalized_lookup,
-                    )
+                        func.lower(
+                            Country.code
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name_ru
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name_en
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name_pt
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name_uk
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name_pl
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name_de
+                        ) == normalized_lookup,
+                        func.lower(
+                            Country.name_nl
+                        ) == normalized_lookup,
+                    ),
                 )
                 .limit(1)
             )
-            scope_id = result.scalar_one_or_none()
+            country_id = result.scalar_one_or_none()
 
-            if not scope_id:
-                raise ModerationNotFoundError("Country scope not found.")
+            if not country_id:
+                raise ModerationNotFoundError(
+                    "Country scope not found."
+                )
 
-            return scope_id
+            return country_id, None
 
-        if normalized_scope_type == "city":
+        if normalized_scope_type == "language":
             result = await self.session.execute(
-                select(City.id)
+                select(Language.code)
                 .where(
+                    Language.is_active.is_(True),
                     or_(
-                        func.lower(City.name) == normalized_lookup,
-                        func.lower(City.name_ru) == normalized_lookup,
-                        func.lower(City.name_en) == normalized_lookup,
-                        func.lower(City.name_pt) == normalized_lookup,
-                        func.lower(City.name_uk) == normalized_lookup,
-                        func.lower(City.name_pl) == normalized_lookup,
-                        func.lower(City.name_de) == normalized_lookup,
-                        func.lower(City.name_nl) == normalized_lookup,
-                    )
+                        func.lower(
+                            Language.code
+                        ) == normalized_lookup,
+                        func.lower(
+                            Language.name
+                        ) == normalized_lookup,
+                        func.lower(
+                            Language.native_name
+                        ) == normalized_lookup,
+                    ),
                 )
-                .order_by(City.name.asc())
                 .limit(1)
             )
-            scope_id = result.scalar_one_or_none()
+            language_code = (
+                result.scalar_one_or_none()
+            )
 
-            if not scope_id:
-                raise ModerationNotFoundError("City scope not found.")
+            if not language_code:
+                raise ModerationNotFoundError(
+                    "Language scope not found."
+                )
 
-            return scope_id
+            return None, language_code
 
-        try:
-            return UUID(normalized_scope_value)
-        except (TypeError, ValueError) as exc:
-            raise ModerationNotFoundError(
-                "Scope id must be UUID for this scope type."
-            ) from exc
+        raise ModerationNotFoundError(
+            "Only country and language scopes "
+            "are supported."
+        )
 
     async def list_super_admin_permission_matrix(
         self,
@@ -2670,6 +3123,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         normalized_query = (query or "").strip().lower()
@@ -2742,6 +3196,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         normalized_role = (role or "").strip().lower()
@@ -2857,6 +3312,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         normalized_role = (role or "").strip().lower()
@@ -2940,18 +3396,46 @@ class ModerationRepository:
         admin_user_id: UUID,
         tenant_id: UUID,
     ) -> dict[str, int]:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
-            {"moderator", "admin", "super_admin"},
+            {
+                "moderator",
+                "admin",
+                "super_admin",
+            },
+            tenant_id=tenant_id,
         )
 
-        async def count_rows(model, *conditions) -> int:
-            result = await self.session.execute(
-                select(func.count())
-                .select_from(model)
-                .where(*conditions)
+        cabinet_scope_predicate = await (
+            self._regional_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_column=(
+                    ProfessionalCabinet.country_id
+                ),
+                language_column=(
+                    User.language_code
+                ),
             )
-            return int(result.scalar_one())
+        )
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        )
+        blacklist_scope_predicate = await (
+            self._user_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                user_id_column=(
+                    Blacklist.user_id
+                ),
+            )
+        )
 
         profiles_result = await self.session.execute(
             select(
@@ -2967,7 +3451,10 @@ class ModerationRepository:
             )
             .join(
                 User,
-                User.id == Specialist.user_id,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
             )
             .where(
                 ProfessionalCabinet.tenant_id
@@ -2983,34 +3470,124 @@ class ModerationRepository:
                 User.status.notin_(
                     ["blocked", "deleted"]
                 ),
+                cabinet_scope_predicate,
             )
         )
         pending_cabinets_count = int(
-            profiles_result.scalar_one()
+            profiles_result.scalar_one() or 0
+        )
+
+        portfolio_result = await self.session.execute(
+            select(
+                func.count(
+                    SpecialistPortfolioItem.id
+                )
+            )
+            .select_from(SpecialistPortfolioItem)
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == SpecialistPortfolioItem
+                .professional_cabinet_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .where(
+                SpecialistPortfolioItem.tenant_id
+                == tenant_id,
+                SpecialistPortfolioItem.status
+                == "pending_moderation",
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id == tenant_id,
+                cabinet_scope_predicate,
+            )
+        )
+        portfolio_count = int(
+            portfolio_result.scalar_one() or 0
+        )
+
+        reviews_result = await self.session.execute(
+            select(func.count(Review.id))
+            .select_from(Review)
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Review.professional_cabinet_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .where(
+                Review.tenant_id == tenant_id,
+                Review.status
+                == "pending_moderation",
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id == tenant_id,
+                cabinet_scope_predicate,
+            )
+        )
+        reviews_count = int(
+            reviews_result.scalar_one() or 0
+        )
+
+        complaints_result = (
+            await self.session.execute(
+                select(func.count(Complaint.id))
+                .select_from(Complaint)
+                .where(
+                    Complaint.tenant_id
+                    == tenant_id,
+                    Complaint.status.in_(
+                        COMPLAINT_OPEN_STATUSES
+                    ),
+                    complaint_scope_predicate,
+                )
+            )
+        )
+        complaints_count = int(
+            complaints_result.scalar_one() or 0
+        )
+
+        blacklist_result = await self.session.execute(
+            select(func.count(Blacklist.id))
+            .select_from(Blacklist)
+            .where(
+                Blacklist.tenant_id == tenant_id,
+                Blacklist.status == "active",
+                blacklist_scope_predicate,
+            )
+        )
+        blacklist_count = int(
+            blacklist_result.scalar_one() or 0
         )
 
         return {
             "profiles": pending_cabinets_count,
-            "portfolio": await count_rows(
-                SpecialistPortfolioItem,
-                SpecialistPortfolioItem.tenant_id == tenant_id,
-                SpecialistPortfolioItem.status == "pending_moderation",
-            ),
-            "reviews": await count_rows(
-                Review,
-                Review.tenant_id == tenant_id,
-                Review.status == "pending_moderation",
-            ),
-            "complaints": await count_rows(
-                Complaint,
-                Complaint.tenant_id == tenant_id,
-                Complaint.status.in_(COMPLAINT_OPEN_STATUSES),
-            ),
-            "blacklist": await count_rows(
-                Blacklist,
-                Blacklist.tenant_id == tenant_id,
-                Blacklist.status == "active",
-            ),
+            "portfolio": portfolio_count,
+            "reviews": reviews_count,
+            "complaints": complaints_count,
+            "blacklist": blacklist_count,
         }
 
     async def list_admin_specialists(
@@ -3023,12 +3600,27 @@ class ModerationRepository:
         limit: int = 5,
         offset: int = 0,
     ) -> list[AdminSpecialistQueueItem]:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             {
                 "admin",
                 "super_admin",
             },
+            tenant_id=tenant_id,
+        )
+
+        scope_predicate = await (
+            self._regional_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_column=(
+                    ProfessionalCabinet.country_id
+                ),
+                language_column=(
+                    User.language_code
+                ),
+            )
         )
 
         query = (
@@ -3081,6 +3673,7 @@ class ModerationRepository:
                         "deleted",
                     ]
                 ),
+                scope_predicate,
             )
         )
 
@@ -3157,9 +3750,24 @@ class ModerationRepository:
         limit: int = 5,
         offset: int = 0,
     ) -> list[PendingSpecialistQueueItem]:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             {"moderator", "admin", "super_admin"},
+            tenant_id=tenant_id,
+        )
+
+        scope_predicate = await (
+            self._regional_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_column=(
+                    ProfessionalCabinet.country_id
+                ),
+                language_column=(
+                    User.language_code
+                ),
+            )
         )
 
         result = await self.session.execute(
@@ -3205,6 +3813,7 @@ class ModerationRepository:
                 User.status.notin_(
                     ["blocked", "deleted"]
                 ),
+                scope_predicate,
             )
             .order_by(
                 ProfessionalCabinet.created_at.asc(),
@@ -3243,9 +3852,24 @@ class ModerationRepository:
         specialist_id: UUID | None = None,
         professional_cabinet_id: UUID | None = None,
     ) -> PendingSpecialistDetails:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             {"moderator", "admin", "super_admin"},
+            tenant_id=tenant_id,
+        )
+
+        scope_predicate = await (
+            self._regional_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_column=(
+                    ProfessionalCabinet.country_id
+                ),
+                language_column=(
+                    User.language_code
+                ),
+            )
         )
 
         if (
@@ -3270,6 +3894,13 @@ class ModerationRepository:
                 == ProfessionalCabinet.specialist_id,
             )
             .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .join(
                 Profession,
                 Profession.id
                 == ProfessionalCabinet.profession_id,
@@ -3283,6 +3914,7 @@ class ModerationRepository:
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
                 Specialist.tenant_id == tenant_id,
+                scope_predicate,
             )
         )
 
@@ -3406,6 +4038,7 @@ class ModerationRepository:
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
+        roles: set[str],
         specialist_id: UUID | None = None,
         professional_cabinet_id: UUID | None = None,
         expected_status: str | None = None,
@@ -3421,6 +4054,20 @@ class ModerationRepository:
                 "Professional cabinet identifier is required."
             )
 
+        scope_predicate = await (
+            self._regional_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+                country_column=(
+                    ProfessionalCabinet.country_id
+                ),
+                language_column=(
+                    User.language_code
+                ),
+            )
+        )
+
         query = (
             select(
                 Specialist,
@@ -3432,10 +4079,18 @@ class ModerationRepository:
                 Specialist.id
                 == ProfessionalCabinet.specialist_id,
             )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
             .where(
                 ProfessionalCabinet.tenant_id
                 == tenant_id,
                 Specialist.tenant_id == tenant_id,
+                scope_predicate,
             )
         )
 
@@ -3511,9 +4166,10 @@ class ModerationRepository:
         specialist_id: UUID | None = None,
         professional_cabinet_id: UUID | None = None,
     ) -> ProfessionalCabinet:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
         )
 
         normalized_reason = reason.strip()
@@ -3526,6 +4182,7 @@ class ModerationRepository:
             self._get_moderation_cabinet(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
+                roles=roles,
                 specialist_id=specialist_id,
                 professional_cabinet_id=(
                     professional_cabinet_id
@@ -3599,9 +4256,10 @@ class ModerationRepository:
         specialist_id: UUID | None = None,
         professional_cabinet_id: UUID | None = None,
     ) -> ProfessionalCabinet:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
         )
 
         normalized_reason = reason.strip()
@@ -3614,6 +4272,7 @@ class ModerationRepository:
             self._get_moderation_cabinet(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
+                roles=roles,
                 specialist_id=specialist_id,
                 professional_cabinet_id=(
                     professional_cabinet_id
@@ -3688,9 +4347,10 @@ class ModerationRepository:
         specialist_id: UUID | None = None,
         professional_cabinet_id: UUID | None = None,
     ) -> ProfessionalCabinet:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
         )
 
         normalized_reason = reason.strip()
@@ -3703,6 +4363,7 @@ class ModerationRepository:
             self._get_moderation_cabinet(
                 admin_user_id=moderator_user_id,
                 tenant_id=tenant_id,
+                roles=roles,
                 specialist_id=specialist_id,
                 professional_cabinet_id=(
                     professional_cabinet_id
@@ -3780,15 +4441,17 @@ class ModerationRepository:
         reason: str,
         action_type: str,
     ) -> ProfessionalCabinet:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             admin_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
         )
 
         specialist, cabinet = await (
             self._get_moderation_cabinet(
                 admin_user_id=admin_user_id,
                 tenant_id=tenant_id,
+                roles=roles,
                 professional_cabinet_id=(
                     professional_cabinet_id
                 ),
@@ -4099,14 +4762,33 @@ class ModerationRepository:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         limit: int = 10,
         offset: int = 0,
     ) -> list[Complaint]:
-        await self.require_admin_role(admin_user_id)
+        roles = await self.require_admin_role(
+            admin_user_id,
+            MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        )
 
         result = await self.session.execute(
             select(Complaint)
-            .where(Complaint.status.in_(COMPLAINT_OPEN_STATUSES))
+            .where(
+                Complaint.tenant_id == tenant_id,
+                Complaint.status.in_(
+                    COMPLAINT_OPEN_STATUSES
+                ),
+                complaint_scope_predicate,
+            )
             .order_by(Complaint.created_at.asc())
             .offset(max(int(offset), 0))
             .limit(max(1, min(int(limit), 20)))
@@ -4122,9 +4804,18 @@ class ModerationRepository:
         limit: int = 6,
         offset: int = 0,
     ) -> list[ComplaintQueueItem]:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+            )
         )
 
         allowed_statuses = {
@@ -4173,6 +4864,7 @@ class ModerationRepository:
             .where(
                 Complaint.tenant_id
                 == tenant_id,
+                complaint_scope_predicate,
                 Complaint.status.in_(
                     normalized_statuses
                 ),
@@ -4418,15 +5110,26 @@ class ModerationRepository:
         tenant_id: UUID,
         complaint_id: UUID,
     ) -> ComplaintModerationDetails:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+            )
         )
 
         result = await self.session.execute(
             select(Complaint).where(
                 Complaint.id == complaint_id,
-                Complaint.tenant_id == tenant_id,
+                Complaint.tenant_id
+                == tenant_id,
+                complaint_scope_predicate,
             )
         )
         complaint = result.scalar_one_or_none()
@@ -4500,15 +5203,26 @@ class ModerationRepository:
         tenant_id: UUID,
         complaint_id: UUID,
     ) -> UUID:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+            )
         )
 
         result = await self.session.execute(
             select(Complaint).where(
                 Complaint.id == complaint_id,
-                Complaint.tenant_id == tenant_id,
+                Complaint.tenant_id
+                == tenant_id,
+                complaint_scope_predicate,
             )
         )
         complaint = result.scalar_one_or_none()
@@ -4644,16 +5358,27 @@ class ModerationRepository:
         tenant_id: UUID,
         complaint_id: UUID,
     ) -> Complaint:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+            )
         )
 
         result = await self.session.execute(
             select(Complaint)
             .where(
                 Complaint.id == complaint_id,
-                Complaint.tenant_id == tenant_id,
+                Complaint.tenant_id
+                == tenant_id,
+                complaint_scope_predicate,
             )
             .with_for_update()
         )
@@ -4737,16 +5462,27 @@ class ModerationRepository:
         complaint_id: UUID,
         reason: str,
     ) -> Complaint:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+            )
         )
 
         result = await self.session.execute(
             select(Complaint)
             .where(
                 Complaint.id == complaint_id,
-                Complaint.tenant_id == tenant_id,
+                Complaint.tenant_id
+                == tenant_id,
+                complaint_scope_predicate,
             )
             .with_for_update()
         )
@@ -4828,12 +5564,26 @@ class ModerationRepository:
         status: str,
         reason: str,
     ) -> Complaint:
-        await self.require_admin_role(admin_user_id)
+        roles = await self.require_admin_role(
+            admin_user_id,
+            MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        complaint_scope_predicate = await (
+            self._complaint_scope_predicate(
+                roles=roles,
+                admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
+            )
+        )
         result = await self.session.execute(
             select(Complaint)
             .where(
                 Complaint.id == complaint_id,
-                Complaint.tenant_id == tenant_id,
+                Complaint.tenant_id
+                == tenant_id,
+                complaint_scope_predicate,
             )
             .with_for_update()
         )
@@ -4897,16 +5647,55 @@ class ModerationRepository:
         item_id: UUID,
         reason: str,
     ) -> RiskFlag:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        scope_predicate = await (
+            self._regional_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                country_column=(
+                    ProfessionalCabinet.country_id
+                ),
+                language_column=(
+                    User.language_code
+                ),
+            )
         )
 
         item_result = await self.session.execute(
-            select(SpecialistPortfolioItem.id).where(
+            select(SpecialistPortfolioItem.id)
+            .select_from(SpecialistPortfolioItem)
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == SpecialistPortfolioItem
+                .professional_cabinet_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .where(
                 SpecialistPortfolioItem.id == item_id,
                 SpecialistPortfolioItem.tenant_id
                 == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id == tenant_id,
+                scope_predicate,
             )
         )
 
@@ -4977,15 +5766,40 @@ class ModerationRepository:
         reason: str,
         comment: str | None = None,
     ) -> Blacklist:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        specialist_scope_predicate = await (
+            self._regional_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                country_column=(
+                    Specialist.country_id
+                ),
+                language_column=(
+                    User.language_code
+                ),
+            )
         )
 
         result = await self.session.execute(
-            select(Specialist.user_id).where(
+            select(Specialist.user_id)
+            .select_from(Specialist)
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
+            .where(
                 Specialist.id == specialist_id,
                 Specialist.tenant_id == tenant_id,
+                specialist_scope_predicate,
             )
         )
         owner_user_id = result.scalar_one_or_none()
@@ -5044,9 +5858,21 @@ class ModerationRepository:
         limit: int,
         offset: int,
     ) -> list[ScopedBlacklistQueueItem]:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        user_scope_predicate = await (
+            self._user_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                user_id_column=(
+                    Blacklist.user_id
+                ),
+            )
         )
 
         allowed_statuses = {
@@ -5086,6 +5912,7 @@ class ModerationRepository:
             )
             .where(
                 Blacklist.tenant_id == tenant_id,
+                user_scope_predicate,
                 Blacklist.status.in_(
                     normalized_statuses
                 ),
@@ -5172,15 +5999,28 @@ class ModerationRepository:
         reason: str,
         comment: str | None = None,
     ) -> Blacklist:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        user_scope_predicate = await (
+            self._user_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                user_id_column=(
+                    user_id
+                ),
+            )
         )
 
         result = await self.session.execute(
             select(User).where(
                 User.id == user_id,
                 User.tenant_id == tenant_id,
+                user_scope_predicate,
             )
         )
         user = result.scalar_one_or_none()
@@ -5277,9 +6117,21 @@ class ModerationRepository:
         blacklist_id: UUID,
         reason: str,
     ) -> Blacklist:
-        await self.require_admin_role(
+        roles = await self.require_admin_role(
             moderator_user_id,
             MODERATION_ROLES,
+            tenant_id=tenant_id,
+        )
+
+        user_scope_predicate = await (
+            self._user_scope_predicate(
+                roles=roles,
+                admin_user_id=moderator_user_id,
+                tenant_id=tenant_id,
+                user_id_column=(
+                    Blacklist.user_id
+                ),
+            )
         )
 
         result = await self.session.execute(
@@ -5287,6 +6139,7 @@ class ModerationRepository:
             .where(
                 Blacklist.id == blacklist_id,
                 Blacklist.tenant_id == tenant_id,
+                user_scope_predicate,
             )
             .with_for_update()
         )
@@ -5382,6 +6235,7 @@ class ModerationRepository:
         await self.require_admin_role(
             admin_user_id,
             BLOCK_USER_ROLES,
+            tenant_id=tenant_id,
         )
 
         allowed_statuses = {"active", "revoked"}
@@ -5457,7 +6311,7 @@ class ModerationRepository:
     ) -> list[GlobalBlacklistQueueItem]:
         await self.require_admin_role(
             admin_user_id,
-            {"super_admin", "root"},
+            {"super_admin"},
         )
 
         allowed_statuses = {"active", "revoked"}
@@ -5742,6 +6596,528 @@ class ModerationRepository:
         )
         return result.scalar_one_or_none()
 
+    async def _resolve_audit_scope_snapshot(
+        self,
+        *,
+        tenant_id: UUID,
+        target_type: str,
+        target_id: UUID,
+    ) -> tuple[UUID | None, str | None]:
+        normalized_target_type = (
+            target_type or ""
+        ).strip().lower()
+
+        async def normalize_snapshot(
+            country_id: UUID | None,
+            language_code: str | None,
+        ) -> tuple[UUID | None, str | None]:
+            normalized_language = (
+                language_code or ""
+            ).strip().lower()
+
+            if not normalized_language:
+                return country_id, None
+
+            language_result = (
+                await self.session.execute(
+                    select(Language.code)
+                    .where(
+                        func.lower(
+                            Language.code
+                        ) == normalized_language
+                    )
+                    .limit(1)
+                )
+            )
+            valid_language = (
+                language_result.scalar_one_or_none()
+            )
+
+            return country_id, valid_language
+
+        if normalized_target_type == "user":
+            result = await self.session.execute(
+                select(
+                    func.coalesce(
+                        User.country_id,
+                        ProfessionalCabinet.country_id,
+                    ).label("country_id"),
+                    User.language_code.label(
+                        "language_code"
+                    ),
+                )
+                .select_from(User)
+                .outerjoin(
+                    Specialist,
+                    and_(
+                        Specialist.user_id == User.id,
+                        Specialist.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .outerjoin(
+                    ProfessionalCabinet,
+                    and_(
+                        ProfessionalCabinet.id
+                        == Specialist
+                        .active_professional_cabinet_id,
+                        ProfessionalCabinet.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .where(
+                    User.id == target_id,
+                    User.tenant_id == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            return await normalize_snapshot(
+                row.country_id,
+                row.language_code,
+            )
+
+        if normalized_target_type in {
+            "professional_cabinet",
+            "cabinet",
+        }:
+            result = await self.session.execute(
+                select(
+                    ProfessionalCabinet.country_id,
+                    User.language_code,
+                )
+                .select_from(
+                    ProfessionalCabinet
+                )
+                .join(
+                    Specialist,
+                    and_(
+                        Specialist.id
+                        == ProfessionalCabinet
+                        .specialist_id,
+                        Specialist.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    User,
+                    and_(
+                        User.id == Specialist.user_id,
+                        User.tenant_id == tenant_id,
+                    ),
+                )
+                .where(
+                    ProfessionalCabinet.id
+                    == target_id,
+                    ProfessionalCabinet.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            return await normalize_snapshot(
+                row.country_id,
+                row.language_code,
+            )
+
+        if normalized_target_type in {
+            "portfolio",
+            "portfolio_item",
+            "specialist_portfolio_item",
+        }:
+            result = await self.session.execute(
+                select(
+                    ProfessionalCabinet.country_id,
+                    User.language_code,
+                )
+                .select_from(
+                    SpecialistPortfolioItem
+                )
+                .join(
+                    ProfessionalCabinet,
+                    and_(
+                        ProfessionalCabinet.id
+                        == SpecialistPortfolioItem
+                        .professional_cabinet_id,
+                        ProfessionalCabinet.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    Specialist,
+                    and_(
+                        Specialist.id
+                        == ProfessionalCabinet
+                        .specialist_id,
+                        Specialist.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    User,
+                    and_(
+                        User.id == Specialist.user_id,
+                        User.tenant_id == tenant_id,
+                    ),
+                )
+                .where(
+                    SpecialistPortfolioItem.id
+                    == target_id,
+                    SpecialistPortfolioItem.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            return await normalize_snapshot(
+                row.country_id,
+                row.language_code,
+            )
+
+        if normalized_target_type == "review":
+            result = await self.session.execute(
+                select(
+                    ProfessionalCabinet.country_id,
+                    User.language_code,
+                )
+                .select_from(Review)
+                .join(
+                    ProfessionalCabinet,
+                    and_(
+                        ProfessionalCabinet.id
+                        == Review.professional_cabinet_id,
+                        ProfessionalCabinet.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    Specialist,
+                    and_(
+                        Specialist.id
+                        == ProfessionalCabinet.specialist_id,
+                        Specialist.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    User,
+                    and_(
+                        User.id == Specialist.user_id,
+                        User.tenant_id == tenant_id,
+                    ),
+                )
+                .where(
+                    Review.id == target_id,
+                    Review.tenant_id == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            return await normalize_snapshot(
+                row.country_id,
+                row.language_code,
+            )
+
+        if normalized_target_type == "contact_request":
+            result = await self.session.execute(
+                select(
+                    ProfessionalCabinet.country_id,
+                    User.language_code,
+                )
+                .select_from(ContactRequest)
+                .join(
+                    ProfessionalCabinet,
+                    and_(
+                        ProfessionalCabinet.id
+                        == ContactRequest
+                        .professional_cabinet_id,
+                        ProfessionalCabinet.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    Specialist,
+                    and_(
+                        Specialist.id
+                        == ProfessionalCabinet.specialist_id,
+                        Specialist.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    User,
+                    and_(
+                        User.id == Specialist.user_id,
+                        User.tenant_id == tenant_id,
+                    ),
+                )
+                .where(
+                    ContactRequest.id == target_id,
+                    ContactRequest.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            return await normalize_snapshot(
+                row.country_id,
+                row.language_code,
+            )
+
+        if normalized_target_type in {
+            "specialist",
+            "specialist_profile",
+        }:
+            result = await self.session.execute(
+                select(
+                    Specialist.country_id,
+                    User.language_code,
+                )
+                .select_from(Specialist)
+                .join(
+                    User,
+                    and_(
+                        User.id == Specialist.user_id,
+                        User.tenant_id == tenant_id,
+                    ),
+                )
+                .where(
+                    Specialist.id == target_id,
+                    Specialist.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            return await normalize_snapshot(
+                row.country_id,
+                row.language_code,
+            )
+
+        if normalized_target_type in {
+            "thread",
+            "conversation_thread",
+        }:
+            result = await self.session.execute(
+                select(
+                    ProfessionalCabinet.country_id,
+                    User.language_code,
+                )
+                .select_from(
+                    ConversationThread
+                )
+                .join(
+                    ProfessionalCabinet,
+                    and_(
+                        ProfessionalCabinet.id
+                        == ConversationThread
+                        .professional_cabinet_id,
+                        ProfessionalCabinet.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    Specialist,
+                    and_(
+                        Specialist.id
+                        == ProfessionalCabinet
+                        .specialist_id,
+                        Specialist.tenant_id
+                        == tenant_id,
+                    ),
+                )
+                .join(
+                    User,
+                    and_(
+                        User.id == Specialist.user_id,
+                        User.tenant_id == tenant_id,
+                    ),
+                )
+                .where(
+                    ConversationThread.id
+                    == target_id,
+                    ConversationThread.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            return await normalize_snapshot(
+                row.country_id,
+                row.language_code,
+            )
+
+        if normalized_target_type == "message":
+            result = await self.session.execute(
+                select(Message.thread_id)
+                .where(
+                    Message.id == target_id,
+                    Message.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            thread_id = result.scalar_one_or_none()
+
+            if not thread_id:
+                return None, None
+
+            return await (
+                self._resolve_audit_scope_snapshot(
+                    tenant_id=tenant_id,
+                    target_type="thread",
+                    target_id=thread_id,
+                )
+            )
+
+        if normalized_target_type == "complaint":
+            result = await self.session.execute(
+                select(
+                    Complaint.professional_cabinet_id,
+                    Complaint.conversation_thread_id,
+                    Complaint.target_type,
+                    Complaint.target_id,
+                )
+                .where(
+                    Complaint.id == target_id,
+                    Complaint.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            row = result.one_or_none()
+
+            if not row:
+                return None, None
+
+            if row.professional_cabinet_id:
+                return await (
+                    self._resolve_audit_scope_snapshot(
+                        tenant_id=tenant_id,
+                        target_type=(
+                            "professional_cabinet"
+                        ),
+                        target_id=(
+                            row.professional_cabinet_id
+                        ),
+                    )
+                )
+
+            if row.conversation_thread_id:
+                return await (
+                    self._resolve_audit_scope_snapshot(
+                        tenant_id=tenant_id,
+                        target_type="thread",
+                        target_id=(
+                            row.conversation_thread_id
+                        ),
+                    )
+                )
+
+            target_type = (
+                row.target_type or ""
+            ).strip().lower()
+
+            target_type_aliases = {
+                "user": "user",
+                "specialist": "specialist",
+                "specialist_profile": (
+                    "specialist"
+                ),
+                "professional_cabinet": (
+                    "professional_cabinet"
+                ),
+                "cabinet": (
+                    "professional_cabinet"
+                ),
+                "thread": "thread",
+                "conversation_thread": "thread",
+                "message": "message",
+                "portfolio": "portfolio_item",
+                "portfolio_item": (
+                    "portfolio_item"
+                ),
+                "specialist_portfolio_item": (
+                    "specialist_portfolio_item"
+                ),
+                "review": "review",
+                "contact_request": (
+                    "contact_request"
+                ),
+            }
+
+            resolved_target_type = (
+                target_type_aliases.get(
+                    target_type
+                )
+            )
+
+            if not resolved_target_type:
+                return None, None
+
+            return await (
+                self._resolve_audit_scope_snapshot(
+                    tenant_id=tenant_id,
+                    target_type=resolved_target_type,
+                    target_id=row.target_id,
+                )
+            )
+
+        if normalized_target_type == "role_scope":
+            result = await self.session.execute(
+                select(RoleScope.user_id)
+                .where(
+                    RoleScope.id == target_id,
+                    RoleScope.tenant_id
+                    == tenant_id,
+                )
+                .limit(1)
+            )
+            target_user_id = (
+                result.scalar_one_or_none()
+            )
+
+            if not target_user_id:
+                return None, None
+
+            return await (
+                self._resolve_audit_scope_snapshot(
+                    tenant_id=tenant_id,
+                    target_type="user",
+                    target_id=target_user_id,
+                )
+            )
+
+        return None, None
+
     async def log_admin_action(
         self,
         *,
@@ -5754,12 +7130,25 @@ class ModerationRepository:
         after_state: dict,
         reason: str,
     ) -> AdminAction:
+        (
+            scope_country_id,
+            scope_language_code,
+        ) = await self._resolve_audit_scope_snapshot(
+            tenant_id=tenant_id,
+            target_type=target_type,
+            target_id=target_id,
+        )
+
         action = AdminAction(
             tenant_id=tenant_id,
             admin_user_id=admin_user_id,
             action_type=action_type,
             target_type=target_type,
             target_id=target_id,
+            scope_country_id=scope_country_id,
+            scope_language_code=(
+                scope_language_code
+            ),
             before_state=before_state,
             after_state=after_state,
             reason=reason,
@@ -5778,12 +7167,25 @@ class ModerationRepository:
         entity_id: UUID,
         payload: dict,
     ) -> EventLog:
+        (
+            scope_country_id,
+            scope_language_code,
+        ) = await self._resolve_audit_scope_snapshot(
+            tenant_id=tenant_id,
+            target_type=entity_type,
+            target_id=entity_id,
+        )
+
         event = EventLog(
             tenant_id=tenant_id,
             user_id=user_id,
             event_type=event_type,
             entity_type=entity_type,
             entity_id=entity_id,
+            scope_country_id=scope_country_id,
+            scope_language_code=(
+                scope_language_code
+            ),
             payload=payload,
             platform="telegram",
         )

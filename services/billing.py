@@ -175,12 +175,14 @@ class BillingService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         limit: int = 10,
         offset: int = 0,
     ) -> list[Payment]:
         try:
             return await self.repository.list_pending_manual_payments(
                 admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
                 limit=limit,
                 offset=offset,
             )
@@ -191,12 +193,14 @@ class BillingService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         payment_id: UUID,
     ) -> PendingManualPaymentCard:
         try:
             payment, invoice = (
                 await self.repository.get_pending_manual_payment(
                     admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
                     payment_id=payment_id,
                 )
             )
@@ -228,6 +232,7 @@ class BillingService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         payment_id: UUID,
         reason: str,
     ) -> BillingMarkPaidResult:
@@ -238,6 +243,7 @@ class BillingService:
             payment, invoice, promotion, approval_required = (
                 await self.repository.mark_payment_paid(
                     admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
                     payment_id=payment_id,
                     reason=normalized_reason,
                     approval_threshold_eur=threshold,

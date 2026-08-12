@@ -11273,7 +11273,6 @@ translations = {
             "Профессиональные кабинеты: {specialists}\n"
             "Support: {tickets}\n"
             "Жалобы: {complaints}\n"
-            "Global Blacklist: {blacklist}\n"
             "Audit alerts: {audit_alerts}"
         ),
         "en": (
@@ -11282,7 +11281,6 @@ translations = {
             "Professional cabinets: {specialists}\n"
             "Support: {tickets}\n"
             "Complaints: {complaints}\n"
-            "Global Blacklist: {blacklist}\n"
             "Audit alerts: {audit_alerts}"
         ),
         "pt": (
@@ -11291,7 +11289,6 @@ translations = {
             "Gabinetes profissionais: {specialists}\n"
             "Support: {tickets}\n"
             "Denúncias: {complaints}\n"
-            "Global Blacklist: {blacklist}\n"
             "Alertas de auditoria: {audit_alerts}"
         ),
         "uk": (
@@ -11300,7 +11297,6 @@ translations = {
             "Професійні кабінети: {specialists}\n"
             "Support: {tickets}\n"
             "Скарги: {complaints}\n"
-            "Global Blacklist: {blacklist}\n"
             "Audit alerts: {audit_alerts}"
         ),
         "pl": (
@@ -11310,7 +11306,6 @@ translations = {
             'Profile zawodowe: {specialists}\n'
             'Pomoc techniczna: {tickets}\n'
             'Skargi: {complaints}\n'
-            'Globalna czarna lista: {blacklist}\n'
             'Alerty audytowe: {audit_alerts}'
         ),
         "de": (
@@ -11320,7 +11315,6 @@ translations = {
             'Berufsprofile: {specialists}\n'
             'Support: {tickets}\n'
             'Beschwerden: {complaints}\n'
-            'Globale Sperrliste: {blacklist}\n'
             'Audit-Warnmeldungen: {audit_alerts}'
         ),
         "nl": (
@@ -11330,7 +11324,6 @@ translations = {
             'Professionele profielen: {specialists}\n'
             'Ondersteuning: {tickets}\n'
             'Klachten: {complaints}\n'
-            'Wereldwijde zwarte lijst: {blacklist}\n'
             'Auditwaarschuwingen: {audit_alerts}'
         ),
     },
@@ -21015,6 +21008,15 @@ translations = {
         "de": 'Land',
         "nl": 'Land',
     },
+    "super_admin_scope_type_language": {
+        "ru": "Язык",
+        "en": "Language",
+        "pt": "Idioma",
+        "uk": "Мова",
+        "pl": "Język",
+        "de": "Sprache",
+        "nl": "Taal",
+    },
     "super_admin_scope_type_city": {
         "ru": "Город",
         "en": "City",
@@ -21219,6 +21221,15 @@ translations = {
             'Telegram-ID of gebruikersnaam op.'
         ),
     },
+    "super_admin_scope_type_invalid": {
+        "ru": "Доступны только типы scope: country и language.",
+        "en": "Only country and language scope types are available.",
+        "pt": "Apenas os tipos de scope country e language estão disponíveis.",
+        "uk": "Доступні лише типи scope: country і language.",
+        "pl": "Dostępne są tylko typy scope country i language.",
+        "de": "Nur die Scope-Typen country und language sind verfügbar.",
+        "nl": "Alleen de scope-typen country en language zijn beschikbaar.",
+    },
     "super_admin_scope_add_confirmation": {
         "ru": (
             "Подтвердите добавление зоны доступа:\n\n"
@@ -21290,114 +21301,22 @@ translations = {
         "nl": 'Bevestigen',
     },
     "super_admin_scope_add_filtered_prompt": {
-        "ru": (
-            "Введите role, scope_type, scope и причину через |.\n\n"
-            "Формат:\n"
-            "moderator | city | Lisbon | reason text\n\n"
-            "Типы scope: country, city, region, agency, community."
-        ),
-        "en": (
-            "Enter role, scope_type, scope and reason separated by |.\n\n"
-            "Format:\n"
-            "moderator | city | Lisbon | reason text\n\n"
-            "Scope types: country, city, region, agency, community."
-        ),
-        "pt": (
-            "Introduza role, scope_type, scope e motivo separados por |.\n\n"
-            "Formato:\n"
-            "moderator | city | Lisbon | reason text\n\n"
-            "Tipos de scope: country, city, region, agency, community."
-        ),
-        "uk": (
-            "Введіть role, scope_type, scope і причину через |.\n\n"
-            "Формат:\n"
-            "moderator | city | Lisbon | reason text\n\n"
-            "Типи scope: country, city, region, agency, community."
-        ),
-        "pl": (
-            'Wprowadź rolę, scope_type, zakres i powód, oddzielając je '
-            'znakiem by |.\n'
-            '\n'
-            'Format:\n'
-            'moderator | city | Lizbona | tekst przyczyny\n'
-            '\n'
-            'Typy zakresu: country, city, region, agency, community.'
-        ),
-        "de": (
-            'Geben Sie die Rolle, scope_type, den Geltungsbereich und den '
-            'Grund getrennt durch by ein |.\n'
-            '\n'
-            'Format:\n'
-            'moderator | city | Lissabon | Begründungstext\n'
-            '\n'
-            'Gültigkeitsbereichstypen: country, city, region, agency, '
-            'community.'
-        ),
-        "nl": (
-            'Voer de rol, scope_type, het toepassingsgebied en de reden in, '
-            'gescheiden door by |.\n'
-            '\n'
-            'Indeling:\n'
-            'moderator | city | Lissabon | reden\n'
-            '\n'
-            'Toepassingsgebiedstypen: country, city, region, agency, '
-            'community.'
-        ),
+        "ru": "Введите тип scope, значение и причину через |.\n\nФорматы:\ncountry | Portugal | причина\nlanguage | uk | причина\n\nДоступны только country и language. Роль admin устанавливается автоматически.",
+        "en": "Enter the scope type, value and reason separated by |.\n\nFormats:\ncountry | Portugal | reason\nlanguage | uk | reason\n\nOnly country and language are available. The admin role is set automatically.",
+        "pt": "Introduza o tipo de scope, o valor e o motivo separados por |.\n\nFormatos:\ncountry | Portugal | motivo\nlanguage | uk | motivo\n\nApenas country e language estão disponíveis. A função admin é definida automaticamente.",
+        "uk": "Введіть тип scope, значення і причину через |.\n\nФормати:\ncountry | Portugal | причина\nlanguage | uk | причина\n\nДоступні лише country і language. Роль admin встановлюється автоматично.",
+        "pl": "Wprowadź typ scope, wartość i powód, oddzielając je znakiem |.\n\nFormaty:\ncountry | Portugal | powód\nlanguage | uk | powód\n\nDostępne są tylko country i language. Rola admin jest ustawiana automatycznie.",
+        "de": "Geben Sie den Scope-Typ, den Wert und den Grund getrennt durch | ein.\n\nFormate:\ncountry | Portugal | Grund\nlanguage | uk | Grund\n\nNur country und language sind verfügbar. Die Rolle admin wird automatisch festgelegt.",
+        "nl": "Voer het scope-type, de waarde en de reden in, gescheiden door |.\n\nIndelingen:\ncountry | Portugal | reden\nlanguage | uk | reden\n\nAlleen country en language zijn beschikbaar. De rol admin wordt automatisch ingesteld.",
     },
     "super_admin_scope_add_prompt": {
-        "ru": (
-            "Введите user, role, scope_type, scope и причину через |.\n\n"
-            "Формат:\n"
-            "user-49ba690f | moderator | city | Lisbon | reason text\n\n"
-            "Типы scope: country, city, region, agency, community."
-        ),
-        "en": (
-            "Enter user, role, scope_type, scope and reason separated by |.\n\n"
-            "Format:\n"
-            "user-49ba690f | moderator | city | Lisbon | reason text\n\n"
-            "Scope types: country, city, region, agency, community."
-        ),
-        "pt": (
-            "Introduza user, role, scope_type, scope e motivo separados por |.\n\n"
-            "Formato:\n"
-            "user-49ba690f | moderator | city | Lisbon | reason text\n\n"
-            "Tipos de scope: country, city, region, agency, community."
-        ),
-        "uk": (
-            "Введіть user, role, scope_type, scope і причину через |.\n\n"
-            "Формат:\n"
-            "user-49ba690f | moderator | city | Lisbon | reason text\n\n"
-            "Типи scope: country, city, region, agency, community."
-        ),
-        "pl": (
-            'Wprowadź użytkownika, rolę, scope_type, zakres i powód, '
-            'oddzielając je znakiem by |.\n'
-            '\n'
-            'Format:\n'
-            'user-49ba690f | moderator | city | Lizbona | tekst powodu\n'
-            '\n'
-            'Typy zakresów: country, city, region, agency, community.'
-        ),
-        "de": (
-            'Geben Sie Benutzer, Rolle, scope_type, Geltungsbereich und Grund '
-            'getrennt durch by ein.\n'
-            '\n'
-            'Format:\n'
-            'user-49ba690f | moderator | city | Lissabon | Begründungstext\n'
-            '\n'
-            'Gültigkeitsbereichstypen: country, city, region, agency, '
-            'community.'
-        ),
-        "nl": (
-            'Voer gebruiker, rol, scope_type, toepassingsgebied en reden '
-            'gescheiden in by |.\n'
-            '\n'
-            'Indeling:\n'
-            'user-49ba690f | moderator | city | Lissabon | reden\n'
-            '\n'
-            'Toepassingsgebiedstypen: country, city, region, agency, '
-            'community.'
-        ),
+        "ru": "Введите пользователя, тип scope, значение и причину через |.\n\nФорматы:\nuser-49ba690f | country | Portugal | причина\nuser-49ba690f | language | uk | причина\n\nДоступны только country и language. Роль admin устанавливается автоматически.",
+        "en": "Enter the user, scope type, value and reason separated by |.\n\nFormats:\nuser-49ba690f | country | Portugal | reason\nuser-49ba690f | language | uk | reason\n\nOnly country and language are available. The admin role is set automatically.",
+        "pt": "Introduza o utilizador, o tipo de scope, o valor e o motivo separados por |.\n\nFormatos:\nuser-49ba690f | country | Portugal | motivo\nuser-49ba690f | language | uk | motivo\n\nApenas country e language estão disponíveis. A função admin é definida automaticamente.",
+        "uk": "Введіть користувача, тип scope, значення і причину через |.\n\nФормати:\nuser-49ba690f | country | Portugal | причина\nuser-49ba690f | language | uk | причина\n\nДоступні лише country і language. Роль admin встановлюється автоматично.",
+        "pl": "Wprowadź użytkownika, typ scope, wartość i powód, oddzielając je znakiem |.\n\nFormaty:\nuser-49ba690f | country | Portugal | powód\nuser-49ba690f | language | uk | powód\n\nDostępne są tylko country i language. Rola admin jest ustawiana automatycznie.",
+        "de": "Geben Sie den Benutzer, den Scope-Typ, den Wert und den Grund getrennt durch | ein.\n\nFormate:\nuser-49ba690f | country | Portugal | Grund\nuser-49ba690f | language | uk | Grund\n\nNur country und language sind verfügbar. Die Rolle admin wird automatisch festgelegt.",
+        "nl": "Voer de gebruiker, het scope-type, de waarde en de reden in, gescheiden door |.\n\nIndelingen:\nuser-49ba690f | country | Portugal | reden\nuser-49ba690f | language | uk | reden\n\nAlleen country en language zijn beschikbaar. De rol admin wordt automatisch ingesteld.",
     },
     "super_admin_scope_revoke_reason_prompt": {
         "ru": "Укажите причину отзыва зоны доступа. Минимум 3 символа.",

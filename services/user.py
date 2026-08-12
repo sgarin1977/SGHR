@@ -114,16 +114,12 @@ class UserService:
 
         return None
 
-    def resolve_telegram_role(self, platform_user_id: str) -> str:
-        admin_ids = {
-            item.strip()
-            for item in os.getenv("ADMIN_TELEGRAM_IDS", "").split(",")
-            if item.strip()
-        }
-
-        if str(platform_user_id) in admin_ids:
-            return "super_admin"
-
+    def resolve_telegram_role(
+        self,
+        platform_user_id: str,
+    ) -> str:
+        # Telegram registration never grants staff roles.
+        # ADMIN_TELEGRAM_IDS is notification-only.
         return "client"
 
     async def get_user_by_telegram_id(self, telegram_id: int | str) -> Optional[User]:

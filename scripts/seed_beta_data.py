@@ -7,6 +7,9 @@ from decimal import Decimal
 import re
 from sqlalchemy import text
 
+from database.role_policy import (
+    ADMINISTRATIVE_ROLES,
+)
 from database.session import async_session
 
 
@@ -628,6 +631,16 @@ async def ensure_telegram_user(
     first_name: str,
     last_name: str,
 ) -> str:
+    normalized_role = (
+        role or ""
+    ).strip().lower()
+
+    if normalized_role in ADMINISTRATIVE_ROLES:
+        raise PermissionError(
+            "Administrative roles can only "
+            "be changed through Root CLI."
+        )
+
     existing_user_id = await fetch_one_value(
         session,
         """
@@ -710,23 +723,14 @@ async def ensure_telegram_user(
     return user_id
 
 
-async def seed_admin_users(session, tenant_id: str) -> None:
-    admin_ids = [
-        item.strip()
-        for item in (os.getenv("ADMIN_TELEGRAM_IDS") or "").split(",")
-        if item.strip()
-    ]
-
-    for index, platform_user_id in enumerate(admin_ids, start=1):
-        await ensure_telegram_user(
-            session,
-            tenant_id=tenant_id,
-            platform_user_id=platform_user_id,
-            role="super_admin",
-            username=f"seed_admin_{index}",
-            first_name="SGHR",
-            last_name="Admin",
-        )
+async def seed_admin_users(
+    session,
+    tenant_id: str,
+) -> None:
+    print(
+        "skip admin users: administrative roles "
+        "are managed only through Root CLI"
+    )
 
 
 async def seed_test_specialists(session, tenant_id: str) -> None:

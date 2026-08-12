@@ -20,6 +20,12 @@ class EventRepository:
         payload: Optional[dict] = None,
         platform: Optional[str] = None,
         trace_id: Optional[str] = None,
+        scope_country_id: Optional[
+            uuid.UUID
+        ] = None,
+        scope_language_code: Optional[
+            str
+        ] = None,
     ) -> EventLog:
         event = EventLog(
             tenant_id=tenant_id,
@@ -30,6 +36,10 @@ class EventRepository:
             payload=payload or {},
             platform=platform,
             trace_id=trace_id or f"evt_{uuid.uuid4().hex}",
+            scope_country_id=scope_country_id,
+            scope_language_code=(
+                scope_language_code
+            ),
         )
 
         self.session.add(event)

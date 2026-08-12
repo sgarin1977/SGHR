@@ -22,6 +22,9 @@ from database.models import (
     UserAccount,
     UserRoleMapping,
 )
+from database.repositories.admin_scope import (
+    AdminScopeRepository,
+)
 from database.repositories.translation import (
     TranslationRepository,
 )
@@ -713,15 +716,67 @@ class ContactChatRepository:
         if not has_access:
             raise ValueError("Admin access denied.")
 
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=admin_user_id,
+            tenant_id=tenant_id,
+        )
+
         result = await self.session.execute(
-            select(ContactRequest)
+            select(
+                ContactRequest,
+                ProfessionalCabinet.country_id,
+                User.language_code,
+            )
+            .select_from(ContactRequest)
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == ContactRequest
+                .professional_cabinet_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                User.id == Specialist.user_id,
+            )
             .where(
-                ContactRequest.id == contact_request_id,
-                ContactRequest.tenant_id == tenant_id,
+                ContactRequest.id
+                == contact_request_id,
+                ContactRequest.tenant_id
+                == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id == tenant_id,
+                User.tenant_id == tenant_id,
+                scope_context.sql_predicate(
+                    country_column=(
+                        ProfessionalCabinet.country_id
+                    ),
+                    language_column=(
+                        User.language_code
+                    ),
+                ),
             )
             .with_for_update()
         )
-        contact_request = result.scalar_one_or_none()
+        row = result.one_or_none()
+
+        if row:
+            (
+                contact_request,
+                scope_country_id,
+                scope_language_code,
+            ) = row
+        else:
+            contact_request = None
+            scope_country_id = None
+            scope_language_code = None
 
         if not contact_request:
             raise ValueError("Contact request not found.")
@@ -774,6 +829,10 @@ class ContactChatRepository:
                 entity_type="contact_request",
                 entity_id=contact_request.id,
                 platform=platform,
+                scope_country_id=scope_country_id,
+                scope_language_code=(
+                    scope_language_code
+                ),
                 payload={
                     "thread_id": str(thread.id),
                     "previous_status": previous_status,

@@ -22,7 +22,7 @@ from database.models import (
 )
 
 
-BILLING_ADMIN_ROLES = {"super_admin", "admin", "finance_admin"}
+BILLING_ADMIN_ROLES = {"super_admin", "finance_admin"}
 DEFAULT_BETA_PAID_FEATURES = [
     {
         "code": "specialist_premium",
@@ -83,18 +83,32 @@ class BillingRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_billing_admin_roles(self, user_id: UUID) -> set[str]:
+    async def get_billing_admin_roles(
+        self,
+        user_id: UUID,
+        *,
+        tenant_id: UUID,
+    ) -> set[str]:
         result = await self.session.execute(
             select(UserRoleMapping.role).where(
                 UserRoleMapping.user_id == user_id,
+                UserRoleMapping.tenant_id == tenant_id,
                 UserRoleMapping.status == "active",
                 UserRoleMapping.role.in_(BILLING_ADMIN_ROLES),
             )
         )
         return set(result.scalars().all())
 
-    async def require_billing_admin(self, user_id: UUID) -> set[str]:
-        roles = await self.get_billing_admin_roles(user_id)
+    async def require_billing_admin(
+        self,
+        user_id: UUID,
+        *,
+        tenant_id: UUID,
+    ) -> set[str]:
+        roles = await self.get_billing_admin_roles(
+            user_id,
+            tenant_id=tenant_id,
+        )
         if not roles:
             raise BillingAccessError("Billing admin access denied.")
         return roles
@@ -405,14 +419,19 @@ class BillingRepository:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         limit: int = 10,
         offset: int = 0,
     ) -> list[Payment]:
-        await self.require_billing_admin(admin_user_id)
+        await self.require_billing_admin(
+            admin_user_id,
+            tenant_id=tenant_id,
+        )
 
         result = await self.session.execute(
             select(Payment)
             .where(
+                Payment.tenant_id == tenant_id,
                 Payment.payment_method == "manual",
                 Payment.status == "pending",
             )
@@ -426,16 +445,22 @@ class BillingRepository:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         payment_id: UUID,
     ) -> tuple[Payment, Invoice | None]:
         await self.require_billing_admin(
-            admin_user_id
+            admin_user_id,
+            tenant_id=tenant_id,
         )
 
-        payment = await self.session.get(
-            Payment,
-            payment_id,
-        )
+        payment = (
+            await self.session.execute(
+                select(Payment).where(
+                    Payment.id == payment_id,
+                    Payment.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
 
         if (
             not payment
@@ -446,10 +471,14 @@ class BillingRepository:
                 "Pending manual payment not found."
             )
 
-        invoice = await self.session.get(
-            Invoice,
-            payment.invoice_id,
-        )
+        invoice = (
+            await self.session.execute(
+                select(Invoice).where(
+                    Invoice.id == payment.invoice_id,
+                    Invoice.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
 
         return payment, invoice
 
@@ -457,24 +486,43 @@ class BillingRepository:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         payment_id: UUID,
         reason: str,
         approval_threshold_eur: Decimal,
     ) -> tuple[Payment, Invoice, SpecialistPromotion | None, bool]:
-        await self.require_billing_admin(admin_user_id)
+        await self.require_billing_admin(
+            admin_user_id,
+            tenant_id=tenant_id,
+        )
 
-        payment = await self.session.get(Payment, payment_id)
+        payment = (
+            await self.session.execute(
+                select(Payment).where(
+                    Payment.id == payment_id,
+                    Payment.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
         if not payment:
             raise BillingNotFoundError("Payment not found.")
 
-        invoice = await self.session.get(Invoice, payment.invoice_id)
+        invoice = (
+            await self.session.execute(
+                select(Invoice).where(
+                    Invoice.id == payment.invoice_id,
+                    Invoice.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
         if not invoice:
             raise BillingNotFoundError("Invoice not found.")
 
         promotion = (
             await self.session.execute(
                 select(SpecialistPromotion).where(
-                    SpecialistPromotion.invoice_id == invoice.id
+                    SpecialistPromotion.invoice_id == invoice.id,
+                    SpecialistPromotion.tenant_id == tenant_id,
                 )
             )
         ).scalar_one_or_none()
@@ -484,6 +532,7 @@ class BillingRepository:
             existing_request = (
                 await self.session.execute(
                     select(ApprovalRequest).where(
+                        ApprovalRequest.tenant_id == tenant_id,
                         ApprovalRequest.action_type == "manual_payment_mark_paid",
                         ApprovalRequest.status == "pending",
                         ApprovalRequest.reason.like(f"%{payment.id}%"),

@@ -282,8 +282,8 @@ def review_moderation_error_text(
     )
 
 ADMIN_MODERATION_MENU_ROLES = {"super_admin", "admin", "moderator"}
-ADMIN_PAYMENT_MENU_ROLES = {"super_admin", "admin", "finance_admin"}
-ADMIN_ROLE_MENU_ROLES = {"super_admin"}
+ADMIN_PAYMENT_MENU_ROLES = {"super_admin", "finance_admin"}
+ADMIN_ROLE_MENU_ROLES = set()
 ADMIN_LOG_MENU_ROLES = {"super_admin", "admin"}
 ADMIN_SUPPORT_MENU_ROLES = {"support"}
 ADMIN_DICT_MENU_ROLES = {"super_admin"}
@@ -295,7 +295,7 @@ SUPPORT_STAFF_PAGE_SIZE = 5
 ADMIN_ESCALATED_TICKET_PAGE_SIZE = 5
 ADMIN_GLOBAL_BLACKLIST_PAGE_SIZE = 5
 ADMIN_AUDIT_PAGE_SIZE = 5
-ADMIN_GLOBAL_BLACKLIST_ROLES = {"admin", "super_admin"}
+ADMIN_GLOBAL_BLACKLIST_ROLES = {"super_admin"}
 MODERATOR_PROFILE_PAGE_SIZE = 5
 ADMIN_SPECIALIST_PAGE_SIZE = 5
 MODERATOR_PORTFOLIO_PAGE_SIZE = 5
@@ -423,7 +423,10 @@ async def get_admin_user_context(telegram_id: int | str):
             return None, None, set()
 
         service = ModerationService(ModerationRepository(session))
-        roles = await service.get_admin_roles(user.id)
+        roles = await service.get_admin_roles(
+            user.id,
+            tenant_id=user.tenant_id,
+        )
         return user.id, user.tenant_id, roles
 
 
@@ -527,30 +530,22 @@ def admin_panel_keyboard(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
-def admin_roles_keyboard(language: str) -> InlineKeyboardMarkup:
+def admin_roles_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("admin_role_grant", language),
-                    callback_data="ADM_ROLE_GRANT",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("admin_role_revoke", language),
-                    callback_data="ADM_ROLE_REVOKE",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("admin_panel_back", language),
+                    text=t(
+                        "admin_panel_back",
+                        language,
+                    ),
                     callback_data="ADM_PANEL",
                 )
-            ],
+            ]
         ]
     )
-
 
 def parse_role_command(text: str | None) -> tuple[str, str, str] | None:
     parts = (text or "").strip().split(maxsplit=2)
@@ -6826,7 +6821,6 @@ def format_admin_menu(
         specialists=summary.professional_cabinets,
         tickets=summary.tickets,
         complaints=summary.complaints,
-        blacklist=summary.blacklist,
         audit_alerts=summary.audit_alerts,
     )
 
@@ -6889,14 +6883,6 @@ def minimal_admin_menu_keyboard(
                     count=summary.complaints,
                 ),
                 callback_data="ADM_MODERATION_MENU",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("admin_global_blacklist_btn", language).format(
-                    count=summary.blacklist,
-                ),
-                callback_data="ADM_GLOBAL_BLACKLIST",
             )
         ],
         [
@@ -7356,33 +7342,35 @@ def super_admin_user_roles_keyboard(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=t("super_admin_role_grant_btn", language),
-                    callback_data="SA_ROLE_GRANT",
-                ),
-                InlineKeyboardButton(
-                    text=t("super_admin_role_revoke_btn", language),
-                    callback_data="SA_ROLE_REVOKE",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t("super_admin_role_scope_btn", language),
+                    text=t(
+                        "super_admin_role_scope_btn",
+                        language,
+                    ),
                     callback_data="SA_ROLE_SCOPE",
                 ),
                 InlineKeyboardButton(
-                    text=t("super_admin_role_history_btn", language),
+                    text=t(
+                        "super_admin_role_history_btn",
+                        language,
+                    ),
                     callback_data="SA_ROLE_HISTORY",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=t("super_admin_back_to_menu_btn", language),
+                    text=t(
+                        "super_admin_back_to_menu_btn",
+                        language,
+                    ),
                     callback_data="ADM_PANEL",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text=t("search_menu", language),
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
                     callback_data="MAIN_MENU",
                 )
             ],
@@ -7544,19 +7532,8 @@ def super_admin_role_scope_card_keyboard(
     status: str,
     language: str,
 ) -> InlineKeyboardMarkup | None:
-    if status != "active":
-        return None
-
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=t("super_admin_scopes_revoke_btn", language),
-                    callback_data=f"SA_SCOPE_REVOKE:{index}",
-                )
-            ]
-        ]
-    )
+    # Super Admin can inspect scopes but cannot mutate them.
+    return None
 
 def super_admin_role_scopes_keyboard(
     *,
@@ -7569,30 +7546,26 @@ def super_admin_role_scopes_keyboard(
     rows = [
         [
             InlineKeyboardButton(
-                text=t("super_admin_scopes_view_active", language),
+                text=t(
+                    "super_admin_scopes_view_active",
+                    language,
+                ),
                 callback_data=(
                     f"SA_SCOPES_QUEUE:active:{page}:"
                     f"{1 if user_filtered else 0}"
                 ),
             ),
             InlineKeyboardButton(
-                text=t("super_admin_scopes_view_history", language),
+                text=t(
+                    "super_admin_scopes_view_history",
+                    language,
+                ),
                 callback_data=(
                     f"SA_SCOPES_QUEUE:history:{page}:"
                     f"{1 if user_filtered else 0}"
                 ),
             ),
-        ],
-        [
-            InlineKeyboardButton(
-                text=t("super_admin_scopes_add_btn", language),
-                callback_data=(
-                    "SA_SCOPE_ADD_USER"
-                    if user_filtered
-                    else "SA_SCOPE_ADD"
-                ),
-            )
-        ],
+        ]
     ]
 
     navigation = []
@@ -7602,7 +7575,8 @@ def super_admin_role_scopes_keyboard(
             InlineKeyboardButton(
                 text=t("admin_prev", language),
                 callback_data=(
-                    f"SA_SCOPES_QUEUE:{view}:{page - 1}:"
+                    f"SA_SCOPES_QUEUE:{view}:"
+                    f"{page - 1}:"
                     f"{1 if user_filtered else 0}"
                 ),
             )
@@ -7613,7 +7587,8 @@ def super_admin_role_scopes_keyboard(
             InlineKeyboardButton(
                 text=t("admin_next", language),
                 callback_data=(
-                    f"SA_SCOPES_QUEUE:{view}:{page + 1}:"
+                    f"SA_SCOPES_QUEUE:{view}:"
+                    f"{page + 1}:"
                     f"{1 if user_filtered else 0}"
                 ),
             )
@@ -7625,7 +7600,10 @@ def super_admin_role_scopes_keyboard(
     rows.append(
         [
             InlineKeyboardButton(
-                text=t("super_admin_scopes_to_panel_btn", language),
+                text=t(
+                    "super_admin_scopes_to_panel_btn",
+                    language,
+                ),
                 callback_data="SA_PANEL",
             )
         ]
@@ -7639,8 +7617,9 @@ def super_admin_role_scopes_keyboard(
         ]
     )
 
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
 def super_admin_role_scopes_screen_keyboard(
     cards: list[SuperAdminRoleScopeCard],
@@ -7651,49 +7630,13 @@ def super_admin_role_scopes_screen_keyboard(
     user_filtered: bool,
     language: str,
 ) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-
-    start_number = page * 5 + 1
-
-    for index, card in enumerate(cards):
-        if card.status != "active":
-            continue
-
-        number = start_number + index
-
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=(
-                        f"{number}. "
-                        + t(
-                            "super_admin_scopes_revoke_btn",
-                            language,
-                        )
-                    ),
-                    callback_data=(
-                        f"SA_SCOPE_REVOKE:{index}"
-                    ),
-                )
-            ]
-        )
-
-    queue_keyboard = super_admin_role_scopes_keyboard(
+    return super_admin_role_scopes_keyboard(
         view=view,
         page=page,
         has_next=has_next,
         user_filtered=user_filtered,
         language=language,
     )
-
-    rows.extend(
-        queue_keyboard.inline_keyboard
-    )
-
-    return InlineKeyboardMarkup(
-        inline_keyboard=rows
-    )
-
 
 @admin_router.callback_query(F.data == "SA_USER_ROLES")
 async def super_admin_user_roles(
@@ -7892,7 +7835,7 @@ async def receive_super_admin_scope_add(
         part.strip()
         for part in (message.text or "").split("|")
     ]
-    expected_parts = 4 if user_filtered else 5
+    expected_parts = 3 if user_filtered else 4
 
     if len(parts) != expected_parts:
         await replace_admin_input_screen(
@@ -7931,11 +7874,11 @@ async def receive_super_admin_scope_add(
             return
 
         (
-            role,
             scope_type,
             scope_value,
             reason,
         ) = parts
+        role = "admin"
         target_user_label = (
             f"user-{target_user_id.hex[:8]}"
         )
@@ -7943,11 +7886,11 @@ async def receive_super_admin_scope_add(
     else:
         (
             user_query,
-            role,
             scope_type,
             scope_value,
             reason,
         ) = parts
+        role = "admin"
 
         (
             admin_user_id,
@@ -8018,6 +7961,23 @@ async def receive_super_admin_scope_add(
 
         target_user_id = matches[0].user_id
         target_user_label = matches[0].user_number
+    normalized_scope_type = (
+        scope_type.strip().lower()
+    )
+
+    if normalized_scope_type not in {
+        "country",
+        "language",
+    }:
+        await replace_admin_input_screen(
+            message=message,
+            state=state,
+            text=t(
+                "super_admin_scope_type_invalid",
+                language,
+            ),
+        )
+        return
 
     if len(reason.strip()) < 3:
         await replace_admin_input_screen(
@@ -8034,7 +7994,7 @@ async def receive_super_admin_scope_add(
         "user_id": str(target_user_id),
         "user_label": target_user_label,
         "role": role.strip().lower(),
-        "scope_type": scope_type.strip().lower(),
+        "scope_type": normalized_scope_type,
         "scope_value": scope_value.strip(),
         "reason": reason.strip(),
     }
@@ -37734,11 +37694,11 @@ async def show_pending_payment(
 
     index = max(0, min(int(index), len(ids) - 1))
 
-    admin_user_id, _, _ = await get_admin_user_context(
+    admin_user_id, tenant_id, _ = await get_admin_user_context(
         callback.from_user.id
     )
 
-    if not admin_user_id:
+    if not admin_user_id or not tenant_id:
         await callback.answer(
             t("admin_access_denied", language),
             show_alert=True,
@@ -37751,6 +37711,7 @@ async def show_pending_payment(
                 BillingRepository(session)
             ).get_pending_manual_payment_card(
                 admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
                 payment_id=UUID(ids[index]),
             )
     except (BillingError, ValueError):
@@ -37908,6 +37869,7 @@ async def receive_mark_payment_paid_reason(
 
     if (
         not admin_user_id
+        or not tenant_id
         or not roles
         or not payment_id
     ):
@@ -37937,6 +37899,7 @@ async def receive_mark_payment_paid_reason(
                 BillingRepository(session)
             ).mark_payment_paid(
                 admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
                 payment_id=payment_uuid,
                 reason=reason,
             )

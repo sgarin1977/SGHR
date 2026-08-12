@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
@@ -13,9 +13,14 @@ from database.models import (
     Review,
     ServiceOrder,
     Specialist,
+    User,
     UserRoleMapping,
 )
 
+
+from database.repositories.admin_scope import (
+    AdminScopeRepository,
+)
 
 class ReviewError(Exception):
     pass
@@ -61,6 +66,35 @@ class ReviewRepository:
             )
 
         return roles
+
+    async def _moderation_scope_predicate(
+        self,
+        *,
+        roles: set[str],
+        moderator_user_id: UUID,
+        tenant_id: UUID,
+    ):
+        if (
+            "super_admin" in roles
+            or "admin" not in roles
+        ):
+            return literal(True)
+
+        scope_context = await AdminScopeRepository(
+            self.session
+        ).get_context(
+            admin_user_id=moderator_user_id,
+            tenant_id=tenant_id,
+        )
+
+        return scope_context.sql_predicate(
+            country_column=(
+                ProfessionalCabinet.country_id
+            ),
+            language_column=(
+                User.language_code
+            ),
+        )
 
     async def get_specialist_reputation(
         self,
@@ -350,9 +384,19 @@ class ReviewRepository:
         limit: int = 6,
         offset: int = 0,
     ) -> list[Review]:
-        await self.require_moderator(
+        roles = await self.require_moderator(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
+        )
+
+        scope_predicate = await (
+            self._moderation_scope_predicate(
+                roles=roles,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
+                tenant_id=tenant_id,
+            )
         )
 
         normalized_limit = max(1, min(int(limit), 20))
@@ -360,9 +404,31 @@ class ReviewRepository:
 
         result = await self.session.execute(
             select(Review)
+            .select_from(Review)
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Review.professional_cabinet_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
             .where(
                 Review.tenant_id == tenant_id,
                 Review.status == "pending_moderation",
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id == tenant_id,
+                scope_predicate,
             )
             .order_by(
                 Review.created_at.asc(),
@@ -381,9 +447,19 @@ class ReviewRepository:
         moderator_user_id: UUID,
         review_id: UUID,
     ) -> PendingReviewModerationDetails:
-        await self.require_moderator(
+        roles = await self.require_moderator(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
+        )
+
+        scope_predicate = await (
+            self._moderation_scope_predicate(
+                roles=roles,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
+                tenant_id=tenant_id,
+            )
         )
 
         result = await self.session.execute(
@@ -409,6 +485,13 @@ class ReviewRepository:
                 Specialist.id
                 == ProfessionalCabinet.specialist_id,
             )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
             .where(
                 Review.id == review_id,
                 Review.tenant_id == tenant_id,
@@ -418,6 +501,7 @@ class ReviewRepository:
                 == tenant_id,
                 Specialist.tenant_id
                 == tenant_id,
+                scope_predicate,
             )
         )
 
@@ -471,9 +555,19 @@ class ReviewRepository:
         review_id: UUID,
         status: str,
     ) -> tuple[Review, str]:
-        await self.require_moderator(
+        roles = await self.require_moderator(
             tenant_id=tenant_id,
             moderator_user_id=moderator_user_id,
+        )
+
+        scope_predicate = await (
+            self._moderation_scope_predicate(
+                roles=roles,
+                moderator_user_id=(
+                    moderator_user_id
+                ),
+                tenant_id=tenant_id,
+            )
         )
 
         if status not in {"published", "hidden"}:
@@ -483,9 +577,31 @@ class ReviewRepository:
 
         result = await self.session.execute(
             select(Review)
+            .select_from(Review)
+            .join(
+                ProfessionalCabinet,
+                ProfessionalCabinet.id
+                == Review.professional_cabinet_id,
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ProfessionalCabinet.specialist_id,
+            )
+            .join(
+                User,
+                and_(
+                    User.id == Specialist.user_id,
+                    User.tenant_id == tenant_id,
+                ),
+            )
             .where(
                 Review.id == review_id,
                 Review.tenant_id == tenant_id,
+                ProfessionalCabinet.tenant_id
+                == tenant_id,
+                Specialist.tenant_id == tenant_id,
+                scope_predicate,
             )
             .with_for_update()
         )
