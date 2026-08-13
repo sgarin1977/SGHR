@@ -2176,36 +2176,176 @@ def complaint_reason_keyboard(language: str) -> InlineKeyboardMarkup:
     )
 
 
+CONTACT_TRANSLATION_CALLBACK_PREFIXES = {
+    "original": "contact_show_original",
+    "translation": "contact_show_translation",
+}
+
+
+def build_contact_translation_callback(
+    *,
+    action: str,
+    thread_id: UUID | str,
+    role: str,
+) -> str:
+    prefix = (
+        CONTACT_TRANSLATION_CALLBACK_PREFIXES.get(
+            action
+        )
+    )
+    role_code = {
+        "client": "c",
+        "specialist": "s",
+    }.get(role.strip().lower())
+
+    if not prefix or not role_code:
+        raise ValueError(
+            "Invalid contact translation callback."
+        )
+
+    normalized_thread_id = str(
+        UUID(str(thread_id))
+    )
+    callback_data = (
+        f"{prefix}:{normalized_thread_id}:"
+        f"{role_code}"
+    )
+
+    if len(callback_data.encode("utf-8")) > 64:
+        raise ValueError(
+            "Contact translation callback is too long."
+        )
+
+    return callback_data
+
+
+def parse_contact_translation_callback(
+    callback_data: str | None,
+    *,
+    action: str,
+) -> tuple[str, str] | None:
+    prefix = (
+        CONTACT_TRANSLATION_CALLBACK_PREFIXES.get(
+            action
+        )
+    )
+
+    if not prefix or not callback_data:
+        return None
+
+    parts = callback_data.split(":")
+
+    if (
+        len(parts) != 3
+        or parts[0] != prefix
+    ):
+        return None
+
+    try:
+        thread_id = str(UUID(parts[1]))
+    except (TypeError, ValueError):
+        return None
+
+    role = {
+        "c": "client",
+        "s": "specialist",
+    }.get(parts[2])
+
+    if not role:
+        return None
+
+    return thread_id, role
+
+
 def contact_thread_keyboard(
     language: str,
+    *,
+    show_original: bool = False,
+    thread_id: UUID | str | None = None,
 ) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+    return contact_thread_keyboard_for_role(
+        language,
+        "client",
+        show_original=show_original,
+        thread_id=thread_id,
+    )
+
+
+def contact_thread_keyboard_for_role(
+    language: str,
+    role: str | None,
+    *,
+    show_original: bool = False,
+    thread_id: UUID | str | None = None,
+) -> InlineKeyboardMarkup:
+    normalized_role = (
+        "specialist"
+        if role == "specialist"
+        else "client"
+    )
+    back_callback = (
+        "SPEC_DIALOGS"
+        if normalized_role == "specialist"
+        else "CLIENT_DIALOGS"
+    )
+    report_callback = (
+        "SPEC_THREAD_REPORT"
+        if normalized_role == "specialist"
+        else "search_report_thread_pending"
+    )
+
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "contact_chat_attach_btn",
+                    language,
+                ),
+                callback_data="CONTACT_ATTACH_FILE",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "contact_chat_finish_btn",
+                    language,
+                ),
+                callback_data="SPEC_THREAD_COMPLETE",
+            )
+        ],
+    ]
+
+    if (
+        show_original
+        and thread_id is not None
+    ):
+        rows.append(
             [
                 InlineKeyboardButton(
                     text=t(
-                        "contact_chat_attach_btn",
+                        "contact_show_original_btn",
                         language,
                     ),
-                    callback_data="CONTACT_ATTACH_FILE",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text=t(
-                        "contact_chat_finish_btn",
-                        language,
+                    callback_data=(
+                        build_contact_translation_callback(
+                            action="original",
+                            thread_id=thread_id,
+                            role=normalized_role,
+                        )
                     ),
-                    callback_data="SPEC_THREAD_COMPLETE",
                 )
-            ],
+            ]
+        )
+
+    rows.extend(
+        [
             [
                 InlineKeyboardButton(
                     text=t(
                         "contact_chat_report_btn",
                         language,
                     ),
-                    callback_data="search_report_thread_pending",
+                    callback_data=report_callback,
                 )
             ],
             [
@@ -2214,60 +2354,52 @@ def contact_thread_keyboard(
                         "contact_chat_back_btn",
                         language,
                     ),
-                    callback_data="CLIENT_DIALOGS",
+                    callback_data=back_callback,
                 )
             ],
         ]
     )
 
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
-def contact_thread_keyboard_for_role(
+
+def contact_original_keyboard(
     language: str,
-    role: str | None,
+    *,
+    role: str,
+    thread_id: UUID | str,
 ) -> InlineKeyboardMarkup:
-    if role == "specialist":
-        return InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "contact_chat_attach_btn",
-                            language,
-                        ),
-                        callback_data="CONTACT_ATTACH_FILE",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "contact_chat_finish_btn",
-                            language,
-                        ),
-                        callback_data="SPEC_THREAD_COMPLETE",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "contact_chat_report_btn",
-                            language,
-                        ),
-                        callback_data="SPEC_THREAD_REPORT",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text=t(
-                            "contact_chat_back_btn",
-                            language,
-                        ),
-                        callback_data="SPEC_DIALOGS",
-                    )
-                ],
-            ]
-        )
+    keyboard = contact_thread_keyboard_for_role(
+        language,
+        role,
+        thread_id=thread_id,
+    )
+    rows = list(keyboard.inline_keyboard)
 
-    return contact_thread_keyboard(language)
+    rows.insert(
+        2,
+        [
+            InlineKeyboardButton(
+                text=t(
+                    "contact_show_translation_btn",
+                    language,
+                ),
+                callback_data=(
+                    build_contact_translation_callback(
+                        action="translation",
+                        thread_id=thread_id,
+                        role=role,
+                    )
+                ),
+            )
+        ],
+    )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows
+    )
 
 
 def contact_message_notification_keyboard(
@@ -2720,6 +2852,7 @@ async def show_contact_chat(
     language: str,
     include_attachments: bool = True,
     notice: str | None = None,
+    show_originals: bool = False,
 ) -> None:
     normalized_role = (
         "specialist"
@@ -2729,13 +2862,23 @@ async def show_contact_chat(
 
     try:
         async with get_session() as session:
-            detail = await ContactChatService(
+            contact_service = ContactChatService(
                 ContactChatRepository(session)
-            ).get_thread_detail_for_viewer(
+            )
+            detail = await (
+                contact_service
+                .get_thread_detail_for_viewer(
+                    thread_id=UUID(thread_id),
+                    user_id=user_id,
+                    participant_role=(
+                        normalized_role
+                    ),
+                    language=language,
+                )
+            )
+            await contact_service.mark_thread_read(
                 thread_id=UUID(thread_id),
                 user_id=user_id,
-                participant_role=normalized_role,
-                language=language,
             )
     except ContactChatError:
         logger.exception(
@@ -2775,6 +2918,10 @@ async def show_contact_chat(
             ),
         )
         return
+
+    if show_originals:
+        for item in detail.messages:
+            item.text = item.original_text
 
     state_data = await state.get_data()
 
@@ -2818,9 +2965,21 @@ async def show_contact_chat(
         if normalized_role == "specialist"
         else detail.specialist_name
     )
-    keyboard = contact_thread_keyboard_for_role(
-        language,
-        normalized_role,
+    keyboard = (
+        contact_original_keyboard(
+            language,
+            role=normalized_role,
+            thread_id=thread_id,
+        )
+        if show_originals
+        else contact_thread_keyboard_for_role(
+            language,
+            normalized_role,
+            show_original=(
+                detail.show_original_button
+            ),
+            thread_id=thread_id,
+        )
     )
     attachment_items = (
         [
@@ -8603,67 +8762,135 @@ async def back_to_main_menu(
     )
 
 
-@search_router.callback_query(F.data == "contact_show_original")
-async def show_original_message(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    language = await get_search_language(state, callback)
-    thread_id = data.get("active_thread_id")
+@search_router.callback_query(
+    (
+        F.data == "contact_show_original"
+    )
+    | F.data.startswith(
+        "contact_show_original:"
+    )
+)
+async def show_original_messages(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    parsed = parse_contact_translation_callback(
+        callback.data,
+        action="original",
+    )
 
-    if not thread_id:
-        await callback.answer(t("contact_thread_not_found", language), show_alert=True)
-        return
-
-    viewer_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not viewer_user_id:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-        return
-
-    try:
-        async with get_session() as session:
-            original = await TranslationService(
-                TranslationRepository(session)
-            ).get_original_message_for_thread(
-                thread_id=UUID(thread_id),
-                viewer_user_id=viewer_user_id,
-            )
-    except TranslationError as exc:
-        logger.warning(
-            "contact_show_original_failed telegram_id=%s thread_id=%s error=%s",
-            callback.from_user.id,
-            thread_id,
-            exc,
-        )
+    if not parsed:
         await callback.answer(
             t(
-                "contact_original_not_found",
+                "contact_thread_not_found",
                 language,
             ),
             show_alert=True,
         )
         return
 
-    original_text_key = (
-        "contact_translation_failed_original_shown"
-        if original.translation_status == "failed"
-        else "contact_original_message"
+    thread_id, viewer_role = parsed
+    viewer_user_id, _tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
     )
 
-    await callback.answer()
-
-    menu_message = await show_callback_message(
-        callback,
-        t(
-            original_text_key,
-            language,
-        ).format(
-            message=original.original_text,
-        ),
-        contact_thread_keyboard(language),
-    )
+    if not viewer_user_id:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        active_thread_id=thread_id,
+        active_thread_role=viewer_role,
     )
+    await callback.answer()
+
+    await show_contact_chat(
+        message=callback.message,
+        state=state,
+        thread_id=thread_id,
+        user_id=viewer_user_id,
+        viewer_role=viewer_role,
+        language=language,
+        show_originals=True,
+    )
+
+
+@search_router.callback_query(
+    (
+        F.data == "contact_show_translation"
+    )
+    | F.data.startswith(
+        "contact_show_translation:"
+    )
+)
+async def show_translated_messages(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = await get_search_language(
+        state,
+        callback,
+    )
+    parsed = parse_contact_translation_callback(
+        callback.data,
+        action="translation",
+    )
+
+    if not parsed:
+        await callback.answer(
+            t(
+                "contact_thread_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    thread_id, viewer_role = parsed
+    viewer_user_id, _tenant_id = (
+        await get_requester_context(
+            callback.from_user.id
+        )
+    )
+
+    if not viewer_user_id:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await state.update_data(
+        active_thread_id=thread_id,
+        active_thread_role=viewer_role,
+    )
+    await callback.answer()
+
+    await show_contact_chat(
+        message=callback.message,
+        state=state,
+        thread_id=thread_id,
+        user_id=viewer_user_id,
+        viewer_role=viewer_role,
+        language=language,
+        show_originals=False,
+    )
+
 
 @search_router.callback_query(
     (F.data == "ORDER_CREATE_FROM_THREAD")

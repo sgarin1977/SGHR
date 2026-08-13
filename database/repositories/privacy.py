@@ -283,6 +283,7 @@ class PrivacyRepository:
         ).scalars().all()
 
         for settings in language_settings:
+            settings.translation_mode = "off"
             settings.auto_translate_enabled = False
             settings.show_original_button = True
             settings.updated_at = now

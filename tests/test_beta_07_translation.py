@@ -181,7 +181,7 @@ def test_beta_07_translation_repository_and_service_contract():
         "TranslationService(TranslationRepository(session))",
         "message_id=result.first_message_id",
         "message_id=result.message_id",
-        "callback_data=\"contact_show_original\"",
+        "build_contact_translation_callback",
         "async def show_original_message",
     ]
 
@@ -195,7 +195,14 @@ def test_beta_07_translation_repository_and_service_contract():
         assert fragment in handler_source
 
     assert "contact_show_original_pending" not in handler_source
-    assert "callback_data=f\"contact_show_original" not in handler_source
+    assert (
+        'callback_data="contact_show_original"'
+        not in handler_source
+    )
+    assert (
+        "parse_contact_translation_callback"
+        in handler_source
+    )
 
 def test_beta_07_translation_ui_text_contract():
     source = open("ui/texts.py", encoding="utf-8").read()
@@ -216,8 +223,14 @@ def test_beta_07_translation_ui_text_contract():
 
     assert "contact_show_original_pending" not in source
     assert "contact_show_original_pending" not in handler_source
-    assert 'callback_data="contact_show_original"' in handler_source
-    assert 'callback_data=f"contact_show_original' not in handler_source
+    assert (
+        'callback_data="contact_show_original"'
+        not in handler_source
+    )
+    assert (
+        "build_contact_translation_callback"
+        in handler_source
+    )
 
 @pytest.mark.asyncio
 async def test_translation_cache_hit_returns_translation_without_provider_call(db_session):
@@ -532,7 +545,19 @@ def test_client_settings_c17_logs_settings_changed_without_new_tables():
     assert "{notifications}" in texts_source
     assert "notifications=t(\"settings_enabled\", language)" in source
 
-def test_auto_translate_default_is_disabled_for_controlled_beta():
-    source = open("database/models.py", encoding="utf-8").read()
+def test_translation_default_is_standard():
+    source = open(
+        "database/models.py",
+        encoding="utf-8",
+    ).read()
 
-    assert "auto_translate_enabled: Mapped[bool] = mapped_column(Boolean, default=False)" in source
+    assert (
+        'translation_mode: Mapped[str] = mapped_column('
+        in source
+    )
+    assert 'default="standard"' in source
+    assert (
+        "auto_translate_enabled: Mapped[bool] "
+        "= mapped_column(Boolean, default=True)"
+        in source
+    )

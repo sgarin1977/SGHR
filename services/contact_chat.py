@@ -2,6 +2,11 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from database.repositories.contact import ContactChatRepository
+from database.repositories.translation import (
+    TranslationRepository,
+    normalize_translation_language,
+    normalize_translation_mode,
+)
 from database.repositories.specialist import (
     SpecialistRepository,
 )
@@ -151,9 +156,11 @@ class ContactThreadListItem:
 @dataclass
 class ContactThreadMessageItem:
     text: str
+    original_text: str
     is_sent_by_viewer: bool
     is_system: bool
     created_at: datetime
+    used_translation: bool = False
     attachment: dict | None = None
 
 @dataclass
@@ -169,6 +176,7 @@ class ContactThreadDetail:
     active_order_id: UUID | None
     active_order_status: str | None
     active_order_created_by: UUID | None
+    show_original_button: bool
     messages: list[ContactThreadMessageItem]
 
 @dataclass(frozen=True)
@@ -244,6 +252,36 @@ class ContactChatService:
             )
         else:
             self.rate_limit_service = None
+
+    async def _get_translation_preview_context(
+        self,
+        *,
+        user_id: UUID,
+    ) -> tuple[str, str]:
+        repository = TranslationRepository(
+            self.repository.session
+        )
+
+        translation_mode = (
+            await repository.get_translation_mode(
+                user_id
+            )
+        )
+        message_language = (
+            await repository
+            .get_user_message_language(
+                user_id
+            )
+        )
+
+        return (
+            normalize_translation_mode(
+                translation_mode
+            ),
+            normalize_translation_language(
+                message_language
+            ),
+        )
 
     async def _get_active_specialist_cabinet_id(
         self,
@@ -1281,6 +1319,64 @@ class ContactChatService:
             messages,
         ) = row
 
+        translation_settings = await (
+            TranslationRepository(
+                self.repository.session
+            ).get_language_settings(user_id)
+        )
+        translation_mode = normalize_translation_mode(
+            translation_settings.translation_mode
+        )
+        target_language = (
+            normalize_translation_language(
+                translation_settings
+                .message_language
+            )
+        )
+
+        message_items = []
+
+        for message in messages:
+            is_sent_by_viewer = (
+                message.sender_user_id == user_id
+            )
+            use_translation = bool(
+                not is_sent_by_viewer
+                and translation_mode != "off"
+                and message.translation_status
+                == "translated"
+                and message.translated_text
+                and message.translated_language
+                and (
+                    normalize_translation_language(
+                        message.translated_language
+                    )
+                    == target_language
+                )
+            )
+
+            message_items.append(
+                ContactThreadMessageItem(
+                    text=(
+                        message.translated_text
+                        if use_translation
+                        else message.original_text
+                    ),
+                    original_text=message.original_text,
+                    is_sent_by_viewer=(
+                        is_sent_by_viewer
+                    ),
+                    is_system=message.is_system,
+                    created_at=message.created_at,
+                    used_translation=use_translation,
+                    attachment=(
+                        self._message_attachment(
+                            message
+                        )
+                    ),
+                )
+            )
+
         return ContactThreadDetail(
             thread_id=thread.id,
             contact_request_id=contact_request.id if contact_request else None,
@@ -1293,20 +1389,15 @@ class ContactChatService:
             active_order_id=active_order_id,
             active_order_status=active_order_status,
             active_order_created_by=active_order_created_by,
-            messages=[
-                ContactThreadMessageItem(
-                    text=message.original_text,
-                    is_sent_by_viewer=(
-                        message.sender_user_id == user_id
-                    ),
-                    is_system=message.is_system,
-                    created_at=message.created_at,
-                    attachment=self._message_attachment(
-                        message
-                    ),
+            show_original_button=bool(
+                translation_settings
+                .show_original_button
+                and any(
+                    item.used_translation
+                    for item in message_items
                 )
-                for message in messages
-            ],
+            ),
+            messages=message_items,
         )
 
     async def get_thread_notification_context(
@@ -1543,6 +1634,24 @@ class ContactChatService:
             thread_restricted=detection_result.thread_restricted,
         )
     
+    async def mark_thread_read(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+    ) -> int:
+        try:
+            return await (
+                self.repository.mark_thread_read(
+                    thread_id=thread_id,
+                    user_id=user_id,
+                )
+            )
+        except ValueError as exc:
+            raise ContactChatError(
+                str(exc)
+            ) from exc
+
     async def mark_thread_message_read(
         self,
         *,
@@ -1710,6 +1819,15 @@ class ContactChatService:
         language: str = "ru",
         search_query: str | None = None,
     ) -> list[ContactThreadListItem]:
+        (
+            translation_mode,
+            message_language,
+        ) = await (
+            self._get_translation_preview_context(
+                user_id=user_id
+            )
+        )
+
         rows = await self.repository.list_threads_for_user(
             user_id=user_id,
             participant_role="client",
@@ -1717,6 +1835,8 @@ class ContactChatService:
             limit=limit,
             offset=offset,
             language=language,
+            translation_mode=translation_mode,
+            message_language=message_language,
             search_query=search_query,
         )
 
@@ -1761,6 +1881,15 @@ class ContactChatService:
         if not professional_cabinet_id:
             return []
 
+        (
+            translation_mode,
+            message_language,
+        ) = await (
+            self._get_translation_preview_context(
+                user_id=user_id
+            )
+        )
+
         rows = await self.repository.list_threads_for_user(
             user_id=user_id,
             participant_role="specialist",
@@ -1768,6 +1897,8 @@ class ContactChatService:
             limit=limit,
             offset=offset,
             language=language,
+            translation_mode=translation_mode,
+            message_language=message_language,
             search_query=search_query,
             professional_cabinet_id=(
                 professional_cabinet_id

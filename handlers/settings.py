@@ -2,11 +2,18 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from database.repositories.privacy import PrivacyRepository
-from database.repositories.translation import TranslationRepository
+from database.repositories.translation import (
+    TRANSLATION_MODES,
+    TranslationRepository,
+)
 from database.repositories.event import EventRepository
 from database.session import get_session
 from handlers.start import normalize_language, send_global_main_menu
 from services.privacy import PrivacyError, PrivacyService
+from services.translation import (
+    TranslationError,
+    TranslationService,
+)
 from services.user import UserService
 from ui.texts import t
 from utils.telegram_cleanup import edit_or_replace_menu_message
@@ -14,25 +21,62 @@ from aiogram.fsm.context import FSMContext
 settings_router = Router()
 
 
-def translation_settings_keyboard(
+def visible_language_code(
+    language_code: str | None,
+) -> str:
+    normalized = (
+        language_code or ""
+    ).strip().lower()
+
+    if normalized == "uk":
+        return "ua"
+
+    return normalized
+
+
+def language_option_rows(
     *,
-    language: str,
-    message_language: str,
-    auto_translate_enabled: bool,
-    show_original_button: bool,
-) -> InlineKeyboardMarkup:
-    original_text = (
-        t(
-            "settings_show_original_on",
-            language,
-        )
-        if show_original_button
-        else t(
-            "settings_show_original_off",
-            language,
-        )
+    callback_prefix: str,
+    selected_language: str | None = None,
+) -> list[list[InlineKeyboardButton]]:
+    options = (
+        ("ru", "RU"),
+        ("en", "EN"),
+        ("pt", "PT"),
+        ("uk", "UA"),
+        ("pl", "PL"),
+        ("de", "DE"),
+        ("nl", "NL"),
     )
 
+    buttons = []
+
+    for code, label in options:
+        selected_marker = (
+            "● "
+            if selected_language == code
+            else ""
+        )
+        buttons.append(
+            InlineKeyboardButton(
+                text=(
+                    f"{selected_marker}{label}"
+                ),
+                callback_data=(
+                    f"{callback_prefix}:{code}"
+                ),
+            )
+        )
+
+    return [
+        buttons[:4],
+        buttons[4:],
+    ]
+
+
+def language_settings_menu_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -41,40 +85,134 @@ def translation_settings_keyboard(
                         "settings_interface_language_label",
                         language,
                     ),
-                    callback_data="SET_NOOP",
+                    callback_data=(
+                        "CLIENT_INTERFACE_LANGUAGE"
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="RU",
-                    callback_data="SET_UI_LANG:ru",
-                ),
-                InlineKeyboardButton(
-                    text="EN",
-                    callback_data="SET_UI_LANG:en",
-                ),
-                InlineKeyboardButton(
-                    text="PT",
-                    callback_data="SET_UI_LANG:pt",
-                ),
-                InlineKeyboardButton(
-                    text="UA",
-                    callback_data="SET_UI_LANG:uk",
-                ),
+                    text=t(
+                        "settings_translation_mode_label",
+                        language,
+                    ),
+                    callback_data=(
+                        "CLIENT_TRANSLATION_SETTINGS"
+                    ),
+                )
             ],
             [
                 InlineKeyboardButton(
-                    text="PL",
-                    callback_data="SET_UI_LANG:pl",
-                ),
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
+                    callback_data="M_SETTINGS",
+                )
+            ],
+            [
                 InlineKeyboardButton(
-                    text="DE",
-                    callback_data="SET_UI_LANG:de",
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
+                    callback_data="SET_MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+
+def interface_language_settings_keyboard(
+    *,
+    language: str,
+    interface_language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            *language_option_rows(
+                callback_prefix="SET_UI_LANG",
+                selected_language=(
+                    interface_language
                 ),
+            ),
+            [
                 InlineKeyboardButton(
-                    text="NL",
-                    callback_data="SET_UI_LANG:nl",
-                ),
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "CLIENT_SETTINGS_LANGUAGE"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
+                    callback_data="SET_MAIN_MENU",
+                )
+            ],
+        ]
+    )
+
+
+def translation_settings_keyboard(
+    *,
+    language: str,
+    message_language: str,
+    translation_mode: str,
+    show_original_button: bool,
+) -> InlineKeyboardMarkup:
+    original_text = t(
+        (
+            "settings_show_original_on"
+            if show_original_button
+            else "settings_show_original_off"
+        ),
+        language,
+    )
+
+    def mode_text(mode: str) -> str:
+        marker = (
+            "●"
+            if translation_mode == mode
+            else "○"
+        )
+        label = t(
+            f"settings_translation_mode_{mode}",
+            language,
+        )
+        return f"{marker} {label}"
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=mode_text("off"),
+                    callback_data=(
+                        "SET_TRANSLATION_MODE:off"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=mode_text("standard"),
+                    callback_data=(
+                        "SET_TRANSLATION_MODE:standard"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=mode_text("detect"),
+                    callback_data=(
+                        "SET_TRANSLATION_MODE:detect"
+                    ),
+                )
             ],
             [
                 InlineKeyboardButton(
@@ -85,42 +223,18 @@ def translation_settings_keyboard(
                     callback_data="SET_NOOP",
                 )
             ],
-            [
-                InlineKeyboardButton(
-                    text="RU",
-                    callback_data="SET_MSG_LANG:ru",
+            *language_option_rows(
+                callback_prefix="SET_MSG_LANG",
+                selected_language=(
+                    message_language
                 ),
-                InlineKeyboardButton(
-                    text="EN",
-                    callback_data="SET_MSG_LANG:en",
-                ),
-                InlineKeyboardButton(
-                    text="PT",
-                    callback_data="SET_MSG_LANG:pt",
-                ),
-                InlineKeyboardButton(
-                    text="UA",
-                    callback_data="SET_MSG_LANG:uk",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="PL",
-                    callback_data="SET_MSG_LANG:pl",
-                ),
-                InlineKeyboardButton(
-                    text="DE",
-                    callback_data="SET_MSG_LANG:de",
-                ),
-                InlineKeyboardButton(
-                    text="NL",
-                    callback_data="SET_MSG_LANG:nl",
-                ),
-            ],
+            ),
             [
                 InlineKeyboardButton(
                     text=original_text,
-                    callback_data="SET_SHOW_ORIGINAL",
+                    callback_data=(
+                        "SET_SHOW_ORIGINAL"
+                    ),
                 )
             ],
             [
@@ -129,7 +243,9 @@ def translation_settings_keyboard(
                         "billing_back",
                         language,
                     ),
-                    callback_data="M_SETTINGS",
+                    callback_data=(
+                        "CLIENT_SETTINGS_LANGUAGE"
+                    ),
                 )
             ],
             [
@@ -180,60 +296,219 @@ def client_settings_keyboard(language: str) -> InlineKeyboardMarkup:
         ]
     )
 
-async def show_translation_settings(
+async def show_language_settings_menu(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    user, language = (
+        await get_user_settings_context(
+            callback
+        )
+    )
+
+    if not user:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "settings_language_menu_title",
+                language,
+            ),
+            reply_markup=(
+                language_settings_menu_keyboard(
+                    language
+                )
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        )
+    )
+
+
+async def show_interface_language_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            callback.from_user.id
+        )
+
         if not user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
 
-        repository = TranslationRepository(session)
-        settings = await repository.get_language_settings(user.id)
-        language = normalize_language(settings.interface_language or user.language_code)
+        settings = await TranslationRepository(
+            session
+        ).get_language_settings(
+            user.id
+        )
+        language = normalize_language(
+            settings.interface_language
+            or user.language_code
+        )
         await session.commit()
 
     await callback.answer()
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "settings_translation_title",
-            language,
-        ).format(
-            interface_language=settings.interface_language,
-            message_language=settings.message_language,
-            notifications=t(
-                "settings_enabled",
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "settings_interface_language_title",
                 language,
-            ),
-            auto_translate=t(
-                "feature_disabled_beta",
-                language,
-            ),
-            show_original=t(
-                (
-                    "settings_enabled"
-                    if settings.show_original_button
-                    else "settings_disabled"
+            ).format(
+                interface_language=(
+                    visible_language_code(
+                        settings.interface_language
+                    )
                 ),
-                language,
             ),
-        ),
-        reply_markup=translation_settings_keyboard(
-            language=language,
-            message_language=settings.message_language,
-            auto_translate_enabled=settings.auto_translate_enabled,
-            show_original_button=settings.show_original_button,
-        ),
+            reply_markup=(
+                interface_language_settings_keyboard(
+                    language=language,
+                    interface_language=(
+                        settings.interface_language
+                    ),
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
+    )
+
+
+async def show_translation_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    async with get_session() as session:
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            callback.from_user.id
+        )
+
+        if not user:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
+            return
+
+        repository = TranslationRepository(
+            session
+        )
+        settings = (
+            await repository
+            .get_language_settings(
+                user.id
+            )
+        )
+        language = normalize_language(
+            settings.interface_language
+            or user.language_code
+        )
+        await session.commit()
+
+    translation_mode = (
+        settings.translation_mode
+        if settings.translation_mode
+        in TRANSLATION_MODES
+        else "standard"
+    )
+
+    await callback.answer()
+
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "settings_translation_title",
+                language,
+            ).format(
+                translation_mode=t(
+                    (
+                        "settings_translation_mode_"
+                        f"{translation_mode}"
+                    ),
+                    language,
+                ),
+                message_language=(
+                    visible_language_code(
+                        settings.message_language
+                    )
+                ),
+                show_original=t(
+                    (
+                        "settings_enabled"
+                        if settings
+                        .show_original_button
+                        else "settings_disabled"
+                    ),
+                    language,
+                ),
+            ),
+            reply_markup=(
+                translation_settings_keyboard(
+                    language=language,
+                    message_language=(
+                        settings.message_language
+                    ),
+                    translation_mode=(
+                        translation_mode
+                    ),
+                    show_original_button=(
+                        settings
+                        .show_original_button
+                    ),
+                )
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 async def get_user_settings_context(callback: CallbackQuery):
@@ -378,8 +653,39 @@ async def open_settings(
     )
 
 
-@settings_router.callback_query(F.data == "CLIENT_SETTINGS_LANGUAGE")
-async def open_client_language_settings(callback: CallbackQuery, state: FSMContext):
+@settings_router.callback_query(
+    F.data == "CLIENT_SETTINGS_LANGUAGE"
+)
+async def open_client_language_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_language_settings_menu(
+        callback,
+        state,
+    )
+
+
+@settings_router.callback_query(
+    F.data == "CLIENT_INTERFACE_LANGUAGE"
+)
+async def open_interface_language_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await show_interface_language_settings(
+        callback,
+        state,
+    )
+
+
+@settings_router.callback_query(
+    F.data == "CLIENT_TRANSLATION_SETTINGS"
+)
+async def open_client_translation_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     await show_translation_settings(
         callback,
         state,
@@ -460,7 +766,7 @@ async def set_interface_language(callback: CallbackQuery, state: FSMContext):
 
         await session.commit()
 
-    await show_translation_settings(
+    await show_interface_language_settings(
         callback,
         state,
     )
@@ -496,10 +802,74 @@ async def set_message_language(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@settings_router.callback_query(F.data == "SET_AUTO_TRANSLATE")
-async def toggle_auto_translate(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
-    await callback.answer(t("feature_disabled_beta_message", language), show_alert=True)
+@settings_router.callback_query(
+    F.data.startswith(
+        "SET_TRANSLATION_MODE:"
+    )
+)
+async def set_translation_mode(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    translation_mode = (
+        callback.data.split(":", 1)[1]
+    )
+
+    if translation_mode not in TRANSLATION_MODES:
+        await callback.answer(
+            t(
+                "settings_translation_update_failed",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            callback.from_user.id
+        )
+
+        if not user:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
+            return
+
+        try:
+            await TranslationService(
+                TranslationRepository(session)
+            ).update_translation_mode(
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                translation_mode=(
+                    translation_mode
+                ),
+                source="client_settings",
+            )
+        except TranslationError:
+            await callback.answer(
+                t(
+                    "settings_translation_update_failed",
+                    language,
+                ),
+                show_alert=True,
+            )
+            return
+
+    await show_translation_settings(
+        callback,
+        state,
+    )
 
 @settings_router.callback_query(F.data == "SET_SHOW_ORIGINAL")
 async def toggle_show_original(callback: CallbackQuery, state: FSMContext):

@@ -12,6 +12,7 @@ from database.models import (
     SupportTicket,
     User,
     UserAccount,
+    UserLanguageSetting,
 )
 from database.repositories.privacy import PrivacyRepository
 from database.repositories.user import UserRepository
@@ -134,6 +135,15 @@ async def test_privacy_deletion_job_anonymizes_user_pii(db_session):
     )
     db_session.add(support_message)
 
+    language_settings = UserLanguageSetting(
+        user_id=user_id,
+        interface_language="ru",
+        message_language="en",
+        translation_mode="detect",
+        auto_translate_enabled=True,
+        show_original_button=False,
+    )
+    db_session.add(language_settings)
 
     await db_session.commit()
 
@@ -161,6 +171,24 @@ async def test_privacy_deletion_job_anonymizes_user_pii(db_session):
     assert user.active_role is None
     assert user.country_id is None
     assert user.city_id is None
+
+    await db_session.refresh(
+        language_settings
+    )
+    assert (
+        language_settings.translation_mode
+        == "off"
+    )
+    assert (
+        language_settings
+        .auto_translate_enabled
+        is False
+    )
+    assert (
+        language_settings
+        .show_original_button
+        is True
+    )
 
     account_result = await db_session.execute(
         select(UserAccount).where(UserAccount.user_id == user_id)

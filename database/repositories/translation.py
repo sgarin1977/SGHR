@@ -26,6 +26,26 @@ SUPPORTED_TRANSLATION_LANGUAGES = {
     "nl",
 }
 
+TRANSLATION_MODES = {
+    "off",
+    "standard",
+    "detect",
+}
+
+
+def normalize_translation_mode(
+    mode: str | None,
+) -> str:
+    normalized = (
+        mode or ""
+    ).strip().lower()
+
+    return (
+        normalized
+        if normalized in TRANSLATION_MODES
+        else "standard"
+    )
+
 
 def normalize_translation_language(language: str | None) -> str:
     return language if language in SUPPORTED_TRANSLATION_LANGUAGES else "ru"
@@ -58,6 +78,29 @@ class TranslationRepository:
         )
         return result.scalar_one_or_none()
 
+    async def claim_pending_job_for_message(
+        self,
+        message_id: UUID,
+    ) -> TranslationJob | None:
+        result = await self.session.execute(
+            select(TranslationJob)
+            .where(
+                TranslationJob.message_id
+                == message_id,
+                TranslationJob.status.in_(
+                    ["pending", "retry"]
+                ),
+            )
+            .order_by(
+                TranslationJob.created_at.asc()
+            )
+            .limit(1)
+            .with_for_update(
+                skip_locked=True
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def list_pending_jobs(self, limit: int = 20) -> list[TranslationJob]:
         result = await self.session.execute(
             select(TranslationJob)
@@ -79,16 +122,37 @@ class TranslationRepository:
         user = await self.session.get(User, user_id)
         return normalize_translation_language(user.language_code if user else None)
 
-    async def is_auto_translate_enabled(self, user_id: UUID) -> bool:
+    async def get_translation_mode(
+        self,
+        user_id: UUID,
+    ) -> str:
         settings_result = await self.session.execute(
-            select(UserLanguageSetting).where(UserLanguageSetting.user_id == user_id)
+            select(UserLanguageSetting).where(
+                UserLanguageSetting.user_id
+                == user_id
+            )
         )
-        settings = settings_result.scalar_one_or_none()
+        settings = (
+            settings_result.scalar_one_or_none()
+        )
 
         if settings is None:
-            return True
+            return "standard"
 
-        return bool(settings.auto_translate_enabled)
+        return normalize_translation_mode(
+            settings.translation_mode
+        )
+
+    async def is_auto_translate_enabled(
+        self,
+        user_id: UUID,
+    ) -> bool:
+        return (
+            await self.get_translation_mode(
+                user_id
+            )
+            != "off"
+        )
 
     async def get_language_settings(self, user_id: UUID) -> UserLanguageSetting:
         result = await self.session.execute(
@@ -105,6 +169,7 @@ class TranslationRepository:
             user_id=user_id,
             interface_language=language,
             message_language=language,
+            translation_mode="standard",
             auto_translate_enabled=True,
             show_original_button=True,
             updated_at=datetime.utcnow(),
@@ -119,6 +184,7 @@ class TranslationRepository:
         user_id: UUID,
         interface_language: str | None = None,
         message_language: str | None = None,
+        translation_mode: str | None = None,
         auto_translate_enabled: bool | None = None,
         show_original_button: bool | None = None,
     ) -> UserLanguageSetting:
@@ -130,8 +196,27 @@ class TranslationRepository:
         if message_language is not None:
             settings.message_language = normalize_translation_language(message_language)
 
-        if auto_translate_enabled is not None:
-            settings.auto_translate_enabled = auto_translate_enabled
+        if translation_mode is not None:
+            normalized_mode = (
+                normalize_translation_mode(
+                    translation_mode
+                )
+            )
+            settings.translation_mode = (
+                normalized_mode
+            )
+            settings.auto_translate_enabled = (
+                normalized_mode != "off"
+            )
+        elif auto_translate_enabled is not None:
+            settings.auto_translate_enabled = (
+                auto_translate_enabled
+            )
+            settings.translation_mode = (
+                "standard"
+                if auto_translate_enabled
+                else "off"
+            )
 
         if show_original_button is not None:
             settings.show_original_button = show_original_button

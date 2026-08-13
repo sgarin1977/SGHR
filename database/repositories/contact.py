@@ -1,7 +1,7 @@
 import secrets
 from uuid import UUID
 
-from sqlalchemy import case, func, literal, or_, select
+from sqlalchemy import and_, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from database.models import (
@@ -27,6 +27,7 @@ from database.repositories.admin_scope import (
 )
 from database.repositories.translation import (
     TranslationRepository,
+    normalize_translation_language,
 )
 from database.repositories.search import (
     PUBLIC_CABINET_MODERATION_STATUSES,
@@ -34,6 +35,45 @@ from database.repositories.search import (
 class ContactChatRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    @staticmethod
+    def _last_message_display_expression(
+        *,
+        user_id: UUID,
+        translation_mode: str,
+        message_language: str,
+    ):
+        normalized_mode = (
+            translation_mode
+            if translation_mode
+            in {"off", "standard", "detect"}
+            else "standard"
+        )
+        normalized_language = (
+            normalize_translation_language(
+                message_language
+            )
+        )
+
+        if normalized_mode == "off":
+            return Message.original_text
+
+        return case(
+            (
+                and_(
+                    Message.receiver_user_id
+                    == user_id,
+                    Message.translation_status
+                    == "translated",
+                    Message.translated_text
+                    .is_not(None),
+                    Message.translated_language
+                    == normalized_language,
+                ),
+                Message.translated_text,
+            ),
+            else_=Message.original_text,
+        )
 
     async def user_has_contact_admin_access(
         self,
@@ -63,16 +103,89 @@ class ContactChatRepository:
         source_language: str,
         receiver_user_id: UUID,
     ) -> TranslationJob | None:
-        message = await self.session.get(Message, message_id)
-        if not message:
+        message = await self.session.get(
+            Message,
+            message_id,
+        )
+
+        if (
+            not message
+            or message.tenant_id != tenant_id
+            or message.receiver_user_id
+            != receiver_user_id
+        ):
             return None
 
-        message.translation_status = "not_needed"
+        translation_repository = (
+            TranslationRepository(
+                self.session
+            )
+        )
+        translation_mode = (
+            await translation_repository
+            .get_translation_mode(
+                receiver_user_id
+            )
+        )
+        target_language = (
+            await translation_repository
+            .get_user_message_language(
+                receiver_user_id
+            )
+        )
+        normalized_source_language = (
+            normalize_translation_language(
+                source_language
+            )
+        )
+
+        existing_job = (
+            await translation_repository
+            .get_pending_job_for_message(
+                message_id
+            )
+        )
+
+        if existing_job:
+            return existing_job
+
+        translation_not_needed = (
+            translation_mode == "off"
+            or (
+                translation_mode == "standard"
+                and normalized_source_language
+                == target_language
+            )
+        )
+
+        if translation_not_needed:
+            message.translation_status = (
+                "not_needed"
+            )
+            message.translated_text = None
+            message.translated_language = None
+            await self.session.flush()
+            return None
+
+        message.translation_status = "pending"
         message.translated_text = None
         message.translated_language = None
+
+        translation_job = TranslationJob(
+            tenant_id=tenant_id,
+            message_id=message_id,
+            source_language=(
+                normalized_source_language
+            ),
+            target_language=target_language,
+            status="pending",
+            retry_count=0,
+            max_retries=3,
+        )
+        self.session.add(translation_job)
         await self.session.flush()
 
-        return None
+        return translation_job
 
     async def get_contactable_specialist(
         self,
@@ -1168,6 +1281,8 @@ class ContactChatRepository:
         limit: int = 5,
         offset: int = 0,
         language: str = "ru",
+        translation_mode: str = "standard",
+        message_language: str = "ru",
         search_query: str | None = None,
         professional_cabinet_id: UUID | None = None,
     ) -> list[tuple]:
@@ -1184,10 +1299,22 @@ class ContactChatRepository:
             Profession.name_ru,
         )
 
+        last_message_display = (
+            self._last_message_display_expression(
+                user_id=user_id,
+                translation_mode=translation_mode,
+                message_language=message_language,
+            )
+        )
         last_message_text = (
-            select(Message.original_text)
-            .where(Message.thread_id == ConversationThread.id)
-            .order_by(Message.created_at.desc())
+            select(last_message_display)
+            .where(
+                Message.thread_id
+                == ConversationThread.id
+            )
+            .order_by(
+                Message.created_at.desc()
+            )
             .limit(1)
             .scalar_subquery()
         )
@@ -1870,6 +1997,107 @@ class ContactChatRepository:
 
         await self.session.commit()
         return thread, message, notification
+
+    async def mark_thread_read(
+        self,
+        *,
+        thread_id: UUID,
+        user_id: UUID,
+    ) -> int:
+        thread = await self.get_thread_for_user(
+            thread_id=thread_id,
+            user_id=user_id,
+        )
+
+        if not thread:
+            raise ValueError(
+                "Conversation thread not found."
+            )
+
+        messages_result = (
+            await self.session.execute(
+                select(Message)
+                .where(
+                    Message.thread_id
+                    == thread.id,
+                    Message.receiver_user_id
+                    == user_id,
+                )
+                .order_by(
+                    Message.created_at.asc(),
+                    Message.id.asc(),
+                )
+            )
+        )
+        received_messages = list(
+            messages_result.scalars().all()
+        )
+
+        existing_message_ids: set[UUID] = set()
+
+        if received_messages:
+            receipt_result = (
+                await self.session.execute(
+                    select(
+                        MessageReadReceipt.message_id
+                    ).where(
+                        MessageReadReceipt.user_id
+                        == user_id,
+                        MessageReadReceipt.message_id.in_(
+                            [
+                                message.id
+                                for message
+                                in received_messages
+                            ]
+                        ),
+                    )
+                )
+            )
+            existing_message_ids = set(
+                receipt_result.scalars().all()
+            )
+
+        new_receipts = 0
+
+        for message in received_messages:
+            if (
+                message.id
+                in existing_message_ids
+            ):
+                continue
+
+            self.session.add(
+                MessageReadReceipt(
+                    message_id=message.id,
+                    user_id=user_id,
+                )
+            )
+            new_receipts += 1
+
+        participant = await (
+            self._get_conversation_participant(
+                thread_id=thread.id,
+                user_id=user_id,
+            )
+        )
+
+        if participant:
+            participant.unread_count = 0
+            participant.last_read_at = (
+                datetime.utcnow()
+            )
+            participant.updated_at = (
+                datetime.utcnow()
+            )
+
+            if received_messages:
+                participant.last_read_message_id = (
+                    received_messages[-1].id
+                )
+
+        await self.session.commit()
+
+        return new_receipts
 
     async def mark_thread_message_read(
         self,

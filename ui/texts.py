@@ -2330,6 +2330,24 @@ translations = {
         "de": 'Anfrage nicht gefunden oder bereits bearbeitet.',
         "nl": 'Verzoek niet gevonden of al verwerkt.',
     },
+    "contact_back_to_chat_btn": {
+        "ru": "Назад к переписке",
+        "en": "Back to conversation",
+        "pt": "Voltar à conversa",
+        "uk": "Назад до переписки",
+        "pl": "Wróć do rozmowy",
+        "de": "Zurück zur Unterhaltung",
+        "nl": "Terug naar gesprek",
+    },
+    "contact_show_translation_btn": {
+        "ru": "Показать перевод",
+        "en": "Show translation",
+        "pt": "Mostrar tradução",
+        "uk": "Показати переклад",
+        "pl": "Pokaż tłumaczenie",
+        "de": "Übersetzung anzeigen",
+        "nl": "Vertaling weergeven",
+    },
     "contact_show_original_btn": {
         "ru": "Показать оригинал",
         "en": "Show original",
@@ -3175,7 +3193,52 @@ translations = {
         "de": 'Automatische Übersetzung: aus',
         "nl": 'Automatische vertaling: uit',
     },
-    "settings_show_original_on": {
+    "settings_translation_mode_label": {
+    "ru": "Перевод сообщений",
+    "en": "Message translation",
+    "pt": "Tradução de mensagens",
+    "uk": "Переклад повідомлень",
+    "pl": "Tłumaczenie wiadomości",
+    "de": "Nachrichtenübersetzung",
+    "nl": "Berichten vertalen",
+},
+"settings_translation_mode_off": {
+    "ru": "Без перевода",
+    "en": "No translation",
+    "pt": "Sem tradução",
+    "uk": "Без перекладу",
+    "pl": "Bez tłumaczenia",
+    "de": "Keine Übersetzung",
+    "nl": "Geen vertaling",
+},
+"settings_translation_mode_standard": {
+    "ru": "Автоперевод — стандартный",
+    "en": "Auto-translation — standard",
+    "pt": "Tradução automática — padrão",
+    "uk": "Автопереклад — стандартний",
+    "pl": "Automatyczne tłumaczenie — standardowe",
+    "de": "Automatische Übersetzung — Standard",
+    "nl": "Automatische vertaling — standaard",
+},
+"settings_translation_mode_detect": {
+    "ru": "Автоперевод с определением языка",
+    "en": "Auto-translation with language detection",
+    "pt": "Tradução automática com detecção de idioma",
+    "uk": "Автопереклад із визначенням мови",
+    "pl": "Automatyczne tłumaczenie z wykrywaniem języka",
+    "de": "Automatische Übersetzung mit Spracherkennung",
+    "nl": "Automatische vertaling met taaldetectie",
+},
+"settings_translation_update_failed": {
+    "ru": "Не удалось изменить режим перевода.",
+    "en": "Unable to change the translation mode.",
+    "pt": "Não foi possível alterar o modo de tradução.",
+    "uk": "Не вдалося змінити режим перекладу.",
+    "pl": "Nie udało się zmienić trybu tłumaczenia.",
+    "de": "Der Übersetzungsmodus konnte nicht geändert werden.",
+    "nl": "De vertaalmodus kon niet worden gewijzigd.",
+},
+"settings_show_original_on": {
         "ru": "Оригинал: показывать кнопку",
         "en": "Original: show button",
         "pt": "Original: mostrar botão",
@@ -4269,60 +4332,90 @@ translations = {
         "nl": 'Het hele land',
     },
 
+"settings_language_menu_title": {
+    "ru": "Настройки языка",
+    "en": "Language settings",
+    "pt": "Configurações de idioma",
+    "uk": "Налаштування мови",
+    "pl": "Ustawienia języka",
+    "de": "Spracheinstellungen",
+    "nl": "Taalinstellingen",
+},
+"settings_interface_language_title": {
+    "ru": (
+        "Язык интерфейса\n\n"
+        "Текущий язык: {interface_language}"
+    ),
+    "en": (
+        "Interface language\n\n"
+        "Current language: {interface_language}"
+    ),
+    "pt": (
+        "Idioma da interface\n\n"
+        "Idioma atual: {interface_language}"
+    ),
+    "uk": (
+        "Мова інтерфейсу\n\n"
+        "Поточна мова: {interface_language}"
+    ),
+    "pl": (
+        "Język interfejsu\n\n"
+        "Bieżący język: {interface_language}"
+    ),
+    "de": (
+        "Sprache der Benutzeroberfläche\n\n"
+        "Aktuelle Sprache: {interface_language}"
+    ),
+    "nl": (
+        "Taal van de interface\n\n"
+        "Huidige taal: {interface_language}"
+    ),
+},
 "settings_translation_title": {
     "ru": (
         "Настройки перевода:\n\n"
-        "Язык интерфейса: {interface_language}\n"
-        "Язык сообщений: {message_language}\n"
-        "Автоперевод: {auto_translate}\n"
+        "Режим перевода: {translation_mode}\n"
+        "Язык получаемых сообщений: {message_language}\n"
         "Кнопка оригинала: {show_original}"
     ),
     "en": (
         "Translation settings:\n\n"
-        "Interface language: {interface_language}\n"
-        "Message language: {message_language}\n"
-        "Auto-translation: {auto_translate}\n"
+        "Translation mode: {translation_mode}\n"
+        "Language of received messages: {message_language}\n"
         "Show original button: {show_original}"
     ),
     "pt": (
         "Configurações de tradução:\n\n"
-        "Idioma da interface: {interface_language}\n"
-        "Idioma das mensagens: {message_language}\n"
-        "Tradução automática: {auto_translate}\n"
+        "Modo de tradução: {translation_mode}\n"
+        "Idioma das mensagens recebidas: {message_language}\n"
         "Botão de original: {show_original}"
     ),
     "uk": (
         "Налаштування перекладу:\n\n"
-        "Мова інтерфейсу: {interface_language}\n"
-        "Мова повідомлень: {message_language}\n"
-        "Автопереклад: {auto_translate}\n"
+        "Режим перекладу: {translation_mode}\n"
+        "Мова отриманих повідомлень: {message_language}\n"
         "Кнопка оригіналу: {show_original}"
     ),
     "pl": (
-        'Ustawienia tłumaczenia:\n'
-        '\n'
-        'Język interfejsu: {interface_language}\n'
-        'Język komunikatów: {message_language}\n'
-        'Automatyczne tłumaczenie: {auto_translate}\n'
-        'Przycisk „Pokaż oryginał”: {show_original}'
+        "Ustawienia tłumaczenia:\n\n"
+        "Tryb tłumaczenia: {translation_mode}\n"
+        "Język otrzymywanych wiadomości: {message_language}\n"
+        "Przycisk „Pokaż oryginał”: {show_original}"
     ),
     "de": (
-        'Übersetzungseinstellungen:\n'
-        '\n'
-        'Sprache der Benutzeroberfläche: {interface_language}\n'
-        'Sprache der Meldungen: {message_language}\n'
-        'Automatische Übersetzung: {auto_translate}\n'
-        'Schaltfläche „Original anzeigen“: {show_original}'
+        "Übersetzungseinstellungen:\n\n"
+        "Übersetzungsmodus: {translation_mode}\n"
+        "Sprache empfangener Nachrichten: {message_language}\n"
+        "Schaltfläche „Original anzeigen“: {show_original}"
     ),
     "nl": (
-        'Vertalingsinstellingen:\n'
-        '\n'
-        'Taal van de interface: {interface_language}\n'
-        'Taal van berichten: {message_language}\n'
-        'Automatische vertaling: {auto_translate}\n'
+        "Vertalingsinstellingen:\n\n"
+        "Vertaalmodus: {translation_mode}\n"
+        "Taal van ontvangen berichten: {message_language}\n"
         "Knop 'Origineel weergeven': {show_original}"
     ),
 },
+
 "settings_interface_language_ru": {
     "ru": "Интерфейс: Русский",
     "en": "UI: Russian",
@@ -4570,13 +4663,13 @@ translations = {
     "nl": 'Taal van de interface',
 },
 "settings_message_language_label": {
-    "ru": "Язык общения / перевода",
-    "en": "Message / translation language",
-    "pt": "Idioma das mensagens / tradução",
-    "uk": "Мова спілкування / перекладу",
-    "pl": 'Język komunikatów / tłumaczeń',
-    "de": 'Sprache der Meldungen / Übersetzungen',
-    "nl": 'Taal van berichten / vertalingen',
+    "ru": "Язык получаемых сообщений",
+    "en": "Language of received messages",
+    "pt": "Idioma das mensagens recebidas",
+    "uk": "Мова отриманих повідомлень",
+    "pl": "Język otrzymywanych wiadomości",
+    "de": "Sprache empfangener Nachrichten",
+    "nl": "Taal van ontvangen berichten",
 },
 
 "spec_profession_done_btn": {
@@ -5897,6 +5990,15 @@ translations = {
         "pl": 'Ta sekcja jest obecnie niedostępna.',
         "de": 'Dieser Abschnitt ist derzeit nicht verfügbar.',
         "nl": 'Dit gedeelte is momenteel niet beschikbaar.',
+    },
+    "role_text_specialist_cabinets": {
+        "ru": "Мои кабинеты специалиста",
+        "en": "My specialist cabinets",
+        "pt": "Meus gabinetes de especialista",
+        "uk": "Мої кабінети спеціаліста",
+        "pl": "Moje gabinety specjalisty",
+        "de": "Meine Spezialistenprofile",
+        "nl": "Mijn specialistprofielen",
     },
     "role_text_specialist": {
         "ru": "Специалист",
@@ -7647,63 +7749,61 @@ translations = {
         "ru": (
             "Настройки языка специалиста:\n\n"
             "Язык интерфейса: {interface_language}\n"
-            "Язык общения: {message_language}\n"
+            "Режим перевода: {translation_mode}\n"
+            "Язык получаемых сообщений: {message_language}\n"
             "Уведомления: {notifications}\n"
-            "Автоперевод: {auto_translate}\n"
             "Кнопка оригинала: {show_original}"
         ),
         "en": (
             "Specialist language settings:\n\n"
             "Interface language: {interface_language}\n"
-            "Message language: {message_language}\n"
+            "Translation mode: {translation_mode}\n"
+            "Language of received messages: {message_language}\n"
             "Notifications: {notifications}\n"
-            "Auto-translation: {auto_translate}\n"
             "Original button: {show_original}"
         ),
         "pt": (
-            "Configuracoes de idioma do especialista:\n\n"
+            "Configurações de idioma do especialista:\n\n"
             "Idioma da interface: {interface_language}\n"
-            "Idioma das mensagens: {message_language}\n"
-            "Notificacoes: {notifications}\n"
-            "Traducao automatica: {auto_translate}\n"
-            "Botao original: {show_original}"
+            "Modo de tradução: {translation_mode}\n"
+            "Idioma das mensagens recebidas: {message_language}\n"
+            "Notificações: {notifications}\n"
+            "Botão de original: {show_original}"
         ),
         "uk": (
             "Мовні налаштування спеціаліста:\n\n"
             "Мова інтерфейсу: {interface_language}\n"
-            "Мова спілкування: {message_language}\n"
+            "Режим перекладу: {translation_mode}\n"
+            "Мова отриманих повідомлень: {message_language}\n"
             "Сповіщення: {notifications}\n"
-            "Автопереклад: {auto_translate}\n"
             "Кнопка оригіналу: {show_original}"
         ),
         "pl": (
-            'Zaawansowane ustawienia językowe:\n'
-            '\n'
-            'Język interfejsu: {interface_language}\n'
-            'Język komunikatów: {message_language}\n'
-            'Powiadomienia: {notifications}\n'
-            'Automatyczne tłumaczenie: {auto_translate}\n'
-            'Przycisk „Oryginał”: {show_original}'
+            "Ustawienia językowe specjalisty:\n\n"
+            "Język interfejsu: {interface_language}\n"
+            "Tryb tłumaczenia: {translation_mode}\n"
+            "Język otrzymywanych wiadomości: {message_language}\n"
+            "Powiadomienia: {notifications}\n"
+            "Przycisk „Oryginał”: {show_original}"
         ),
         "de": (
-            'Spezielle Spracheinstellungen:\n'
-            '\n'
-            'Sprache der Benutzeroberfläche: {interface_language}\n'
-            'Sprache der Meldungen: {message_language}\n'
-            'Benachrichtigungen: {notifications}\n'
-            'Automatische Übersetzung: {auto_translate}\n'
-            'Schaltfläche „Original“: {show_original}'
+            "Spracheinstellungen für Spezialisten:\n\n"
+            "Sprache der Benutzeroberfläche: {interface_language}\n"
+            "Übersetzungsmodus: {translation_mode}\n"
+            "Sprache empfangener Nachrichten: {message_language}\n"
+            "Benachrichtigungen: {notifications}\n"
+            "Schaltfläche „Original“: {show_original}"
         ),
         "nl": (
-            'Gespecialiseerde taalinstellingen:\n'
-            '\n'
-            'Taal van de interface: {interface_language}\n'
-            'Taal van berichten: {message_language}\n'
-            'Meldingen: {notifications}\n'
-            'Automatische vertaling: {auto_translate}\n'
+            "Taalinstellingen voor specialisten:\n\n"
+            "Taal van de interface: {interface_language}\n"
+            "Vertaalmodus: {translation_mode}\n"
+            "Taal van ontvangen berichten: {message_language}\n"
+            "Meldingen: {notifications}\n"
             "Knop 'Origineel': {show_original}"
         ),
     },
+
     "menu_jobs": {
         "ru": "💼 Работа и вакансии",
         "en": "💼 Jobs and vacancies",

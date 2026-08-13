@@ -60,31 +60,58 @@ def test_legal_gate_has_show_documents_callback():
     assert "legal_show_documents_btn" in source
     assert "show_specialist_legal_documents" in source
 
-def test_disabled_beta_sections_use_single_placeholder_contract():
+def test_disabled_beta_and_finance_role_contract():
     admin_source = read("handlers/admin.py")
     billing_source = read("handlers/billing.py")
     texts_source = read("ui/texts.py")
 
     assert '"feature_disabled_beta"' in texts_source
-    assert '"feature_disabled_beta_message"' in texts_source
+    assert (
+        '"feature_disabled_beta_message"'
+        in texts_source
+    )
 
-    assert 'callback_data="ADMIN_BETA_DISABLED:finance"' in admin_source
-    assert 'callback_data="BETA_DISABLED:promotion"' in billing_source
+    assert (
+        'callback_data="BETA_DISABLED:promotion"'
+        in billing_source
+    )
+    assert (
+        "async def beta_disabled"
+        in billing_source
+    )
+    assert (
+        't("feature_disabled_beta", language)'
+        in billing_source
+    )
 
-    assert "async def show_admin_beta_disabled_feature" in admin_source
-    assert "async def beta_disabled" in billing_source
+    assert (
+        'ADMIN_PAYMENT_MENU_ROLES = '
+        '{"super_admin", "finance_admin"}'
+        in admin_source
+    )
+    assert (
+        'callback_data="SA_FINANCE"'
+        in admin_source
+    )
+    assert (
+        'callback_data="ADMIN_BETA_DISABLED:finance"'
+        not in admin_source
+    )
 
-    assert 't("feature_disabled_beta", language)' in admin_source
-    assert 't("feature_disabled_beta", language)' in billing_source
-
-    assert 't("feature_disabled_beta_message", language)' in admin_source
-    assert 't("feature_disabled_beta_message", language)' in billing_source
-
-def test_auto_translate_default_is_disabled_for_controlled_beta():
+def test_translation_default_is_standard():
     source = read("database/models.py")
 
     assert (
-        "auto_translate_enabled: Mapped[bool] = mapped_column(Boolean, default=False)"
+        'translation_mode: Mapped[str] = mapped_column('
+        in source
+    )
+    assert (
+        'default="standard"'
+        in source
+    )
+    assert (
+        "auto_translate_enabled: Mapped[bool] "
+        "= mapped_column(Boolean, default=True)"
         in source
     )
 
@@ -95,13 +122,13 @@ def test_acceptance_stale_callbacks_and_critical_edits_are_guarded():
     assert "async def block_critical_profile_edit(" in billing_source
     assert "async def block_critical_profile_edit_message(" in billing_source
     assert "block_stale_critical_profile_edit_callbacks" in billing_source
-    assert "critical_profile_change_requires_pending_schema" in billing_source
+    assert "record_blocked_profile_change" in billing_source
     assert "cabinet_critical_edit_blocked" in billing_source
     assert '"cabinet_critical_edit_blocked"' in texts_source
 
     assert "except (IndexError, TypeError, ValueError)" in billing_source
     assert "show_alert=True" in billing_source
-    assert "contact_request_not_found" in billing_source
+    assert "legacy_requests_unavailable" in billing_source
     assert "contact_thread_not_found" in billing_source
 
 def test_acceptance_external_payment_webhook_is_not_enabled_for_controlled_beta():

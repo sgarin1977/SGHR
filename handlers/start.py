@@ -70,12 +70,41 @@ def role_switch_keyboard(
     language: str,
     role_details: dict[str, str] | None = None,
     unread_counts: dict[str, int] | None = None,
+    *,
+    specialist_cabinets_label: bool = False,
 ) -> InlineKeyboardMarkup:
     rows = []
 
     for role in roles:
         is_active = role == active_role
-        text = role_label(role, language, role_details, unread_counts)
+        text = role_label(
+            role,
+            language,
+            role_details,
+            unread_counts,
+        )
+
+        if (
+            role == "specialist"
+            and specialist_cabinets_label
+        ):
+            text = t(
+                "role_text_specialist_cabinets",
+                language,
+            )
+
+            unread_count = (
+                unread_counts or {}
+            ).get(
+                role,
+                0,
+            )
+
+            if unread_count > 0:
+                text = (
+                    f"{text} "
+                    f"({unread_count})"
+                )
 
         if is_active:
             text = f"✓ {text}"
@@ -133,12 +162,16 @@ async def open_active_role_cabinet(
         return
 
     if role == "specialist":
-        from handlers.billing import show_specialist_cabinet
+        from handlers.billing import (
+            show_professional_cabinets,
+        )
 
-        await show_specialist_cabinet(
+        await show_professional_cabinets(
             callback,
             state,
-            callback_answered=callback_answered,
+            callback_answered=(
+                callback_answered
+            ),
         )
         return
 
@@ -253,22 +286,10 @@ async def open_current_role_cabinet(
 
     await callback.answer()
 
-    async with get_session() as session:
-        service = UserService(session)
-        context = await service.get_role_switch_context(callback.from_user.id)
-
-    role = None
-    if context:
-        if context.active_role in context.available_roles:
-            role = context.active_role
-        elif context.available_roles:
-            role = context.available_roles[0]
-
-    await open_active_role_cabinet(
+    await show_role_switch(
         callback,
-        state,
-        role,
         callback_answered=True,
+        specialist_cabinets_label=True,
     )
 
 def get_main_menu_keyboard(
@@ -289,7 +310,9 @@ def get_main_menu_keyboard(
             [
                 InlineKeyboardButton(
                     text=t("menu_specialist", language),
-                    callback_data="M_SPECIALIST",
+                    callback_data=(
+                        "M_SPECIALIST_CABINETS"
+                    ),
                 )
             ],
             [
@@ -371,15 +394,9 @@ async def get_main_menu_keyboard_for_user(
         if context
         else set()
     )
-    dialogs_callback_data = (
-        "SPEC_DIALOGS"
-        if (
-            context
-            and context.active_role
-            == "specialist"
-        )
-        else "CLIENT_DIALOGS"
-    )
+    # Global main menu always opens the
+    # user's client correspondence.
+    dialogs_callback_data = "CLIENT_DIALOGS"
 
     return get_main_menu_keyboard(
         language,
@@ -793,8 +810,27 @@ async def open_all_services(
         )
     )
 
-@start_router.callback_query(F.data == "M_SPECIALIST")
-async def main_menu_specialist(
+@start_router.callback_query(
+    F.data == "M_SPECIALIST"
+)
+async def open_active_specialist_cabinet(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    from handlers.billing import (
+        show_specialist_cabinet,
+    )
+
+    await show_specialist_cabinet(
+        callback,
+        state,
+    )
+
+
+@start_router.callback_query(
+    F.data == "M_SPECIALIST_CABINETS"
+)
+async def main_menu_specialist_cabinets(
     callback: CallbackQuery,
     state: FSMContext,
 ):
@@ -989,8 +1025,12 @@ async def cmd_start(message: Message, state: FSMContext):
 )
 async def show_role_switch(
     callback: CallbackQuery,
+    *,
+    callback_answered: bool = False,
+    specialist_cabinets_label: bool = True,
 ):
-    await callback.answer()
+    if not callback_answered:
+        await callback.answer()
 
     language = normalize_language(
         callback.from_user.language_code
@@ -1042,6 +1082,9 @@ async def show_role_switch(
             language,
             role_details=context.role_details,
             unread_counts=context.unread_counts,
+            specialist_cabinets_label=(
+                specialist_cabinets_label
+            ),
         ),
     )
 

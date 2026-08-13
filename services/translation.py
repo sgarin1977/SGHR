@@ -8,6 +8,7 @@ import httpx
 from database.repositories.translation import (
     TranslationRepository,
     normalize_translation_language,
+    normalize_translation_mode,
 )
 from database.repositories.event import EventRepository
 from database.repositories.user import UserRepository
@@ -40,6 +41,7 @@ class NotificationTranslationResult:
 class TranslationSettingsView:
     interface_language: str
     message_language: str
+    translation_mode: str
     auto_translate_enabled: bool
     show_original_button: bool
 
@@ -63,6 +65,102 @@ class LibreTranslateProvider:
             or 15
         )
         self.provider_name = "libretranslate"
+
+    async def detect_language(
+        self,
+        *,
+        text: str,
+    ) -> str:
+        normalized_text = (text or "").strip()
+
+        if not normalized_text:
+            raise TranslationProviderError(
+                "Cannot detect the language of empty text."
+            )
+
+        payload = {
+            "q": normalized_text,
+        }
+
+        if self.api_key:
+            payload["api_key"] = self.api_key
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.timeout_seconds
+            ) as client:
+                response = await client.post(
+                    f"{self.base_url}/detect",
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise TranslationProviderError(
+                "Language detection failed: "
+                f"{exc}"
+            ) from exc
+
+        if isinstance(data, dict):
+            candidates = (
+                data.get("detections")
+                or [data]
+            )
+        elif isinstance(data, list):
+            candidates = data
+        else:
+            candidates = []
+
+        valid_candidates = [
+            candidate
+            for candidate in candidates
+            if (
+                isinstance(candidate, dict)
+                and candidate.get("language")
+            )
+        ]
+
+        if not valid_candidates:
+            raise TranslationProviderError(
+                "Language detection returned "
+                "no valid result."
+            )
+
+        def confidence(candidate: dict) -> float:
+            try:
+                return float(
+                    candidate.get("confidence") or 0
+                )
+            except (TypeError, ValueError):
+                return 0.0
+
+        detected = max(
+            valid_candidates,
+            key=confidence,
+        )
+
+        language = str(
+            detected["language"]
+        ).strip().lower()
+
+        if language == "ua":
+            language = "uk"
+
+        if (
+            not language
+            or len(language) > 10
+            or not all(
+                char.isalpha() or char == "-"
+                for char in language
+            )
+        ):
+            raise TranslationProviderError(
+                "Language detection returned "
+                "an invalid language code."
+            )
+
+        return language
+
 
     async def translate(
         self,
@@ -89,14 +187,32 @@ class LibreTranslateProvider:
                 )
                 response.raise_for_status()
                 data = response.json()
-        except httpx.HTTPError as exc:
-            raise TranslationProviderError(f"Translation provider failed: {exc}") from exc
+        except (httpx.HTTPError, ValueError) as exc:
+            raise TranslationProviderError(
+                "Translation provider failed: "
+                f"{exc}"
+            ) from exc
 
-        translated_text = data.get("translatedText")
-        if not translated_text:
-            raise TranslationProviderError("Translation provider returned empty text.")
+        if not isinstance(data, dict):
+            raise TranslationProviderError(
+                "Translation provider returned "
+                "an invalid response."
+            )
 
-        return str(translated_text)
+        translated_text = data.get(
+            "translatedText"
+        )
+
+        if (
+            not isinstance(translated_text, str)
+            or not translated_text.strip()
+        ):
+            raise TranslationProviderError(
+                "Translation provider returned "
+                "empty text."
+            )
+
+        return translated_text
 
 
 class TranslationService:
@@ -144,8 +260,16 @@ class TranslationService:
                 settings.interface_language
             ),
             message_language=settings.message_language,
-            auto_translate_enabled=bool(
-                settings.auto_translate_enabled
+            translation_mode=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+            ),
+            auto_translate_enabled=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+                != "off"
             ),
             show_original_button=bool(
                 settings.show_original_button
@@ -212,8 +336,16 @@ class TranslationService:
                 settings.interface_language
             ),
             message_language=settings.message_language,
-            auto_translate_enabled=bool(
-                settings.auto_translate_enabled
+            translation_mode=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+            ),
+            auto_translate_enabled=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+                != "off"
             ),
             show_original_button=bool(
                 settings.show_original_button
@@ -273,8 +405,87 @@ class TranslationService:
                 settings.interface_language
             ),
             message_language=settings.message_language,
-            auto_translate_enabled=bool(
-                settings.auto_translate_enabled
+            translation_mode=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+            ),
+            auto_translate_enabled=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+                != "off"
+            ),
+            show_original_button=bool(
+                settings.show_original_button
+            ),
+        )
+
+    async def update_translation_mode(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        translation_mode: str,
+        source: str,
+    ) -> TranslationSettingsView:
+        normalized_mode = (
+            normalize_translation_mode(
+                translation_mode
+            )
+        )
+        normalized_source = (
+            source or "settings"
+        ).strip()[:100]
+
+        try:
+            settings = (
+                await self.repository
+                .update_language_settings(
+                    user_id=user_id,
+                    translation_mode=normalized_mode,
+                )
+            )
+
+            await self.events.create_event(
+                event_type="settings_changed",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                entity_type="user",
+                entity_id=user_id,
+                payload={
+                    "setting": "translation_mode",
+                    "value": normalized_mode,
+                    "source": normalized_source,
+                },
+                platform="telegram",
+            )
+
+            await self.repository.session.commit()
+
+        except Exception as exc:
+            await self.repository.session.rollback()
+            raise TranslationError(
+                "Unable to update translation mode."
+            ) from exc
+
+        return TranslationSettingsView(
+            interface_language=(
+                settings.interface_language
+            ),
+            message_language=(
+                settings.message_language
+            ),
+            translation_mode=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+            ),
+            auto_translate_enabled=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+                != "off"
             ),
             show_original_button=bool(
                 settings.show_original_button
@@ -337,8 +548,16 @@ class TranslationService:
                 settings.interface_language
             ),
             message_language=settings.message_language,
-            auto_translate_enabled=bool(
-                settings.auto_translate_enabled
+            translation_mode=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+            ),
+            auto_translate_enabled=(
+                normalize_translation_mode(
+                    settings.translation_mode
+                )
+                != "off"
             ),
             show_original_button=bool(
                 settings.show_original_button
@@ -414,17 +633,42 @@ class TranslationService:
         if not message:
             raise TranslationError("Message not found.")
 
-        source_language = normalize_translation_language(message.original_language)
-        target_language = await self.repository.get_user_message_language(
-            message.receiver_user_id
+        source_language = (
+            normalize_translation_language(
+                message.original_language
+            )
         )
-        auto_translate_enabled = await self.repository.is_auto_translate_enabled(
-            message.receiver_user_id
+        target_language = (
+            await self.repository
+            .get_user_message_language(
+                message.receiver_user_id
+            )
+        )
+        translation_mode = (
+            await self.repository
+            .get_translation_mode(
+                message.receiver_user_id
+            )
+        )
+        job = (
+            await self.repository
+            .claim_pending_job_for_message(
+                message.id
+            )
         )
 
-        if not auto_translate_enabled or source_language == target_language:
-            await self.repository.mark_message_not_needed(message)
+        if translation_mode == "off":
+            await self.repository.mark_message_not_needed(
+                message
+            )
+
+            if job:
+                await self.repository.mark_job_translated(
+                    job
+                )
+
             await self.repository.session.commit()
+
             return TranslationDisplayResult(
                 message_id=message.id,
                 original_text=message.original_text,
@@ -435,7 +679,119 @@ class TranslationService:
                 used_translation=False,
             )
 
-        job = await self.repository.get_pending_job_for_message(message.id)
+        if (
+            job is None
+            and message.translation_status
+            in {"pending", "failed"}
+        ):
+            return TranslationDisplayResult(
+                message_id=message.id,
+                original_text=message.original_text,
+                display_text=message.original_text,
+                original_language=source_language,
+                display_language=source_language,
+                translation_status=(
+                    message.translation_status
+                ),
+                used_translation=False,
+            )
+
+        if translation_mode == "detect":
+            detection_started_at = time.monotonic()
+
+            try:
+                source_language = (
+                    await self.provider.detect_language(
+                        text=message.original_text,
+                    )
+                )
+            except TranslationProviderError as exc:
+                latency_ms = int(
+                    (
+                        time.monotonic()
+                        - detection_started_at
+                    )
+                    * 1000
+                )
+                error_message = str(exc)
+
+                await self.repository.mark_message_failed(
+                    message
+                )
+
+                if job:
+                    await self.repository.mark_job_failed(
+                        job=job,
+                        error_message=error_message,
+                    )
+
+                await self.repository.log_translation(
+                    tenant_id=message.tenant_id,
+                    job_id=(
+                        job.id
+                        if job
+                        else None
+                    ),
+                    provider=self.provider_name,
+                    source_language=source_language,
+                    target_language=target_language,
+                    status="failed",
+                    latency_ms=latency_ms,
+                    error_message=error_message,
+                )
+                await self.repository.session.commit()
+
+                raise TranslationError(
+                    "Unable to detect message language."
+                ) from exc
+
+            message.original_language = (
+                source_language
+            )
+
+            if job:
+                job.source_language = (
+                    source_language
+                )
+
+            await self.repository.session.flush()
+
+        if source_language == target_language:
+            await self.repository.mark_message_not_needed(
+                message
+            )
+
+            if job:
+                await self.repository.mark_job_translated(
+                    job
+                )
+
+            if translation_mode == "detect":
+                await self.repository.log_translation(
+                    tenant_id=message.tenant_id,
+                    job_id=(
+                        job.id
+                        if job
+                        else None
+                    ),
+                    provider=self.provider_name,
+                    source_language=source_language,
+                    target_language=target_language,
+                    status="not_needed",
+                    latency_ms=0,
+                )
+
+            await self.repository.session.commit()
+
+            return TranslationDisplayResult(
+                message_id=message.id,
+                original_text=message.original_text,
+                display_text=message.original_text,
+                original_language=source_language,
+                display_language=source_language,
+                translation_status="not_needed",
+                used_translation=False,
+            )
 
         if self.cache_enabled:
             cached = await self.repository.get_cached_translation(
@@ -573,12 +929,51 @@ class TranslationService:
             raise TranslationError("Message not found.")
 
         if message.receiver_user_id != receiver_user_id:
-            raise TranslationError("Message is not addressed to this user.")
+            raise TranslationError(
+                "Message is not addressed to this user."
+            )
+
+        translation_mode = (
+            await self.repository
+            .get_translation_mode(
+                receiver_user_id
+            )
+        )
+
+        if translation_mode == "off":
+            original_language = (
+                normalize_translation_language(
+                    message.original_language
+                )
+            )
+
+            return TranslationDisplayResult(
+                message_id=message.id,
+                original_text=message.original_text,
+                display_text=message.original_text,
+                original_language=original_language,
+                display_language=original_language,
+                translation_status="not_needed",
+                used_translation=False,
+            )
+
+        target_language = (
+            await self.repository
+            .get_user_message_language(
+                receiver_user_id
+            )
+        )
 
         if (
             message.translation_status == "translated"
             and message.translated_text
             and message.translated_language
+            and (
+                normalize_translation_language(
+                    message.translated_language
+                )
+                == target_language
+            )
         ):
             return TranslationDisplayResult(
                 message_id=message.id,

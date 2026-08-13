@@ -18,7 +18,10 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 from database.repositories.reviews import ReviewRepository
-from database.repositories.translation import TranslationRepository
+from database.repositories.translation import (
+    TRANSLATION_MODES,
+    TranslationRepository,
+)
 from database.repositories.user import UserRepository
 from database.models import (
     Invoice,
@@ -34,11 +37,15 @@ from database.session import get_session
 from handlers.start import get_main_menu_keyboard_for_user, normalize_language, open_current_role_cabinet, send_global_main_menu
 from handlers.search import (
     SpecialistSearchFSM,
+    build_contact_translation_callback,
     complaint_reason_keyboard,
     contact_thread_keyboard,
     format_chat_message_body,
 )
-from services.translation import TranslationService
+from services.translation import (
+    TranslationError,
+    TranslationService,
+)
 from services.billing import BillingError, BillingService
 from services.specialist import (
     ProfessionalCabinetOption,
@@ -1034,6 +1041,8 @@ def professional_cabinet_add_selection_keyboard(
 async def show_professional_cabinets(
     callback: CallbackQuery,
     state: FSMContext,
+    *,
+    callback_answered: bool = False,
 ):
     language = await get_billing_interface_language(
         callback.from_user.id,
@@ -1089,6 +1098,9 @@ async def show_professional_cabinets(
                 options,
                 language,
             )
+        ),
+        callback_answered=(
+            callback_answered
         ),
     )
 
@@ -3757,16 +3769,23 @@ def message_thread_keyboard(
     *,
     role: str,
     allow_finish: bool = True,
+    show_original: bool = False,
+    thread_id: UUID | str | None = None,
 ) -> InlineKeyboardMarkup:
+    normalized_role = (
+        "specialist"
+        if role == "specialist"
+        else "client"
+    )
     back_callback = (
-        "CLIENT_DIALOGS"
-        if role == "client"
-        else "SPEC_DIALOGS"
+        "SPEC_DIALOGS"
+        if normalized_role == "specialist"
+        else "CLIENT_DIALOGS"
     )
     report_callback = (
-        "search_report_thread_pending"
-        if role == "client"
-        else "SPEC_THREAD_REPORT"
+        "SPEC_THREAD_REPORT"
+        if normalized_role == "specialist"
+        else "search_report_thread_pending"
     )
 
     rows = [
@@ -3790,6 +3809,28 @@ def message_thread_keyboard(
                         language,
                     ),
                     callback_data="SPEC_THREAD_COMPLETE",
+                )
+            ]
+        )
+
+    if (
+        show_original
+        and thread_id is not None
+    ):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "contact_show_original_btn",
+                        language,
+                    ),
+                    callback_data=(
+                        build_contact_translation_callback(
+                            action="original",
+                            thread_id=thread_id,
+                            role=normalized_role,
+                        )
+                    ),
                 )
             ]
         )
@@ -3820,6 +3861,7 @@ def message_thread_keyboard(
     return InlineKeyboardMarkup(
         inline_keyboard=rows,
     )
+
 
 def completion_confirmation_keyboard(
     *,
@@ -4160,14 +4202,24 @@ async def send_specialist_thread_detail(
 
     try:
         async with get_session() as session:
-            detail = await ContactChatService(
+            contact_service = ContactChatService(
                 ContactChatRepository(session)
-            ).get_thread_detail_for_viewer(
-                tenant_id=tenant_id,
+            )
+            detail = (
+                await contact_service
+                .get_thread_detail_for_viewer(
+                    tenant_id=tenant_id,
+                    thread_id=UUID(thread_id),
+                    user_id=user_id,
+                    participant_role=(
+                        "specialist"
+                    ),
+                    language=language,
+                )
+            )
+            await contact_service.mark_thread_read(
                 thread_id=UUID(thread_id),
                 user_id=user_id,
-                participant_role="specialist",
-                language=language,
             )
     except Exception:
         await callback.answer(t("contact_thread_not_found", language), show_alert=True)
@@ -4230,6 +4282,10 @@ async def send_specialist_thread_detail(
                 message_thread_keyboard(
                     language,
                     role="specialist",
+                    thread_id=thread_id,
+                    show_original=(
+                        detail.show_original_button
+                    ),
                 )
                 if (
                     is_last_chunk
@@ -4267,6 +4323,10 @@ async def send_specialist_thread_detail(
                 message_thread_keyboard(
                     language,
                     role="specialist",
+                    thread_id=thread_id,
+                    show_original=(
+                        detail.show_original_button
+                    ),
                 )
                 if is_last_attachment
                 else None
@@ -5978,24 +6038,60 @@ async def specialist_settings_entry(
     )
 
 
-def specialist_language_settings_keyboard(
-    *,
-    language: str,
-    message_language: str,
-    show_original_button: bool,
-) -> InlineKeyboardMarkup:
-    original_text = (
-        t(
-            "settings_show_original_on",
-            language,
-        )
-        if show_original_button
-        else t(
-            "settings_show_original_off",
-            language,
-        )
+def specialist_visible_language_code(
+    language_code: str | None,
+) -> str:
+    normalized = (
+        language_code or ""
+    ).strip().lower()
+
+    return (
+        "ua"
+        if normalized == "uk"
+        else normalized
     )
 
+
+def specialist_language_option_rows(
+    *,
+    callback_prefix: str,
+    selected_language: str | None,
+) -> list[list[InlineKeyboardButton]]:
+    options = (
+        ("ru", "RU"),
+        ("en", "EN"),
+        ("pt", "PT"),
+        ("uk", "UA"),
+        ("pl", "PL"),
+        ("de", "DE"),
+        ("nl", "NL"),
+    )
+    buttons = []
+
+    for code, label in options:
+        marker = (
+            "● "
+            if selected_language == code
+            else ""
+        )
+        buttons.append(
+            InlineKeyboardButton(
+                text=f"{marker}{label}",
+                callback_data=(
+                    f"{callback_prefix}:{code}"
+                ),
+            )
+        )
+
+    return [
+        buttons[:4],
+        buttons[4:],
+    ]
+
+
+def specialist_language_menu_keyboard(
+    language: str,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -6004,115 +6100,19 @@ def specialist_language_settings_keyboard(
                         "settings_interface_language_label",
                         language,
                     ),
-                    callback_data="SET_NOOP",
+                    callback_data=(
+                        "SPEC_INTERFACE_LANGUAGE"
+                    ),
                 )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="RU",
-                    callback_data=(
-                        "SPEC_SET_UI_LANG:ru"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="EN",
-                    callback_data=(
-                        "SPEC_SET_UI_LANG:en"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="PT",
-                    callback_data=(
-                        "SPEC_SET_UI_LANG:pt"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="UA",
-                    callback_data=(
-                        "SPEC_SET_UI_LANG:uk"
-                    ),
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="PL",
-                    callback_data=(
-                        "SPEC_SET_UI_LANG:pl"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="DE",
-                    callback_data=(
-                        "SPEC_SET_UI_LANG:de"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="NL",
-                    callback_data=(
-                        "SPEC_SET_UI_LANG:nl"
-                    ),
-                ),
             ],
             [
                 InlineKeyboardButton(
                     text=t(
-                        "settings_message_language_label",
+                        "settings_translation_mode_label",
                         language,
                     ),
-                    callback_data="SET_NOOP",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="RU",
                     callback_data=(
-                        "SPEC_SET_MSG_LANG:ru"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="EN",
-                    callback_data=(
-                        "SPEC_SET_MSG_LANG:en"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="PT",
-                    callback_data=(
-                        "SPEC_SET_MSG_LANG:pt"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="UA",
-                    callback_data=(
-                        "SPEC_SET_MSG_LANG:uk"
-                    ),
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="PL",
-                    callback_data=(
-                        "SPEC_SET_MSG_LANG:pl"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="DE",
-                    callback_data=(
-                        "SPEC_SET_MSG_LANG:de"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    text="NL",
-                    callback_data=(
-                        "SPEC_SET_MSG_LANG:nl"
-                    ),
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=original_text,
-                    callback_data=(
-                        "SPEC_SET_SHOW_ORIGINAL"
+                        "SPEC_TRANSLATION_SETTINGS"
                     ),
                 )
             ],
@@ -6135,6 +6135,252 @@ def specialist_language_settings_keyboard(
                 )
             ],
         ]
+    )
+
+
+def specialist_interface_language_keyboard(
+    *,
+    language: str,
+    interface_language: str,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            *specialist_language_option_rows(
+                callback_prefix=(
+                    "SPEC_SET_UI_LANG"
+                ),
+                selected_language=(
+                    interface_language
+                ),
+            ),
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "SPEC_SETTINGS_LANGUAGE"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
+    )
+
+
+def specialist_language_settings_keyboard(
+    *,
+    language: str,
+    message_language: str,
+    translation_mode: str,
+    show_original_button: bool,
+) -> InlineKeyboardMarkup:
+    original_text = t(
+        (
+            "settings_show_original_on"
+            if show_original_button
+            else "settings_show_original_off"
+        ),
+        language,
+    )
+
+    def mode_text(mode: str) -> str:
+        marker = (
+            "●"
+            if translation_mode == mode
+            else "○"
+        )
+        label = t(
+            f"settings_translation_mode_{mode}",
+            language,
+        )
+        return f"{marker} {label}"
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=mode_text("off"),
+                    callback_data=(
+                        "SPEC_SET_TRANSLATION_MODE:off"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=mode_text("standard"),
+                    callback_data=(
+                        "SPEC_SET_TRANSLATION_MODE:"
+                        "standard"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=mode_text("detect"),
+                    callback_data=(
+                        "SPEC_SET_TRANSLATION_MODE:"
+                        "detect"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "settings_message_language_label",
+                        language,
+                    ),
+                    callback_data="SET_NOOP",
+                )
+            ],
+            *specialist_language_option_rows(
+                callback_prefix=(
+                    "SPEC_SET_MSG_LANG"
+                ),
+                selected_language=(
+                    message_language
+                ),
+            ),
+            [
+                InlineKeyboardButton(
+                    text=original_text,
+                    callback_data=(
+                        "SPEC_SET_SHOW_ORIGINAL"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "billing_back",
+                        language,
+                    ),
+                    callback_data=(
+                        "SPEC_SETTINGS_LANGUAGE"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(
+                        "search_menu",
+                        language,
+                    ),
+                    callback_data="BILL_MENU",
+                )
+            ],
+        ]
+    )
+
+async def render_specialist_language_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = (
+        await get_billing_interface_language(
+            callback.from_user.id,
+            callback.from_user.language_code,
+        )
+    )
+
+    await callback.answer()
+
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "settings_language_menu_title",
+                language,
+            ),
+            reply_markup=(
+                specialist_language_menu_keyboard(
+                    language
+                )
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        )
+    )
+
+
+async def render_specialist_interface_language(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    async with get_session() as session:
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            callback.from_user.id
+        )
+
+        if not user:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
+            return
+
+        settings = await TranslationService(
+            TranslationRepository(session)
+        ).get_language_settings_view(
+            user_id=user.id,
+        )
+        language = normalize_language(
+            settings.interface_language
+            or user.language_code
+        )
+
+    await callback.answer()
+
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "settings_interface_language_title",
+                language,
+            ).format(
+                interface_language=(
+                    specialist_visible_language_code(
+                        settings.interface_language
+                    )
+                ),
+            ),
+            reply_markup=(
+                specialist_interface_language_keyboard(
+                    language=language,
+                    interface_language=(
+                        settings.interface_language
+                    ),
+                )
+            ),
+        )
+    )
+
+    await state.update_data(
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 
@@ -6173,54 +6419,67 @@ async def render_specialist_language_settings(
             or user.language_code
         )
 
+    translation_mode = (
+        settings.translation_mode
+        if settings.translation_mode
+        in TRANSLATION_MODES
+        else "standard"
+    )
+
     await callback.answer()
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "specialist_language_settings_title",
-            language,
-        ).format(
-            interface_language=(
-                settings.interface_language
-            ),
-            message_language=(
-                settings.message_language
-            ),
-            notifications=t(
-                "settings_enabled",
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "settings_translation_title",
                 language,
-            ),
-            auto_translate=t(
-                "feature_disabled_beta",
-                language,
-            ),
-            show_original=t(
-                (
-                    "settings_enabled"
-                    if settings.show_original_button
-                    else "settings_disabled"
+            ).format(
+                translation_mode=t(
+                    (
+                        "settings_translation_mode_"
+                        f"{translation_mode}"
+                    ),
+                    language,
                 ),
-                language,
-            ),
-        ),
-        reply_markup=(
-            specialist_language_settings_keyboard(
-                language=language,
                 message_language=(
-                    settings.message_language
+                    specialist_visible_language_code(
+                        settings.message_language
+                    )
                 ),
-                show_original_button=(
-                    settings.show_original_button
+                show_original=t(
+                    (
+                        "settings_enabled"
+                        if settings
+                        .show_original_button
+                        else "settings_disabled"
+                    ),
+                    language,
                 ),
-            )
-        ),
+            ),
+            reply_markup=(
+                specialist_language_settings_keyboard(
+                    language=language,
+                    message_language=(
+                        settings.message_language
+                    ),
+                    translation_mode=(
+                        translation_mode
+                    ),
+                    show_original_button=(
+                        settings
+                        .show_original_button
+                    ),
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
-
 
 @billing_router.callback_query(
     F.data.startswith("SPEC_SET_UI_LANG:")
@@ -6262,10 +6521,83 @@ async def set_specialist_interface_language(
             source="specialist_settings",
         )
 
+    await render_specialist_interface_language(
+        callback,
+        state,
+    )
+
+@billing_router.callback_query(
+    F.data.startswith(
+        "SPEC_SET_TRANSLATION_MODE:"
+    )
+)
+async def set_specialist_translation_mode(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    language = normalize_language(
+        callback.from_user.language_code
+    )
+    translation_mode = (
+        (callback.data or "").split(
+            ":",
+            1,
+        )[1]
+    )
+
+    if translation_mode not in TRANSLATION_MODES:
+        await callback.answer(
+            t(
+                "settings_translation_update_failed",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    async with get_session() as session:
+        user = await UserService(
+            session
+        ).get_user_by_telegram_id(
+            callback.from_user.id
+        )
+
+        if not user:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
+            return
+
+        try:
+            await TranslationService(
+                TranslationRepository(session)
+            ).update_translation_mode(
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                translation_mode=(
+                    translation_mode
+                ),
+                source="specialist_settings",
+            )
+        except TranslationError:
+            await callback.answer(
+                t(
+                    "settings_translation_update_failed",
+                    language,
+                ),
+                show_alert=True,
+            )
+            return
+
     await render_specialist_language_settings(
         callback,
         state,
     )
+
 
 @billing_router.callback_query(
     F.data.startswith("SPEC_SET_MSG_LANG:")
@@ -6353,12 +6685,44 @@ async def toggle_specialist_show_original(
         state,
     )
 
-@billing_router.callback_query(F.data == "SPEC_SETTINGS_LANGUAGE")
-async def specialist_settings_language(callback: CallbackQuery, state: FSMContext):
+@billing_router.callback_query(
+    F.data == "SPEC_SETTINGS_LANGUAGE"
+)
+async def specialist_settings_language(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await render_specialist_language_menu(
+        callback,
+        state,
+    )
+
+
+@billing_router.callback_query(
+    F.data == "SPEC_INTERFACE_LANGUAGE"
+)
+async def specialist_interface_language(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await render_specialist_interface_language(
+        callback,
+        state,
+    )
+
+
+@billing_router.callback_query(
+    F.data == "SPEC_TRANSLATION_SETTINGS"
+)
+async def specialist_translation_settings(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     await render_specialist_language_settings(
         callback,
         state,
     )
+
 @billing_router.callback_query(
     F.data == "SPEC_SETTINGS_NOTIFICATIONS"
 )
@@ -11371,12 +11735,20 @@ async def send_client_thread_detail(
 
     try:
         async with get_session() as session:
-            detail = await ContactChatService(
+            contact_service = ContactChatService(
                 ContactChatRepository(session)
-            ).get_thread_detail(
+            )
+            detail = (
+                await contact_service
+                .get_thread_detail(
+                    thread_id=UUID(thread_id),
+                    user_id=user_id,
+                    language=language,
+                )
+            )
+            await contact_service.mark_thread_read(
                 thread_id=UUID(thread_id),
                 user_id=user_id,
-                language=language,
             )
     except Exception:
         await callback.answer(t("contact_thread_not_found", language), show_alert=True)
@@ -11439,6 +11811,10 @@ async def send_client_thread_detail(
                 message_thread_keyboard(
                     language,
                     role="client",
+                    thread_id=thread_id,
+                    show_original=(
+                        detail.show_original_button
+                    ),
                 )
                 if is_last_chunk and not attachment_items
                 else None
@@ -11474,6 +11850,10 @@ async def send_client_thread_detail(
                 message_thread_keyboard(
                     language,
                     role="client",
+                    thread_id=thread_id,
+                    show_original=(
+                        detail.show_original_button
+                    ),
                 )
                 if is_last_attachment
                 else None
