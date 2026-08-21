@@ -11464,13 +11464,13 @@ translations = {
         "nl": 'Moderatie ({count})',
     },
     "admin_global_blacklist_btn": {
-        "ru": "Глобальный черный список ({count})",
-        "en": "Global Blacklist ({count})",
-        "pt": "Global Blacklist ({count})",
-        "uk": "Глобальний чорний список ({count})",
-        "pl": 'Globalna czarna lista ({count})',
-        "de": 'Globale Sperrliste ({count})',
-        "nl": 'Wereldwijde zwarte lijst ({count})',
+        "ru": "⛔ Глобальный черный список ({count})",
+        "en": "⛔ Global Blacklist ({count})",
+        "pt": "⛔ Global Blacklist ({count})",
+        "uk": "⛔ Глобальний чорний список ({count})",
+        "pl": '⛔ Globalna czarna lista ({count})',
+        "de": '⛔ Globale Sperrliste ({count})',
+        "nl": '⛔ Wereldwijde zwarte lijst ({count})',
     },
     "admin_audit_btn": {
         "ru": "Audit ({count})",
@@ -11652,7 +11652,6 @@ translations = {
             "Статус: {status}\n"
             "Последняя активность: {last_seen}\n"
             "Жалобы: {complaints}\n"
-            "Global blacklist: {blacklist}"
         ),
         "en": (
             "User card\n\n"
@@ -11663,7 +11662,6 @@ translations = {
             "Status: {status}\n"
             "Last activity: {last_seen}\n"
             "Complaints: {complaints}\n"
-            "Global blacklist: {blacklist}"
         ),
         "pt": (
             "Cartao do utilizador\n\n"
@@ -11674,7 +11672,6 @@ translations = {
             "Estado: {status}\n"
             "Ultima atividade: {last_seen}\n"
             "Denuncias: {complaints}\n"
-            "Global blacklist: {blacklist}"
         ),
         "uk": (
             "Картка користувача\n\n"
@@ -11685,7 +11682,6 @@ translations = {
             "Статус: {status}\n"
             "Остання активність: {last_seen}\n"
             "Скарги: {complaints}\n"
-            "Global blacklist: {blacklist}"
         ),
         "pl": (
             'Karta użytkownika\n'
@@ -11697,7 +11693,6 @@ translations = {
             'Status: {status}\n'
             'Ostatnia aktywność: {last_seen}\n'
             'Skargi: {complaints}\n'
-            'Globalna czarna lista: {blacklist}'
         ),
         "de": (
             'Benutzerkarte\n'
@@ -11709,7 +11704,6 @@ translations = {
             'Status: {status}\n'
             'Letzte Aktivität: {last_seen}\n'
             'Beschwerden: {complaints}\n'
-            'Globale Sperrliste: {blacklist}'
         ),
         "nl": (
             'Gebruikerskaart\n'
@@ -11721,7 +11715,6 @@ translations = {
             'Status: {status}\n'
             'Laatste activiteit: {last_seen}\n'
             'Klachten: {complaints}\n'
-            'Wereldwijde zwarte lijst: {blacklist}'
         ),
     },
     "admin_user_no_roles": {

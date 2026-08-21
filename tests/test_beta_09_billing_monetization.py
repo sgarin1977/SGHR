@@ -120,6 +120,14 @@ def test_beta_09_billing_static_contract():
     service_source = open("services/billing.py", encoding="utf-8").read()
     billing_handler_source = open("handlers/billing.py", encoding="utf-8").read()
     admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    admin_finance_source = open(
+        "handlers/admin_finance.py",
+        encoding="utf-8",
+    ).read()
+    admin_finance_service_source = open(
+        "services/admin_finance.py",
+        encoding="utf-8",
+    ).read()
     bot_source = open("bot.py", encoding="utf-8").read()
     env_source = open(".env.example", encoding="utf-8").read()
     texts_source = open("ui/texts.py", encoding="utf-8").read()
@@ -191,8 +199,14 @@ def test_beta_09_billing_static_contract():
         "ADM_PAY_PAID:",
         "admin_payment_ids",
         "entering_payment_paid_reason",
-        "list_pending_manual_payments",
         "mark_payment_paid",
+    ]:
+        assert fragment in (
+            admin_finance_source
+            + admin_finance_service_source
+        )
+
+    for fragment in [
         "ADMIN_PAYMENT_MENU_ROLES",
         "finance_admin",
     ]:
@@ -200,6 +214,11 @@ def test_beta_09_billing_static_contract():
 
     assert "from handlers.billing import billing_router" in bot_source
     assert "dp.include_router(billing_router)" in bot_source
+    assert (
+        "from handlers.admin_finance import"
+        in bot_source
+    )
+    assert "admin_finance_router" in bot_source
 
     for fragment in [
         "MANUAL_PAYMENT_INSTRUCTIONS_RU",
@@ -220,8 +239,14 @@ def test_beta_09_billing_static_contract():
         assert fragment in texts_source
 
     assert 'callback_data=f"BILL_BUY:{index}"' in billing_handler_source
-    assert 'callback_data=f"ADM_PAY_VIEW:{index - 1}"' in admin_source
-    assert 'callback_data=f"ADM_PAY_PAID:{index}"' in admin_source
+    assert (
+        '"ADM_PAY_VIEW:"'
+        in admin_finance_source
+    )
+    assert (
+        'f"ADM_PAY_PAID:{index}"'
+        in admin_finance_source
+    )
 
 
 async def test_default_paid_features_are_created_and_listed(db_session):

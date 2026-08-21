@@ -6,6 +6,11 @@ venv/
 logs/
 *.log
 github
-github
-github
 exports/
+/ui/texts_with_pl.py
+/ui/texts_with_de.py
+/ui/texts_with_nl.py
+/locales/**/*.docx
+*Zone.Identifier
+/locales/
+/scripts/i18n/

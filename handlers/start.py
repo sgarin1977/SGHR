@@ -2,11 +2,9 @@ from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
-from database.repositories.translation import TranslationRepository
-from database.repositories.event import EventRepository
 from database.session import get_session
 from services.rate_limit import RateLimitError
-from services.user import TelegramUserData, UserService
+from services.user_start import UserStartService
 from ui.texts import t
 from utils.telegram_cleanup import (
     delete_telegram_messages,
@@ -162,7 +160,7 @@ async def open_active_role_cabinet(
         return
 
     if role == "specialist":
-        from handlers.billing import (
+        from handlers.specialist_cabinets import (
             show_professional_cabinets,
         )
 
@@ -380,15 +378,26 @@ def jobs_menu_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
 async def get_main_menu_keyboard_for_user(
     telegram_id: int | str,
     language: str = "ru",
+    *,
+    start_context=None,
 ) -> InlineKeyboardMarkup:
-    async with get_session() as session:
-        service = UserService(session)
-        context = (
-            await service.get_role_switch_context(
-                telegram_id
+    if start_context is None:
+        async with get_session() as session:
+            start_context = await (
+                UserStartService(
+                    session
+                ).get_context(
+                    platform_user_id=(
+                        telegram_id
+                    ),
+                    fallback_language=(
+                        language
+                    ),
+                )
             )
-        )
 
+    language = start_context.language
+    context = start_context.role_context
     available_roles = (
         set(context.available_roles)
         if context
@@ -577,28 +586,26 @@ async def send_global_main_menu(
         )
         await state.clear()
 
-    language = normalize_language(
+    fallback_language = normalize_language(
         language
         or callback.from_user.language_code
     )
 
     async with get_session() as session:
-        user = await UserService(
-            session
-        ).get_user_by_telegram_id(
-            callback.from_user.id
+        start_context = await (
+            UserStartService(
+                session
+            ).get_context(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                fallback_language=(
+                    fallback_language
+                ),
+            )
         )
 
-        if user:
-            settings = await TranslationRepository(
-                session
-            ).get_language_settings(
-                user.id
-            )
-            language = normalize_language(
-                settings.interface_language
-                or user.language_code
-            )
+    language = start_context.language
 
     menu_message = await edit_or_replace_menu_message(
         callback=callback,
@@ -607,6 +614,9 @@ async def send_global_main_menu(
             await get_main_menu_keyboard_for_user(
                 callback.from_user.id,
                 language,
+                start_context=(
+                    start_context
+                ),
             )
         ),
     )
@@ -624,39 +634,39 @@ async def open_jobs_menu(
 ):
     await callback.answer()
 
-    language = normalize_language(
+    fallback_language = normalize_language(
         callback.from_user.language_code
     )
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if user:
-            settings = await TranslationRepository(session).get_language_settings(user.id)
-            language = normalize_language(settings.interface_language or user.language_code)
-
-            await EventRepository(session).create_event(
-                event_type="placeholder_opened",
-                tenant_id=user.tenant_id,
-                user_id=user.id,
-                entity_type="feature",
-                entity_id=None,
-                payload={
-                    "feature": "jobs",
-                    "source": "global_menu",
-                },
-                platform="telegram",
+        language = await (
+            UserStartService(
+                session
+            ).record_placeholder_opened(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                feature="jobs",
+                source="global_menu",
+                fallback_language=(
+                    fallback_language
+                ),
             )
-            await session.commit()
+        )
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "jobs_menu_title",
-            language,
-        ),
-        reply_markup=jobs_menu_keyboard(
-            language
-        ),
+    menu_message = await (
+        edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "jobs_menu_title",
+                language,
+            ),
+            reply_markup=(
+                jobs_menu_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
@@ -667,31 +677,44 @@ async def open_jobs_menu(
 
 
 @start_router.callback_query(F.data.startswith("JOBS_PLACEHOLDER:"))
-async def open_jobs_placeholder(callback: CallbackQuery):
-    language = normalize_language(callback.from_user.language_code)
-    feature = (callback.data or "").split(":", 1)[1]
+async def open_jobs_placeholder(
+    callback: CallbackQuery,
+):
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
+    feature = (
+        callback.data or ""
+    ).split(
+        ":",
+        1,
+    )[1]
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if user:
-            settings = await TranslationRepository(session).get_language_settings(user.id)
-            language = normalize_language(settings.interface_language or user.language_code)
-
-            await EventRepository(session).create_event(
-                event_type="placeholder_opened",
-                tenant_id=user.tenant_id,
-                user_id=user.id,
-                entity_type="feature",
-                entity_id=None,
-                payload={
-                    "feature": f"jobs_{feature}",
-                    "source": "jobs_menu",
-                },
-                platform="telegram",
+        language = await (
+            UserStartService(
+                session
+            ).record_placeholder_opened(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                feature=(
+                    f"jobs_{feature}"
+                ),
+                source="jobs_menu",
+                fallback_language=(
+                    fallback_language
+                ),
             )
-            await session.commit()
+        )
 
-    await callback.answer(t("jobs_under_construction", language), show_alert=True)
+    await callback.answer(
+        t(
+            "jobs_under_construction",
+            language,
+        ),
+        show_alert=True,
+    )
 
 @start_router.callback_query(F.data == "GLOBAL_MAIN_MENU")
 async def global_main_menu(callback: CallbackQuery, state: FSMContext):
@@ -758,33 +781,23 @@ async def open_all_services(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(
+    fallback_language = normalize_language(
         callback.from_user.language_code
     )
 
     async with get_session() as session:
-        user = await UserService(
-            session
-        ).get_user_by_telegram_id(
-            callback.from_user.id
+        language = await (
+            UserStartService(
+                session
+            ).get_language(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                fallback_language=(
+                    fallback_language
+                ),
+            )
         )
-
-        if user:
-            settings = await (
-                TranslationRepository(
-                    session
-                )
-                .get_language_settings(
-                    user.id
-                )
-            )
-
-            language = normalize_language(
-                settings.interface_language
-                or user.language_code
-            )
-
-            await session.commit()
 
     await callback.answer()
 
@@ -817,7 +830,7 @@ async def open_active_specialist_cabinet(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    from handlers.billing import (
+    from handlers.specialist_cabinet_common import (
         show_specialist_cabinet,
     )
 
@@ -834,23 +847,31 @@ async def main_menu_specialist_cabinets(
     callback: CallbackQuery,
     state: FSMContext,
 ):
+    from database.session import (
+        get_session,
+    )
     from fsm.specialist_form import (
         register_specialist,
     )
-    from handlers.billing import (
-        get_current_specialist_for_telegram,
+    from handlers.specialist_cabinets import (
         show_professional_cabinets,
     )
-
-    (
-        _user,
-        specialist,
-        _tenant_id,
-    ) = await get_current_specialist_for_telegram(
-        callback.from_user.id
+    from services.specialist_cabinets import (
+        SpecialistCabinetsService,
     )
 
-    if specialist:
+    async with get_session() as session:
+        has_profile = await (
+            SpecialistCabinetsService(
+                session
+            ).has_profile(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+            )
+        )
+
+    if has_profile:
         await show_professional_cabinets(
             callback,
             state,
@@ -935,26 +956,34 @@ async def cmd_start(message: Message, state: FSMContext):
     telegram_language = normalize_language(message.from_user.language_code)
     language = telegram_language
     first_name = message.from_user.first_name or t("start_default_first_name", language)
-    role_context = None
     try:
         async with get_session() as session:
-            service = UserService(session)
-
-            result = await service.register_telegram_user(
-                TelegramUserData(
-                    platform_user_id=str(message.from_user.id),
-                    username=message.from_user.username,
-                    first_name=message.from_user.first_name,
-                    last_name=message.from_user.last_name,
-                    language_code=telegram_language,
+            start_action = await (
+                UserStartService(
+                    session
+                ).register_user(
+                    platform_user_id=(
+                        message.from_user.id
+                    ),
+                    username=(
+                        message.from_user.username
+                    ),
+                    first_name=(
+                        message.from_user.first_name
+                    ),
+                    last_name=(
+                        message.from_user.last_name
+                    ),
+                    language_code=(
+                        telegram_language
+                    ),
                 )
             )
 
-            user = await service.get_user_by_telegram_id(message.from_user.id)
-            if user:
-                settings = await TranslationRepository(session).get_language_settings(user.id)
-                language = normalize_language(settings.interface_language or user.language_code)
-                role_context = await service.get_role_switch_context(message.from_user.id)
+        result = start_action.registration
+        language = (
+            start_action.context.language
+        )
     except RateLimitError:
         state_data = await state.get_data()
 
@@ -1032,30 +1061,23 @@ async def show_role_switch(
     if not callback_answered:
         await callback.answer()
 
-    language = normalize_language(
-        callback.from_user.language_code
-    )
-
     async with get_session() as session:
-        service = UserService(session)
-        user = await service.get_user_by_telegram_id(
-            callback.from_user.id
-        )
-
-        if user:
-            settings = await TranslationRepository(
+        start_context = await (
+            UserStartService(
                 session
-            ).get_language_settings(
-                user.id
+            ).get_context(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                fallback_language=(
+                    callback.from_user
+                    .language_code
+                ),
             )
-            language = normalize_language(
-                settings.interface_language
-                or user.language_code
-            )
-
-        context = await service.get_role_switch_context(
-            callback.from_user.id
         )
+
+    language = start_context.language
+    context = start_context.role_context
 
     if (
         not context
@@ -1080,8 +1102,12 @@ async def show_role_switch(
             context.available_roles,
             context.active_role,
             language,
-            role_details=context.role_details,
-            unread_counts=context.unread_counts,
+            role_details=(
+                context.role_details
+            ),
+            unread_counts=(
+                context.unread_counts
+            ),
             specialist_cabinets_label=(
                 specialist_cabinets_label
             ),
@@ -1103,13 +1129,22 @@ async def switch_active_role(
 
     try:
         async with get_session() as session:
-            service = UserService(session)
-            context = await service.switch_active_role(callback.from_user.id, role)
+            start_context = await (
+                UserStartService(
+                    session
+                ).switch_role(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    role=role,
+                    fallback_language=(
+                        language
+                    ),
+                )
+            )
 
-            user = await service.get_user_by_telegram_id(callback.from_user.id)
-            if user:
-                settings = await TranslationRepository(session).get_language_settings(user.id)
-                language = normalize_language(settings.interface_language or user.language_code)
+        context = start_context.role_context
+        language = start_context.language
 
     except ValueError:
         menu_message = await edit_or_replace_menu_message(

@@ -621,45 +621,58 @@ class SpecialistRepository:
         )
         return list(result.scalars().all())
 
-    async def find_active_city_in_text(self, query: str) -> City | None:
-        normalized_query = f" {(query or '').strip().lower()} "
+    async def find_active_city_in_text(
+        self,
+        query: str,
+    ) -> City | None:
+        normalized_query = (
+            f" {(query or '').strip().lower()} "
+        )
 
-        if len(normalized_query.strip()) < 2:
+        if len(
+            normalized_query.strip()
+        ) < 2:
             return None
+
+        name_columns = (
+            City.name,
+            City.name_ru,
+            City.name_en,
+            City.name_pt,
+            City.name_uk,
+            City.name_pl,
+            City.name_de,
+            City.name_nl,
+        )
+        name_matches = [
+            and_(
+                column.is_not(None),
+                func.length(
+                    func.trim(column)
+                ) > 0,
+                literal(
+                    normalized_query
+                ).ilike(
+                    func.concat(
+                        "% ",
+                        func.lower(column),
+                        "%",
+                    )
+                ),
+            )
+            for column in name_columns
+        ]
 
         result = await self.session.execute(
             select(City)
             .where(
                 City.is_active.is_(True),
-                or_(
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name), "%")
-                    ),
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name_ru), "%")
-                    ),
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name_en), "%")
-                    ),
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name_pt), "%")
-                    ),
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name_uk), "%")
-                    ),
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name_pl), "%")
-                    ),
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name_de), "%")
-                    ),
-                    literal(normalized_query).ilike(
-                        func.concat("% ", func.lower(City.name_nl), "%")
-                    ),
-                ),
+                or_(*name_matches),
             )
             .order_by(
-                func.length(City.name).desc(),
+                func.length(
+                    City.name
+                ).desc(),
                 City.name.asc(),
             )
             .limit(1)

@@ -2948,108 +2948,181 @@ async def test_thread_visibility_and_unread_are_persisted_per_participant(db_ses
         await cleanup_legal_documents(db_session, tenant_id)
 
 def test_client_dialogs_c13_screen_is_wired_to_threads_participant_state():
-    contact_repo_source = open("database/repositories/contact.py", encoding="utf-8").read()
-    contact_service_source = open("services/contact_chat.py", encoding="utf-8").read()
-    billing_source = open("handlers/billing.py", encoding="utf-8").read()
+    contact_repo_source = open(
+        "database/repositories/contact.py",
+        encoding="utf-8",
+    ).read()
+    contact_service_source = open(
+        "services/contact_chat.py",
+        encoding="utf-8",
+    ).read()
+    dialogs_source = open(
+        "handlers/user_dialogs.py",
+        encoding="utf-8",
+    ).read()
 
-    assert "list_threads_for_user" in contact_repo_source
-    assert "ConversationParticipant.unread_count" in contact_repo_source
-    assert "ConversationParticipant.is_archived" in contact_repo_source
-    assert "ConversationParticipant.is_hidden" in contact_repo_source
-    assert "Specialist.display_name" in contact_repo_source
-    assert "Profession" in contact_repo_source
+    assert (
+        "list_threads_for_user"
+        in contact_repo_source
+    )
+    assert (
+        "ConversationParticipant.unread_count"
+        in contact_repo_source
+    )
+    assert (
+        "ConversationParticipant.is_archived"
+        in contact_repo_source
+    )
+    assert (
+        "ConversationParticipant.is_hidden"
+        in contact_repo_source
+    )
 
-    assert "ContactThreadListItem" in contact_service_source
-    assert "list_client_threads" in contact_service_source
-    assert 'participant_role="client"' in contact_service_source
+    assert (
+        "ContactThreadListItem"
+        in contact_service_source
+    )
+    assert (
+        "list_client_threads"
+        in contact_service_source
+    )
+    assert (
+        'participant_role="client"'
+        in contact_service_source
+    )
 
-    assert 'F.data == "CLIENT_DIALOGS"' in billing_source
-    assert 'F.data.startswith("CLIENT_DIALOGS:")' in billing_source
-    assert "client_dialogs_keyboard" in billing_source
-    assert "CLIENT_DIALOG_OPEN" in billing_source
-    assert "client_dialog_thread_ids" in billing_source
-    assert "dialogs_opened" in billing_source
-    assert "EventRepository(session).create_event" in billing_source
-    assert "for index in range(items_count)" in billing_source
-    assert 'callback_data=f"CLIENT_DIALOG_OPEN:{index}"' in billing_source
-    assert "async def open_client_dialog" in billing_source
-    assert "client_dialog_thread_ids" in billing_source
-    assert "active_thread_id=thread_id" in billing_source
-    assert "contact_thread_keyboard(" in billing_source
-    assert "order_id=(" in billing_source
-    assert "order_status=detail.active_order_status" in billing_source
-    assert "get_thread_detail_for_user" in contact_repo_source
-    assert "ContactThreadDetail" in contact_service_source
-    assert "get_thread_detail" in contact_service_source
-    assert "format_client_thread_detail_text" in billing_source
-    assert "get_thread_detail(" in billing_source
-    assert "client_thread_detail_title" in billing_source
-    assert "client_thread_history_label" in billing_source
-    assert "dialog_context_profession" in billing_source
-    assert "detail.profession_name" in billing_source
+    assert (
+        'F.data == "CLIENT_DIALOGS"'
+        in dialogs_source
+    )
+    assert (
+        'F.data.startswith("CLIENT_DIALOGS:")'
+        in dialogs_source
+    )
+    assert (
+        "client_dialogs_keyboard"
+        in dialogs_source
+    )
+    assert (
+        "CLIENT_DIALOG_OPEN"
+        in dialogs_source
+    )
+    assert (
+        "client_dialog_thread_ids"
+        in dialogs_source
+    )
+    assert (
+        "async def open_client_dialog"
+        in dialogs_source
+    )
+    assert (
+        "async def send_client_thread_detail"
+        in dialogs_source
+    )
+    assert (
+        "format_client_thread_detail_text"
+        in dialogs_source
+    )
+    assert (
+        "UserDialogsService"
+        in dialogs_source
+    )
+    assert (
+        "list_client_dialogs"
+        in dialogs_source
+    )
+    assert (
+        "get_client_dialog"
+        in dialogs_source
+    )
+    assert (
+        "ContactChatRepository("
+        not in dialogs_source
+    )
+    assert (
+        "ContactChatService("
+        not in dialogs_source
+    )
 
-def test_client_requests_c15_backend_is_wired_to_contact_requests():
-    contact_repo_source = open("database/repositories/contact.py", encoding="utf-8").read()
-    contact_service_source = open("services/contact_chat.py", encoding="utf-8").read()
+def test_client_requests_c15_backend_is_fail_closed():
+    import ast
 
-    assert "list_contact_requests_for_client" in contact_repo_source
-    assert "ContactRequest.from_user_id == user_id" in contact_repo_source
-    assert "ConversationThread.id.label(\"thread_id\")" in contact_repo_source
-    assert "Specialist.display_name" in contact_repo_source
-    assert "Profession" in contact_repo_source
+    contact_repo_source = open(
+        "database/repositories/contact.py",
+        encoding="utf-8",
+    ).read()
+    contact_service_source = open(
+        "services/contact_chat.py",
+        encoding="utf-8",
+    ).read()
+    billing_source = open(
+        "handlers/billing.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open(
+        "ui/texts.py",
+        encoding="utf-8",
+    ).read()
 
-    assert "ContactRequestListItem" in contact_service_source
-    assert "list_client_requests" in contact_service_source
-    billing_source = open("handlers/billing.py", encoding="utf-8").read()
-    texts_source = open("ui/texts.py", encoding="utf-8").read()
+    assert (
+        "cancel_contact_request_by_client"
+        in contact_repo_source
+    )
+    assert (
+        "list_client_requests"
+        in contact_service_source
+    )
+    assert (
+        "get_client_request_detail"
+        in contact_service_source
+    )
 
-    assert "CLIENT_REQUESTS_PAGE_SIZE" in billing_source
-    assert "client_requests_keyboard" in billing_source
-    assert "format_client_requests_text" in billing_source
-    assert "CLIENT_REQUEST_OPEN" in billing_source
-    assert "CLIENT_REQUEST_DIALOG" in billing_source
-    assert "CLIENT_REQUEST_CANCEL" in billing_source
+    assert (
+        "async def "
+        "block_legacy_client_request_callbacks"
+        in billing_source
+    )
+    assert (
+        'F.data.startswith("CLIENT_REQUEST")'
+        in billing_source
+    )
+    assert (
+        "legacy_requests_unavailable"
+        in billing_source
+    )
+    assert (
+        '"legacy_requests_unavailable"'
+        in texts_source
+    )
 
-    assert "client_requests_title" in texts_source
-    assert "client_requests_empty" in texts_source
-    assert "client_request_cancelled" in texts_source
-    assert 'F.data == "CLIENT_REQUESTS"' in billing_source
-    assert 'F.data.startswith("CLIENT_REQUESTS:")' in billing_source
-    assert "async def show_client_requests" in billing_source
-    assert "list_client_requests" in billing_source
-    assert "request_list" in billing_source
-    assert "client_request_ids" in billing_source
-    assert "client_request_thread_ids" in billing_source
-    assert "send_client_thread_detail" in billing_source
-    assert "async def open_client_request_dialog" in billing_source
-    assert 'F.data.startswith("CLIENT_REQUEST_DIALOG:")' in billing_source
-    assert "client_request_thread_ids" in billing_source
-    assert "cancel_contact_request_by_client" in contact_repo_source
-    assert "contact_request.status not in" in contact_repo_source
-    assert "request_cancelled" in contact_repo_source
-    assert "cancel_contact_request" in contact_service_source
-    assert "async def cancel_client_request" in billing_source
-    assert 'F.data.startswith("CLIENT_REQUEST_CANCEL:")' in billing_source
-    assert "cancel_contact_request(" in billing_source
-    assert "client_request_cancelled" in billing_source
-    assert "ContactRequestDetail" in contact_service_source
-    assert "get_contact_request_detail_for_client" in contact_repo_source
-    assert "get_client_request_detail" in contact_service_source
-    assert "format_client_request_detail_text" in billing_source
-    assert "async def open_client_request_card" in billing_source
-    assert 'F.data.startswith("CLIENT_REQUEST_OPEN:")' in billing_source
-    assert "client_request_detail_title" in texts_source
-    assert "client_request_card_keyboard" in billing_source
-    assert "CLIENT_REQUEST_CARD_DIALOG:" in billing_source
-    assert "CLIENT_REQUEST_CARD_CANCEL:" in billing_source
-    assert "CLIENT_REQUEST_CARD_FINISH:" in billing_source
-    assert "async def open_client_request_card_dialog" in billing_source
-    assert "async def cancel_client_request_card" in billing_source
-    assert "async def finish_client_request_card" in billing_source
-    assert "request_viewed" in billing_source
-    assert "client_request_status_updated" in texts_source
-    assert "client_request_back_to_requests" in texts_source
-    assert "complete_thread(" in billing_source
+    billing_tree = ast.parse(
+        billing_source
+    )
+    definitions = {
+        node.name
+        for node in billing_tree.body
+        if isinstance(
+            node,
+            (
+                ast.FunctionDef,
+                ast.AsyncFunctionDef,
+            ),
+        )
+    }
+
+    obsolete_handlers = {
+        "show_client_requests",
+        "open_client_request_dialog",
+        "cancel_client_request",
+        "open_client_request_card",
+        "open_client_request_card_dialog",
+        "cancel_client_request_card",
+        "finish_client_request_card",
+    }
+
+    assert not (
+        definitions & obsolete_handlers
+    )
 
 async def test_admin_can_cancel_request_with_reason_without_deleting_chat(
     db_session,
@@ -3389,5 +3462,3 @@ def test_specialist_s9_new_requests_screen_is_wired():
     assert "specialist_requests_title" in texts_source
     assert "specialist_requests_empty" in texts_source
     assert "specialist_request_status_updated" in texts_source
-
-

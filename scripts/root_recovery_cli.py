@@ -351,6 +351,17 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
+async def cleanup_cli_after_exit(
+    *,
+    cli: RootRecoveryCli,
+    session,
+) -> None:
+    # A failed flush leaves SQLAlchemy unusable until
+    # the transaction is explicitly rolled back.
+    await session.rollback()
+    await cli.cleanup()
+
+
 async def main() -> None:
     arguments = parse_arguments()
 
@@ -379,7 +390,10 @@ async def main() -> None:
             await cli.authenticate()
             await cli.run_menu()
         finally:
-            await cli.cleanup()
+            await cleanup_cli_after_exit(
+                cli=cli,
+                session=session,
+            )
 
 
 if __name__ == "__main__":

@@ -842,7 +842,7 @@ def test_translation_callback_rejects_stale_data():
 
 
 def test_billing_keyboard_binds_original_to_thread():
-    from handlers.billing import (
+    from handlers.user_dialogs import (
         message_thread_keyboard,
     )
     from handlers.search import (

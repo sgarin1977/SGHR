@@ -475,7 +475,7 @@ class LegalDocument(Base):
     title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     content_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     content_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(Text, default="active")
+    status: Mapped[str] = mapped_column(Text, default="draft")
     effective_from: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

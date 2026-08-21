@@ -10,8 +10,61 @@ from handlers.legal import legal_router
 from fsm.specialist_form import specialist_form_router
 from handlers.search import search_router
 from handlers.settings import settings_router
+from handlers.admin_support import (
+    admin_support_router,
+)
+from handlers.admin_dictionaries import (
+    admin_dictionaries_router,
+)
+from handlers.admin_portfolio import (
+    admin_portfolio_router,
+)
+from handlers.admin_reviews import (
+    admin_reviews_router,
+)
+from handlers.admin_dialogs import (
+    admin_dialogs_router,
+)
+from handlers.admin_governance import (
+    admin_governance_router,
+)
+from handlers.admin_impersonation import (
+    admin_impersonation_router,
+)
 from handlers.admin import admin_router
+from handlers.admin_audit import (
+    admin_audit_router,
+)
+from handlers.super_admin_global_blacklist import (
+    super_admin_global_blacklist_router,
+)
+from handlers.admin_scoped_blacklist import (
+    admin_scoped_blacklist_router,
+)
+from handlers.admin_complaints import (
+    admin_complaints_router,
+)
+from handlers.admin_specialists import (
+    admin_specialists_router,
+)
+from handlers.admin_users import (
+    admin_users_router,
+)
+from handlers.admin_finance import (
+    admin_finance_router,
+)
+from handlers.specialist_billing import (
+    specialist_billing_router,
+)
+from handlers.specialist_services import (
+    specialist_services_router,
+)
+from handlers.specialist_cabinets import specialist_cabinets_router
+from handlers.user_dialogs import user_dialogs_router
 from handlers.billing import billing_router
+from handlers.user_favorites import user_favorites_router
+from handlers.specialist_settings import specialist_settings_router
+from handlers.specialist_portfolio import specialist_portfolio_router
 from handlers.support import support_router
 
 configure_logging(LOG_LEVEL)
@@ -58,7 +111,50 @@ async def main():
     dp.include_router(search_router)
     dp.include_router(settings_router)
     dp.include_router(support_router)
+    dp.include_router(
+        admin_finance_router
+    )
+    dp.include_router(
+        admin_audit_router
+    )
+    dp.include_router(
+        super_admin_global_blacklist_router
+    )
+    dp.include_router(
+        admin_scoped_blacklist_router
+    )
+    dp.include_router(
+        admin_complaints_router
+    )
+    dp.include_router(
+        admin_specialists_router
+    )
+    dp.include_router(
+        admin_users_router
+    )
+    dp.include_router(
+        admin_support_router
+    )
+    dp.include_router(
+        admin_dictionaries_router
+    )
+    dp.include_router(admin_portfolio_router)
+    dp.include_router(admin_reviews_router)
+    dp.include_router(admin_dialogs_router)
+    dp.include_router(admin_governance_router)
+    dp.include_router(admin_impersonation_router)
     dp.include_router(admin_router)
+    dp.include_router(
+        specialist_billing_router
+    )
+    dp.include_router(
+        specialist_services_router
+    )
+    dp.include_router(specialist_portfolio_router)
+    dp.include_router(specialist_settings_router)
+    dp.include_router(user_favorites_router)
+    dp.include_router(specialist_cabinets_router)
+    dp.include_router(user_dialogs_router)
     dp.include_router(billing_router)
 
     logger.info("bot_routers_registered")

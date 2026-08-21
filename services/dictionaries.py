@@ -3905,8 +3905,6 @@ class DictionaryService:
             reason="Skill duplicate merged from Super Admin dictionaries",
         )
 
-        await self.repository.session.commit()
-
         return AdminSkillMergeCard(
             target_skill=self._skill_card(
                 updated_target,

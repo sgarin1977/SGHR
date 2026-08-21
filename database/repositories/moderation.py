@@ -1744,10 +1744,12 @@ class ModerationRepository:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
     ) -> SuperAdminSystemStatusRow:
         await self.require_admin_role(
             admin_user_id,
             {"super_admin"},
+            tenant_id=tenant_id,
         )
 
         db_status = "ok"

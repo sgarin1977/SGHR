@@ -1,20 +1,14 @@
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from database.repositories.privacy import PrivacyRepository
-from database.repositories.translation import (
-    TRANSLATION_MODES,
-    TranslationRepository,
-)
-from database.repositories.event import EventRepository
 from database.session import get_session
 from handlers.start import normalize_language, send_global_main_menu
-from services.privacy import PrivacyError, PrivacyService
-from services.translation import (
-    TranslationError,
-    TranslationService,
+from services.translation import TranslationError
+from services.user_settings import (
+    UserSettingsNotFoundError,
+    UserSettingsService,
+    UserSettingsValidationError,
 )
-from services.user import UserService
 from ui.texts import t
 from utils.telegram_cleanup import edit_or_replace_menu_message
 from aiogram.fsm.context import FSMContext
@@ -344,37 +338,23 @@ async def show_interface_language_settings(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(
-        callback.from_user.language_code
+    context, language = (
+        await get_user_settings_context(
+            callback
+        )
     )
 
-    async with get_session() as session:
-        user = await UserService(
-            session
-        ).get_user_by_telegram_id(
-            callback.from_user.id
+    if not context:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
         )
+        return
 
-        if not user:
-            await callback.answer(
-                t(
-                    "search_contact_user_not_found",
-                    language,
-                ),
-                show_alert=True,
-            )
-            return
-
-        settings = await TranslationRepository(
-            session
-        ).get_language_settings(
-            user.id
-        )
-        language = normalize_language(
-            settings.interface_language
-            or user.language_code
-        )
-        await session.commit()
+    settings = context.settings
 
     await callback.answer()
 
@@ -408,52 +388,29 @@ async def show_interface_language_settings(
         )
     )
 
-
 async def show_translation_settings(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(
-        callback.from_user.language_code
+    context, language = (
+        await get_user_settings_context(
+            callback
+        )
     )
 
-    async with get_session() as session:
-        user = await UserService(
-            session
-        ).get_user_by_telegram_id(
-            callback.from_user.id
+    if not context:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
         )
+        return
 
-        if not user:
-            await callback.answer(
-                t(
-                    "search_contact_user_not_found",
-                    language,
-                ),
-                show_alert=True,
-            )
-            return
-
-        repository = TranslationRepository(
-            session
-        )
-        settings = (
-            await repository
-            .get_language_settings(
-                user.id
-            )
-        )
-        language = normalize_language(
-            settings.interface_language
-            or user.language_code
-        )
-        await session.commit()
-
+    settings = context.settings
     translation_mode = (
         settings.translation_mode
-        if settings.translation_mode
-        in TRANSLATION_MODES
-        else "standard"
     )
 
     await callback.answer()
@@ -511,38 +468,33 @@ async def show_translation_settings(
         )
     )
 
-async def get_user_settings_context(callback: CallbackQuery):
-    fallback_language = normalize_language(callback.from_user.language_code)
+async def get_user_settings_context(
+    callback: CallbackQuery,
+):
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not user:
+        try:
+            context = await UserSettingsService(
+                session
+            ).get_context(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+            )
+        except (
+            UserSettingsNotFoundError,
+            TranslationError,
+        ):
             return None, fallback_language
 
-        settings = await TranslationRepository(session).get_language_settings(user.id)
-        language = normalize_language(settings.interface_language or user.language_code)
-        await session.commit()
-
-    return user, language
-
-async def log_settings_changed(
-    *,
-    session,
-    user,
-    setting_name: str,
-    new_value,
-) -> None:
-    await EventRepository(session).create_event(
-        event_type="settings_changed",
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        entity_type="user",
-        entity_id=user.id,
-        payload={
-            "setting": setting_name,
-            "value": new_value,
-        },
-        platform="telegram",
+    return (
+        context,
+        normalize_language(
+            context.interface_language
+        ),
     )
 
 def privacy_settings_keyboard(language: str) -> InlineKeyboardMarkup:
@@ -605,42 +557,61 @@ async def show_client_settings(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(callback.from_user.language_code)
+    context, language = (
+        await get_user_settings_context(
+            callback
+        )
+    )
 
-    async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-            return
+    if not context:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        return
 
-        settings = await TranslationRepository(session).get_language_settings(user.id)
-        language = normalize_language(settings.interface_language or user.language_code)
-        await session.commit()
+    settings = context.settings
 
     await callback.answer()
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "client_settings_title",
-            language,
-        ).format(
-            interface_language=settings.interface_language,
-            message_language=settings.message_language,
-            notifications=t(
-                "settings_enabled",
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "client_settings_title",
                 language,
+            ).format(
+                interface_language=(
+                    visible_language_code(
+                        settings.interface_language
+                    )
+                ),
+                message_language=(
+                    visible_language_code(
+                        settings.message_language
+                    )
+                ),
+                notifications=t(
+                    "settings_enabled",
+                    language,
+                ),
             ),
-        ),
-        reply_markup=client_settings_keyboard(
-            language
-        ),
+            reply_markup=(
+                client_settings_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
-
 
 @settings_router.callback_query(F.data == "M_SETTINGS")
 async def open_settings(
@@ -737,70 +708,109 @@ async def open_client_notifications_settings(
         last_menu_message_id=menu_message.message_id
     )
 
-@settings_router.callback_query(F.data.startswith("SET_UI_LANG:"))
-async def set_interface_language(callback: CallbackQuery, state: FSMContext):
-    fallback_language = normalize_language(callback.from_user.language_code)
-    interface_language = normalize_language(callback.data.split(":", 1)[1])
+@settings_router.callback_query(
+    F.data.startswith("SET_UI_LANG:")
+)
+async def set_interface_language(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
+    language_code = callback.data.split(
+        ":",
+        1,
+    )[1]
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not user:
-            await callback.answer(t("search_contact_user_not_found", fallback_language), show_alert=True)
+        try:
+            await UserSettingsService(
+                session
+            ).update_interface_language(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                language_code=language_code,
+            )
+        except UserSettingsNotFoundError:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    fallback_language,
+                ),
+                show_alert=True,
+            )
             return
-
-        await TranslationRepository(session).update_language_settings(
-            user_id=user.id,
-            interface_language=interface_language,
-        )
-        await UserService(session).update_interface_language(
-            user_id=user.id,
-            language_code=interface_language,
-        )
-
-        await log_settings_changed(
-            session=session,
-            user=user,
-            setting_name="interface_language",
-            new_value=interface_language,
-        )
-
-        await session.commit()
+        except (
+            UserSettingsValidationError,
+            TranslationError,
+        ):
+            await callback.answer(
+                t(
+                    "settings_translation_update_failed",
+                    fallback_language,
+                ),
+                show_alert=True,
+            )
+            return
 
     await show_interface_language_settings(
         callback,
         state,
     )
 
-@settings_router.callback_query(F.data.startswith("SET_MSG_LANG:"))
-async def set_message_language(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
-    message_language = callback.data.split(":", 1)[1]
+@settings_router.callback_query(
+    F.data.startswith("SET_MSG_LANG:")
+)
+async def set_message_language(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
+    language_code = callback.data.split(
+        ":",
+        1,
+    )[1]
 
     async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        try:
+            await UserSettingsService(
+                session
+            ).update_message_language(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                language_code=language_code,
+            )
+        except UserSettingsNotFoundError:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    fallback_language,
+                ),
+                show_alert=True,
+            )
             return
-
-        await TranslationRepository(session).update_language_settings(
-            user_id=user.id,
-            message_language=message_language,
-        )
-
-        await log_settings_changed(
-            session=session,
-            user=user,
-            setting_name="message_language",
-            new_value=message_language,
-        )
-
-        await session.commit()
+        except (
+            UserSettingsValidationError,
+            TranslationError,
+        ):
+            await callback.answer(
+                t(
+                    "settings_translation_update_failed",
+                    fallback_language,
+                ),
+                show_alert=True,
+            )
+            return
 
     await show_translation_settings(
         callback,
         state,
     )
-
 
 @settings_router.callback_query(
     F.data.startswith(
@@ -811,56 +821,87 @@ async def set_translation_mode(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    language = normalize_language(
+    fallback_language = normalize_language(
         callback.from_user.language_code
     )
-    translation_mode = (
-        callback.data.split(":", 1)[1]
-    )
-
-    if translation_mode not in TRANSLATION_MODES:
-        await callback.answer(
-            t(
-                "settings_translation_update_failed",
-                language,
-            ),
-            show_alert=True,
-        )
-        return
+    translation_mode = callback.data.split(
+        ":",
+        1,
+    )[1]
 
     async with get_session() as session:
-        user = await UserService(
-            session
-        ).get_user_by_telegram_id(
-            callback.from_user.id
-        )
-
-        if not user:
+        try:
+            await UserSettingsService(
+                session
+            ).update_translation_mode(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                translation_mode=(
+                    translation_mode
+                ),
+            )
+        except UserSettingsNotFoundError:
             await callback.answer(
                 t(
                     "search_contact_user_not_found",
-                    language,
+                    fallback_language,
+                ),
+                show_alert=True,
+            )
+            return
+        except (
+            UserSettingsValidationError,
+            TranslationError,
+        ):
+            await callback.answer(
+                t(
+                    "settings_translation_update_failed",
+                    fallback_language,
                 ),
                 show_alert=True,
             )
             return
 
+    await show_translation_settings(
+        callback,
+        state,
+    )
+
+@settings_router.callback_query(
+    F.data == "SET_SHOW_ORIGINAL"
+)
+async def toggle_show_original(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
+
+    async with get_session() as session:
         try:
-            await TranslationService(
-                TranslationRepository(session)
-            ).update_translation_mode(
-                tenant_id=user.tenant_id,
-                user_id=user.id,
-                translation_mode=(
-                    translation_mode
+            await UserSettingsService(
+                session
+            ).toggle_show_original(
+                platform_user_id=(
+                    callback.from_user.id
                 ),
-                source="client_settings",
             )
+        except UserSettingsNotFoundError:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    fallback_language,
+                ),
+                show_alert=True,
+            )
+            return
         except TranslationError:
             await callback.answer(
                 t(
                     "settings_translation_update_failed",
-                    language,
+                    fallback_language,
                 ),
                 show_alert=True,
             )
@@ -870,39 +911,6 @@ async def set_translation_mode(
         callback,
         state,
     )
-
-@settings_router.callback_query(F.data == "SET_SHOW_ORIGINAL")
-async def toggle_show_original(callback: CallbackQuery, state: FSMContext):
-    language = normalize_language(callback.from_user.language_code)
-
-    async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-            return
-
-        repository = TranslationRepository(session)
-        settings = await repository.get_language_settings(user.id)
-        new_value = not settings.show_original_button
-        await repository.update_language_settings(
-            user_id=user.id,
-            show_original_button=new_value,
-        )
-
-        await log_settings_changed(
-            session=session,
-            user=user,
-            setting_name="show_original_button",
-            new_value=new_value,
-        )
-
-        await session.commit()
-
-    await show_translation_settings(
-        callback,
-        state,
-    )
-
 
 @settings_router.callback_query(F.data == "SET_MAIN_MENU")
 async def settings_to_main_menu(callback: CallbackQuery, state: FSMContext):
@@ -935,42 +943,69 @@ async def open_privacy_settings(
         last_menu_message_id=menu_message.message_id
     )
 
-@settings_router.callback_query(F.data == "PRIVACY_MY_DATA")
+@settings_router.callback_query(
+    F.data == "PRIVACY_MY_DATA"
+)
 async def request_my_data(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    user, language = await get_user_settings_context(callback)
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    context, language = (
+        await get_user_settings_context(
+            callback
+        )
+    )
+
+    if not context:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     async with get_session() as session:
-        fresh_user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not fresh_user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        try:
+            await UserSettingsService(
+                session
+            ).request_data_export(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+            )
+        except UserSettingsNotFoundError:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
-
-        await PrivacyService(PrivacyRepository(session)).request_data_export(
-            tenant_id=fresh_user.tenant_id,
-            user_id=fresh_user.id,
-        )
 
     await callback.answer()
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "privacy_data_export_requested",
-            language,
-        ),
-        reply_markup=privacy_settings_keyboard(
-            language
-        ),
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "privacy_data_export_requested",
+                language,
+            ),
+            reply_markup=(
+                privacy_settings_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 @settings_router.callback_query(F.data == "PRIVACY_DELETE_GEO_CONFIRM")
@@ -1002,44 +1037,70 @@ async def confirm_delete_geo(
     )
 
 
-@settings_router.callback_query(F.data == "PRIVACY_DELETE_GEO")
+@settings_router.callback_query(
+    F.data == "PRIVACY_DELETE_GEO"
+)
 async def delete_geo(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    user, language = await get_user_settings_context(callback)
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    context, language = (
+        await get_user_settings_context(
+            callback
+        )
+    )
+
+    if not context:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     async with get_session() as session:
-        fresh_user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not fresh_user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        try:
+            await UserSettingsService(
+                session
+            ).delete_geo_data(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+            )
+        except UserSettingsNotFoundError:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
-
-        await PrivacyService(PrivacyRepository(session)).delete_geo_data(
-            tenant_id=fresh_user.tenant_id,
-            user_id=fresh_user.id,
-        )
 
     await callback.answer()
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "privacy_geo_deleted",
-            language,
-        ),
-        reply_markup=privacy_settings_keyboard(
-            language
-        ),
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "privacy_geo_deleted",
+                language,
+            ),
+            reply_markup=(
+                privacy_settings_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
-
 
 @settings_router.callback_query(F.data == "PRIVACY_DELETE_PROFILE_CONFIRM")
 async def confirm_delete_profile(
@@ -1070,40 +1131,67 @@ async def confirm_delete_profile(
     )
 
 
-@settings_router.callback_query(F.data == "PRIVACY_DELETE_PROFILE")
+@settings_router.callback_query(
+    F.data == "PRIVACY_DELETE_PROFILE"
+)
 async def schedule_delete_profile(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    user, language = await get_user_settings_context(callback)
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    context, language = (
+        await get_user_settings_context(
+            callback
+        )
+    )
+
+    if not context:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
         return
 
     async with get_session() as session:
-        fresh_user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if not fresh_user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+        try:
+            await UserSettingsService(
+                session
+            ).schedule_profile_deletion(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+            )
+        except UserSettingsNotFoundError:
+            await callback.answer(
+                t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                show_alert=True,
+            )
             return
-
-        await PrivacyService(PrivacyRepository(session)).schedule_profile_deletion(
-            tenant_id=fresh_user.tenant_id,
-            user_id=fresh_user.id,
-        )
 
     await callback.answer()
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "privacy_deletion_scheduled",
-            language,
-        ),
-        reply_markup=privacy_settings_keyboard(
-            language
-        ),
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "privacy_deletion_scheduled",
+                language,
+            ),
+            reply_markup=(
+                privacy_settings_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )

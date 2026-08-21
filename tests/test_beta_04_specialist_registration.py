@@ -95,17 +95,44 @@ async def cleanup_legal_documents(session, tenant_id):
     await session.commit()
 
 
-async def ensure_legal_documents(session, tenant_id):
+async def ensure_legal_documents(
+    session,
+    tenant_id,
+):
     for doc_type in REQUIRED_SPECIALIST_CONSENTS:
+        existing = await session.execute(
+            select(LegalDocument.id)
+            .where(
+                LegalDocument.tenant_id
+                == tenant_id,
+                LegalDocument.doc_type
+                == doc_type,
+                LegalDocument.language
+                == "ru",
+                LegalDocument.status
+                == "published",
+            )
+            .limit(1)
+        )
+
+        if existing.scalar_one_or_none():
+            continue
+
         session.add(
             LegalDocument(
                 tenant_id=tenant_id,
                 doc_type=doc_type,
                 version=LEGAL_TEST_VERSION,
                 language="ru",
-                title=f"{doc_type} beta 0.4 test title",
-                content_text=f"{doc_type} beta 0.4 test content",
-                status="active",
+                title=(
+                    f"{doc_type} beta 0.4 "
+                    "test title"
+                ),
+                content_text=(
+                    f"{doc_type} beta 0.4 "
+                    "test content"
+                ),
+                status="published",
             )
         )
 
@@ -533,54 +560,157 @@ def test_specialist_fsm_uses_geo_provider_for_location_selection():
         assert len(callback_data.encode("utf-8")) <= 64
 
 def test_specialist_cabinet_s1_matches_tz10_contract():
-    billing_source = open("handlers/billing.py", encoding="utf-8").read()
-    texts_source = open("ui/texts.py", encoding="utf-8").read()
+    import ast
 
-    for fragment in [
-        "def cabinet_menu_keyboard",
-        'callback_data="SPEC_REQUESTS"',
-        'callback_data="SPEC_DIALOGS"',
-        'callback_data="CAB_PROFILE"',
-        'callback_data="SPEC_SERVICES"',
-        'callback_data="CAB_PORTFOLIO"',
-        'callback_data="SPEC_REVIEWS"',
-        'callback_data="BETA_DISABLED:promotion"',
-        'callback_data="SPEC_SETTINGS"',
-        'callback_data="ROLE_SWITCH_MENU"',
-        "async def show_specialist_cabinet",
+    common_source = open(
+        (
+            "handlers/"
+            "specialist_cabinet_common.py"
+        ),
+        encoding="utf-8",
+    ).read()
+    billing_source = open(
+        "handlers/billing.py",
+        encoding="utf-8",
+    ).read()
+    services_source = open(
+        "handlers/specialist_services.py",
+        encoding="utf-8",
+    ).read()
+    portfolio_source = open(
+        "handlers/specialist_portfolio.py",
+        encoding="utf-8",
+    ).read()
+    specialist_billing_source = open(
+        "handlers/specialist_billing.py",
+        encoding="utf-8",
+    ).read()
+    settings_source = open(
+        "handlers/specialist_settings.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open(
+        "ui/texts.py",
+        encoding="utf-8",
+    ).read()
+
+    common_tree = ast.parse(common_source)
+    common_functions = {
+        node.name: node
+        for node in common_tree.body
+        if isinstance(
+            node,
+            (
+                ast.FunctionDef,
+                ast.AsyncFunctionDef,
+            ),
+        )
+    }
+
+    expected_common = {
+        "cabinet_menu_keyboard",
         "format_specialist_cabinet_text",
-        "specialist_status_notice",
-        "list_active_specialist_professions",
-        "ContactRequest.specialist_id == specialist.id",
-        'ContactRequest.status == "new"',
-        'event_type="specialist_menu"',
-        "specialist_no_profile_start",
-        "async def specialist_requests_entry",
-        "async def specialist_dialogs_entry",
-        "async def specialist_services_entry",
-        "async def specialist_reviews_entry",
-        "async def specialist_settings_entry",
-    ]:
-        assert fragment in billing_source
+        "build_specialist_cabinet_payload",
+        "show_specialist_cabinet",
+    }
+    assert expected_common <= common_functions.keys()
 
-    for fragment in [
+    for name in expected_common:
+        assert f"def {name}" not in billing_source
+
+    keyboard_node = common_functions[
+        "cabinet_menu_keyboard"
+    ]
+    callback_values = {
+        node.value
+        for node in ast.walk(keyboard_node)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+    }
+
+    assert {
+        "SPEC_PUBLIC_PROFILE",
+        "SPEC_PRO_CABINETS",
+        "SPEC_DIALOGS",
+        "CAB_EDIT_CATEGORY",
+        "SPEC_SKILLS",
+        "CAB_EDIT_LOCATION",
+        "CAB_EDIT_LANGUAGES",
+        "CAB_PORTFOLIO",
+        "SPEC_AVAILABILITY",
+        "SPEC_MODERATION",
+        "ROLE_SWITCH_MENU",
+    } <= callback_values
+
+    payload_node = common_functions[
+        "build_specialist_cabinet_payload"
+    ]
+    called_names = {
+        node.func.id
+        for node in ast.walk(payload_node)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+    }
+    called_methods = {
+        node.func.attr
+        for node in ast.walk(payload_node)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+    }
+
+    assert (
+        "SpecialistCabinetsService"
+        in called_names
+    )
+    assert "open_cabinet" in called_methods
+
+    assert (
+        "async def specialist_services_entry"
+        in services_source
+    )
+    assert (
+        'F.data == "CAB_PORTFOLIO"'
+        in portfolio_source
+    )
+    assert (
+        'BETA_DISABLED:promotion'
+        in specialist_billing_source
+    )
+    assert (
+        "async def specialist_reviews_entry"
+        in billing_source
+    )
+    assert (
+        "async def specialist_settings_entry"
+        in billing_source
+    )
+    assert (
+        "render_specialist_language_settings"
+        in settings_source
+    )
+
+    for text_key in (
         "specialist_cabinet_title",
-        "specialist_new_requests_label",
-        "specialist_unread_label",
         "specialist_no_profile_start",
-        "specialist_status_active_notice",
-        "specialist_status_pending_notice",
-        "specialist_status_rejected_notice",
-        "specialist_status_paused_notice",
-        "specialist_new_requests_btn",
+        "specialist_cabinet_published",
+        "specialist_cabinet_pending",
+        "specialist_cabinet_draft",
+        "specialist_cabinet_rejected",
+        "specialist_cabinet_hidden",
+        "specialist_cabinet_blocked",
+        "specialist_cabinet_deleted",
+        "specialist_cabinet_unread",
+        "spec_public_profile_btn",
+        "professional_cabinets_btn",
         "specialist_dialogs_btn",
-        "specialist_services_btn",
-        "specialist_requests_placeholder",
-        "specialist_dialogs_placeholder",
-        "specialist_reviews_placeholder",
-        "specialist_settings_placeholder",
-    ]:
-        assert fragment in texts_source
+        "spec_categories_directions_btn",
+        "spec_skills_btn",
+        "spec_geo_work_btn",
+        "specialist_profile_languages_btn",
+        "specialist_profile_portfolio_btn",
+        "spec_availability_btn",
+    ):
+        assert text_key in texts_source
 def test_specialist_registration_s2_start_matches_tz10_contract():
     legal_source = open("handlers/legal.py", encoding="utf-8").read()
     fsm_source = open("fsm/specialist_form.py", encoding="utf-8").read()
@@ -836,8 +966,12 @@ def test_specialist_registration_s8_confirmation_matches_tz10_contract():
     assert '"photo"' not in confirm_block
     assert "spec_draft_missing" in source
 
-    assert "from handlers.billing import show_specialist_cabinet" in source
-    assert "await show_specialist_cabinet(callback, state)" in source
+    assert (
+        "from handlers.specialist_cabinet_common import"
+        in source
+    )
+    assert "show_specialist_cabinet" in source
+    assert "await show_specialist_cabinet(" in source
 
     assert "spec_confirm_btn" in texts_source
     assert "Отправить" in texts_source

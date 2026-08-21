@@ -531,19 +531,67 @@ async def test_show_original_returns_original_only_for_thread_participant(db_ses
         await cleanup_test_user(db_session, data["specialist_platform_id"])
         await cleanup_legal_documents(db_session, data["tenant_id"])
 
-def test_client_settings_c17_logs_settings_changed_without_new_tables():
-    source = open("handlers/settings.py", encoding="utf-8").read()
+def test_client_settings_use_application_service():
+    handler_source = open(
+        "handlers/settings.py",
+        encoding="utf-8",
+    ).read()
+    settings_service_source = open(
+        "services/user_settings.py",
+        encoding="utf-8",
+    ).read()
+    translation_service_source = open(
+        "services/translation.py",
+        encoding="utf-8",
+    ).read()
+    texts_source = open(
+        "ui/texts.py",
+        encoding="utf-8",
+    ).read()
 
-    assert "EventRepository" in source
-    assert "async def log_settings_changed" in source
-    assert 'event_type="settings_changed"' in source
-    assert 'setting_name="interface_language"' in source
-    assert 'setting_name="message_language"' in source
-    assert 'setting_name="show_original_button"' in source
-    texts_source = open("ui/texts.py", encoding="utf-8").read()
+    assert (
+        "UserSettingsService"
+        in handler_source
+    )
+    assert (
+        "TranslationRepository"
+        not in handler_source
+    )
+    assert (
+        "EventRepository"
+        not in handler_source
+    )
+    assert (
+        "async def log_settings_changed"
+        not in handler_source
+    )
+
+    assert (
+        "TranslationService"
+        in settings_service_source
+    )
+    assert (
+        'event_type="settings_changed"'
+        in translation_service_source
+    )
+    assert (
+        '"setting": "interface_language"'
+        in translation_service_source
+    )
+    assert (
+        '"setting": "message_language"'
+        in translation_service_source
+    )
+    assert (
+        '"setting": "show_original_button"'
+        in translation_service_source
+    )
 
     assert "{notifications}" in texts_source
-    assert "notifications=t(\"settings_enabled\", language)" in source
+    assert (
+        'notifications=t('
+        in handler_source
+    )
 
 def test_translation_default_is_standard():
     source = open(

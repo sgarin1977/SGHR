@@ -1,7 +1,10 @@
 import logging
 from uuid import UUID
 from aiogram import F, Router
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import (
+    TelegramBadRequest,
+    TelegramForbiddenError,
+)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -13,33 +16,14 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-from services.user import UserService
-from database.repositories.contact import ContactChatRepository
-from database.repositories.geo_repository import GeoRepository
-from database.repositories.search import SpecialistSearchRepository
-from database.repositories.specialist import SpecialistRepository
-from database.repositories.moderation import ModerationRepository
-from database.repositories.translation import TranslationRepository
 from database.session import get_session
 from handlers.start import send_global_main_menu
-from services.contact_chat import ContactChatError, ContactChatService
-from services.geo_search import (
-    EmptySearchEvent,
-    GeoSearchService,
-    SearchResultsViewedEvent,
-    SpecialistPublicCard,
-    PublicCardViewEvent,
-)
-from services.geo_service import GeoService, GeoServiceError
-from services.moderation import ModerationError, ModerationService
+from services.contact_chat import ContactChatError
+from services.geo_search import SpecialistPublicCard
+from services.geo_service import GeoServiceError
+from services.moderation import ModerationError
 from services.rate_limit import RateLimitError
-from services.specialist import (
-    SpecialistRegistrationError,
-    SpecialistSearchSelectionService,
-    SpecialistSearchTextService,
-    SpecialistService,
-)
-from services.translation import TranslationError, TranslationService
+from services.specialist import SpecialistRegistrationError
 from ui.texts import t
 from utils.telegram_cleanup import (
     delete_telegram_messages,
@@ -49,12 +33,48 @@ from utils.telegram_cleanup import (
     send_telegram_attachment,
     split_telegram_text,
 )
-from database.repositories.favorites import FavoriteRepository
-from services.favorites import FavoriteService
-from database.repositories.portfolio import PortfolioRepository
-from database.repositories.reviews import ReviewRepository
-from services.reviews import ReviewService, ReviewServiceError
-from services.portfolio import PortfolioService, PortfolioServiceError
+from services.reviews import ReviewServiceError
+from services.portfolio import PortfolioServiceError
+
+from services.user_dialogs import (
+    UserDialogsAccessError,
+    UserDialogsSelectionError,
+    UserDialogsService,
+    UserDialogsThreadError,
+)
+from services.user_complaints import (
+    UserComplaintsAccessError,
+    UserComplaintsSelectionError,
+    UserComplaintsService,
+)
+from services.user_settings import (
+    UserSettingsNotFoundError,
+    UserSettingsService,
+)
+from services.user_search import (
+    UserSearchAccessError,
+    UserSearchQueryError,
+    UserSearchSelectionError,
+    UserSearchService,
+)
+from services.user_favorites import (
+    UserFavoritesAccessError,
+    UserFavoritesService,
+)
+from services.user_search_portfolio import (
+    UserSearchPortfolioAccessError,
+    UserSearchPortfolioSelectionError,
+    UserSearchPortfolioService,
+)
+from services.user_search_reviews import (
+    UserSearchReviewsAccessError,
+    UserSearchReviewsSelectionError,
+    UserSearchReviewsService,
+)
+from services.user_search_location import (
+    UserSearchLocationError,
+    UserSearchLocationService,
+)
 search_router = Router()
 logger = logging.getLogger(__name__)
 
@@ -97,26 +117,27 @@ async def get_interface_language(
     telegram_id: int | str,
     fallback_language: str | None,
 ) -> str:
-    language = normalize_language(fallback_language)
+    language = normalize_language(
+        fallback_language
+    )
 
-    async with get_session() as session:
-        user = await UserService(
-            session
-        ).get_user_by_telegram_id(
-            telegram_id
-        )
+    try:
+        async with get_session() as session:
+            context = await (
+                UserSettingsService(
+                    session
+                ).get_context(
+                    platform_user_id=(
+                        telegram_id
+                    ),
+                )
+            )
+    except UserSettingsNotFoundError:
+        return language
 
-        if not user:
-            return language
-
-        resolved_language = await TranslationService(
-            TranslationRepository(session)
-        ).resolve_interface_language(
-            user_id=user.id,
-            fallback_language=user.language_code,
-        )
-
-    return normalize_language(resolved_language)
+    return normalize_language(
+        context.interface_language
+    )
 
 async def get_search_language(
     state: FSMContext,
@@ -330,15 +351,22 @@ async def collapse_search_results_to_callback_message(
 
 async def get_requester_context(
     platform_user_id: int | str,
-) -> tuple[UUID | None, UUID | None]:
-    async with get_session() as session:
-        context = await UserService(
-            session
-        ).get_requester_context(
-            platform_user_id
-        )
-
-    if not context:
+) -> tuple[
+    UUID | None,
+    UUID | None,
+]:
+    try:
+        async with get_session() as session:
+            context = await (
+                UserSettingsService(
+                    session
+                ).get_context(
+                    platform_user_id=(
+                        platform_user_id
+                    ),
+                )
+            )
+    except UserSettingsNotFoundError:
         return None, None
 
     return (
@@ -392,21 +420,33 @@ async def resume_public_portfolio_after_auth(
 
     try:
         async with get_session() as session:
-            items = await PortfolioService(
-                PortfolioRepository(session)
-            ).list_active_items_for_viewer(
-                tenant_id=tenant_id,
-                specialist_id=UUID(specialist_id),
-                professional_cabinet_id=(
-                    UUID(professional_cabinet_id)
-                    if professional_cabinet_id
-                    else None
-                ),
-                viewer_user_id=user_id,
-                page=0,
+            portfolio_page = await (
+                UserSearchPortfolioService(
+                    session
+                ).open_portfolio(
+                    platform_user_id=(
+                        message.from_user.id
+                    ),
+                    specialist_id=(
+                        specialist_id
+                    ),
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                    page=0,
+                )
             )
+
+        language = (
+            portfolio_page.actor.language
+        )
+        items = list(
+            portfolio_page.items
+        )
     except (
         PortfolioServiceError,
+        UserSearchPortfolioAccessError,
+        UserSearchPortfolioSelectionError,
         ValueError,
     ) as exc:
         logger.warning(
@@ -636,22 +676,34 @@ async def resume_public_reviews_after_auth(
 
     try:
         async with get_session() as session:
-            review_page = await ReviewService(
-                ReviewRepository(session)
-            ).list_public_reviews_for_viewer(
-                tenant_id=tenant_id,
-                specialist_id=UUID(specialist_id),
-                professional_cabinet_id=(
-                    UUID(professional_cabinet_id)
-                    if professional_cabinet_id
-                    else None
-                ),
-                viewer_user_id=user_id,
-                page=0,
-                page_size=PUBLIC_REVIEW_PAGE_SIZE,
+            reviews_result = await (
+                UserSearchReviewsService(
+                    session
+                ).open_reviews(
+                    platform_user_id=(
+                        message.from_user.id
+                    ),
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                    page=0,
+                    page_size=(
+                        PUBLIC_REVIEW_PAGE_SIZE
+                    ),
+                )
             )
+
+        review_page = (
+            reviews_result.review_page
+        )
+        language = (
+            reviews_result.actor.language
+        )
     except (
         ReviewServiceError,
+        UserSearchReviewsAccessError,
+        UserSearchReviewsSelectionError,
         ValueError,
     ) as exc:
         logger.warning(
@@ -793,36 +845,63 @@ async def resume_post_auth_action(
     ):
         return False
 
-    user_id, tenant_id = await get_requester_context(
-        message.from_user.id,
-    )
-    if not user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            actor_context = await (
+                UserSettingsService(
+                    session
+                ).get_context(
+                    platform_user_id=(
+                        message.from_user.id
+                    ),
+                )
+            )
+    except UserSettingsNotFoundError:
         return False
+
+    user_id = actor_context.user_id
+    tenant_id = actor_context.tenant_id
+    language = (
+        actor_context.interface_language
+    )
 
     await state.update_data(post_auth_action=None)
 
     if action == "contact":
         try:
             async with get_session() as session:
-                chat = await ContactChatService(
-                    ContactChatRepository(session)
-                ).open_contact_chat(
-                    tenant_id=tenant_id,
-                    from_user_id=user_id,
-                    specialist_id=UUID(specialist_id),
-                    profession_id=(
-                        UUID(profession_id)
-                        if profession_id
-                        else None
-                    ),
-                    system_message=t(
-                        "contact_chat_first_prompt",
-                        language,
-                    ),
-                    original_language=language,
+                contact_action = await (
+                    UserDialogsService(
+                        session
+                    ).open_contact(
+                        platform_user_id=(
+                            message.from_user.id
+                        ),
+                        specialist_id=(
+                            specialist_id
+                        ),
+                        profession_id=(
+                            profession_id
+                        ),
+                        system_message=t(
+                            "contact_chat_first_prompt",
+                            language,
+                        ),
+                        original_language=(
+                            language
+                        ),
+                    )
                 )
+
+            chat = contact_action.chat
+            user_id = (
+                contact_action.actor.user_id
+            )
+
         except (
             ContactChatError,
+            UserDialogsAccessError,
+            UserDialogsSelectionError,
             ValueError,
         ) as exc:
             logger.warning(
@@ -903,16 +982,22 @@ async def resume_post_auth_action(
     if action == "favorite":
         try:
             async with get_session() as session:
-                is_saved = await FavoriteService(
-                    FavoriteRepository(session)
-                ).toggle_professional_cabinet(
-                    tenant_id=tenant_id,
-                    user_id=user_id,
-                    professional_cabinet_id=UUID(
-                        professional_cabinet_id
-                    ),
+                favorite_action = await (
+                    UserFavoritesService(
+                        session
+                    ).toggle_favorite(
+                        platform_user_id=(
+                            message.from_user.id
+                        ),
+                        professional_cabinet_id=(
+                            professional_cabinet_id
+                        ),
+                    )
                 )
 
+            is_saved = bool(
+                favorite_action.result
+            )
             text_key = (
                 "favorite_saved"
                 if is_saved
@@ -1027,19 +1112,20 @@ def callback_index(callback: CallbackQuery) -> int | None:
 
 async def load_search_profession_options(
     *,
-    category_id: UUID | None,
+    category_id: UUID | str | None,
     language: str,
 ):
     async with get_session() as session:
-        return await (
-            SpecialistSearchSelectionService(
-                SpecialistRepository(session)
-            ).list_profession_options(
-                category_id=category_id,
-                language=language,
-                limit=100,
-            )
+        action = await UserSearchService(
+            session
+        ).list_professions(
+            platform_user_id=None,
+            category_id=category_id,
+            fallback_language=language,
+            limit=100,
         )
+
+    return action.result
 
 def telegram_chat_id(platform_user_id: str | int | None) -> int | None:
     if platform_user_id is None:
@@ -1712,8 +1798,34 @@ async def render_public_portfolio(
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
 
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not requester_user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            portfolio_page = await (
+                UserSearchPortfolioService(
+                    session
+                ).open_portfolio(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    specialist_id=(
+                        specialist_id
+                    ),
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                    page=page,
+                )
+            )
+
+        language = (
+            portfolio_page.actor.language
+        )
+        items = list(
+            portfolio_page.items
+        )
+        await callback.answer()
+
+    except UserSearchPortfolioAccessError:
         await store_post_auth_action(
             callback=callback,
             state=state,
@@ -1722,25 +1834,10 @@ async def render_public_portfolio(
         )
         return
 
-    await callback.answer()
-
-    try:
-        async with get_session() as session:
-            items = await PortfolioService(
-                PortfolioRepository(session)
-            ).list_active_items_for_viewer(
-                tenant_id=tenant_id,
-                specialist_id=UUID(specialist_id),
-                professional_cabinet_id=(
-                    UUID(professional_cabinet_id)
-                    if professional_cabinet_id
-                    else None
-                ),
-                viewer_user_id=requester_user_id,
-                page=page,
-            )
-
-    except PortfolioServiceError as exc:
+    except (
+        PortfolioServiceError,
+        UserSearchPortfolioSelectionError,
+    ) as exc:
         logger.warning(
             "public_portfolio_load_failed "
             "specialist_id=%s error=%s",
@@ -1814,8 +1911,13 @@ async def render_public_portfolio(
         )
         return
 
-    normalized_page = max(0, min(int(page), len(items) - 1))
-    view = items[normalized_page]
+    normalized_page = (
+        portfolio_page.page
+    )
+    view = portfolio_page.selected
+
+    if view is None:
+        return
 
     await state.update_data(
         public_portfolio_page=normalized_page,
@@ -1935,58 +2037,60 @@ async def store_complaint_target_summary(
         }
         and specialist_id
     ):
-        _, tenant_id = (
-            await get_requester_context(
-                telegram_id
-            )
-        )
-
-        if tenant_id:
+        try:
             async with get_session() as session:
-                card = await GeoSearchService(
-                    SpecialistSearchRepository(
+                card_action = await (
+                    UserSearchService(
                         session
-                    )
-                ).get_public_card(
-                    specialist_id=UUID(
-                        specialist_id
-                    ),
-                    professional_cabinet_id=(
-                        UUID(
+                    ).get_selected_card(
+                        platform_user_id=(
+                            telegram_id
+                        ),
+                        specialist_id=(
+                            specialist_id
+                        ),
+                        professional_cabinet_id=(
                             professional_cabinet_id
-                        )
-                        if professional_cabinet_id
-                        else None
-                    ),
-                    tenant_id=tenant_id,
-                    log_event=False,
-                    language=language,
+                        ),
+                        fallback_language=(
+                            language
+                        ),
+                    )
                 )
 
-            if card:
-                if (
-                    target_type
-                    == "professional_cabinet"
-                ):
-                    target_parts = [
-                        part
-                        for part in {
-                            "display_name": (
-                                card.display_name
-                            ),
-                            "profession_name": (
-                                card.profession_name
-                            ),
-                        }.values()
-                        if part
-                    ]
-                    target_name = " / ".join(
-                        target_parts
-                    )
-                else:
-                    target_name = (
-                        card.display_name
-                    )
+            card = card_action.result
+
+        except (
+            UserSearchAccessError,
+            UserSearchSelectionError,
+            ValueError,
+        ):
+            card = None
+
+        if card:
+            if (
+                target_type
+                == "professional_cabinet"
+            ):
+                target_parts = [
+                    part
+                    for part in {
+                        "display_name": (
+                            card.display_name
+                        ),
+                        "profession_name": (
+                            card.profession_name
+                        ),
+                    }.values()
+                    if part
+                ]
+                target_name = " / ".join(
+                    target_parts
+                )
+            else:
+                target_name = (
+                    card.display_name
+                )
 
     target_summary = (
         f"{target_label}: {target_name}"
@@ -1999,7 +2103,6 @@ async def store_complaint_target_summary(
             target_summary
         ),
     )
-
 def complaint_reason_label(reason: str, language: str) -> str:
     labels = {
         "fake": t("complaint_reason_fake", language),
@@ -2862,25 +2965,31 @@ async def show_contact_chat(
 
     try:
         async with get_session() as session:
-            contact_service = ContactChatService(
-                ContactChatRepository(session)
-            )
-            detail = await (
-                contact_service
-                .get_thread_detail_for_viewer(
-                    thread_id=UUID(thread_id),
-                    user_id=user_id,
-                    participant_role=(
+            contact_detail = await (
+                UserDialogsService(
+                    session
+                ).get_contact_chat(
+                    platform_user_id=(
+                        message.from_user.id
+                    ),
+                    thread_id=thread_id,
+                    viewer_role=(
                         normalized_role
                     ),
-                    language=language,
                 )
             )
-            await contact_service.mark_thread_read(
-                thread_id=UUID(thread_id),
-                user_id=user_id,
-            )
-    except ContactChatError:
+
+        detail = contact_detail.detail
+        language = (
+            contact_detail.actor.language
+        )
+
+    except (
+        ContactChatError,
+        UserDialogsAccessError,
+        UserDialogsThreadError,
+        ValueError,
+    ):
         logger.exception(
             "contact_chat_open_failed thread_id=%s",
             thread_id,
@@ -3107,83 +3216,40 @@ async def open_contact_thread_from_notification(
     )
 
     try:
-        thread_id = UUID(
-            (callback.data or "").split(
-                ":",
-                1,
-            )[1]
+        thread_id = (
+            callback.data or ""
+        ).split(
+            ":",
+            1,
+        )[1]
+
+        async with get_session() as session:
+            notification = await (
+                UserDialogsService(
+                    session
+                ).open_thread_notification(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    thread_id=thread_id,
+                )
+            )
+
+        context = notification.context
+        receiver_user_id = (
+            notification.actor.user_id
         )
+        language = (
+            notification.actor.language
+        )
+
     except (
         IndexError,
         TypeError,
-        ValueError,
-    ):
-        await callback.answer(
-            t(
-                "contact_thread_not_found",
-                language,
-            ),
-            show_alert=True,
-        )
-        return
-
-    (
-        receiver_user_id,
-        tenant_id,
-    ) = await get_requester_context(
-        callback.from_user.id
-    )
-
-    if not receiver_user_id or not tenant_id:
-        await callback.answer(
-            t(
-                "search_contact_user_not_found",
-                language,
-            ),
-            show_alert=True,
-        )
-        return
-
-    try:
-        async with get_session() as session:
-            context = await ContactChatService(
-                ContactChatRepository(session)
-            ).get_thread_notification_context(
-                thread_id=thread_id,
-                receiver_user_id=(
-                    receiver_user_id
-                ),
-                language=language,
-            )
-
-            if (
-                context.receiver_role
-                == "specialist"
-            ):
-                await SpecialistService(
-                    SpecialistRepository(session)
-                ).switch_active_professional_cabinet(
-                    tenant_id=tenant_id,
-                    user_id=receiver_user_id,
-                    specialist_id=(
-                        context.specialist_id
-                    ),
-                    professional_cabinet_id=(
-                        context
-                        .professional_cabinet_id
-                    ),
-                )
-
-            await UserService(
-                session
-            ).switch_active_role(
-                callback.from_user.id,
-                context.receiver_role,
-            )
-
-    except (
         ContactChatError,
         SpecialistRegistrationError,
+        UserDialogsAccessError,
+        UserDialogsThreadError,
         ValueError,
     ):
         logger.exception(
@@ -3232,24 +3298,6 @@ async def open_contact_thread_from_notification(
         language=language,
     )
 
-async def translate_message_for_notification(
-    *,
-    session,
-    message_id: UUID,
-    receiver_user_id: UUID,
-) -> tuple[str, bool, str]:
-    result = await TranslationService(
-        TranslationRepository(session)
-    ).translate_notification_message(
-        message_id=message_id,
-        receiver_user_id=receiver_user_id,
-    )
-
-    return (
-        result.display_text,
-        result.used_translation,
-        result.translation_status,
-    )
 
 def format_search_filters_summary(data: dict, language: str) -> str:
     category = (
@@ -4300,295 +4348,118 @@ async def render_results(
         last_menu_message_id=None,
     )
 
-    category_id = UUID(data["category_id"]) if data.get("category_id") else None
-    profession_id = UUID(data["profession_id"]) if data.get("profession_id") else None
-    selected_profession_ids = [
-        UUID(item)
-        for item in (data.get("selected_profession_ids") or [])
-    ]
-    city_id = UUID(data["city_id"]) if data.get("city_id") else None
-    country_id = UUID(data["country_id"]) if data.get("country_id") else None
-    has_geo = data.get("latitude") is not None and data.get("longitude") is not None
-    without_location = (
-        data.get("location_state") == "without"
-        or data.get("work_format") == "remote"
-    )
-
-    if not city_id and not has_geo and not without_location:
-        await state.update_data(location_state="without")
-        data["location_state"] = "without"
-        without_location = True
-    country_wide = bool(data.get("country_wide"))
-    language_code = data.get("language_code")
-    verified_only = bool(data.get("verified_only"))
-    available_only = bool(data.get("available_only"))
-    premium_only = bool(data.get("premium_only"))
-    work_format = data.get("work_format")
-    remote_only = work_format == "remote"
-    rating_min = data.get("rating_min")
-    sort_by = data.get("sort_by") or "distance"
-
-    async with get_session() as session:
-        service = GeoSearchService(SpecialistSearchRepository(session))
-
-        if remote_only:
-            results = await service.search_without_location(
-                category_id=category_id,
-                profession_id=profession_id,
-                profession_ids=selected_profession_ids,
-                interface_language=language,
-                language_code=language_code,
-                verified_only=verified_only,
-                premium_only=premium_only,
-                available_only=available_only,
-                work_format=work_format,
-                rating_min=rating_min,
-                limit=PER_PAGE + 1,
-                offset=page * PER_PAGE,
-                requester_user_id=requester_user_id,
-                tenant_id=tenant_id,
-                log_event=True,
-                sort_by=sort_by,
+    try:
+        async with get_session() as session:
+            search_page = await (
+                UserSearchService(
+                    session
+                ).search_results(
+                    platform_user_id=(
+                        platform_user_id
+                    ),
+                    data=data,
+                    page=page,
+                    fallback_language=(
+                        language
+                    ),
+                    page_size=PER_PAGE,
+                    default_radius_km=(
+                        DEFAULT_RADIUS_KM
+                    ),
+                )
             )
+    except UserSearchAccessError:
+        try:
+            await processing_message.delete()
+        except TelegramBadRequest:
+            pass
 
-        elif has_geo:
-            results = await service.search_by_radius(
-                latitude=float(data["latitude"]),
-                longitude=float(data["longitude"]),
-                radius_km=float(data.get("radius_km") or DEFAULT_RADIUS_KM),
-                category_id=category_id,
-                country_id=country_id,
-                country_wide=country_wide,
-                interface_language=language,
-                profession_id=profession_id,
-                profession_ids=selected_profession_ids,
-                language_code=language_code,
-                verified_only=verified_only,
-                limit=PER_PAGE + 1,
-                offset=page * PER_PAGE,
-                requester_user_id=requester_user_id,
-                tenant_id=tenant_id,
-                log_event=True,
-                premium_only=premium_only,
-                work_format=work_format,
-                rating_min=rating_min,
-                sort_by=sort_by,
-            )
-        elif city_id:
-            results = await service.search_by_city(
-                city_id=city_id,
-                category_id=category_id,
-                profession_id=profession_id,
-                profession_ids=selected_profession_ids,
-                country_id=country_id,
-                interface_language=language,
-                language_code=language_code,
-                verified_only=verified_only,
-                premium_only=premium_only,
-                available_only=available_only,
-                work_format=work_format,
-                rating_min=rating_min,
-                limit=PER_PAGE + 1,
-                offset=page * PER_PAGE,
-                requester_user_id=requester_user_id,
-                tenant_id=tenant_id,
-                log_event=True,
-                sort_by=sort_by,
-            )
-        elif without_location:
-            results = await service.search_without_location(
-                category_id=category_id,
-                profession_id=profession_id,
-                profession_ids=selected_profession_ids,
-                interface_language=language,
-                language_code=language_code,
-                verified_only=verified_only,
-                premium_only=premium_only,
-                available_only=available_only,
-                work_format=work_format,
-                rating_min=rating_min,
-                limit=PER_PAGE + 1,
-                offset=page * PER_PAGE,
-                requester_user_id=requester_user_id,
-                tenant_id=tenant_id,
-                log_event=True,
-                sort_by=sort_by,
+        if isinstance(
+            event,
+            CallbackQuery,
+        ):
+            await event.message.answer(
+                t(
+                    "auth_required_start",
+                    language,
+                )
             )
         else:
-            results = []
-
-    total_results = results
-
-    if len(results) >= PER_PAGE + 1 or page > 0:
-        async with get_session() as session:
-            total_service = GeoSearchService(SpecialistSearchRepository(session))
-
-            if remote_only:
-                total_results = await total_service.search_without_location(
-                    category_id=category_id,
-                    profession_id=profession_id,
-                    profession_ids=selected_profession_ids,
-                    interface_language=language,
-                    language_code=language_code,
-                    verified_only=verified_only,
-                    premium_only=premium_only,
-                    work_format=work_format,
-                    rating_min=rating_min,
-                    limit=200,
-                    offset=0,
-                    requester_user_id=requester_user_id,
-                    tenant_id=tenant_id,
-                    log_event=False,
-                    sort_by=sort_by,
+            await event.answer(
+                t(
+                    "auth_required_start",
+                    language,
                 )
-            elif has_geo:
-                total_results = await total_service.search_by_radius(
-                    latitude=float(data["latitude"]),
-                    longitude=float(data["longitude"]),
-                    radius_km=float(data.get("radius_km") or DEFAULT_RADIUS_KM),
-                    category_id=category_id,
-                    country_id=country_id,
-                    country_wide=country_wide,
-                    interface_language=language,
-                    profession_id=profession_id,
-                    profession_ids=selected_profession_ids,
-                    language_code=language_code,
-                    verified_only=verified_only,
-                    limit=200,
-                    offset=0,
-                    requester_user_id=requester_user_id,
-                    tenant_id=tenant_id,
-                    log_event=False,
-                    premium_only=premium_only,
-                    work_format=work_format,
-                    rating_min=rating_min,
-                    sort_by=sort_by,
-                )
-            elif city_id:
-                total_results = await total_service.search_by_city(
-                    city_id=city_id,
-                    category_id=category_id,
-                    profession_id=profession_id,
-                    profession_ids=selected_profession_ids,
-                    country_id=country_id,
-                    interface_language=language,
-                    language_code=language_code,
-                    verified_only=verified_only,
-                    premium_only=premium_only,
-                    work_format=work_format,
-                    rating_min=rating_min,
-                    limit=200,
-                    offset=0,
-                    requester_user_id=requester_user_id,
-                    tenant_id=tenant_id,
-                    log_event=False,
-                    sort_by=sort_by,
-                )
-            elif without_location:
-                total_results = await total_service.search_without_location(
-                    category_id=category_id,
-                    profession_id=profession_id,
-                    profession_ids=selected_profession_ids,
-                    interface_language=language,
-                    language_code=language_code,
-                    verified_only=verified_only,
-                    premium_only=premium_only,
-                    work_format=work_format,
-                    rating_min=rating_min,
-                    limit=200,
-                    offset=0,
-                    requester_user_id=requester_user_id,
-                    tenant_id=tenant_id,
-                    log_event=False,
-                    sort_by=sort_by,
-                )
+            )
+        return
+    except UserSearchSelectionError:
+        try:
+            await processing_message.delete()
+        except TelegramBadRequest:
+            pass
 
-    total_count = len(total_results)
+        if isinstance(
+            event,
+            CallbackQuery,
+        ):
+            await event.message.answer(
+                t(
+                    "search_category_not_found",
+                    language,
+                )
+            )
+        else:
+            await event.answer(
+                t(
+                    "search_category_not_found",
+                    language,
+                )
+            )
+        return
 
-    logger.info(
-        "search_results_rendered telegram_id=%s results=%s page=%s has_geo=%s city_id=%s category_id=%s profession_id=%s sort_by=%s",
-        platform_user_id,
-        len(results),
-        page,
-        has_geo,
-        city_id,
-        category_id,
-        profession_id,
-        sort_by,
+    language = search_page.actor.language
+    filters = search_page.filters
+    page = search_page.page
+    visible_results = list(
+        search_page.visible_results
+    )
+    total_count = search_page.total_count
+    has_next = search_page.has_next
+    saved_professional_cabinet_ids = set(
+        search_page
+        .saved_professional_cabinet_ids
     )
 
-    has_next = (page + 1) * PER_PAGE < total_count
-    visible_results = results[:PER_PAGE]
-
-    saved_professional_cabinet_ids: set[
-        UUID
-    ] = set()
-
     if (
-        requester_user_id
-        and tenant_id
-        and visible_results
+        data.get("location_state")
+        != filters.location_state
     ):
-        professional_cabinet_ids = [
-            result.professional_cabinet.id
-            for result in visible_results
-            if result.professional_cabinet
-        ]
+        await state.update_data(
+            location_state=(
+                filters.location_state
+            ),
+        )
+        data["location_state"] = (
+            filters.location_state
+        )
 
-        async with get_session() as session:
-            saved_professional_cabinet_ids = (
-                await FavoriteService(
-                    FavoriteRepository(session)
-                ).list_saved_professional_cabinet_ids(
-                    tenant_id=tenant_id,
-                    user_id=requester_user_id,
-                    professional_cabinet_ids=(
-                        professional_cabinet_ids
-                    ),
-                )
-            )
-
-    if requester_user_id and tenant_id:
-        async with get_session() as session:
-            await GeoSearchService(
-                SpecialistSearchRepository(session)
-            ).record_results_viewed(
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                event=SearchResultsViewedEvent(
-                    platform_user_id=(
-                        str(platform_user_id)
-                        if platform_user_id is not None
-                        else None
-                    ),
-                    page=page,
-                    visible_count=len(visible_results),
-                    has_next=has_next,
-                    category_id=data.get("category_id"),
-                    profession_id=data.get(
-                        "profession_id"
-                    ),
-                    city_id=data.get("city_id"),
-                    location_state=data.get(
-                        "location_state"
-                    ),
-                    radius_km=data.get("radius_km"),
-                    country_wide=bool(
-                        data.get("country_wide")
-                    ),
-                    sort_by=data.get("sort_by"),
-                    category_name=data.get(
-                        "category_name"
-                    ),
-                    profession_name=data.get(
-                        "profession_name"
-                    ),
-                    city_name=data.get("city_name"),
-                    search_text_query=data.get(
-                        "search_text_query"
-                    ),
-                ),
-            )
+    logger.info(
+        (
+            "search_results_rendered "
+            "telegram_id=%s results=%s "
+            "page=%s has_geo=%s city_id=%s "
+            "category_id=%s profession_id=%s "
+            "sort_by=%s"
+        ),
+        platform_user_id,
+        len(visible_results),
+        page,
+        filters.has_geo,
+        filters.city_id,
+        filters.category_id,
+        filters.profession_id,
+        filters.sort_by,
+    )
 
     await state.update_data(
         results_page=page,
@@ -4598,7 +4469,10 @@ async def render_results(
         ],
         result_professional_cabinet_ids=[
             (
-                str(item.professional_cabinet.id)
+                str(
+                    item
+                    .professional_cabinet.id
+                )
                 if item.professional_cabinet
                 else None
             )
@@ -4607,7 +4481,9 @@ async def render_results(
         result_profession_ids=[
             (
                 str(
-                    item.professional_cabinet.profession_id
+                    item
+                    .professional_cabinet
+                    .profession_id
                 )
                 if item.professional_cabinet
                 else None
@@ -4621,54 +4497,34 @@ async def render_results(
     )
 
     if not visible_results:
-        if requester_user_id and tenant_id:
-            async with get_session() as session:
-                await GeoSearchService(
-                    SpecialistSearchRepository(session)
-                ).record_empty_search(
-                    tenant_id=tenant_id,
-                    user_id=requester_user_id,
-                    event=EmptySearchEvent(
-                        page=page,
-                        category_id=data.get(
-                            "category_id"
-                        ),
-                        profession_id=data.get(
-                            "profession_id"
-                        ),
-                        city_id=data.get("city_id"),
-                        location_state=data.get(
-                            "location_state"
-                        ),
-                        radius_km=data.get("radius_km"),
-                        country_wide=bool(
-                            data.get("country_wide")
-                        ),
-                        language_code=data.get(
-                            "language_code"
-                        ),
-                        work_format=data.get(
-                            "work_format"
-                        ),
-                    ),
-                )
-
-        text = format_empty_results_text(data, language)
-        keyboard = empty_results_keyboard(data, language)
+        text = format_empty_results_text(
+            data,
+            language,
+        )
+        keyboard = empty_results_keyboard(
+            data,
+            language,
+        )
     else:
-        start_number = page * PER_PAGE + 1
+        start_number = (
+            page * PER_PAGE + 1
+        )
         header = format_results_header(
             data=data,
             language=language,
             page=page,
-            visible_count=len(visible_results),
+            visible_count=len(
+                visible_results
+            ),
             total_count=total_count,
         )
         text = header
-        keyboard = results_navigation_keyboard(
-            page=page,
-            has_next=has_next,
-            language=language,
+        keyboard = (
+            results_navigation_keyboard(
+                page=page,
+                has_next=has_next,
+                language=language,
+            )
         )
 
     await state.set_state(SpecialistSearchFSM.viewing_results)
@@ -4782,19 +4638,27 @@ async def render_results(
 
 
 @search_router.callback_query(F.data.in_({"M_FIND", "search_start"}))
-async def start_search(callback: CallbackQuery, state: FSMContext):
+async def start_search(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     await state.clear()
-    language = await get_interface_language(callback.from_user.id, callback.from_user.language_code)
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if requester_user_id and tenant_id:
-        async with get_session() as session:
-            await GeoSearchService(
-                SpecialistSearchRepository(session)
-            ).record_search_opened(
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                source=callback.data,
-            )
+
+    async with get_session() as session:
+        actor = await UserSearchService(
+            session
+        ).open_search(
+            platform_user_id=(
+                callback.from_user.id
+            ),
+            fallback_language=(
+                callback.from_user.language_code
+            ),
+            source=callback.data,
+        )
+
+    language = actor.language
+
     await state.update_data(
         user_language=language,
         category_id=None,
@@ -4873,39 +4737,32 @@ async def ask_text_search_query(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @search_router.callback_query(F.data == "SEARCH_HISTORY")
-async def show_search_history(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-
-    if not requester_user_id or not tenant_id:
-        await callback.answer()
-
-        menu_message = await show_callback_message(
+async def show_search_history(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    fallback_language = (
+        await get_search_language(
+            state,
             callback,
-            t(
-                "search_history_empty",
-                language,
-            ),
-            search_history_keyboard(
-                language
-            ),
         )
-
-        await state.update_data(
-            last_menu_message_id=(
-                menu_message.message_id
-            ),
-        )
-        return
+    )
 
     async with get_session() as session:
-        history_items = await GeoSearchService(
-            SpecialistSearchRepository(session)
-        ).list_recent_search_history(
-            tenant_id=tenant_id,
-            user_id=requester_user_id,
+        action = await UserSearchService(
+            session
+        ).list_history(
+            platform_user_id=(
+                callback.from_user.id
+            ),
+            fallback_language=(
+                fallback_language
+            ),
             limit=5,
         )
+
+    language = action.actor.language
+    history_items = action.result
 
     if not history_items:
         await callback.answer()
@@ -4928,7 +4785,13 @@ async def show_search_history(callback: CallbackQuery, state: FSMContext):
         )
         return
 
-    lines = [t("search_history_title", language), ""]
+    lines = [
+        t(
+            "search_history_title",
+            language,
+        ),
+        "",
+    ]
 
     for index, payload in enumerate(
         history_items,
@@ -4969,16 +4832,31 @@ async def receive_text_search_query(
     state: FSMContext,
 ):
     data = await state.get_data()
-    language = await get_search_language(
-        state,
-        message,
+    fallback_language = (
+        await get_search_language(
+            state,
+            message,
+        )
     )
-    query = (
-        message.text
-        or ""
-    ).strip()
+    raw_query = message.text or ""
 
-    if len(query) < 2:
+    try:
+        async with get_session() as session:
+            action = await UserSearchService(
+                session
+            ).search_text(
+                platform_user_id=(
+                    message.from_user.id
+                    if message.from_user
+                    else None
+                ),
+                query=raw_query,
+                fallback_language=(
+                    fallback_language
+                ),
+                limit=10,
+            )
+    except UserSearchQueryError:
         await delete_telegram_messages(
             bot=message.bot,
             chat_id=message.chat.id,
@@ -4995,10 +4873,12 @@ async def receive_text_search_query(
                 ),
                 text=t(
                     "search_text_query_too_short",
-                    language,
+                    fallback_language,
                 ),
-                reply_markup=search_start_keyboard(
-                    language
+                reply_markup=(
+                    search_start_keyboard(
+                        fallback_language
+                    )
                 ),
             )
         )
@@ -5010,17 +4890,13 @@ async def receive_text_search_query(
         )
         return
 
-    async with get_session() as session:
-        search_result = await SpecialistSearchTextService(
-            SpecialistRepository(session)
-        ).search(
-            query,
-            language=language,
-            limit=10,
-        )
-
+    language = action.actor.language
+    search_result = action.result
     parsed_query = search_result.parsed_query
-    professions = list(search_result.professions)
+    query = parsed_query.original_query
+    professions = list(
+        search_result.professions
+    )
 
     if not professions:
         await delete_telegram_messages(
@@ -5048,7 +4924,10 @@ async def receive_text_search_query(
                         [
                             InlineKeyboardButton(
                                 text=t(
-                                    "search_choose_category_btn",
+                                    (
+                                        "search_choose_"
+                                        "category_btn"
+                                    ),
                                     language,
                                 ),
                                 callback_data=(
@@ -5062,7 +4941,9 @@ async def receive_text_search_query(
                                     "search_menu",
                                     language,
                                 ),
-                                callback_data="search_menu",
+                                callback_data=(
+                                    "search_menu"
+                                ),
                             )
                         ],
                     ]
@@ -5082,14 +4963,31 @@ async def receive_text_search_query(
 
     await state.update_data(
         search_text_query=query,
-        profession_ids=[str(profession.id) for profession in professions],
+        profession_ids=[
+            str(profession.id)
+            for profession in professions
+        ],
         selected_profession_ids=[],
         selected_profession_names=[],
-        city_id=str(parsed_query.city_id) if parsed_query.city_id else None,
+        city_id=(
+            str(parsed_query.city_id)
+            if parsed_query.city_id
+            else None
+        ),
         city_name=parsed_query.city_name,
-        country_id=str(parsed_query.country_id) if parsed_query.country_id else None,
-        country_name=parsed_query.country_name,
-        location_state="city" if parsed_query.city_id else "without",
+        country_id=(
+            str(parsed_query.country_id)
+            if parsed_query.country_id
+            else None
+        ),
+        country_name=(
+            parsed_query.country_name
+        ),
+        location_state=(
+            "city"
+            if parsed_query.city_id
+            else "without"
+        ),
         profession_page=0,
     )
 
@@ -5097,15 +4995,37 @@ async def receive_text_search_query(
         profession = professions[0]
 
         await state.update_data(
-            category_id=str(profession.category_id),
-            profession_id=str(profession.id),
-            profession_name=item_name(profession, language),
-            selected_profession_ids=[str(profession.id)],
-            selected_profession_names=[item_name(profession, language)],
-            location_state="city" if parsed_query.city_id else "without",
+            category_id=str(
+                profession.category_id
+            ),
+            profession_id=str(
+                profession.id
+            ),
+            profession_name=item_name(
+                profession,
+                language,
+            ),
+            selected_profession_ids=[
+                str(profession.id)
+            ],
+            selected_profession_names=[
+                item_name(
+                    profession,
+                    language,
+                )
+            ],
+            location_state=(
+                "city"
+                if parsed_query.city_id
+                else "without"
+            ),
             page=0,
         )
-        await render_results(event=message, state=state, page=0)
+        await render_results(
+            event=message,
+            state=state,
+            page=0,
+        )
         return
 
     await delete_telegram_messages(
@@ -5172,14 +5092,16 @@ async def open_category_filter(callback: CallbackQuery, state: FSMContext):
         data.get("selected_profession_names") or []
     )
     async with get_session() as session:
-        categories = await (
-            SpecialistSearchSelectionService(
-                SpecialistRepository(session)
-            ).list_active_categories(
-                language=language,
-                limit=100,
-            )
+        action = await UserSearchService(
+            session
+        ).list_categories(
+            platform_user_id=None,
+            fallback_language=language,
+            limit=100,
         )
+
+    categories = action.result
+    language = action.actor.language
 
     if not categories:
         await callback.answer()
@@ -5277,14 +5199,16 @@ async def paginate_categories(
     )
 
     async with get_session() as session:
-        categories = await (
-            SpecialistSearchSelectionService(
-                SpecialistRepository(session)
-            ).list_active_categories(
-                language=language,
-                limit=100,
-            )
+        action = await UserSearchService(
+            session
+        ).list_categories(
+            platform_user_id=None,
+            fallback_language=language,
+            limit=100,
         )
+
+    categories = action.result
+    language = action.actor.language
 
     await state.update_data(
         category_ids=[
@@ -5335,25 +5259,30 @@ async def choose_category(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
     category_ids = data.get("category_ids") or []
 
-    if index is None or index >= len(category_ids):
+    if (
+        index is None
+        or index < 0
+        or index >= len(category_ids)
+    ):
         await callback.answer()
         return
 
-    requester_user_id, tenant_id = (
-        await get_requester_context(
-            callback.from_user.id
-        )
-    )
-
-    async with get_session() as session:
-        selection = await SpecialistSearchSelectionService(
-            SpecialistRepository(session)
-        ).select_category(
-            category_id=UUID(category_ids[index]),
-            language=language,
-            tenant_id=tenant_id,
-            user_id=requester_user_id,
-        )
+    try:
+        async with get_session() as session:
+            action = await UserSearchService(
+                session
+            ).select_category(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                category_id=category_ids[index],
+                fallback_language=language,
+            )
+    except UserSearchSelectionError:
+        selection = None
+    else:
+        selection = action.result
+        language = action.actor.language
 
     if not selection:
         await callback.answer(
@@ -5581,7 +5510,11 @@ async def toggle_profession(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
     profession_ids = data.get("profession_ids") or []
 
-    if index is None or index >= len(profession_ids):
+    if (
+        index is None
+        or index < 0
+        or index >= len(profession_ids)
+    ):
         await callback.answer()
         return
 
@@ -5589,24 +5522,25 @@ async def toggle_profession(callback: CallbackQuery, state: FSMContext):
     selected_ids = list(data.get("selected_profession_ids") or [])
     selected_names = list(data.get("selected_profession_names") or [])
 
-    category_id = (
-        UUID(data["category_id"])
-        if data.get("category_id")
-        else None
+    category_id = data.get(
+        "category_id"
     )
 
-    async with get_session() as session:
-        selection = await (
-            SpecialistSearchSelectionService(
-                SpecialistRepository(session)
+    try:
+        async with get_session() as session:
+            action = await UserSearchService(
+                session
             ).select_profession(
-                profession_id=UUID(
-                    profession_id
-                ),
+                platform_user_id=None,
+                profession_id=profession_id,
                 category_id=category_id,
-                language=language,
+                fallback_language=language,
             )
-        )
+    except UserSearchSelectionError:
+        selection = None
+    else:
+        selection = action.result
+        language = action.actor.language
 
     if not selection:
         await callback.answer(
@@ -5734,28 +5668,37 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
     language = await get_search_language(state, callback)
     profession_ids = data.get("profession_ids") or []
 
-    if index is None or index >= len(profession_ids):
+    if (
+        index is None
+        or index < 0
+        or index >= len(profession_ids)
+    ):
         await callback.answer()
         return
 
-    category_id = UUID(data["category_id"]) if data.get("category_id") else None
-
-    requester_user_id, tenant_id = (
-        await get_requester_context(
-            callback.from_user.id
-        )
+    category_id = data.get(
+        "category_id"
     )
 
-    async with get_session() as session:
-        selection = await SpecialistSearchSelectionService(
-            SpecialistRepository(session)
-        ).select_profession(
-            profession_id=UUID(profession_ids[index]),
-            category_id=category_id,
-            language=language,
-            tenant_id=tenant_id,
-            user_id=requester_user_id,
-        )
+    try:
+        async with get_session() as session:
+            action = await UserSearchService(
+                session
+            ).select_profession(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                profession_id=(
+                    profession_ids[index]
+                ),
+                category_id=category_id,
+                fallback_language=language,
+            )
+    except UserSearchSelectionError:
+        selection = None
+    else:
+        selection = action.result
+        language = action.actor.language
 
     if not selection:
         await callback.answer(
@@ -5777,29 +5720,41 @@ async def choose_profession(callback: CallbackQuery, state: FSMContext):
 
 
 @search_router.callback_query(F.data == "search_filter_location")
-async def open_location_filter(callback: CallbackQuery, state: FSMContext):
-    language = await get_search_language(state, callback)
-
-    requester_user_id, tenant_id = (
-        await get_requester_context(
-            callback.from_user.id
+async def open_location_filter(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    fallback_language = (
+        await get_search_language(
+            state,
+            callback,
         )
     )
 
-    if requester_user_id and tenant_id:
-        async with get_session() as session:
-            await GeoSearchService(
-                SpecialistSearchRepository(session)
-            ).record_location_opened(
-                tenant_id=tenant_id,
-                user_id=requester_user_id,
-                source="search_filter",
-            )
+    async with get_session() as session:
+        actor = await UserSearchService(
+            session
+        ).open_location_filter(
+            platform_user_id=(
+                callback.from_user.id
+            ),
+            fallback_language=(
+                fallback_language
+            ),
+            source="search_filter",
+        )
+
+    language = actor.language
 
     await show_callback_message(
         callback,
-        t("search_location_prompt", language),
-        search_location_keyboard(language),
+        t(
+            "search_location_prompt",
+            language,
+        ),
+        search_location_keyboard(
+            language
+        ),
     )
     await callback.answer()
 
@@ -5839,12 +5794,38 @@ async def choose_search_without_location(callback: CallbackQuery, state: FSMCont
     await render_results(event=callback, state=state, page=0)
 
 @search_router.message(SpecialistSearchFSM.entering_location_query)
-async def receive_location_query(message: Message, state: FSMContext):
+async def receive_location_query(
+    message: Message,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = await get_search_language(state, message)
-    query = (message.text or "").strip()
+    fallback_language = (
+        await get_search_language(
+            state,
+            message,
+        )
+    )
+    raw_query = message.text or ""
 
-    if len(query) < 2:
+    try:
+        async with get_session() as session:
+            action = await (
+                UserSearchLocationService(
+                    session
+                ).search_places(
+                    platform_user_id=(
+                        message.from_user.id
+                        if message.from_user
+                        else None
+                    ),
+                    query=raw_query,
+                    fallback_language=(
+                        fallback_language
+                    ),
+                    limit=8,
+                )
+            )
+    except UserSearchLocationError:
         await delete_telegram_messages(
             bot=message.bot,
             chat_id=message.chat.id,
@@ -5860,27 +5841,37 @@ async def receive_location_query(message: Message, state: FSMContext):
                     "last_menu_message_id"
                 ),
                 text=t(
-                    "search_location_query_too_short",
-                    language,
+                    (
+                        "search_location_"
+                        "query_too_short"
+                    ),
+                    fallback_language,
                 ),
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
                             InlineKeyboardButton(
                                 text=t(
-                                    "search_back_to_filters_btn",
-                                    language,
+                                    (
+                                        "search_back_to_"
+                                        "filters_btn"
+                                    ),
+                                    fallback_language,
                                 ),
-                                callback_data="search_filters",
+                                callback_data=(
+                                    "search_filters"
+                                ),
                             )
                         ],
                         [
                             InlineKeyboardButton(
                                 text=t(
                                     "search_menu",
-                                    language,
+                                    fallback_language,
                                 ),
-                                callback_data="search_menu",
+                                callback_data=(
+                                    "search_menu"
+                                ),
                             )
                         ],
                     ]
@@ -5894,26 +5885,17 @@ async def receive_location_query(message: Message, state: FSMContext):
             ),
         )
         return
-
-    try:
-        async with get_session() as session:
-            candidates = await GeoService(
-                GeoRepository(session)
-            ).search_places(
-                query=query,
-                language=language,
-                limit=8,
-            )
-
-        logger.info(
-            "search_geo_query_completed telegram_id=%s candidates=%s",
-            message.from_user.id,
-            len(candidates),
-        )
     except GeoServiceError as exc:
         logger.warning(
-            "search_geo_query_failed telegram_id=%s error=%s",
-            message.from_user.id,
+            (
+                "search_geo_query_failed "
+                "telegram_id=%s error=%s"
+            ),
+            (
+                message.from_user.id
+                if message.from_user
+                else None
+            ),
             exc,
         )
 
@@ -5933,10 +5915,12 @@ async def receive_location_query(message: Message, state: FSMContext):
                 ),
                 text=t(
                     "search_geo_provider_error",
-                    language,
+                    fallback_language,
                 ),
-                reply_markup=search_geo_empty_keyboard(
-                    language
+                reply_markup=(
+                    search_geo_empty_keyboard(
+                        fallback_language
+                    )
                 ),
             )
         )
@@ -5947,6 +5931,22 @@ async def receive_location_query(message: Message, state: FSMContext):
             ),
         )
         return
+
+    language = action.actor.language
+    candidates = action.result
+
+    logger.info(
+        (
+            "search_geo_query_completed "
+            "telegram_id=%s candidates=%s"
+        ),
+        (
+            message.from_user.id
+            if message.from_user
+            else None
+        ),
+        len(candidates),
+    )
 
     if not candidates:
         await delete_telegram_messages(
@@ -5964,11 +5964,16 @@ async def receive_location_query(message: Message, state: FSMContext):
                     "last_menu_message_id"
                 ),
                 text=t(
-                    "search_geo_candidates_not_found",
+                    (
+                        "search_geo_candidates_"
+                        "not_found"
+                    ),
                     language,
                 ),
-                reply_markup=search_geo_empty_keyboard(
-                    language
+                reply_markup=(
+                    search_geo_empty_keyboard(
+                        language
+                    )
                 ),
             )
         )
@@ -5980,12 +5985,14 @@ async def receive_location_query(message: Message, state: FSMContext):
         )
         return
 
-    candidate_state = dedupe_geo_candidate_states(
-        [
-            candidate.to_state()
-            for candidate in candidates
-        ],
-        limit=8,
+    candidate_state = (
+        dedupe_geo_candidate_states(
+            [
+                candidate.to_state()
+                for candidate in candidates
+            ],
+            limit=8,
+        )
     )
 
     await delete_telegram_messages(
@@ -6006,9 +6013,11 @@ async def receive_location_query(message: Message, state: FSMContext):
                 "search_geo_candidates_prompt",
                 language,
             ),
-            reply_markup=search_geo_candidates_keyboard(
-                candidate_state,
-                language,
+            reply_markup=(
+                search_geo_candidates_keyboard(
+                    candidate_state,
+                    language,
+                )
             ),
         )
     )
@@ -6066,9 +6075,17 @@ async def start_location_geo_search(callback: CallbackQuery, state: FSMContext):
 
 
 @search_router.message(SpecialistSearchFSM.waiting_geo)
-async def receive_geo(message: Message, state: FSMContext):
+async def receive_geo(
+    message: Message,
+    state: FSMContext,
+):
     data = await state.get_data()
-    language = await get_search_language(state, message)
+    fallback_language = (
+        await get_search_language(
+            state,
+            message,
+        )
+    )
 
     if not message.location:
         await delete_telegram_messages(
@@ -6087,15 +6104,18 @@ async def receive_geo(message: Message, state: FSMContext):
                 ),
                 text=t(
                     "search_geo_required",
-                    language,
+                    fallback_language,
                 ),
                 reply_markup=ReplyKeyboardMarkup(
                     keyboard=[
                         [
                             KeyboardButton(
                                 text=t(
-                                    "search_send_geo_btn",
-                                    language,
+                                    (
+                                        "search_send_"
+                                        "geo_btn"
+                                    ),
+                                    fallback_language,
                                 ),
                                 request_location=True,
                             )
@@ -6116,24 +6136,41 @@ async def receive_geo(message: Message, state: FSMContext):
 
     try:
         async with get_session() as session:
-            candidates = await GeoService(
-                GeoRepository(session)
-            ).nearby_places(
-                latitude=message.location.latitude,
-                longitude=message.location.longitude,
-                language=language,
-                limit=4,
+            action = await (
+                UserSearchLocationService(
+                    session
+                ).nearby_places(
+                    platform_user_id=(
+                        message.from_user.id
+                        if message.from_user
+                        else None
+                    ),
+                    latitude=(
+                        message.location.latitude
+                    ),
+                    longitude=(
+                        message.location.longitude
+                    ),
+                    fallback_language=(
+                        fallback_language
+                    ),
+                    limit=4,
+                )
             )
-
-        logger.info(
-            "search_geo_nearby_completed telegram_id=%s candidates=%s",
-            message.from_user.id,
-            len(candidates),
-        )
-    except GeoServiceError as exc:
+    except (
+        GeoServiceError,
+        UserSearchLocationError,
+    ) as exc:
         logger.warning(
-            "search_geo_nearby_failed telegram_id=%s error=%s",
-            message.from_user.id,
+            (
+                "search_geo_nearby_failed "
+                "telegram_id=%s error=%s"
+            ),
+            (
+                message.from_user.id
+                if message.from_user
+                else None
+            ),
             exc,
         )
 
@@ -6146,9 +6183,15 @@ async def receive_geo(message: Message, state: FSMContext):
         )
 
         error_text = (
-            f"{t('search_geo_provider_error', language)}"
+            f"{t(
+                'search_geo_provider_error',
+                fallback_language,
+            )}"
             "\n\n"
-            f"{t('search_location_prompt', language)}"
+            f"{t(
+                'search_location_prompt',
+                fallback_language,
+            )}"
         )
 
         menu_message_id = (
@@ -6158,7 +6201,9 @@ async def receive_geo(message: Message, state: FSMContext):
                     "last_menu_message_id"
                 ),
                 text=error_text,
-                reply_markup=ReplyKeyboardRemove(),
+                reply_markup=(
+                    ReplyKeyboardRemove()
+                ),
             )
         )
 
@@ -6167,8 +6212,10 @@ async def receive_geo(message: Message, state: FSMContext):
                 message=message,
                 menu_message_id=menu_message_id,
                 text=error_text,
-                reply_markup=search_geo_empty_keyboard(
-                    language
+                reply_markup=(
+                    search_geo_empty_keyboard(
+                        fallback_language
+                    )
                 ),
             )
         )
@@ -6180,12 +6227,30 @@ async def receive_geo(message: Message, state: FSMContext):
         )
         return
 
-    candidate_state = dedupe_geo_candidate_states(
-        [
-            candidate.to_state()
-            for candidate in candidates
-        ],
-        limit=4,
+    language = action.actor.language
+    candidates = action.result
+
+    logger.info(
+        (
+            "search_geo_nearby_completed "
+            "telegram_id=%s candidates=%s"
+        ),
+        (
+            message.from_user.id
+            if message.from_user
+            else None
+        ),
+        len(candidates),
+    )
+
+    candidate_state = (
+        dedupe_geo_candidate_states(
+            [
+                candidate.to_state()
+                for candidate in candidates
+            ],
+            limit=4,
+        )
     )
 
     if not candidate_state:
@@ -6198,9 +6263,15 @@ async def receive_geo(message: Message, state: FSMContext):
         )
 
         empty_text = (
-            f"{t('search_geo_candidates_not_found', language)}"
+            f"{t(
+                'search_geo_candidates_not_found',
+                language,
+            )}"
             "\n\n"
-            f"{t('search_location_prompt', language)}"
+            f"{t(
+                'search_location_prompt',
+                language,
+            )}"
         )
 
         menu_message_id = (
@@ -6210,7 +6281,9 @@ async def receive_geo(message: Message, state: FSMContext):
                     "last_menu_message_id"
                 ),
                 text=empty_text,
-                reply_markup=ReplyKeyboardRemove(),
+                reply_markup=(
+                    ReplyKeyboardRemove()
+                ),
             )
         )
 
@@ -6219,8 +6292,10 @@ async def receive_geo(message: Message, state: FSMContext):
                 message=message,
                 menu_message_id=menu_message_id,
                 text=empty_text,
-                reply_markup=search_geo_empty_keyboard(
-                    language
+                reply_markup=(
+                    search_geo_empty_keyboard(
+                        language
+                    )
                 ),
             )
         )
@@ -6241,9 +6316,15 @@ async def receive_geo(message: Message, state: FSMContext):
     )
 
     candidates_text = (
-        f"{t('search_geo_candidates_prompt', language)}"
+        f"{t(
+            'search_geo_candidates_prompt',
+            language,
+        )}"
         "\n\n"
-        f"{t('search_geo_nearby_prompt', language)}"
+        f"{t(
+            'search_geo_nearby_prompt',
+            language,
+        )}"
     )
 
     menu_message_id = (
@@ -6262,9 +6343,11 @@ async def receive_geo(message: Message, state: FSMContext):
             message=message,
             menu_message_id=menu_message_id,
             text=candidates_text,
-            reply_markup=search_geo_candidates_keyboard(
-                candidate_state,
-                language,
+            reply_markup=(
+                search_geo_candidates_keyboard(
+                    candidate_state,
+                    language,
+                )
             ),
         )
     )
@@ -6310,38 +6393,65 @@ async def search_geo_retry(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @search_router.callback_query(F.data.startswith("search_geo_place:"))
-async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
+async def choose_search_geo_place(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
     index = callback_index(callback)
     data = await state.get_data()
-    language = await get_search_language(state, callback)
-    candidates = data.get("search_geo_candidates") or []
+    fallback_language = (
+        await get_search_language(
+            state,
+            callback,
+        )
+    )
+    candidates = (
+        data.get("search_geo_candidates")
+        or []
+    )
 
-    if index is None or index >= len(candidates):
-        await callback.answer(t("search_geo_candidate_not_found", language), show_alert=True)
+    if (
+        index is None
+        or index < 0
+        or index >= len(candidates)
+    ):
+        await callback.answer(
+            t(
+                "search_geo_candidate_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
 
     candidate = candidates[index]
 
     try:
-        actor_user_id, tenant_id = (
-            await get_requester_context(
-                callback.from_user.id
-            )
-        )
-
         async with get_session() as session:
-            place = await GeoService(
-                GeoRepository(session)
-            ).confirm_search_place(
-                candidate,
-                tenant_id=tenant_id,
-                user_id=actor_user_id,
-                language=language,
-                source="search_filter",
+            action = await (
+                UserSearchLocationService(
+                    session
+                ).confirm_place(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    candidate=candidate,
+                    fallback_language=(
+                        fallback_language
+                    ),
+                    source="search_filter",
+                )
             )
+
+        language = action.actor.language
+        place = action.result
 
         logger.info(
-            "search_geo_place_confirmed telegram_id=%s city_id=%s country_id=%s",
+            (
+                "search_geo_place_confirmed "
+                "telegram_id=%s city_id=%s "
+                "country_id=%s"
+            ),
             callback.from_user.id,
             place.city_id,
             place.country_id,
@@ -6349,23 +6459,35 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
 
     except RateLimitError as exc:
         logger.warning(
-            "search_geo_change_rate_limited telegram_id=%s error=%s",
+            (
+                "search_geo_change_rate_limited "
+                "telegram_id=%s error=%s"
+            ),
             callback.from_user.id,
             exc,
         )
-        await callback.answer(t("error_rate_limited", language), show_alert=True)
+        await callback.answer(
+            t(
+                "error_rate_limited",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
-    
+
     except GeoServiceError as exc:
         logger.warning(
-            "search_geo_place_confirm_failed telegram_id=%s error=%s",
+            (
+                "search_geo_place_confirm_failed "
+                "telegram_id=%s error=%s"
+            ),
             callback.from_user.id,
             exc,
         )
         await callback.answer(
             t(
                 "search_geo_provider_error",
-                language,
+                fallback_language,
             ),
             show_alert=True,
         )
@@ -6378,33 +6500,41 @@ async def choose_search_geo_place(callback: CallbackQuery, state: FSMContext):
         latitude=place.latitude,
         longitude=place.longitude,
         location_state="selected",
-        radius_km=data.get("radius_km") or DEFAULT_RADIUS_KM,
+        radius_km=(
+            data.get("radius_km")
+            or DEFAULT_RADIUS_KM
+        ),
         search_geo_candidates=[],
         page=0,
     )
-    await render_results(event=callback, state=state, page=0)
+    await render_results(
+        event=callback,
+        state=state,
+        page=0,
+    )
 
 async def log_search_filters_changed(
     callback: CallbackQuery,
     *,
     filter_name: str,
-    value: str | int | float | bool | None,
+    value: (
+        str
+        | int
+        | float
+        | bool
+        | None
+    ),
 ) -> None:
-    actor_user_id, tenant_id = (
-        await get_requester_context(
-            callback.from_user.id
-        )
-    )
-
-    if not actor_user_id or not tenant_id:
-        return
-
     async with get_session() as session:
-        await GeoSearchService(
-            SpecialistSearchRepository(session)
+        await UserSearchService(
+            session
         ).record_filter_changed(
-            tenant_id=tenant_id,
-            user_id=actor_user_id,
+            platform_user_id=(
+                callback.from_user.id
+            ),
+            fallback_language=(
+                callback.from_user.language_code
+            ),
             filter_name=filter_name,
             value=value,
         )
@@ -6919,9 +7049,11 @@ async def show_specialist_card(
 ):
     index = callback_index(callback)
     data = await state.get_data()
-    language = await get_search_language(
-        state,
-        callback,
+    fallback_language = (
+        await get_search_language(
+            state,
+            callback,
+        )
     )
     specialist_ids = (
         data.get("result_specialist_ids") or []
@@ -6960,44 +7092,45 @@ async def show_specialist_card(
         data.get("results_page") or 0
     )
 
-    requester_user_id, tenant_id = (
-        await get_requester_context(
-            callback.from_user.id
-        )
-    )
-
-    if not requester_user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            action = await UserSearchService(
+                session
+            ).open_result_card(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                specialist_id=(
+                    specialist_ids[index]
+                ),
+                professional_cabinet_id=(
+                    cabinet_ids[index]
+                ),
+                results_page=results_page,
+                result_index=index,
+                distance_km=distance_km,
+                fallback_language=(
+                    fallback_language
+                ),
+                source="search_results",
+            )
+    except UserSearchAccessError:
         await callback.answer(
             t(
                 "auth_required_start",
-                language,
+                fallback_language,
             ),
             show_alert=True,
         )
         return
+    except UserSearchSelectionError:
+        await callback.answer()
+        return
+
+    language = action.actor.language
+    card = action.result
 
     await callback.answer()
-
-    async with get_session() as session:
-        card = await GeoSearchService(
-            SpecialistSearchRepository(session)
-        ).get_public_card_for_viewer(
-            specialist_id=UUID(
-                specialist_ids[index]
-            ),
-            professional_cabinet_id=UUID(
-                cabinet_ids[index]
-            ),
-            viewer_user_id=requester_user_id,
-            tenant_id=tenant_id,
-            event=PublicCardViewEvent(
-                source="search_results",
-                results_page=results_page,
-                result_index=index,
-                distance_km=distance_km,
-            ),
-            language=language,
-        )
 
     if not card:
         return
@@ -7012,7 +7145,9 @@ async def show_specialist_card(
         selected_profession_id=(
             profession_ids[index]
         ),
-        selected_specialist_distance=distance_km,
+        selected_specialist_distance=(
+            distance_km
+        ),
         selected_result_index=index,
     )
 
@@ -7099,8 +7234,34 @@ async def render_selected_specialist_reviews(
         await callback.answer(t("search_contact_no_specialist", language), show_alert=True)
         return
 
-    requester_user_id, tenant_id = await get_requester_context(callback.from_user.id)
-    if not requester_user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            reviews_result = await (
+                UserSearchReviewsService(
+                    session
+                ).open_reviews(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                    page=page,
+                    page_size=(
+                        PUBLIC_REVIEW_PAGE_SIZE
+                    ),
+                )
+            )
+
+        review_page = (
+            reviews_result.review_page
+        )
+        language = (
+            reviews_result.actor.language
+        )
+
+    except UserSearchReviewsAccessError:
         await store_post_auth_action(
             callback=callback,
             state=state,
@@ -7109,26 +7270,12 @@ async def render_selected_specialist_reviews(
         )
         return
 
-    await callback.answer()
-
-    try:
-        async with get_session() as session:
-            review_page = await ReviewService(
-                ReviewRepository(session)
-            ).list_public_reviews_for_viewer(
-                tenant_id=tenant_id,
-                specialist_id=UUID(specialist_id),
-                professional_cabinet_id=(
-                    UUID(professional_cabinet_id)
-                    if professional_cabinet_id
-                    else None
-                ),
-                viewer_user_id=requester_user_id,
-                page=page,
-                page_size=PUBLIC_REVIEW_PAGE_SIZE,
-            )
-
-    except ReviewServiceError as exc:
+    except (
+        ReviewServiceError,
+        UserSearchReviewsSelectionError,
+        ValueError,
+    ) as exc:
+        await callback.answer()
         logger.warning(
             "public_reviews_load_failed "
             "specialist_id=%s error=%s",
@@ -7174,6 +7321,8 @@ async def render_selected_specialist_reviews(
             ),
         )
         return
+
+    await callback.answer()
 
     await state.update_data(
         public_reviews_page=review_page.page,
@@ -7249,14 +7398,21 @@ async def report_public_review(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
+@search_router.callback_query(
+    F.data.startswith(
+        "search_result_back_to_card:"
+    )
+)
 async def back_to_selected_specialist_card(
     callback: CallbackQuery,
     state: FSMContext,
 ):
     data = await state.get_data()
-    language = await get_search_language(
-        state,
-        callback,
+    fallback_language = (
+        await get_search_language(
+            state,
+            callback,
+        )
     )
 
     specialist_id = data.get(
@@ -7270,40 +7426,49 @@ async def back_to_selected_specialist_card(
         await callback.answer(
             t(
                 "search_contact_no_specialist",
-                language,
+                fallback_language,
             ),
             show_alert=True,
         )
         return
-    requester_user_id, tenant_id = (
-        await get_requester_context(
-            callback.from_user.id
-        )
-    )
 
-    if not requester_user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            action = await UserSearchService(
+                session
+            ).get_selected_card(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                fallback_language=(
+                    fallback_language
+                ),
+            )
+    except UserSearchAccessError:
         await callback.answer(
             t(
                 "auth_required_start",
-                language,
+                fallback_language,
             ),
             show_alert=True,
         )
         return
-    async with get_session() as session:
-        card = await GeoSearchService(
-            SpecialistSearchRepository(session)
-        ).get_public_card(
-            tenant_id=tenant_id,
-            specialist_id=UUID(
-                specialist_id
+    except UserSearchSelectionError:
+        await callback.answer(
+            t(
+                "search_contact_no_specialist",
+                fallback_language,
             ),
-            professional_cabinet_id=(
-                UUID(professional_cabinet_id)
-                if professional_cabinet_id
-                else None
-            ),
+            show_alert=True,
         )
+        return
+
+    language = action.actor.language
+    card = action.result
 
     if not card:
         await callback.answer(
@@ -7366,10 +7531,33 @@ async def contact_start(
         )
         return
 
-    requester_user_id, tenant_id = await get_requester_context(
-        callback.from_user.id,
-    )
-    if not requester_user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            contact_action = await (
+                UserDialogsService(
+                    session
+                ).open_contact(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    specialist_id=(
+                        specialist_id
+                    ),
+                    profession_id=profession_id,
+                    system_message=t(
+                        "contact_chat_first_prompt",
+                        language,
+                    ),
+                    original_language=language,
+                )
+            )
+
+        chat = contact_action.chat
+        requester_user_id = (
+            contact_action.actor.user_id
+        )
+
+    except UserDialogsAccessError:
         await store_post_auth_action(
             callback=callback,
             state=state,
@@ -7377,29 +7565,13 @@ async def contact_start(
             language=language,
         )
         return
-    
-    await callback.answer()
 
-    try:
-        async with get_session() as session:
-            chat = await ContactChatService(
-                ContactChatRepository(session)
-            ).open_contact_chat(
-                tenant_id=tenant_id,
-                from_user_id=requester_user_id,
-                specialist_id=UUID(specialist_id),
-                profession_id=(
-                    UUID(profession_id)
-                    if profession_id
-                    else None
-                ),
-                system_message=t(
-                    "contact_chat_first_prompt",
-                    language,
-                ),
-                original_language=language,
-            )
-    except (ContactChatError, ValueError) as exc:
+    except (
+        ContactChatError,
+        UserDialogsSelectionError,
+        ValueError,
+    ) as exc:
+        await callback.answer()
         logger.warning(
             "contact_chat_open_failed "
             "telegram_id=%s specialist_id=%s error=%s",
@@ -7443,6 +7615,8 @@ async def contact_start(
             ),
         )
         return
+
+    await callback.answer()
 
     await state.update_data(
         active_contact_request_id=str(
@@ -7511,6 +7685,69 @@ async def block_legacy_contact_request_callbacks(
         show_alert=True,
     )
 
+async def send_contact_notification(
+    *,
+    bot,
+    chat_id: int | str,
+    text: str,
+    language: str,
+    reply_markup: InlineKeyboardMarkup,
+    attachment: dict | None = None,
+) -> bool:
+    try:
+        if attachment:
+            attachment_message = await (
+                send_telegram_attachment(
+                    bot=bot,
+                    chat_id=chat_id,
+                    attachment=attachment,
+                    caption=text,
+                    reply_markup=reply_markup,
+                )
+            )
+
+            if attachment_message is not None:
+                return True
+
+            text = "\n\n".join(
+                part
+                for part in (
+                    text.strip(),
+                    t(
+                        "contact_attachment_send_error",
+                        language,
+                    ),
+                )
+                if part
+            )
+
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+        )
+        return True
+    except (
+        TelegramBadRequest,
+        TelegramForbiddenError,
+    ) as exc:
+        logger.warning(
+            (
+                "contact_notification_delivery_failed "
+                "chat_id=%s attachment_type=%s "
+                "error=%s"
+            ),
+            chat_id,
+            (
+                attachment.get("type")
+                if attachment
+                else None
+            ),
+            exc,
+        )
+        return False
+
+
 @search_router.message(SpecialistSearchFSM.entering_thread_message)
 async def receive_thread_message(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -7534,23 +7771,6 @@ async def receive_thread_message(message: Message, state: FSMContext):
         )
         return
 
-    sender_user_id, tenant_id = await get_requester_context(message.from_user.id)
-    if not sender_user_id or not tenant_id:
-        await show_contact_chat_screen(
-            message=message,
-            state=state,
-            text=t(
-                "search_contact_user_not_found",
-                language,
-            ),
-            reply_markup=(
-                contact_thread_keyboard_for_role(
-                    language,
-                    data.get("active_thread_role"),
-                )
-            ),
-        )
-        return
 
     message_text = (
         message.text
@@ -7605,64 +7825,70 @@ async def receive_thread_message(message: Message, state: FSMContext):
 
     try:
         async with get_session() as session:
-            contact_service = ContactChatService(
-                ContactChatRepository(session)
-            )
-            result = await contact_service.send_thread_message(
-                thread_id=UUID(thread_id),
-                sender_user_id=sender_user_id,
-                text=message_text,
-                original_language=language,
-                attachment=attachment,
-            )
-
-            delivery_context = await UserService(
-                session
-            ).get_telegram_delivery_context(
-                user_id=result.receiver_user_id,
-            )
-
-            if delivery_context.language_code:
-                receiver_language = normalize_language(
-                    delivery_context.language_code
+            message_action = await (
+                UserDialogsService(
+                    session
+                ).send_contact_message(
+                    platform_user_id=(
+                        message.from_user.id
+                    ),
+                    thread_id=thread_id,
+                    text=message_text,
+                    original_language=language,
+                    attachment=attachment,
                 )
-
-            receiver_platform_user_id = (
-                delivery_context.platform_user_id
             )
 
-            try:
-                receiver_notification_context = (
-                    await contact_service
-                    .get_thread_notification_context(
-                        thread_id=result.thread_id,
-                        receiver_user_id=(
-                            result.receiver_user_id
-                        ),
-                        language=receiver_language,
-                    )
-                )
-            except ContactChatError:
-                logger.exception(
-                    "contact_notification_context_failed "
-                    "thread_id=%s receiver_user_id=%s",
-                    result.thread_id,
-                    result.receiver_user_id,
-                )
+        result = message_action.result
+        sender_user_id = (
+            message_action.actor.user_id
+        )
+        receiver_platform_user_id = (
+            message_action
+            .receiver_platform_user_id
+        )
+        receiver_language = (
+            message_action.receiver_language
+        )
+        receiver_notification_context = (
+            message_action
+            .receiver_notification_context
+        )
+        receiver_notification_message = (
+            message_action
+            .receiver_notification_message
+        )
+        receiver_used_translation = (
+            message_action
+            .receiver_used_translation
+        )
+        receiver_translation_status = (
+            message_action
+            .receiver_translation_status
+        )
 
-            (
-                receiver_notification_message,
-                receiver_used_translation,
-                receiver_translation_status,
-            ) = await translate_message_for_notification(
-                session=session,
-                message_id=result.message_id,
-                receiver_user_id=(
-                    result.receiver_user_id
-                ),
-            )
+    except UserDialogsAccessError:
+        await show_contact_chat_screen(
+            message=message,
+            state=state,
+            text=t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            reply_markup=(
+                contact_thread_keyboard_for_role(
+                    language,
+                    data.get("active_thread_role"),
+                )
+            ),
+        )
+        return
 
-    except ContactChatError as exc:
+    except (
+        ContactChatError,
+        UserDialogsThreadError,
+        ValueError,
+    ) as exc:
         error_text = str(exc)
 
         logger.warning(
@@ -7825,31 +8051,14 @@ async def receive_thread_message(message: Message, state: FSMContext):
             )
         )
 
-        if attachment:
-            attachment_caption = (
-                receiver_notification_text[:1000]
-            )
-
-            if attachment["type"] == "photo":
-                await message.bot.send_photo(
-                    chat_id=receiver_chat_id,
-                    photo=attachment["file_id"],
-                    caption=attachment_caption,
-                    reply_markup=receiver_keyboard,
-                )
-            else:
-                await message.bot.send_document(
-                    chat_id=receiver_chat_id,
-                    document=attachment["file_id"],
-                    caption=attachment_caption,
-                    reply_markup=receiver_keyboard,
-                )
-        else:
-            await message.bot.send_message(
-                chat_id=receiver_chat_id,
-                text=receiver_notification_text,
-                reply_markup=receiver_keyboard,
-            )
+        await send_contact_notification(
+            bot=message.bot,
+            chat_id=receiver_chat_id,
+            text=receiver_notification_text,
+            language=receiver_language,
+            reply_markup=receiver_keyboard,
+            attachment=attachment,
+        )
 
     await state.update_data(
         active_thread_id=str(result.thread_id)
@@ -7889,9 +8098,11 @@ async def favorite_pending(
     state: FSMContext,
 ):
     data = await state.get_data()
-    language = await get_search_language(
-        state,
-        callback,
+    fallback_language = (
+        await get_search_language(
+            state,
+            callback,
+        )
     )
     professional_cabinet_id = data.get(
         "selected_professional_cabinet_id"
@@ -7901,75 +8112,82 @@ async def favorite_pending(
         await callback.answer(
             t(
                 "search_contact_no_specialist",
-                language,
+                fallback_language,
             ),
             show_alert=True,
         )
         return
 
-    user_id, tenant_id = await get_requester_context(
-        callback.from_user.id
-    )
-    if not user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            action = await UserFavoritesService(
+                session
+            ).toggle_favorite(
+                platform_user_id=(
+                    callback.from_user.id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+    except UserFavoritesAccessError:
         await store_post_auth_action(
             callback=callback,
             state=state,
             action="favorite",
-            language=language,
+            language=fallback_language,
         )
         return
-
-    await callback.answer()
-
-    try:
-        async with get_session() as session:
-            is_saved = await FavoriteService(
-                FavoriteRepository(session)
-            ).toggle_professional_cabinet(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                professional_cabinet_id=UUID(
-                    professional_cabinet_id
-                ),
-            )
     except ValueError as exc:
         logger.warning(
-            "favorite_toggle_failed "
-            "telegram_id=%s "
-            "professional_cabinet_id=%s "
-            "error=%s",
+            (
+                "favorite_toggle_failed "
+                "telegram_id=%s "
+                "professional_cabinet_id=%s "
+                "error=%s"
+            ),
             callback.from_user.id,
             professional_cabinet_id,
             exc,
         )
-        menu_message = await show_callback_message(
-            callback,
-            t(
-                "favorite_action_error",
-                language,
-            ),
-            InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "search_back_to_filters_btn",
-                                language,
-                            ),
-                            callback_data="search_filters",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text=t(
-                                "search_menu",
-                                language,
-                            ),
-                            callback_data="search_menu",
-                        )
-                    ],
-                ]
-            ),
+
+        menu_message = (
+            await show_callback_message(
+                callback,
+                t(
+                    "favorite_action_error",
+                    fallback_language,
+                ),
+                InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    (
+                                        "search_back_to_"
+                                        "filters_btn"
+                                    ),
+                                    fallback_language,
+                                ),
+                                callback_data=(
+                                    "search_filters"
+                                ),
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text=t(
+                                    "search_menu",
+                                    fallback_language,
+                                ),
+                                callback_data=(
+                                    "search_menu"
+                                ),
+                            )
+                        ],
+                    ]
+                ),
+            )
         )
 
         await state.update_data(
@@ -7979,19 +8197,28 @@ async def favorite_pending(
         )
         return
 
+    language = action.actor.language
+    is_saved = bool(action.result)
+
+    await callback.answer()
+
     logger.info(
-        "favorite_toggled "
-        "telegram_id=%s user_id=%s "
-        "professional_cabinet_id=%s "
-        "is_saved=%s",
+        (
+            "favorite_toggled "
+            "telegram_id=%s user_id=%s "
+            "professional_cabinet_id=%s "
+            "is_saved=%s"
+        ),
         callback.from_user.id,
-        user_id,
+        action.actor.user_id,
         professional_cabinet_id,
         is_saved,
     )
 
     await state.update_data(
-        selected_specialist_is_saved=is_saved,
+        selected_specialist_is_saved=(
+            is_saved
+        ),
     )
 
     try:
@@ -8003,11 +8230,14 @@ async def favorite_pending(
                 data.get("results_page") or 0
             )
 
-            await callback.message.edit_reply_markup(
-                reply_markup=card_keyboard(
-                    language,
-                    results_page,
-                    is_saved=is_saved,
+            await (
+                callback.message
+                .edit_reply_markup(
+                    reply_markup=card_keyboard(
+                        language,
+                        results_page,
+                        is_saved=is_saved,
+                    )
                 )
             )
         else:
@@ -8016,11 +8246,18 @@ async def favorite_pending(
             )
 
             if isinstance(result_index, int):
-                await callback.message.edit_reply_markup(
-                    reply_markup=result_card_keyboard(
-                        result_index,
-                        language,
-                        is_saved=is_saved,
+                await (
+                    callback.message
+                    .edit_reply_markup(
+                        reply_markup=(
+                            result_card_keyboard(
+                                result_index,
+                                language,
+                                is_saved=(
+                                    is_saved
+                                ),
+                            )
+                        )
                     )
                 )
     except TelegramBadRequest:
@@ -8052,12 +8289,20 @@ async def report_thread_pending(
         )
         return
 
-    reporter_user_id, tenant_id = (
-        await get_requester_context(
-            callback.from_user.id
-        )
-    )
-    if not reporter_user_id or not tenant_id:
+    try:
+        async with get_session() as session:
+            target = await (
+                UserComplaintsService(
+                    session
+                ).resolve_thread_target(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    thread_id=thread_id,
+                )
+            )
+
+    except UserComplaintsAccessError:
         await callback.answer(
             t(
                 "auth_required_start",
@@ -8067,23 +8312,9 @@ async def report_thread_pending(
         )
         return
 
-    try:
-        async with get_session() as session:
-            (
-                target_type,
-                target_id,
-                conversation_thread_id,
-            ) = await ModerationService(
-                ModerationRepository(session)
-            ).resolve_thread_complaint_target(
-                tenant_id=tenant_id,
-                reporter_user_id=(
-                    reporter_user_id
-                ),
-                thread_id=UUID(thread_id),
-            )
     except (
         ModerationError,
+        UserComplaintsSelectionError,
         ValueError,
     ) as exc:
         await callback.answer(
@@ -8096,13 +8327,13 @@ async def report_thread_pending(
 
     await state.update_data(
         pending_report_target_type=(
-            target_type
+            target.target_type
         ),
         pending_report_target_id=str(
-            target_id
+            target.target_id
         ),
         pending_report_conversation_thread_id=str(
-            conversation_thread_id
+            target.conversation_thread_id
         ),
         pending_report_reason=None,
         pending_report_comment=None,
@@ -8571,13 +8802,44 @@ async def create_search_complaint(
             await event.answer(t("search_contact_no_specialist", language))
         return
 
-    reporter_user_id, tenant_id = (
-        await get_requester_context(
-            event.from_user.id
-        )
-    )
+    try:
+        async with get_session() as session:
+            complaint_action = await (
+                UserComplaintsService(
+                    session
+                ).create_complaint(
+                    platform_user_id=(
+                        event.from_user.id
+                    ),
+                    target_type=target_type,
+                    target_id=target_id,
+                    reason=reason,
+                    comment=comment,
+                    conversation_thread_id=(
+                        conversation_thread_id
+                    ),
+                )
+            )
 
-    if not reporter_user_id or not tenant_id:
+        complaint = (
+            complaint_action.complaint
+        )
+        reporter_user_id = (
+            complaint_action.actor.user_id
+        )
+        complaint_number = str(
+            complaint.id
+        ).split("-", 1)[0]
+
+        logger.info(
+            "complaint_created telegram_id=%s reporter_user_id=%s target_type=%s target_id=%s reason=%s",
+            event.from_user.id,
+            reporter_user_id,
+            target_type,
+            target_id,
+            reason,
+        )
+    except UserComplaintsAccessError:
         if isinstance(event, CallbackQuery):
             await store_post_auth_action(
                 callback=event,
@@ -8607,46 +8869,17 @@ async def create_search_complaint(
             )
 
             await state.update_data(
-                last_menu_message_id=menu_message_id
+                last_menu_message_id=(
+                    menu_message_id
+                )
             )
         return
 
-    try:
-        async with get_session() as session:
-            moderation_service = ModerationService(
-                ModerationRepository(session)
-            )
-            complaint = await moderation_service.create_complaint(
-                tenant_id=tenant_id,
-                reporter_user_id=reporter_user_id,
-                target_type=target_type,
-                target_id=UUID(target_id),
-                reason=reason,
-                comment=comment,
-                conversation_thread_id=(
-                    UUID(
-                        conversation_thread_id
-                    )
-                    if conversation_thread_id
-                    else None
-                ),
-            )
-            await moderation_service.confirm_complaint(
-                reporter_user_id=reporter_user_id,
-                complaint_id=complaint.id,
-            )
-
-        complaint_number = str(complaint.id).split("-", 1)[0]
-
-        logger.info(
-            "complaint_created telegram_id=%s reporter_user_id=%s target_type=%s target_id=%s reason=%s",
-            event.from_user.id,
-            reporter_user_id,
-            target_type,
-            target_id,
-            reason,
-        )
-    except ModerationError as exc:
+    except (
+        ModerationError,
+        UserComplaintsSelectionError,
+        ValueError,
+    ) as exc:
         technical_error = str(exc)
         error_text = t(
             "complaint_create_error",
@@ -9157,16 +9390,32 @@ async def create_review_from_state(
         )
         return
 
-    reviewer_user_id, tenant_id = (
-        await get_requester_context(
-            event.from_user.id,
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+
+    try:
+        async with get_session() as session:
+            review_action = await (
+                UserSearchReviewsService(
+                    session
+                ).create_contact_review(
+                    platform_user_id=(
+                        event.from_user.id
+                    ),
+                    contact_request_id=(
+                        contact_request_id
+                    ),
+                    rating=rating,
+                    text=text,
+                    thread_id=review_thread_id,
+                )
+            )
+
+        reviewer_user_id = (
+            review_action.actor.user_id
         )
-    )
 
-    if not reviewer_user_id or not tenant_id:
-        if isinstance(event, CallbackQuery):
-            await event.answer()
-
+    except UserSearchReviewsAccessError:
         await show_review_flow_screen(
             event=event,
             state=state,
@@ -9180,37 +9429,11 @@ async def create_review_from_state(
         )
         return
 
-    if isinstance(event, CallbackQuery):
-        await event.answer()
-
-    try:
-        async with get_session() as session:
-            review_service = ReviewService(
-                ReviewRepository(session)
-            )
-
-            await review_service.create_contact_review(
-                tenant_id=tenant_id,
-                reviewer_user_id=reviewer_user_id,
-                contact_request_id=UUID(
-                    contact_request_id
-                ),
-                rating=int(rating),
-                text=text,
-            )
-
-            if review_thread_id:
-                await ContactChatService(
-                    ContactChatRepository(session)
-                ).archive_thread_after_review(
-                    thread_id=UUID(
-                        review_thread_id
-                    ),
-                    user_id=reviewer_user_id,
-                )
     except (
         ContactChatError,
         ReviewServiceError,
+        UserSearchReviewsSelectionError,
+        ValueError,
     ) as exc:
 
         await show_review_flow_screen(

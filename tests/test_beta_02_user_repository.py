@@ -566,28 +566,124 @@ async def test_start_opened_audit_event_is_written_on_start(db_session):
         await cleanup_user_by_platform_id(db_session, platform_user_id)
 
 def test_role_switch_opens_matching_cabinet_after_context_save():
-    source = open("handlers/start.py", encoding="utf-8").read()
+    import ast
 
-    assert "async def open_active_role_cabinet" in source
-    assert "from handlers.admin import show_admin_panel" in source
-    assert "from handlers.billing import show_specialist_cabinet" in source
-    assert 'role in {"support", "moderator", "admin", "super_admin"}' in source
+    source = open(
+        "handlers/start.py",
+        encoding="utf-8",
+    ).read()
+    tree = ast.parse(source)
+
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(
+            node,
+            ast.AsyncFunctionDef,
+        )
+    }
+
+    assert "open_active_role_cabinet" in functions
+
+    imported_symbols = {
+        (
+            node.module,
+            alias.name,
+        )
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+
+    assert (
+        "handlers.admin",
+        "show_admin_panel",
+    ) in imported_symbols
+    assert (
+        "handlers.billing",
+        "show_client_cabinet",
+    ) in imported_symbols
+    assert (
+        (
+            "handlers."
+            "specialist_cabinet_common"
+        ),
+        "show_specialist_cabinet",
+    ) in imported_symbols
+
+    role_sets = [
+        {
+            item.value
+            for item in node.elts
+            if isinstance(item, ast.Constant)
+            and isinstance(item.value, str)
+        }
+        for node in ast.walk(
+            functions["open_active_role_cabinet"]
+        )
+        if isinstance(node, ast.Set)
+    ]
+
+    assert {
+        "support",
+        "moderator",
+        "admin",
+        "super_admin",
+    } in role_sets
+
     assert 'role == "client"' in source
     assert 'role == "specialist"' in source
-    assert "from handlers.billing import show_client_cabinet" in source
-    billing_source = open("handlers/billing.py", encoding="utf-8").read()
 
-    assert '@billing_router.callback_query(F.data == "M_CABINET")' in billing_source
-    assert "await open_current_role_cabinet(callback, state)" in billing_source
-    assert "async def show_specialist_cabinet" in billing_source
+    billing_source = open(
+        "handlers/billing.py",
+        encoding="utf-8",
+    ).read()
+    common_source = open(
+        (
+            "handlers/"
+            "specialist_cabinet_common.py"
+        ),
+        encoding="utf-8",
+    ).read()
+
+    assert (
+        '@billing_router.callback_query('
+        'F.data == "M_CABINET")'
+        in billing_source
+    )
+    assert (
+        "await open_current_role_cabinet("
+        "callback, state)"
+        in billing_source
+    )
+    assert (
+        "async def show_specialist_cabinet"
+        in common_source
+    )
+    assert (
+        "async def show_specialist_cabinet"
+        not in billing_source
+    )
+
     switch_block = source.split(
-        '@start_router.callback_query(F.data.startswith("ROLE_SWITCH:"))',
+        (
+            "@start_router.callback_query("
+            'F.data.startswith("ROLE_SWITCH:"))'
+        ),
         1,
     )[1]
 
-    assert "await service.switch_active_role(" in switch_block
-    assert "await open_active_role_cabinet(" in switch_block
-    assert switch_block.index("await service.switch_active_role(") < switch_block.index(
+    assert (
+        "await service.switch_active_role("
+        in switch_block
+    )
+    assert (
+        "await open_active_role_cabinet("
+        in switch_block
+    )
+    assert switch_block.index(
+        "await service.switch_active_role("
+    ) < switch_block.index(
         "await open_active_role_cabinet("
     )
 

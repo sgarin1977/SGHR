@@ -1,23 +1,23 @@
-from uuid import UUID
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from database.repositories.support import SupportRepository
-from database.repositories.translation import TranslationRepository
 from database.session import get_session
 from handlers.start import normalize_language
-from services.support import SupportService, SupportServiceError
-from services.user import UserService
+from services.support import SupportServiceError
+from services.user_support import (
+    UserSupportAccessError,
+    UserSupportSelectionError,
+    UserSupportService,
+)
 from ui.texts import t
 from utils.telegram_cleanup import (
     delete_telegram_messages,
     edit_or_replace_menu_message,
     edit_or_replace_tracked_menu_message,
 )
-from database.repositories.event import EventRepository
 
 support_router = Router()
 
@@ -338,16 +338,26 @@ def format_support_ticket_draft(data: dict, language: str) -> str:
         message=message_text,
     )
 
-async def get_support_user_context(telegram_id: int, fallback_language: str):
-    async with get_session() as session:
-        user = await UserService(session).get_user_by_telegram_id(telegram_id)
-        if not user:
-            return None, fallback_language
+async def get_support_user_context(
+    telegram_id: int,
+    fallback_language: str,
+):
+    try:
+        async with get_session() as session:
+            actor = await (
+                UserSupportService(
+                    session
+                ).require_actor(
+                    platform_user_id=(
+                        telegram_id
+                    ),
+                )
+            )
 
-        settings = await TranslationRepository(session).get_language_settings(user.id)
-        language = normalize_language(settings.interface_language or user.language_code)
-        await session.commit()
-        return user, language
+    except UserSupportAccessError:
+        return None, fallback_language
+
+    return actor, actor.language
 
 
 @support_router.callback_query(F.data == "SUPPORT_MENU")
@@ -380,46 +390,51 @@ async def open_support_menu(
     fallback_language = normalize_language(
         callback.from_user.language_code
     )
-    user, language = await get_support_user_context(
-        callback.from_user.id,
-        fallback_language,
-    )
 
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    try:
+        async with get_session() as session:
+            actor = await (
+                UserSupportService(
+                    session
+                ).open_menu(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                )
+            )
+
+    except UserSupportAccessError:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
-    
+
+    language = actor.language
     await callback.answer()
 
-    async with get_session() as session:
-        fresh_user = await UserService(session).get_user_by_telegram_id(callback.from_user.id)
-        if fresh_user:
-            await EventRepository(session).create_event(
-                event_type="support_opened",
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                entity_type="support",
-                entity_id=None,
-                payload={
-                    "source": "support_menu",
-                },
-                platform="telegram",
-            )
-            await session.commit()
-
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "support_title",
-            language,
-        ),
-        reply_markup=support_menu_keyboard(
-            language
-        ),
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "support_title",
+                language,
+            ),
+            reply_markup=(
+                support_menu_keyboard(
+                    language
+                )
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 
@@ -485,51 +500,75 @@ async def select_support_category(
     callback: CallbackQuery,
     state: FSMContext,
 ):
-    fallback_language = normalize_language(callback.from_user.language_code)
-    category = (callback.data or "").split(":", 1)[1]
-
-    user, language = await get_support_user_context(
-        callback.from_user.id,
-        fallback_language,
+    fallback_language = normalize_language(
+        callback.from_user.language_code
     )
 
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    try:
+        category = (
+            callback.data or ""
+        ).split(
+            ":",
+            1,
+        )[1]
+
+        async with get_session() as session:
+            actor = await (
+                UserSupportService(
+                    session
+                ).select_category(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    category=category,
+                )
+            )
+
+    except UserSupportAccessError:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
+
+    except (
+        IndexError,
+        TypeError,
+        UserSupportSelectionError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
+        return
+
+    language = actor.language
 
     await state.update_data(
         support_category=category,
         support_priority="P3",
     )
-
-    async with get_session() as session:
-        await EventRepository(session).create_event(
-            event_type="ticket_category",
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            entity_type="support_ticket",
-            entity_id=None,
-            payload={
-                "category": category,
-            },
-            platform="telegram",
-        )
-        await session.commit()
-
     await state.set_state(
         SupportFSM.entering_message
     )
 
-    menu_message = await edit_or_replace_menu_message(
-        callback=callback,
-        text=t(
-            "support_message_prompt",
-            language,
-        ),
+    menu_message = (
+        await edit_or_replace_menu_message(
+            callback=callback,
+            text=t(
+                "support_message_prompt",
+                language,
+            ),
+        )
     )
 
     await state.update_data(
-        last_menu_message_id=menu_message.message_id
+        last_menu_message_id=(
+            menu_message.message_id
+        )
     )
 
 @support_router.message(SupportFSM.entering_message)
@@ -748,38 +787,35 @@ async def send_support_ticket(callback: CallbackQuery, state: FSMContext):
 
     try:
         async with get_session() as session:
-            fresh_user = await UserService(session).get_user_by_telegram_id(
-                callback.from_user.id
-            )
-            if not fresh_user:
-                await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-                await state.clear()
-                return
-
-            ticket = await SupportService(
-                SupportRepository(session)
-            ).create_ticket(
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                subject=None,
-                priority=priority,
-                category=category,
-                message_text=message_text,
+            ticket_action = await (
+                UserSupportService(
+                    session
+                ).create_ticket(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    category=category,
+                    priority=priority,
+                    message_text=message_text,
+                )
             )
 
-            await EventRepository(session).create_event(
-                event_type="ticket_created",
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                entity_type="support_ticket",
-                entity_id=ticket.id,
-                payload={
-                    "category": category,
-                    "priority": priority,
-                },
-                platform="telegram",
-            )
-            await session.commit()
+        ticket = ticket_action.result
+        language = (
+            ticket_action.actor.language
+        )
+
+    except UserSupportAccessError:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                language,
+            ),
+            show_alert=True,
+        )
+        await state.clear()
+        return
+
     except SupportServiceError as exc:
         await callback.answer()
 
@@ -862,57 +898,47 @@ async def list_my_support_tickets(
             view = parts[1]
             page = max(0, int(parts[2]))
 
-    statuses = (
-        SUPPORT_RESOLVED_STATUSES
-        if view == "resolved"
-        else SUPPORT_ACTIVE_STATUSES
-    )
+    try:
+        async with get_session() as session:
+            ticket_page = await (
+                UserSupportService(
+                    session
+                ).list_tickets(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    view=view,
+                    page=page,
+                    page_size=(
+                        SUPPORT_TICKETS_PAGE_SIZE
+                    ),
+                )
+            )
 
-
-    user, language = await get_support_user_context(
-        callback.from_user.id,
-        fallback_language,
-    )
-
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    except UserSupportAccessError:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
 
-    async with get_session() as session:
-        fresh_user = await UserService(session).get_user_by_telegram_id(
-            callback.from_user.id
+    except UserSupportSelectionError as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
         )
-        if not fresh_user:
-            await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-            return
+        return
 
-        tickets = await SupportService(
-            SupportRepository(session)
-        ).list_user_tickets(
-            tenant_id=fresh_user.tenant_id,
-            user_id=fresh_user.id,
-            statuses=statuses,
-            limit=SUPPORT_TICKETS_PAGE_SIZE,
-            offset=page * SUPPORT_TICKETS_PAGE_SIZE,
-        )
-        visible_tickets = tickets[:SUPPORT_TICKETS_PAGE_SIZE]
-        has_next = len(tickets) > SUPPORT_TICKETS_PAGE_SIZE
-
-        await EventRepository(session).create_event(
-            event_type="ticket_list",
-            tenant_id=fresh_user.tenant_id,
-            user_id=fresh_user.id,
-            entity_type="support_ticket",
-            entity_id=None,
-            payload={
-                "view": view,
-                "page": page,
-                "count": len(visible_tickets),
-                "has_next": has_next,
-            },
-            platform="telegram",
-        )
-        await session.commit()
+    language = ticket_page.actor.language
+    visible_tickets = list(
+        ticket_page.items
+    )
+    view = ticket_page.view
+    page = ticket_page.page
+    has_next = ticket_page.has_next
 
     if not visible_tickets:
         await callback.answer()
@@ -1008,42 +1034,82 @@ async def list_my_support_tickets(
 
 @support_router.callback_query(F.data.startswith("SUPPORT_VIEW:"))
 async def view_my_support_ticket(callback: CallbackQuery, state: FSMContext):
-    fallback_language = normalize_language(callback.from_user.language_code)
-    index = int(callback.data.split(":", 1)[1])
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
-    ids = data.get("support_ticket_ids") or []
-
-    user, language = await get_support_user_context(
-        callback.from_user.id,
-        fallback_language,
+    ids = (
+        data.get("support_ticket_ids")
+        or []
     )
 
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    try:
+        index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
 
     if index < 0 or index >= len(ids):
-        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
 
     try:
         async with get_session() as session:
-            fresh_user = await UserService(session).get_user_by_telegram_id(
-                callback.from_user.id
+            ticket_action = await (
+                UserSupportService(
+                    session
+                ).get_ticket(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    ticket_id=ids[index],
+                )
             )
-            if not fresh_user:
-                await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-                return
 
-            view = await SupportService(
-                SupportRepository(session)
-            ).get_user_ticket_view(
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                ticket_id=UUID(ids[index]),
-            )
-    except SupportServiceError as exc:
-        await callback.answer(str(exc), show_alert=True)
+        view = ticket_action.result
+        language = (
+            ticket_action.actor.language
+        )
+
+    except UserSupportAccessError:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except (
+        SupportServiceError,
+        UserSupportSelectionError,
+    ) as exc:
+        await callback.answer(
+            str(exc),
+            show_alert=True,
+        )
         return
 
     current_message_id = (
@@ -1091,59 +1157,93 @@ async def view_my_support_ticket(callback: CallbackQuery, state: FSMContext):
 
 @support_router.callback_query(F.data.startswith("SUPPORT_CLOSE:"))
 async def close_my_support_ticket(callback: CallbackQuery, state: FSMContext):
-    fallback_language = normalize_language(callback.from_user.language_code)
-    index = int(callback.data.split(":", 1)[1])
+    fallback_language = normalize_language(
+        callback.from_user.language_code
+    )
     data = await state.get_data()
-    ids = data.get("support_ticket_ids") or []
-
-    user, language = await get_support_user_context(
-        callback.from_user.id,
-        fallback_language,
+    ids = (
+        data.get("support_ticket_ids")
+        or []
     )
 
-    if not user:
-        await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
+    try:
+        index = int(
+            (callback.data or "").split(
+                ":",
+                1,
+            )[1]
+        )
+    except (
+        IndexError,
+        TypeError,
+        ValueError,
+    ):
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
 
     if index < 0 or index >= len(ids):
-        await callback.answer(t("admin_item_not_found", language), show_alert=True)
+        await callback.answer(
+            t(
+                "admin_item_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
         return
 
     try:
         async with get_session() as session:
-            fresh_user = await UserService(session).get_user_by_telegram_id(
-                callback.from_user.id
-            )
-            if not fresh_user:
-                await callback.answer(t("search_contact_user_not_found", language), show_alert=True)
-                return
-
-            ticket = await SupportService(
-                SupportRepository(session)
-            ).close_user_ticket(
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                ticket_id=UUID(ids[index]),
+            ticket_action = await (
+                UserSupportService(
+                    session
+                ).close_ticket(
+                    platform_user_id=(
+                        callback.from_user.id
+                    ),
+                    ticket_id=ids[index],
+                )
             )
 
-            await EventRepository(session).create_event(
-                event_type="closed",
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                entity_type="support_ticket",
-                entity_id=ticket.id,
-                payload={
-                    "source": "user_support_ticket",
-                    "status": "closed",
-                },
-                platform="telegram",
+        language = (
+            ticket_action.actor.language
+        )
+
+    except UserSupportAccessError:
+        await callback.answer(
+            t(
+                "search_contact_user_not_found",
+                fallback_language,
+            ),
+            show_alert=True,
+        )
+        return
+
+    except (
+        SupportServiceError,
+        UserSupportSelectionError,
+    ) as exc:
+        language = fallback_language
+        error_message = str(exc)
+
+        if (
+            error_message
+            == "Support ticket is already closed."
+        ):
+            error_message = t(
+                "support_ticket_already_closed",
+                language,
             )
-            await session.commit()
-    except SupportServiceError as exc:
-        message = str(exc)
-        if message == "Support ticket is already closed.":
-            message = t("support_ticket_already_closed", language)
-        await callback.answer(message, show_alert=True)
+
+        await callback.answer(
+            error_message,
+            show_alert=True,
+        )
         return
 
     await callback.answer()
@@ -1218,19 +1318,10 @@ async def receive_user_support_reply(message: Message, state: FSMContext):
     data = await state.get_data()
     ticket_id = data.get("support_reply_ticket_id")
 
-    user, language = await get_support_user_context(
-        message.from_user.id,
-        fallback_language,
-    )
-
+    language = fallback_language
     terminal_error_text = None
 
-    if not user:
-        terminal_error_text = t(
-            "search_contact_user_not_found",
-            language,
-        )
-    elif not ticket_id:
+    if not ticket_id:
         terminal_error_text = t(
             "admin_item_not_found",
             language,
@@ -1268,64 +1359,63 @@ async def receive_user_support_reply(message: Message, state: FSMContext):
 
     try:
         async with get_session() as session:
-            fresh_user = await UserService(session).get_user_by_telegram_id(
-                message.from_user.id
-            )
-            if not fresh_user:
-                await delete_telegram_messages(
-                    bot=message.bot,
-                    chat_id=message.chat.id,
-                    message_ids=[
-                        message.message_id
-                    ],
-                )
-
-                menu_message_id = (
-                    await edit_or_replace_tracked_menu_message(
-                        message=message,
-                        menu_message_id=data.get(
-                            "last_menu_message_id"
-                        ),
-                        text=t(
-                            "search_contact_user_not_found",
-                            language,
-                        ),
-                        reply_markup=support_menu_keyboard(
-                            language
-                        ),
-                    )
-                )
-
-                await state.clear()
-                await state.update_data(
-                    last_menu_message_id=(
-                        menu_message_id
+            reply_action = await (
+                UserSupportService(
+                    session
+                ).reply_to_ticket(
+                    platform_user_id=(
+                        message.from_user.id
+                    ),
+                    ticket_id=ticket_id,
+                    message_text=(
+                        message.text or ""
                     ),
                 )
-                return
-
-            await SupportService(
-                SupportRepository(session)
-            ).add_user_message(
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                ticket_id=UUID(ticket_id),
-                message_text=message.text or "",
             )
 
-            await EventRepository(session).create_event(
-                event_type="ticket_message",
-                tenant_id=fresh_user.tenant_id,
-                user_id=fresh_user.id,
-                entity_type="support_ticket",
-                entity_id=UUID(ticket_id),
-                payload={
-                    "sender_role": "user",
-                },
-                platform="telegram",
+        language = (
+            reply_action.actor.language
+        )
+
+    except UserSupportAccessError:
+        await delete_telegram_messages(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            message_ids=[
+                message.message_id
+            ],
+        )
+
+        menu_message_id = (
+            await edit_or_replace_tracked_menu_message(
+                message=message,
+                menu_message_id=data.get(
+                    "last_menu_message_id"
+                ),
+                text=t(
+                    "search_contact_user_not_found",
+                    language,
+                ),
+                reply_markup=(
+                    support_menu_keyboard(
+                        language
+                    )
+                ),
             )
-            await session.commit()
-    except SupportServiceError as exc:
+        )
+
+        await state.clear()
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message_id
+            ),
+        )
+        return
+
+    except (
+        SupportServiceError,
+        UserSupportSelectionError,
+    ) as exc:
         await delete_telegram_messages(
             bot=message.bot,
             chat_id=message.chat.id,

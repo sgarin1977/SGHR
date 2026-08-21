@@ -2165,7 +2165,7 @@ async def confirm_specialist(callback: CallbackQuery, state: FSMContext):
         )
     )
 
-    from handlers.billing import show_specialist_cabinet
+    from handlers.specialist_cabinet_common import show_specialist_cabinet
 
     await show_specialist_cabinet(
         callback,

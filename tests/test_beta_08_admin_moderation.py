@@ -1457,25 +1457,28 @@ def test_admin_rbac_full_beta_contract_is_covered():
 
     assert "ApprovalRequest" in billing_repo
 def test_admin_panel_uses_active_role_context_for_visible_menu():
-    source = open("handlers/admin.py", encoding="utf-8").read()
+    handler_source = open(
+        "handlers/admin.py",
+        encoding="utf-8",
+    ).read()
+    service_source = open(
+        "services/admin_panel.py",
+        encoding="utf-8",
+    ).read()
 
-    assert "def effective_panel_roles" in source
-    assert "active_role in roles" in source
-    assert "panel_roles = effective_panel_roles(" in source
-    assert "admin_panel_keyboard(" in source
-    assert "panel_roles," in source
+    assert (
+        "def effective_panel_roles"
+        in service_source
+    )
+    assert "active_role in roles" in service_source
+    assert (
+        "panel_roles = self.effective_panel_roles("
+        in service_source
+    )
 
-    show_panel_block = source.split(
-        "async def show_admin_panel",
-        1,
-    )[1].split(
-        "@admin_router.message(Command(\"admin\"))",
-        1,
-    )[0]
-
-    assert "panel_roles.intersection(ADMIN_MODERATION_MENU_ROLES)" in show_panel_block
-    assert "panel_roles.intersection(ADMIN_SUPPORT_MENU_ROLES)" in show_panel_block
-    assert "reply_markup=admin_panel_keyboard(" in show_panel_block
+    assert "AdminPanelService(" in handler_source
+    assert "panel.panel_roles" in handler_source
+    assert "admin_panel_keyboard(" in handler_source
 
 async def test_other_complaint_requires_comment(db_session):
     reporter_platform_user_id, reporter_user_id, tenant_id = (
@@ -2297,7 +2300,10 @@ def test_super_admin_impersonation_matches_part2_sa5_contract():
     assert "super_admin_impersonation_stopped" in texts_source
 
 def test_super_admin_permission_matrix_matches_part2_sa6_readonly_contract():
-    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    admin_source = open(
+        "handlers/admin_governance.py",
+        encoding="utf-8",
+    ).read()
     service_source = open("services/moderation.py", encoding="utf-8").read()
     repository_source = open(
         "database/repositories/moderation.py",
@@ -2320,8 +2326,8 @@ def test_super_admin_permission_matrix_matches_part2_sa6_readonly_contract():
     assert "permission_number=f\"permission-{row.permission_id.hex[:8]}\"" in service_source
 
     assert "entering_super_admin_permission_search" in admin_source
-    assert '@admin_router.callback_query(F.data == "SA_PERMISSIONS")' in admin_source
-    assert '@admin_router.callback_query(F.data == "SA_PERMISSION_SEARCH")' in admin_source
+    assert '@admin_governance_router.callback_query(F.data == "SA_PERMISSIONS")' in admin_source
+    assert '@admin_governance_router.callback_query(F.data == "SA_PERMISSION_SEARCH")' in admin_source
     assert "format_super_admin_permissions" in admin_source
     assert "super_admin_permissions_keyboard" in admin_source
 
@@ -2334,7 +2340,10 @@ def test_super_admin_permission_matrix_matches_part2_sa6_readonly_contract():
     assert "super_admin_permission_history_btn" in texts_source
 
 def test_super_admin_permission_change_matches_part2_sa6_contract():
-    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    admin_source = open(
+        "handlers/admin_governance.py",
+        encoding="utf-8",
+    ).read()
     service_source = open("services/moderation.py", encoding="utf-8").read()
     repository_source = open(
         "database/repositories/moderation.py",
@@ -2374,7 +2383,7 @@ def test_super_admin_permission_change_matches_part2_sa6_contract():
     assert "super_admin_permission_changed" in texts_source
 
 def test_super_admin_global_audit_matches_part2_sa8_list_contract():
-    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    audit_source = open("handlers/admin_audit.py", encoding="utf-8").read()
     service_source = open("services/moderation.py", encoding="utf-8").read()
     repository_source = open(
         "database/repositories/moderation.py",
@@ -2401,15 +2410,15 @@ def test_super_admin_global_audit_matches_part2_sa8_list_contract():
     assert 'event_type="audit_viewed"' in service_source
     assert '"source": "super_admin_global_audit"' in service_source
 
-    assert '@admin_router.callback_query(F.data == "SA_AUDIT")' in admin_source
-    assert 'F.data.startswith("SA_AUDIT_QUEUE:")' in admin_source
-    assert 'F.data == "SA_AUDIT_FILTER"' in admin_source
-    assert "open_super_admin_audit_queue" in admin_source
-    assert "super_admin_audit_filter_keyboard" in admin_source
-    assert 'prefix="SA_AUDIT"' in admin_source
+    assert '@admin_audit_router.callback_query(F.data == "SA_AUDIT")' in audit_source
+    assert 'F.data.startswith("SA_AUDIT_QUEUE:")' in audit_source
+    assert 'F.data == "SA_AUDIT_FILTER"' in audit_source
+    assert "open_super_admin_audit_queue" in audit_source
+    assert "super_admin_audit_filter_keyboard" in audit_source
+    assert 'prefix="SA_AUDIT"' in audit_source
 
 def test_super_admin_audit_event_detail_matches_part2_sa81_contract():
-    admin_source = open("handlers/admin.py", encoding="utf-8").read()
+    audit_source = open("handlers/admin_audit.py", encoding="utf-8").read()
     service_source = open("services/moderation.py", encoding="utf-8").read()
     repository_source = open(
         "database/repositories/moderation.py",
@@ -2431,10 +2440,10 @@ def test_super_admin_audit_event_detail_matches_part2_sa81_contract():
     assert "_summarize_audit_dict" in service_source
     assert "correlation_id" in service_source
 
-    assert "def super_admin_audit_card_keyboard" in admin_source
-    assert 'callback_data=f"SA_AUDIT_OPEN:{index}"' in admin_source
-    assert 'F.data.startswith("SA_AUDIT_OPEN:")' in admin_source
-    assert "super_admin_audit_action_ids" in admin_source
+    assert "def super_admin_audit_card_keyboard" in audit_source
+    assert 'callback_data=f"SA_AUDIT_OPEN:{index}"' in audit_source
+    assert 'F.data.startswith("SA_AUDIT_OPEN:")' in audit_source
+    assert "super_admin_audit_action_ids" in audit_source
     assert "super_admin_audit_event_detail" in texts_source
 
 def test_super_admin_system_matches_part2_sa9_readonly_contract():
@@ -2458,7 +2467,7 @@ def test_super_admin_system_matches_part2_sa9_readonly_contract():
     assert '"source": "super_admin_system"' in service_source
     assert "secrets hidden" in service_source
 
-    assert '@admin_router.callback_query(F.data == "SA_SYSTEM")' in admin_source
+    assert 'F.data == "SA_SYSTEM"' in admin_source
     assert 'F.data.startswith("SA_SYSTEM_")' in admin_source
     assert "format_super_admin_system_status" in admin_source
     assert "super_admin_system_keyboard" in admin_source
@@ -2469,7 +2478,7 @@ def test_super_admin_system_matches_part2_sa9_readonly_contract():
     assert "SA_SYSTEM_ENV" in admin_source
 
     assert "super_admin_system_status" in texts_source
-    assert "Secrets and env values are never shown." in texts_source
+    assert "Secrets and environment variable values are hidden." in texts_source
     assert "super_admin_feature_flags_btn" in texts_source
     assert "super_admin_health_check_btn" in texts_source
     assert "super_admin_maintenance_btn" in texts_source
@@ -2486,9 +2495,10 @@ def test_super_admin_system_detail_buttons_match_part2_sa9_contract():
     assert 'detail_type == "ENV"' in admin_source
     assert 'detail_type == "FEATURE_FLAGS"' in admin_source
     assert 'detail_type == "MAINTENANCE"' in admin_source
-    assert "open_super_admin_system_status" in admin_source
-    assert "Env values, tokens and secrets are hidden." in texts_source
-    assert "Changing maintenance mode requires a separate confirmation flow." in texts_source
+    assert "AdminSystemService(" in admin_source
+    assert "get_system_status" in admin_source
+    assert "Variable values, tokens, and secrets are hidden." in texts_source
+    assert "Changing this mode requires separate confirmation." in texts_source
     assert "super_admin_system_health_detail" in texts_source
     assert "super_admin_system_migrations_detail" in texts_source
     assert "super_admin_system_env_detail" in texts_source

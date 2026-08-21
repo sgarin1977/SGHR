@@ -3585,14 +3585,16 @@ class ModerationService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
     ) -> SuperAdminSystemStatusCard:
         try:
             row = await self.repository.get_super_admin_system_status(
                 admin_user_id=admin_user_id,
+                tenant_id=tenant_id,
             )
 
             await self.repository.log_event(
-                tenant_id=None,
+                tenant_id=tenant_id,
                 user_id=admin_user_id,
                 event_type="system_settings_viewed",
                 entity_type="system",
@@ -3769,10 +3771,14 @@ class ModerationService:
         self,
         *,
         admin_user_id: UUID,
+        tenant_id: UUID,
         limit: int = 5,
     ) -> tuple[SuperAdminSmokeHistoryCard, ...]:
         try:
-            roles = await self.repository.get_admin_roles(admin_user_id)
+            roles = await self.repository.get_admin_roles(
+                admin_user_id,
+                tenant_id=tenant_id,
+            )
 
             if "super_admin" not in roles:
                 raise ModerationAccessError("Super Admin access required.")
@@ -3782,10 +3788,12 @@ class ModerationService:
                     SELECT payload, created_at
                     FROM event_logs
                     WHERE event_type = 'smoke_test_run'
+                      AND tenant_id = :tenant_id
                     ORDER BY created_at DESC
                     LIMIT :limit
                 """),
                 {
+                    "tenant_id": tenant_id,
                     "limit": max(1, min(int(limit), 10)),
                 },
             )

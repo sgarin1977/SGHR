@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterable
 
 from aiogram import Bot
@@ -9,6 +10,9 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
+
+logger = logging.getLogger(__name__)
+
 
 async def edit_or_replace_menu_message(
     *,
@@ -209,31 +213,54 @@ async def send_telegram_attachment(
     chat_id: int,
     attachment: dict,
     caption: str | None = None,
-    reply_markup: InlineKeyboardMarkup | None = None,
+    reply_markup: (
+        InlineKeyboardMarkup | None
+    ) = None,
 ) -> Message | None:
-    attachment_type = attachment.get("type")
-    file_id = attachment.get("file_id")
+    attachment_type = attachment.get(
+        "type"
+    )
+    file_id = attachment.get(
+        "file_id"
+    )
 
     if not file_id:
-        return
+        return None
 
     normalized_caption = (
         str(caption or "").strip()[:1000]
         or None
     )
 
-    if attachment_type == "photo":
-        return await bot.send_photo(
-            chat_id=chat_id,
-            photo=file_id,
-            caption=normalized_caption,
-            reply_markup=reply_markup,
-        )
+    try:
+        if attachment_type == "photo":
+            return await bot.send_photo(
+                chat_id=chat_id,
+                photo=file_id,
+                caption=normalized_caption,
+                reply_markup=reply_markup,
+            )
 
-    if attachment_type == "document":
-        return await bot.send_document(
-            chat_id=chat_id,
-            document=file_id,
-            caption=normalized_caption,
-            reply_markup=reply_markup,
+        if attachment_type == "document":
+            return await bot.send_document(
+                chat_id=chat_id,
+                document=file_id,
+                caption=normalized_caption,
+                reply_markup=reply_markup,
+            )
+    except TelegramBadRequest as exc:
+        logger.warning(
+            (
+                "telegram_attachment_unavailable "
+                "type=%s file_unique_id=%s "
+                "error=%s"
+            ),
+            attachment_type,
+            attachment.get(
+                "file_unique_id"
+            ),
+            exc,
         )
+        return None
+
+    return None

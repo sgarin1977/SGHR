@@ -1042,3 +1042,30 @@ async def test_non_last_super_admin_can_be_revoked():
     assert role.status == "revoked"
     assert result["role"] == "super_admin"
     assert result["status"] == "revoked"
+
+@pytest.mark.asyncio
+async def test_cli_rolls_back_before_cleanup():
+    from scripts.root_recovery_cli import (
+        cleanup_cli_after_exit,
+    )
+
+    events = []
+
+    class FailedSession:
+        async def rollback(self):
+            events.append("rollback")
+
+    class ActiveCli:
+        async def cleanup(self):
+            assert events == ["rollback"]
+            events.append("cleanup")
+
+    await cleanup_cli_after_exit(
+        cli=ActiveCli(),
+        session=FailedSession(),
+    )
+
+    assert events == [
+        "rollback",
+        "cleanup",
+    ]
