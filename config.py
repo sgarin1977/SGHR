@@ -3,10 +3,47 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _get_bool_env(
+    name: str,
+    *,
+    default: bool,
+) -> bool:
+    raw_value = os.getenv(name)
+
+    if raw_value is None:
+        return default
+
+    normalized = raw_value.strip().lower()
+
+    if normalized in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return True
+
+    if normalized in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return False
+
+    raise ValueError(
+        f"{name} must be a boolean value."
+    )
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DATABASE_URL = os.getenv("DATABASE_URL")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local")
+BOT_DROP_PENDING_UPDATES = _get_bool_env(
+    "BOT_DROP_PENDING_UPDATES",
+    default=False,
+)
 
 
 def positive_int_env(

@@ -416,7 +416,7 @@ class DictionaryRepository:
             professions_count=int(professions_count or 0),
             specialists_count=int(specialists_count or 0),
         )
-    
+
     async def category_name_exists(
         self,
         *,
@@ -596,33 +596,126 @@ class DictionaryRepository:
         if not normalized_title:
             return []
 
+        profession_counts = (
+            select(
+                Profession.category_id.label(
+                    "category_id"
+                ),
+                func.count(
+                    Profession.id
+                ).label(
+                    "professions_count"
+                ),
+            )
+            .group_by(
+                Profession.category_id
+            )
+            .subquery()
+        )
+
+        specialist_counts = (
+            select(
+                ProfessionalCabinet.category_id.label(
+                    "category_id"
+                ),
+                func.count(
+                    func.distinct(
+                        ProfessionalCabinet.specialist_id
+                    )
+                ).label(
+                    "specialists_count"
+                ),
+            )
+            .where(
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.category_id
+            )
+            .subquery()
+        )
+
         result = await self.session.execute(
-            select(SpecialistCategory.id)
+            select(
+                SpecialistCategory.id,
+                SpecialistCategory.code,
+                SpecialistCategory.name,
+                SpecialistCategory.name_ru,
+                SpecialistCategory.name_en,
+                SpecialistCategory.name_pt,
+                SpecialistCategory.name_uk,
+                SpecialistCategory.name_pl,
+                SpecialistCategory.name_de,
+                SpecialistCategory.name_nl,
+                SpecialistCategory.sort_order,
+                SpecialistCategory.is_active,
+                SpecialistCategory.extra_metadata,
+                func.coalesce(
+                    profession_counts.c.professions_count,
+                    0,
+                ),
+                func.coalesce(
+                    specialist_counts.c.specialists_count,
+                    0,
+                ),
+            )
+            .outerjoin(
+                profession_counts,
+                (
+                    profession_counts.c.category_id
+                    == SpecialistCategory.id
+                ),
+            )
+            .outerjoin(
+                specialist_counts,
+                (
+                    specialist_counts.c.category_id
+                    == SpecialistCategory.id
+                ),
+            )
             .where(
                 or_(
                     func.lower(
-                        func.trim(SpecialistCategory.name)
+                        func.trim(
+                            SpecialistCategory.name
+                        )
                     ) == normalized_title,
                     func.lower(
-                        func.trim(SpecialistCategory.name_ru)
+                        func.trim(
+                            SpecialistCategory.name_ru
+                        )
                     ) == normalized_title,
                     func.lower(
-                        func.trim(SpecialistCategory.name_en)
+                        func.trim(
+                            SpecialistCategory.name_en
+                        )
                     ) == normalized_title,
                     func.lower(
-                        func.trim(SpecialistCategory.name_pt)
+                        func.trim(
+                            SpecialistCategory.name_pt
+                        )
                     ) == normalized_title,
                     func.lower(
-                        func.trim(SpecialistCategory.name_uk)
+                        func.trim(
+                            SpecialistCategory.name_uk
+                        )
                     ) == normalized_title,
                     func.lower(
-                        func.trim(SpecialistCategory.name_pl)
+                        func.trim(
+                            SpecialistCategory.name_pl
+                        )
                     ) == normalized_title,
                     func.lower(
-                        func.trim(SpecialistCategory.name_de)
+                        func.trim(
+                            SpecialistCategory.name_de
+                        )
                     ) == normalized_title,
                     func.lower(
-                        func.trim(SpecialistCategory.name_nl)
+                        func.trim(
+                            SpecialistCategory.name_nl
+                        )
                     ) == normalized_title,
                 )
             )
@@ -634,18 +727,46 @@ class DictionaryRepository:
             .limit(limit)
         )
 
-        category_ids = list(result.scalars().all())
-        rows = []
-
-        for category_id in category_ids:
-            row = await self.get_category_for_admin(
-                category_id
+        return [
+            AdminCategoryDictionaryRow(
+                category_id=category_id,
+                code=code,
+                name=name,
+                name_ru=name_ru,
+                name_en=name_en,
+                name_pt=name_pt,
+                name_uk=name_uk,
+                name_pl=name_pl,
+                name_de=name_de,
+                name_nl=name_nl,
+                sort_order=sort_order,
+                is_active=is_active,
+                metadata=metadata or {},
+                professions_count=int(
+                    professions_count or 0
+                ),
+                specialists_count=int(
+                    specialists_count or 0
+                ),
             )
-
-            if row:
-                rows.append(row)
-
-        return rows
+            for (
+                category_id,
+                code,
+                name,
+                name_ru,
+                name_en,
+                name_pt,
+                name_uk,
+                name_pl,
+                name_de,
+                name_nl,
+                sort_order,
+                is_active,
+                metadata,
+                professions_count,
+                specialists_count,
+            ) in result.all()
+        ]
 
     async def category_title_exists(
         self,
@@ -739,7 +860,7 @@ class DictionaryRepository:
         await self.session.flush()
 
         return await self.get_category_for_admin(category.id)
-    
+
     async def list_category_specialist_ids_for_admin(
         self,
         *,
@@ -850,7 +971,7 @@ class DictionaryRepository:
             ) in result.all()
         ]
 
-    
+
     async def list_professions_by_category_for_admin(
         self,
         *,
@@ -858,8 +979,74 @@ class DictionaryRepository:
         limit: int = 100,
         offset: int = 0,
     ) -> list[AdminProfessionDictionaryRow]:
+        specialist_counts = (
+            select(
+                ProfessionalCabinet.profession_id.label(
+                    "profession_id"
+                ),
+                func.count(
+                    func.distinct(
+                        ProfessionalCabinet.specialist_id
+                    )
+                ).label(
+                    "specialists_count"
+                ),
+            )
+            .where(
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.profession_id
+            )
+            .subquery()
+        )
+
         result = await self.session.execute(
-            select(Profession.id)
+            select(
+                Profession.id,
+                Profession.category_id,
+                Profession.code,
+                Profession.name,
+                Profession.name_ru,
+                Profession.name_en,
+                Profession.name_pt,
+                Profession.name_uk,
+                Profession.name_pl,
+                Profession.name_de,
+                Profession.name_nl,
+                Profession.normalized_name,
+                Profession.sort_order,
+                Profession.is_active,
+                Profession.extra_metadata,
+                SpecialistCategory.name,
+                SpecialistCategory.name_ru,
+                SpecialistCategory.name_en,
+                SpecialistCategory.name_pt,
+                SpecialistCategory.name_uk,
+                SpecialistCategory.name_pl,
+                SpecialistCategory.name_de,
+                SpecialistCategory.name_nl,
+                func.coalesce(
+                    specialist_counts.c.specialists_count,
+                    0,
+                ),
+            )
+            .join(
+                SpecialistCategory,
+                (
+                    SpecialistCategory.id
+                    == Profession.category_id
+                ),
+            )
+            .outerjoin(
+                specialist_counts,
+                (
+                    specialist_counts.c.profession_id
+                    == Profession.id
+                ),
+            )
             .where(
                 Profession.category_id == category_id
             )
@@ -872,18 +1059,62 @@ class DictionaryRepository:
             .limit(limit)
         )
 
-        profession_ids = list(result.scalars().all())
-        rows = []
-
-        for profession_id in profession_ids:
-            row = await self.get_profession_for_admin(
-                profession_id
+        return [
+            AdminProfessionDictionaryRow(
+                profession_id=profession_id,
+                category_id=row_category_id,
+                code=code,
+                name=name,
+                name_ru=name_ru,
+                name_en=name_en,
+                name_pt=name_pt,
+                name_uk=name_uk,
+                name_pl=name_pl,
+                name_de=name_de,
+                name_nl=name_nl,
+                normalized_name=normalized_name,
+                sort_order=sort_order,
+                is_active=is_active,
+                metadata=metadata or {},
+                category_name=category_name,
+                category_name_ru=category_name_ru,
+                category_name_en=category_name_en,
+                category_name_pt=category_name_pt,
+                category_name_uk=category_name_uk,
+                category_name_pl=category_name_pl,
+                category_name_de=category_name_de,
+                category_name_nl=category_name_nl,
+                specialists_count=int(
+                    specialists_count or 0
+                ),
             )
-
-            if row:
-                rows.append(row)
-
-        return rows
+            for (
+                profession_id,
+                row_category_id,
+                code,
+                name,
+                name_ru,
+                name_en,
+                name_pt,
+                name_uk,
+                name_pl,
+                name_de,
+                name_nl,
+                normalized_name,
+                sort_order,
+                is_active,
+                metadata,
+                category_name,
+                category_name_ru,
+                category_name_en,
+                category_name_pt,
+                category_name_uk,
+                category_name_pl,
+                category_name_de,
+                category_name_nl,
+                specialists_count,
+            ) in result.all()
+        ]
 
     async def list_professions_for_admin(
         self,
@@ -1139,7 +1370,7 @@ class DictionaryRepository:
             category_name_nl=category_name_nl,
             specialists_count=int(specialists_count or 0),
         )
-    
+
     async def get_category_by_code_for_admin(
         self,
         code: str,
@@ -1190,31 +1421,107 @@ class DictionaryRepository:
         title: str,
         limit: int = 10,
     ) -> list[AdminProfessionDictionaryRow]:
-        normalized_title = " ".join((title or "").split()).lower()
+        normalized_title = " ".join(
+            (title or "").split()
+        ).lower()
 
         if not normalized_title:
             return []
 
+        specialist_counts = (
+            select(
+                ProfessionalCabinet.profession_id.label(
+                    "profession_id"
+                ),
+                func.count(
+                    func.distinct(
+                        ProfessionalCabinet.specialist_id
+                    )
+                ).label(
+                    "specialists_count"
+                ),
+            )
+            .where(
+                ProfessionalCabinet.is_active.is_(
+                    True
+                ),
+            )
+            .group_by(
+                ProfessionalCabinet.profession_id
+            )
+            .subquery()
+        )
+
         result = await self.session.execute(
-            select(Profession.id)
+            select(
+                Profession.id,
+                Profession.category_id,
+                Profession.code,
+                Profession.name,
+                Profession.name_ru,
+                Profession.name_en,
+                Profession.name_pt,
+                Profession.name_uk,
+                Profession.name_pl,
+                Profession.name_de,
+                Profession.name_nl,
+                Profession.normalized_name,
+                Profession.sort_order,
+                Profession.is_active,
+                Profession.extra_metadata,
+                SpecialistCategory.name,
+                SpecialistCategory.name_ru,
+                SpecialistCategory.name_en,
+                SpecialistCategory.name_pt,
+                SpecialistCategory.name_uk,
+                SpecialistCategory.name_pl,
+                SpecialistCategory.name_de,
+                SpecialistCategory.name_nl,
+                func.coalesce(
+                    specialist_counts.c.specialists_count,
+                    0,
+                ),
+            )
+            .join(
+                SpecialistCategory,
+                (
+                    SpecialistCategory.id
+                    == Profession.category_id
+                ),
+            )
+            .outerjoin(
+                specialist_counts,
+                (
+                    specialist_counts.c.profession_id
+                    == Profession.id
+                ),
+            )
             .where(
                 or_(
-                    func.lower(func.trim(Profession.name))
-                    == normalized_title,
-                    func.lower(func.trim(Profession.name_ru))
-                    == normalized_title,
-                    func.lower(func.trim(Profession.name_en))
-                    == normalized_title,
-                    func.lower(func.trim(Profession.name_pt))
-                    == normalized_title,
-                    func.lower(func.trim(Profession.name_uk))
-                    == normalized_title,
-                    func.lower(func.trim(Profession.name_pl))
-                    == normalized_title,
-                    func.lower(func.trim(Profession.name_de))
-                    == normalized_title,
-                    func.lower(func.trim(Profession.name_nl))
-                    == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name_ru)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name_en)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name_pt)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name_uk)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name_pl)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name_de)
+                    ) == normalized_title,
+                    func.lower(
+                        func.trim(Profession.name_nl)
+                    ) == normalized_title,
                 )
             )
             .order_by(
@@ -1225,16 +1532,62 @@ class DictionaryRepository:
             .limit(limit)
         )
 
-        profession_ids = list(result.scalars().all())
-        rows = []
-
-        for profession_id in profession_ids:
-            row = await self.get_profession_for_admin(profession_id)
-
-            if row:
-                rows.append(row)
-
-        return rows
+        return [
+            AdminProfessionDictionaryRow(
+                profession_id=profession_id,
+                category_id=category_id,
+                code=code,
+                name=name,
+                name_ru=name_ru,
+                name_en=name_en,
+                name_pt=name_pt,
+                name_uk=name_uk,
+                name_pl=name_pl,
+                name_de=name_de,
+                name_nl=name_nl,
+                normalized_name=normalized_name,
+                sort_order=sort_order,
+                is_active=is_active,
+                metadata=metadata or {},
+                category_name=category_name,
+                category_name_ru=category_name_ru,
+                category_name_en=category_name_en,
+                category_name_pt=category_name_pt,
+                category_name_uk=category_name_uk,
+                category_name_pl=category_name_pl,
+                category_name_de=category_name_de,
+                category_name_nl=category_name_nl,
+                specialists_count=int(
+                    specialists_count or 0
+                ),
+            )
+            for (
+                profession_id,
+                category_id,
+                code,
+                name,
+                name_ru,
+                name_en,
+                name_pt,
+                name_uk,
+                name_pl,
+                name_de,
+                name_nl,
+                normalized_name,
+                sort_order,
+                is_active,
+                metadata,
+                category_name,
+                category_name_ru,
+                category_name_en,
+                category_name_pt,
+                category_name_uk,
+                category_name_pl,
+                category_name_de,
+                category_name_nl,
+                specialists_count,
+            ) in result.all()
+        ]
 
     async def profession_code_exists(
         self,
@@ -1314,7 +1667,7 @@ class DictionaryRepository:
         await self.session.flush()
 
         return await self.get_profession_for_admin(profession.id)
-    
+
     async def rename_profession_for_admin(
         self,
         *,
@@ -1356,7 +1709,7 @@ class DictionaryRepository:
         await self.session.flush()
 
         return await self.get_profession_for_admin(profession_id)
-    
+
     async def move_profession_to_category_for_admin(
         self,
         *,
@@ -1389,7 +1742,7 @@ class DictionaryRepository:
         return await self.get_profession_for_admin(
             profession_id
         )
-    
+
     async def set_profession_visibility_for_admin(
         self,
         *,
@@ -1405,7 +1758,7 @@ class DictionaryRepository:
         await self.session.flush()
 
         return await self.get_profession_for_admin(profession_id)
-    
+
     async def archive_profession_for_admin(
         self,
         *,
@@ -2525,7 +2878,7 @@ class DictionaryRepository:
                 is_available,
             ) in result.all()
         ]
-    
+
     async def list_skills_for_admin(
         self,
         *,
@@ -2840,7 +3193,7 @@ class DictionaryRepository:
         await self.session.flush()
 
         return await self.get_skill_for_admin(skill.id)
-    
+
     async def rename_skill_for_admin(
         self,
         *,
@@ -2864,7 +3217,7 @@ class DictionaryRepository:
         await self.session.flush()
 
         return await self.get_skill_for_admin(skill_id)
-    
+
     async def set_skill_visibility_for_admin(
         self,
         *,
@@ -2880,7 +3233,7 @@ class DictionaryRepository:
         await self.session.flush()
 
         return await self.get_skill_for_admin(skill_id)
-    
+
     async def merge_skill_links_for_admin(
         self,
         *,
@@ -3910,7 +4263,7 @@ class DictionaryRepository:
                 row.professional_cabinets_count
             ),
         )
-    
+
     async def set_city_visibility_for_admin(
         self,
         *,

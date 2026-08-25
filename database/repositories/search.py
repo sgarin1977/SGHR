@@ -413,6 +413,121 @@ class SpecialistSearchRepository:
         profession = await self.session.get(Profession, profession_id)
         return self._localized_name(profession, language)
 
+    async def get_search_enrichment_by_cabinet_ids(
+        self,
+        cabinet_ids: list[UUID],
+        language: str = "ru",
+    ) -> dict[UUID, dict[str, object]]:
+        if not cabinet_ids:
+            return {}
+
+        def localized_name_expression(model):
+            localized_column = getattr(
+                model,
+                f"name_{language}",
+                model.name_ru,
+            )
+
+            return func.coalesce(
+                func.nullif(
+                    localized_column,
+                    "",
+                ),
+                func.nullif(
+                    model.name_ru,
+                    "",
+                ),
+                model.name,
+            )
+
+        result = await self.session.execute(
+            select(
+                ProfessionalCabinet.id.label(
+                    "cabinet_id"
+                ),
+                localized_name_expression(
+                    City
+                ).label(
+                    "city_name"
+                ),
+                localized_name_expression(
+                    SpecialistCategory
+                ).label(
+                    "category_name"
+                ),
+                localized_name_expression(
+                    Profession
+                ).label(
+                    "profession_name"
+                ),
+                SpecialistLanguage.language_code,
+            )
+            .select_from(ProfessionalCabinet)
+            .outerjoin(
+                City,
+                City.id
+                == ProfessionalCabinet.city_id,
+            )
+            .outerjoin(
+                SpecialistCategory,
+                SpecialistCategory.id
+                == ProfessionalCabinet.category_id,
+            )
+            .outerjoin(
+                Profession,
+                Profession.id
+                == ProfessionalCabinet.profession_id,
+            )
+            .outerjoin(
+                SpecialistLanguage,
+                (
+                    SpecialistLanguage.specialist_id
+                    == ProfessionalCabinet.specialist_id
+                ),
+            )
+            .where(
+                ProfessionalCabinet.id.in_(
+                    cabinet_ids
+                )
+            )
+            .order_by(
+                ProfessionalCabinet.id,
+                SpecialistLanguage.language_code,
+            )
+        )
+
+        enrichment: dict[
+            UUID,
+            dict[str, object],
+        ] = {}
+
+        for row in result:
+            item = enrichment.setdefault(
+                row.cabinet_id,
+                {
+                    "city_name": row.city_name,
+                    "category_name": (
+                        row.category_name
+                    ),
+                    "profession_name": (
+                        row.profession_name
+                    ),
+                    "languages": [],
+                },
+            )
+            languages = item["languages"]
+
+            if (
+                row.language_code
+                and row.language_code
+                not in languages
+            ):
+                languages.append(
+                    row.language_code
+                )
+
+        return enrichment
+
     async def get_public_service_titles(
         self,
         specialist_id: UUID,

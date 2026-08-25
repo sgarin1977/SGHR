@@ -336,7 +336,7 @@ async def test_off_returns_original_without_provider():
     assert result.used_translation is False
     assert provider.detect_calls == []
     assert provider.translate_calls == []
-    assert repository.session.commits == 1
+    assert repository.session.commits == 2
 
 
 @pytest.mark.asyncio
@@ -481,7 +481,7 @@ async def test_locked_job_is_not_processed_twice():
     assert result.used_translation is False
     assert provider.detect_calls == []
     assert provider.translate_calls == []
-    assert repository.session.commits == 0
+    assert repository.session.commits == 1
 
 
 @pytest.mark.asyncio
@@ -561,7 +561,7 @@ class FakeHttpClient:
     ):
         return False
 
-    async def post(self, url, *, json):
+    async def post(self, url, *, json, timeout=None):
         self.calls.append(
             {
                 "url": url,
@@ -591,16 +591,12 @@ async def test_libretranslate_detect_contract():
     provider = LibreTranslateProvider(
         base_url="http://translate.test",
         api_key="test-key",
+        client=client,
     )
 
-    with patch(
-        "services.translation."
-        "httpx.AsyncClient",
-        return_value=client,
-    ):
-        detected = await provider.detect_language(
-            text="Добрий день",
-        )
+    detected = await provider.detect_language(
+        text="Добрий день",
+    )
 
     assert detected == "uk"
     assert client.calls == [
@@ -621,19 +617,15 @@ async def test_empty_detection_fails_closed():
     client = FakeHttpClient([])
     provider = LibreTranslateProvider(
         base_url="http://translate.test",
+        client=client,
     )
 
-    with patch(
-        "services.translation."
-        "httpx.AsyncClient",
-        return_value=client,
+    with pytest.raises(
+        TranslationProviderError
     ):
-        with pytest.raises(
-            TranslationProviderError
-        ):
-            await provider.detect_language(
-                text="Unknown",
-            )
+        await provider.detect_language(
+            text="Unknown",
+        )
 
 
 class FakeContactSession:
@@ -902,26 +894,22 @@ async def test_libretranslate_rejects_invalid_json(
     )
     provider = LibreTranslateProvider(
         base_url="http://translate.test",
+        client=client,
     )
 
-    with patch(
-        "services.translation."
-        "httpx.AsyncClient",
-        return_value=client,
+    with pytest.raises(
+        TranslationProviderError
     ):
-        with pytest.raises(
-            TranslationProviderError
-        ):
-            if operation == "detect":
-                await provider.detect_language(
-                    text="Test message",
-                )
-            else:
-                await provider.translate(
-                    text="Test message",
-                    source_language="en",
-                    target_language="ru",
-                )
+        if operation == "detect":
+            await provider.detect_language(
+                text="Test message",
+            )
+        else:
+            await provider.translate(
+                text="Test message",
+                source_language="en",
+                target_language="ru",
+            )
 
 
 @pytest.mark.asyncio
@@ -940,16 +928,12 @@ async def test_detection_ignores_invalid_confidence():
     )
     provider = LibreTranslateProvider(
         base_url="http://translate.test",
+        client=client,
     )
 
-    with patch(
-        "services.translation."
-        "httpx.AsyncClient",
-        return_value=client,
-    ):
-        detected = await provider.detect_language(
-            text="Добрий день",
-        )
+    detected = await provider.detect_language(
+        text="Добрий день",
+    )
 
     assert detected == "uk"
 
@@ -972,21 +956,17 @@ async def test_translation_rejects_malformed_response(
     client = FakeHttpClient(response_data)
     provider = LibreTranslateProvider(
         base_url="http://translate.test",
+        client=client,
     )
 
-    with patch(
-        "services.translation."
-        "httpx.AsyncClient",
-        return_value=client,
+    with pytest.raises(
+        TranslationProviderError
     ):
-        with pytest.raises(
-            TranslationProviderError
-        ):
-            await provider.translate(
-                text="Test message",
-                source_language="en",
-                target_language="ru",
-            )
+        await provider.translate(
+            text="Test message",
+            source_language="en",
+            target_language="ru",
+        )
 
 class InconsistentSettingsRepository:
     def __init__(

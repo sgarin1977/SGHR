@@ -1,7 +1,7 @@
 import hashlib
 from uuid import UUID
-from datetime import datetime
-from sqlalchemy import select
+from datetime import datetime, timedelta
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
@@ -81,14 +81,39 @@ class TranslationRepository:
     async def claim_pending_job_for_message(
         self,
         message_id: UUID,
+        *,
+        lease_seconds: int = 60,
     ) -> TranslationJob | None:
+        claimed_at = datetime.utcnow()
+        lease_expired_before = (
+            claimed_at
+            - timedelta(
+                seconds=max(
+                    1,
+                    int(lease_seconds),
+                )
+            )
+        )
+
         result = await self.session.execute(
             select(TranslationJob)
             .where(
                 TranslationJob.message_id
                 == message_id,
-                TranslationJob.status.in_(
-                    ["pending", "retry"]
+                or_(
+                    TranslationJob.status.in_(
+                        ["pending", "retry"]
+                    ),
+                    and_(
+                        TranslationJob.status
+                        == "processing",
+                        or_(
+                            TranslationJob.updated_at
+                            .is_(None),
+                            TranslationJob.updated_at
+                            <= lease_expired_before,
+                        ),
+                    ),
                 ),
             )
             .order_by(
@@ -99,16 +124,66 @@ class TranslationRepository:
                 skip_locked=True
             )
         )
-        return result.scalar_one_or_none()
 
-    async def list_pending_jobs(self, limit: int = 20) -> list[TranslationJob]:
+        job = result.scalar_one_or_none()
+
+        if not job:
+            return None
+
+        job.status = "processing"
+        job.updated_at = claimed_at
+        await self.session.flush()
+
+        return job
+
+    async def list_pending_jobs(
+        self,
+        limit: int = 20,
+        *,
+        lease_seconds: int = 60,
+    ) -> list[TranslationJob]:
+        lease_expired_before = (
+            datetime.utcnow()
+            - timedelta(
+                seconds=max(
+                    1,
+                    int(lease_seconds),
+                )
+            )
+        )
+
         result = await self.session.execute(
             select(TranslationJob)
-            .where(TranslationJob.status.in_(["pending", "retry"]))
-            .order_by(TranslationJob.created_at.asc())
-            .limit(max(1, min(int(limit), 100)))
+            .where(
+                or_(
+                    TranslationJob.status.in_(
+                        ["pending", "retry"]
+                    ),
+                    and_(
+                        TranslationJob.status
+                        == "processing",
+                        or_(
+                            TranslationJob.updated_at
+                            .is_(None),
+                            TranslationJob.updated_at
+                            <= lease_expired_before,
+                        ),
+                    ),
+                )
+            )
+            .order_by(
+                TranslationJob.created_at.asc()
+            )
+            .limit(
+                max(
+                    1,
+                    min(int(limit), 100),
+                )
+            )
         )
-        return list(result.scalars().all())
+        return list(
+            result.scalars().all()
+        )
 
     async def get_user_message_language(self, user_id: UUID) -> str:
         settings_result = await self.session.execute(

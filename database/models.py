@@ -15,6 +15,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
+def utcnow_naive() -> datetime:
+    """Return UTC compatible with naive DB columns."""
+    return (
+        datetime.now(timezone.utc)
+        .replace(tzinfo=None)
+    )
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -43,8 +51,8 @@ class User(Base):
     status: Mapped[str] = mapped_column(Text, default="active")
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 # ... далі йдуть класи UserAccount та UserRoleMapping без змін
 
@@ -67,8 +75,8 @@ class UserAccount(Base):
     campaign_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
     referral_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     raw_profile: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 # 6.3. Таблиця user_roles за ТЗ
 class UserRoleMapping(Base):
@@ -80,7 +88,7 @@ class UserRoleMapping(Base):
     role: Mapped[str] = mapped_column(Text, nullable=False) # specialist/client/admin/super_admin
     status: Mapped[str] = mapped_column(Text, default="active") # active/suspended/revoked
     granted_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    granted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    granted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class RoleScope(Base):
     __tablename__ = "role_scopes"
@@ -130,7 +138,7 @@ class RoleScope(Base):
         ),
         nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     revoked_by: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
@@ -462,7 +470,7 @@ class EventLog(Base):
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     platform: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     trace_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class LegalDocument(Base):
     __tablename__ = "legal_documents"
@@ -477,7 +485,7 @@ class LegalDocument(Base):
     content_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, default="draft")
     effective_from: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class UserConsent(Base):
@@ -488,7 +496,7 @@ class UserConsent(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     consent_type: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[str] = mapped_column(Text, nullable=False)
-    accepted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     platform: Mapped[str] = mapped_column(Text, default="telegram")
     ip_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -514,8 +522,8 @@ class Country(Base):
     phone_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class City(Base):
@@ -537,8 +545,8 @@ class City(Base):
     timezone: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class UserLocation(Base):
     __tablename__ = "user_locations"
@@ -554,8 +562,8 @@ class UserLocation(Base):
     location_source: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     visibility_level: Mapped[str] = mapped_column(Text, default="city")
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class ProfileVisibilitySetting(Base):
@@ -570,7 +578,7 @@ class ProfileVisibilitySetting(Base):
     visible_to_agencies: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_direct_messages: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_profile_export: Mapped[bool] = mapped_column(Boolean, default=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class DataSubjectRequest(Base):
@@ -581,7 +589,7 @@ class DataSubjectRequest(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     request_type: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, default="requested")
-    requested_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    requested_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     result_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -595,7 +603,7 @@ class DeletionJob(Base):
     status: Mapped[str] = mapped_column(Text, default="scheduled")
     anonymization_report: Mapped[dict] = mapped_column(JSONB, default=dict)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    scheduled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
@@ -621,8 +629,8 @@ class SupportTicket(Base):
     category: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class SupportMessage(Base):
@@ -644,7 +652,7 @@ class SupportMessage(Base):
     sender_role: Mapped[str] = mapped_column(Text, nullable=False)
     message_text: Mapped[str] = mapped_column(Text, nullable=False)
     is_internal: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class SpecialistCategory(Base):
     __tablename__ = "specialist_categories"
@@ -664,8 +672,8 @@ class SpecialistCategory(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class Profession(Base):
     __tablename__ = "professions"
@@ -713,8 +721,8 @@ class Profession(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ProfessionAlias(Base):
     __tablename__ = "profession_aliases"
@@ -728,7 +736,7 @@ class ProfessionAlias(Base):
     normalized_alias: Mapped[str] = mapped_column(Text, nullable=False)
     language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class Skill(Base):
     __tablename__ = "skills"
@@ -741,7 +749,7 @@ class Skill(Base):
     name_pt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     name_es: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class ProfessionSkill(Base):
@@ -753,7 +761,7 @@ class ProfessionSkill(Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=100)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class UserSkill(Base):
@@ -763,7 +771,7 @@ class UserSkill(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     skill_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("skills.id"), nullable=False)
     level: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class Specialist(Base):
@@ -819,8 +827,8 @@ class Specialist(Base):
     status: Mapped[str] = mapped_column(Text, default="draft")
     moderation_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ProfessionalCabinet(Base):
     __tablename__ = "professional_cabinets"
@@ -965,8 +973,8 @@ class SpecialistProfession(Base):
     )
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(Text, default="active")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class SpecialistLocation(Base):
     __tablename__ = "specialist_locations"
@@ -982,8 +990,8 @@ class SpecialistLocation(Base):
     location_source: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     visibility_level: Mapped[str] = mapped_column(Text, default="city")
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class SavedSpecialist(Base):
@@ -1036,7 +1044,7 @@ class SavedSpecialist(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utcnow_naive,
     )
 
 class Language(Base):
@@ -1046,7 +1054,7 @@ class Language(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     native_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class SpecialistLanguage(Base):
     __tablename__ = "specialist_languages"
@@ -1055,7 +1063,7 @@ class SpecialistLanguage(Base):
     specialist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("specialists.id"), nullable=False)
     language_code: Mapped[str] = mapped_column(String(10), nullable=False)
     level: Mapped[str] = mapped_column(Text, nullable=False, default="basic")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class SpecialistService(Base):
@@ -1096,8 +1104,8 @@ class SpecialistService(Base):
     price_unit: Mapped[str] = mapped_column(Text, default="service")
     status: Mapped[str] = mapped_column(Text, default="active")
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ContactRequest(Base):
     __tablename__ = "contact_requests"
@@ -1130,8 +1138,8 @@ class ContactRequest(Base):
     original_language: Mapped[str] = mapped_column(String(10), default="ru")
     status: Mapped[str] = mapped_column(Text, default="new")
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ServiceOrder(Base):
     __tablename__ = "service_orders"
@@ -1197,11 +1205,11 @@ class ServiceOrder(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
 class ConversationThread(Base):
@@ -1228,8 +1236,8 @@ class ConversationThread(Base):
         default="waiting_specialist",
     )
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ConversationParticipant(Base):
     __tablename__ = "conversation_participants"
@@ -1256,8 +1264,8 @@ class ConversationParticipant(Base):
     last_read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     hidden_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class Message(Base):
     __tablename__ = "messages"
@@ -1275,7 +1283,7 @@ class Message(Base):
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
     is_masked: Mapped[bool] = mapped_column(Boolean, default=False)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ContactDetectionEvent(Base):
     __tablename__ = "contact_detection_events"
@@ -1286,7 +1294,7 @@ class ContactDetectionEvent(Base):
     detected_type: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float] = mapped_column(Numeric(4, 2), default=1)
     action_taken: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class ThreadRestriction(Base):
@@ -1297,7 +1305,7 @@ class ThreadRestriction(Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, default="active")
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class TranslationJob(Base):
     __tablename__ = "translation_jobs"
@@ -1311,8 +1319,8 @@ class TranslationJob(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     max_retries: Mapped[int] = mapped_column(Integer, default=3)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class TranslationCache(Base):
     __tablename__ = "translation_cache"
@@ -1323,7 +1331,7 @@ class TranslationCache(Base):
     target_language: Mapped[str] = mapped_column(String(10), nullable=False)
     translated_text: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class TranslationLog(Base):
@@ -1338,7 +1346,7 @@ class TranslationLog(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False)
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class UserLanguageSetting(Base):
@@ -1355,7 +1363,7 @@ class UserLanguageSetting(Base):
     )
     auto_translate_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     show_original_button: Mapped[bool] = mapped_column(Boolean, default=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class MessageReadReceipt(Base):
     __tablename__ = "message_read_receipts"
@@ -1363,7 +1371,7 @@ class MessageReadReceipt(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("messages.id"), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    read_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    read_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class Notification(Base):
@@ -1376,7 +1384,7 @@ class Notification(Base):
     channel: Mapped[str] = mapped_column(Text, default="telegram")
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(Text, default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 class RateLimitRule(Base):
@@ -1389,7 +1397,7 @@ class RateLimitRule(Base):
     window_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     penalty_action: Mapped[str] = mapped_column(Text, default="block")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class AbuseEvent(Base):
@@ -1402,7 +1410,7 @@ class AbuseEvent(Base):
     score: Mapped[int] = mapped_column(Integer, default=0)
     action_taken: Mapped[str] = mapped_column(Text, nullable=False)
     details: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class Complaint(Base):
     __tablename__ = "complaints"
@@ -1466,7 +1474,7 @@ class Complaint(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utcnow_naive,
         nullable=False,
     )
     reviewed_by: Mapped[
@@ -1509,8 +1517,8 @@ class Review(Base):
     text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     specialist_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, default="pending_moderation")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class ReputationScore(Base):
@@ -1523,7 +1531,7 @@ class ReputationScore(Base):
     score: Mapped[float] = mapped_column(Numeric, default=0)
     review_count: Mapped[int] = mapped_column(Integer, default=0)
     complaint_count: Mapped[int] = mapped_column(Integer, default=0)
-    calculated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    calculated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class Blacklist(Base):
     __tablename__ = "blacklist"
@@ -1537,7 +1545,7 @@ class Blacklist(Base):
     comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, default="active")
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class RiskFlag(Base):
@@ -1551,7 +1559,7 @@ class RiskFlag(Base):
     severity: Mapped[str] = mapped_column(Text, default="medium")
     status: Mapped[str] = mapped_column(Text, default="open")
     details: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class AdminAction(Base):
@@ -1587,7 +1595,7 @@ class AdminAction(Base):
     before_state: Mapped[dict] = mapped_column(JSONB, default=dict)
     after_state: Mapped[dict] = mapped_column(JSONB, default=dict)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class ApprovalRequest(Base):
@@ -1601,7 +1609,7 @@ class ApprovalRequest(Base):
     status: Mapped[str] = mapped_column(Text, default="pending")
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class Plan(Base):
     __tablename__ = "plans"
@@ -1616,7 +1624,7 @@ class Plan(Base):
     billing_period: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, default="active")
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class PaidFeature(Base):
@@ -1631,7 +1639,7 @@ class PaidFeature(Base):
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     status: Mapped[str] = mapped_column(Text, default="active")
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class Invoice(Base):
@@ -1645,12 +1653,12 @@ class Invoice(Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     status: Mapped[str] = mapped_column(Text, default="issued")
-    issued_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=datetime.utcnow)
+    issued_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=utcnow_naive)
     due_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     invoice_pdf_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class InvoiceItem(Base):
@@ -1680,7 +1688,7 @@ class Payment(Base):
     status: Mapped[str] = mapped_column(Text, default="pending")
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class FinancialLedger(Base):
@@ -1696,7 +1704,7 @@ class FinancialLedger(Base):
     ledger_type: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, default="posted")
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class SpecialistPromotion(Base):
@@ -1719,7 +1727,7 @@ class SpecialistPromotion(Base):
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     invoice_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("invoices.id"), nullable=True)
     status: Mapped[str] = mapped_column(Text, default="pending_payment")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class FileStorageObject(Base):
     __tablename__ = "file_storage_objects"

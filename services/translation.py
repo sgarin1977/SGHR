@@ -45,6 +45,40 @@ class TranslationSettingsView:
     auto_translate_enabled: bool
     show_original_button: bool
 
+_translation_http_client: (
+    httpx.AsyncClient | None
+) = None
+
+
+def _get_translation_http_client(
+) -> httpx.AsyncClient:
+    global _translation_http_client
+
+    if (
+        _translation_http_client is None
+        or _translation_http_client.is_closed
+    ):
+        _translation_http_client = (
+            httpx.AsyncClient()
+        )
+
+    return _translation_http_client
+
+
+async def close_translation_http_client(
+) -> None:
+    global _translation_http_client
+
+    client = _translation_http_client
+    _translation_http_client = None
+
+    if (
+        client is not None
+        and not client.is_closed
+    ):
+        await client.aclose()
+
+
 class LibreTranslateProvider:
     def __init__(
         self,
@@ -52,6 +86,7 @@ class LibreTranslateProvider:
         base_url: str | None = None,
         api_key: str | None = None,
         timeout_seconds: float | None = None,
+        client: httpx.AsyncClient | None = None,
     ):
         self.base_url = (
             base_url
@@ -65,6 +100,7 @@ class LibreTranslateProvider:
             or 15
         )
         self.provider_name = "libretranslate"
+        self.client = client
 
     async def detect_language(
         self,
@@ -86,15 +122,17 @@ class LibreTranslateProvider:
             payload["api_key"] = self.api_key
 
         try:
-            async with httpx.AsyncClient(
-                timeout=self.timeout_seconds
-            ) as client:
-                response = await client.post(
-                    f"{self.base_url}/detect",
-                    json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
+            client = (
+                self.client
+                or _get_translation_http_client()
+            )
+            response = await client.post(
+                f"{self.base_url}/detect",
+                json=payload,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise TranslationProviderError(
                 "Language detection failed: "
@@ -180,13 +218,17 @@ class LibreTranslateProvider:
             payload["api_key"] = self.api_key
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                response = await client.post(
-                    f"{self.base_url}/translate",
-                    json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
+            client = (
+                self.client
+                or _get_translation_http_client()
+            )
+            response = await client.post(
+                f"{self.base_url}/translate",
+                json=payload,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise TranslationProviderError(
                 "Translation provider failed: "
@@ -656,6 +698,7 @@ class TranslationService:
                 message.id
             )
         )
+        await self.repository.session.commit()
 
         if translation_mode == "off":
             await self.repository.mark_message_not_needed(
@@ -754,7 +797,7 @@ class TranslationService:
                     source_language
                 )
 
-            await self.repository.session.flush()
+            await self.repository.session.commit()
 
         if source_language == target_language:
             await self.repository.mark_message_not_needed(
@@ -827,6 +870,8 @@ class TranslationService:
                     translation_status="translated",
                     used_translation=True,
                 )
+
+        await self.repository.session.commit()
 
         started_at = time.monotonic()
 

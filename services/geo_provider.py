@@ -1,8 +1,72 @@
 import os
+from collections import OrderedDict
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
 from math import asin, cos, radians, sin, sqrt
+from time import monotonic
+from typing import Any
+
 import httpx
+
+
+_geo_http_client: httpx.AsyncClient | None = None
+
+GEO_RESPONSE_CACHE_TTL_SECONDS = float(
+    os.getenv(
+        "NOMINATIM_CACHE_TTL_SECONDS",
+        "3600",
+    )
+)
+GEO_RESPONSE_CACHE_MAX_ENTRIES = max(
+    1,
+    int(
+        os.getenv(
+            "NOMINATIM_CACHE_MAX_ENTRIES",
+            "512",
+        )
+    ),
+)
+
+_GEO_RESPONSE_CACHE: OrderedDict[
+    tuple[
+        str,
+        str,
+        tuple[tuple[str, str], ...],
+    ],
+    tuple[float, Any],
+] = OrderedDict()
+
+
+def clear_geo_response_cache() -> None:
+    _GEO_RESPONSE_CACHE.clear()
+
+
+def _get_geo_http_client(
+) -> httpx.AsyncClient:
+    global _geo_http_client
+
+    if (
+        _geo_http_client is None
+        or _geo_http_client.is_closed
+    ):
+        _geo_http_client = httpx.AsyncClient()
+
+    return _geo_http_client
+
+
+async def close_geo_http_client(
+) -> None:
+    global _geo_http_client
+
+    client = _geo_http_client
+    _geo_http_client = None
+    clear_geo_response_cache()
+
+    if (
+        client is not None
+        and not client.is_closed
+    ):
+        await client.aclose()
 
 
 class GeoProviderError(Exception):
@@ -88,6 +152,7 @@ class NominatimGeoProvider:
         base_url: str | None = None,
         user_agent: str | None = None,
         timeout_seconds: float | None = None,
+        client: httpx.AsyncClient | None = None,
     ):
         self.base_url = (
             base_url
@@ -104,6 +169,7 @@ class NominatimGeoProvider:
             or os.getenv("NOMINATIM_TIMEOUT_SECONDS")
             or 10
         )
+        self.client = client
 
     async def search(
         self,
@@ -249,22 +315,86 @@ class NominatimGeoProvider:
 
         return unique_candidates
 
-    async def _get_json(self, path: str, *, params: dict[str, Any]) -> Any:
+    async def _get_json(
+        self,
+        path: str,
+        *,
+        params: dict[str, Any],
+    ) -> Any:
         headers = {
             "User-Agent": self.user_agent,
             "Accept": "application/json",
         }
+        cache_key = (
+            self.base_url,
+            path,
+            tuple(
+                sorted(
+                    (
+                        str(key),
+                        str(value),
+                    )
+                    for key, value
+                    in params.items()
+                )
+            ),
+        )
+        now = monotonic()
+
+        cached = _GEO_RESPONSE_CACHE.get(
+            cache_key
+        )
+
+        if cached is not None:
+            expires_at, payload = cached
+
+            if expires_at > now:
+                _GEO_RESPONSE_CACHE.move_to_end(
+                    cache_key
+                )
+                return deepcopy(payload)
+
+            del _GEO_RESPONSE_CACHE[cache_key]
 
         try:
-            async with httpx.AsyncClient(
-                timeout=self.timeout_seconds,
+            client = (
+                self.client
+                or _get_geo_http_client()
+            )
+            response = await client.get(
+                f"{self.base_url}{path}",
+                params=params,
                 headers=headers,
-            ) as client:
-                response = await client.get(f"{self.base_url}{path}", params=params)
-                response.raise_for_status()
-                return response.json()
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
         except httpx.HTTPError as exc:
-            raise GeoProviderError(f"Nominatim request failed: {exc}") from exc
+            raise GeoProviderError(
+                f"Nominatim request failed: {exc}"
+            ) from exc
+
+        if GEO_RESPONSE_CACHE_TTL_SECONDS > 0:
+            _GEO_RESPONSE_CACHE[cache_key] = (
+                (
+                    now
+                    + GEO_RESPONSE_CACHE_TTL_SECONDS
+                ),
+                deepcopy(payload),
+            )
+            _GEO_RESPONSE_CACHE.move_to_end(
+                cache_key
+            )
+
+            while (
+                len(_GEO_RESPONSE_CACHE)
+                > GEO_RESPONSE_CACHE_MAX_ENTRIES
+            ):
+                _GEO_RESPONSE_CACHE.popitem(
+                    last=False
+                )
+
+        return payload
 
     def _candidate_from_payload(self, payload: dict[str, Any]) -> GeoPlaceCandidate | None:
         address = payload.get("address") or {}

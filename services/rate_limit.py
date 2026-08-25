@@ -44,6 +44,12 @@ class RateLimitService:
                 window_seconds=None,
             )
 
+        await self.repository.acquire_action_lock(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            action=action,
+        )
+
         current_count = await counter(rule.window_seconds)
 
         if current_count >= rule.limit_count:

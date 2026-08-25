@@ -12,11 +12,46 @@ from database.models import (
     Message,
     RateLimitRule,
 )
+from database.session import async_session
 
 
 class RateLimitRepository:
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        *,
+        audit_session_factory=None,
+    ):
         self.session = session
+        self.audit_session_factory = (
+            audit_session_factory
+            or async_session
+        )
+
+    async def acquire_action_lock(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        action: str,
+    ) -> None:
+        lock_key = (
+            f"rate-limit:"
+            f"{tenant_id}:"
+            f"{user_id}:"
+            f"{action}"
+        )
+
+        await self.session.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(
+                        lock_key,
+                        0,
+                    )
+                )
+            )
+        )
 
     async def get_active_rule(
         self,
@@ -125,19 +160,29 @@ class RateLimitRepository:
         current_count: int,
         penalty_action: str,
     ) -> AbuseEvent:
-        event = AbuseEvent(
-            tenant_id=tenant_id,
-            user_id=user_id,
-            event_type="rate_limit_exceeded",
-            score=1,
-            action_taken=penalty_action,
-            details={
-                "action": action,
-                "limit_count": limit_count,
-                "window_seconds": window_seconds,
-                "current_count": current_count,
-            },
-        )
-        self.session.add(event)
-        await self.session.flush()
+        async with (
+            self.audit_session_factory()
+        ) as audit_session:
+            event = AbuseEvent(
+                        tenant_id=tenant_id,
+                        user_id=user_id,
+                        event_type="rate_limit_exceeded",
+                        score=1,
+                        action_taken=penalty_action,
+                        details={
+                            "action": action,
+                            "limit_count": limit_count,
+                            "window_seconds": window_seconds,
+                            "current_count": current_count,
+                        },
+                    )
+
+            audit_session.add(event)
+
+            try:
+                await audit_session.commit()
+            except Exception:
+                await audit_session.rollback()
+                raise
+
         return event

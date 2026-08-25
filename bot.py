@@ -3,7 +3,23 @@ import logging
 
 from aiogram import Bot, Dispatcher
 
-from config import ADMIN_TELEGRAM_IDS, BOT_TOKEN, ENVIRONMENT, LOG_LEVEL
+from services.geo_provider import (
+    close_geo_http_client,
+)
+from services.portfolio_storage import (
+    close_portfolio_storage_http_client,
+)
+from services.translation import (
+    close_translation_http_client,
+)
+
+from config import (
+    ADMIN_TELEGRAM_IDS,
+    BOT_DROP_PENDING_UPDATES,
+    BOT_TOKEN,
+    ENVIRONMENT,
+    LOG_LEVEL,
+)
 from logger import configure_logging
 from handlers.start import start_router
 from handlers.legal import legal_router
@@ -159,10 +175,19 @@ async def main():
 
     logger.info("bot_routers_registered")
 
-    await bot.delete_webhook(drop_pending_updates=True)
+    await bot.delete_webhook(drop_pending_updates=BOT_DROP_PENDING_UPDATES)
     logger.info("bot_polling_start")
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await close_geo_http_client()
+        await (
+            close_portfolio_storage_http_client()
+        )
+        await (
+            close_translation_http_client()
+        )
 
 if __name__ == "__main__":
     try:

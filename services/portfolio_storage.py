@@ -6,6 +6,44 @@ from urllib.parse import quote
 import httpx
 
 
+_portfolio_storage_http_client: (
+    httpx.AsyncClient | None
+) = None
+
+
+def _get_portfolio_storage_http_client(
+) -> httpx.AsyncClient:
+    global _portfolio_storage_http_client
+
+    if (
+        _portfolio_storage_http_client
+        is None
+        or (
+            _portfolio_storage_http_client
+            .is_closed
+        )
+    ):
+        _portfolio_storage_http_client = (
+            httpx.AsyncClient()
+        )
+
+    return _portfolio_storage_http_client
+
+
+async def close_portfolio_storage_http_client(
+) -> None:
+    global _portfolio_storage_http_client
+
+    client = _portfolio_storage_http_client
+    _portfolio_storage_http_client = None
+
+    if (
+        client is not None
+        and not client.is_closed
+    ):
+        await client.aclose()
+
+
 PORTFOLIO_BUCKET = os.getenv(
     "SUPABASE_STORAGE_BUCKET",
     "specialist-portfolio",
@@ -39,40 +77,87 @@ class ValidatedPortfolioFile:
     extension: str
 
 
+def validate_portfolio_file_metadata(
+    *,
+    filename: str,
+    mime_type: str | None,
+    size_bytes: int,
+) -> ValidatedPortfolioFile:
+    extension = Path(
+        filename or ""
+    ).suffix.lower()
+
+    if extension not in ALLOWED_FILES:
+        raise PortfolioFileValidationError(
+            "Only JPG, JPEG, PNG, WEBP and "
+            "PDF files are allowed."
+        )
+
+    file_type, expected_mime = (
+        ALLOWED_FILES[extension]
+    )
+    normalized_mime = (
+        (mime_type or "")
+        .lower()
+        .split(";", 1)[0]
+        .strip()
+    )
+
+    if normalized_mime != expected_mime:
+        raise PortfolioFileValidationError(
+            "File MIME type does not match "
+            "its extension."
+        )
+
+    normalized_size = int(size_bytes)
+
+    if normalized_size <= 0:
+        raise PortfolioFileValidationError(
+            "File is empty."
+        )
+
+    max_size = (
+        PHOTO_MAX_SIZE
+        if file_type == "photo"
+        else PDF_MAX_SIZE
+    )
+
+    if normalized_size > max_size:
+        limit_mb = max_size // (
+            1024 * 1024
+        )
+        raise PortfolioFileValidationError(
+            f"File exceeds the "
+            f"{limit_mb} MB limit."
+        )
+
+    return ValidatedPortfolioFile(
+        file_type=file_type,
+        mime_type=expected_mime,
+        size_bytes=normalized_size,
+        extension=extension,
+    )
+
+
 def validate_portfolio_file(
     *,
     filename: str,
     mime_type: str | None,
     content: bytes,
 ) -> ValidatedPortfolioFile:
-    extension = Path(filename or "").suffix.lower()
-    size_bytes = len(content)
-
-    if extension not in ALLOWED_FILES:
-        raise PortfolioFileValidationError(
-            "Only JPG, JPEG, PNG, WEBP and PDF files are allowed."
+    validated = (
+        validate_portfolio_file_metadata(
+            filename=filename,
+            mime_type=mime_type,
+            size_bytes=len(content),
         )
-
-    file_type, expected_mime = ALLOWED_FILES[extension]
-    normalized_mime = (mime_type or "").lower().split(";", 1)[0].strip()
-
-    if normalized_mime != expected_mime:
-        raise PortfolioFileValidationError(
-            "File MIME type does not match its extension."
-        )
-
-    if size_bytes <= 0:
-        raise PortfolioFileValidationError("File is empty.")
-
-    max_size = PHOTO_MAX_SIZE if file_type == "photo" else PDF_MAX_SIZE
-    if size_bytes > max_size:
-        limit_mb = max_size // (1024 * 1024)
-        raise PortfolioFileValidationError(
-            f"File exceeds the {limit_mb} MB limit."
-        )
+    )
+    extension = validated.extension
 
     if extension in {".jpg", ".jpeg"}:
-        valid_signature = content.startswith(b"\xff\xd8\xff")
+        valid_signature = content.startswith(
+            b"\xff\xd8\xff"
+        )
     elif extension == ".png":
         valid_signature = content.startswith(
             b"\x89PNG\r\n\x1a\n"
@@ -84,21 +169,19 @@ def validate_portfolio_file(
             and content[8:12] == b"WEBP"
         )
     elif extension == ".pdf":
-        valid_signature = content.startswith(b"%PDF-")
+        valid_signature = content.startswith(
+            b"%PDF-"
+        )
     else:
         valid_signature = False
 
     if not valid_signature:
         raise PortfolioFileValidationError(
-            "File content does not match its declared type."
+            "File content does not match "
+            "its declared type."
         )
 
-    return ValidatedPortfolioFile(
-        file_type=file_type,
-        mime_type=expected_mime,
-        size_bytes=size_bytes,
-        extension=extension,
-    )
+    return validated
 
 class SupabasePortfolioStorage:
     def __init__(
@@ -108,6 +191,7 @@ class SupabasePortfolioStorage:
         service_role_key: str | None = None,
         bucket: str | None = None,
         timeout_seconds: float = 30,
+        client: httpx.AsyncClient | None = None,
     ):
         self.base_url = (
             base_url or os.getenv("SUPABASE_URL") or ""
@@ -119,6 +203,7 @@ class SupabasePortfolioStorage:
         )
         self.bucket = bucket or PORTFOLIO_BUCKET
         self.timeout_seconds = timeout_seconds
+        self.client = client
 
         if not self.base_url:
             raise PortfolioStorageError("SUPABASE_URL is missing.")
@@ -157,15 +242,19 @@ class SupabasePortfolioStorage:
         }
 
         try:
-            async with httpx.AsyncClient(
-                timeout=self.timeout_seconds
-            ) as client:
-                response = await client.post(
-                    self.object_url(storage_path),
-                    headers=headers,
-                    content=content,
+            client = (
+                self.client
+                or (
+                    _get_portfolio_storage_http_client()
                 )
-                response.raise_for_status()
+            )
+            response = await client.post(
+                self.object_url(storage_path),
+                headers=headers,
+                content=content,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
         except httpx.HTTPError as exc:
             raise PortfolioStorageError(
                 f"Supabase upload failed: {exc}"
@@ -181,19 +270,23 @@ class SupabasePortfolioStorage:
         encoded_path = quote(storage_path, safe="/")
 
         try:
-            async with httpx.AsyncClient(
-                timeout=self.timeout_seconds
-            ) as client:
-                response = await client.post(
-                    (
-                        f"{self.base_url}/storage/v1/object/sign/"
-                        f"{encoded_bucket}/{encoded_path}"
-                    ),
-                    headers=self.headers,
-                    json={"expiresIn": expires_in},
+            client = (
+                self.client
+                or (
+                    _get_portfolio_storage_http_client()
                 )
-                response.raise_for_status()
-                payload = response.json()
+            )
+            response = await client.post(
+                (
+                    f"{self.base_url}/storage/v1/object/sign/"
+                    f"{encoded_bucket}/{encoded_path}"
+                ),
+                headers=self.headers,
+                json={"expiresIn": expires_in},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
         except httpx.HTTPError as exc:
             raise PortfolioStorageError(
                 f"Signed URL creation failed: {exc}"
@@ -217,19 +310,23 @@ class SupabasePortfolioStorage:
         encoded_bucket = quote(self.bucket, safe="")
 
         try:
-            async with httpx.AsyncClient(
-                timeout=self.timeout_seconds
-            ) as client:
-                response = await client.request(
-                    "DELETE",
-                    (
-                        f"{self.base_url}/storage/v1/object/"
-                        f"{encoded_bucket}"
-                    ),
-                    headers=self.headers,
-                    json={"prefixes": [storage_path]},
+            client = (
+                self.client
+                or (
+                    _get_portfolio_storage_http_client()
                 )
-                response.raise_for_status()
+            )
+            response = await client.request(
+                "DELETE",
+                (
+                    f"{self.base_url}/storage/v1/object/"
+                    f"{encoded_bucket}"
+                ),
+                headers=self.headers,
+                json={"prefixes": [storage_path]},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
         except httpx.HTTPError as exc:
             raise PortfolioStorageError(
                 f"Supabase delete failed: {exc}"

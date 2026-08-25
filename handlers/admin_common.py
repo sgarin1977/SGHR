@@ -90,6 +90,10 @@ _admin_interface_language = ContextVar[
     default=None,
 )
 
+_ADMIN_INTERFACE_LANGUAGE_DATA_KEY = (
+    "_admin_interface_language"
+)
+
 
 def normalize_admin_language(
     language_code: str | None,
@@ -115,44 +119,60 @@ class AdminInterfaceLanguageMiddleware(
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        telegram_user = getattr(
-            event,
-            "from_user",
-            None,
-        )
-
-        resolved_language = (
-            normalize_base_language(
-                telegram_user.language_code
-                if telegram_user
-                else None
+        if (
+            _ADMIN_INTERFACE_LANGUAGE_DATA_KEY
+            in data
+        ):
+            resolved_language = (
+                normalize_base_language(
+                    data[
+                        _ADMIN_INTERFACE_LANGUAGE_DATA_KEY
+                    ]
+                )
             )
-        )
+        else:
+            telegram_user = getattr(
+                event,
+                "from_user",
+                None,
+            )
 
-        if telegram_user:
-            async with get_session() as session:
-                try:
-                    settings_context = await (
-                        UserSettingsService(
-                            session
-                        ).get_context(
-                            platform_user_id=(
-                                telegram_user.id
-                            ),
+            resolved_language = (
+                normalize_base_language(
+                    telegram_user.language_code
+                    if telegram_user
+                    else None
+                )
+            )
+
+            if telegram_user:
+                async with get_session() as session:
+                    try:
+                        settings_context = await (
+                            UserSettingsService(
+                                session
+                            ).get_context(
+                                platform_user_id=(
+                                    telegram_user.id
+                                ),
+                            )
                         )
-                    )
-                except (
-                    UserSettingsNotFoundError,
-                    UserSettingsValidationError,
-                ):
-                    pass
-                else:
-                    resolved_language = (
-                        normalize_base_language(
-                            settings_context
-                            .interface_language
+                    except (
+                        UserSettingsNotFoundError,
+                        UserSettingsValidationError,
+                    ):
+                        pass
+                    else:
+                        resolved_language = (
+                            normalize_base_language(
+                                settings_context
+                                .interface_language
+                            )
                         )
-                    )
+
+            data[
+                _ADMIN_INTERFACE_LANGUAGE_DATA_KEY
+            ] = resolved_language
 
         token = _admin_interface_language.set(
             resolved_language

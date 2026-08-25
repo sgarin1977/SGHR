@@ -174,6 +174,25 @@ class PrivacyRepository:
         await self.session.commit()
         return deleted_count
 
+    async def get_next_scheduled_deletion_job(
+        self,
+    ) -> DeletionJob | None:
+        result = await self.session.execute(
+            select(DeletionJob)
+            .where(
+                DeletionJob.status
+                == "scheduled"
+            )
+            .order_by(
+                DeletionJob.scheduled_at.asc()
+            )
+            .with_for_update(
+                skip_locked=True
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def list_scheduled_deletion_jobs(
         self,
         *,
@@ -456,6 +475,29 @@ class PrivacyRepository:
         }
         await self.session.flush()
         return job
+
+    async def get_next_requested_data_export(
+        self,
+    ) -> DataSubjectRequest | None:
+        result = await self.session.execute(
+            select(DataSubjectRequest)
+            .where(
+                DataSubjectRequest.request_type
+                == "export_data",
+                DataSubjectRequest.status
+                == "requested",
+            )
+            .order_by(
+                DataSubjectRequest
+                .requested_at
+                .asc()
+            )
+            .with_for_update(
+                skip_locked=True
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def list_requested_data_exports(
         self,

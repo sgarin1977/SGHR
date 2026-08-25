@@ -10,6 +10,10 @@ from handlers.start import normalize_language
 from ui.texts import t
 from utils.telegram_cleanup import edit_or_replace_menu_message, delete_telegram_messages
 from services.portfolio import PortfolioServiceError
+from services.portfolio_storage import (
+    PortfolioFileValidationError,
+    validate_portfolio_file_metadata,
+)
 from io import BytesIO
 from handlers.billing_common import replace_billing_input_screen
 from services.specialist_portfolio import SpecialistPortfolioAccessError, SpecialistPortfolioService
@@ -579,7 +583,6 @@ async def receive_portfolio_file(
         return
 
     language = actor.language
-    buffer = BytesIO()
 
     if message.document:
         telegram_file = message.document
@@ -598,12 +601,23 @@ async def receive_portfolio_file(
         )
         mime_type = "image/jpeg"
 
+    declared_size = telegram_file.file_size
+
     try:
-        await message.bot.download(
-            telegram_file,
-            destination=buffer,
+        validate_portfolio_file_metadata(
+            filename=filename,
+            mime_type=mime_type,
+            size_bytes=(
+                int(declared_size)
+                if declared_size is not None
+                else 1
+            ),
         )
-    except Exception as exc:
+    except (
+        PortfolioFileValidationError,
+        TypeError,
+        ValueError,
+    ) as exc:
         await replace_billing_input_screen(
             message=message,
             state=state,
@@ -633,13 +647,15 @@ async def receive_portfolio_file(
         )
         return
 
-    content = buffer.getvalue()
-
     await state.update_data(
+        portfolio_file_id=(
+            telegram_file.file_id
+        ),
         portfolio_filename=filename,
         portfolio_mime_type=mime_type,
-        portfolio_content=content,
-        portfolio_size_bytes=len(content),
+        portfolio_size_bytes=(
+            int(declared_size or 0)
+        ),
     )
     await state.set_state(
         SpecialistPortfolioFSM
@@ -955,14 +971,14 @@ async def confirm_portfolio_upload(
     )
     data = await state.get_data()
 
+    file_id = data.get(
+        "portfolio_file_id"
+    )
     filename = data.get(
         "portfolio_filename"
     )
     mime_type = data.get(
         "portfolio_mime_type"
-    )
-    content = data.get(
-        "portfolio_content"
     )
     caption = (
         data.get(
@@ -971,7 +987,7 @@ async def confirm_portfolio_upload(
         or ""
     ).strip()
 
-    if not filename or not content:
+    if not file_id or not filename:
         await callback.answer(
             t(
                 "portfolio_invalid_file",
@@ -981,6 +997,54 @@ async def confirm_portfolio_upload(
         )
         await state.clear()
         return
+
+    buffer = BytesIO()
+
+    try:
+        await callback.bot.download(
+            file_id,
+            destination=buffer,
+        )
+    except Exception as exc:
+        await callback.answer()
+
+        menu_message = (
+            await edit_or_replace_menu_message(
+                callback=callback,
+                text=t(
+                    "portfolio_upload_error",
+                    fallback_language,
+                ).format(
+                    error=str(exc)
+                ),
+                reply_markup=(
+                    InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [
+                                InlineKeyboardButton(
+                                    text=t(
+                                        "billing_back",
+                                        fallback_language,
+                                    ),
+                                    callback_data=(
+                                        "CAB_PORTFOLIO"
+                                    ),
+                                )
+                            ]
+                        ]
+                    )
+                ),
+            )
+        )
+
+        await state.update_data(
+            last_menu_message_id=(
+                menu_message.message_id
+            ),
+        )
+        return
+
+    content = buffer.getvalue()
 
     try:
         async with get_session() as session:
@@ -1057,19 +1121,16 @@ async def confirm_portfolio_upload(
         )
     )
     await state.set_state(None)
+    await state.update_data(
+        portfolio_file_id=None,
+        portfolio_filename=None,
+        portfolio_mime_type=None,
+        portfolio_size_bytes=None,
+        portfolio_caption=None,
+    )
 
     await show_owner_portfolio(
         callback,
         state,
         callback_answered=True,
-    )
-
-    await state.update_data(
-        portfolio_tenant_id=None,
-        portfolio_owner_user_id=None,
-        portfolio_filename=None,
-        portfolio_mime_type=None,
-        portfolio_content=None,
-        portfolio_size_bytes=None,
-        portfolio_caption=None,
     )

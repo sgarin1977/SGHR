@@ -515,34 +515,47 @@ class GeoSearchService:
         results: list[SpecialistSearchResult],
         language: str = "ru",
     ) -> list[SpecialistSearchResult]:
+        cabinet_ids = list(
+            dict.fromkeys(
+                result.professional_cabinet.id
+                for result in results
+                if result.professional_cabinet
+            )
+        )
+
+        enrichment = await (
+            self.repository
+            .get_search_enrichment_by_cabinet_ids(
+                cabinet_ids,
+                language,
+            )
+        )
+
         for result in results:
-            cabinet = result.professional_cabinet
+            cabinet = (
+                result.professional_cabinet
+            )
 
             if not cabinet:
                 continue
 
-            result.city_name = (
-                await self.repository.get_city_name(
-                    cabinet.city_id,
-                    language,
-                )
+            item = enrichment.get(
+                cabinet.id,
+                {},
             )
-            result.category_name = (
-                await self.repository.get_category_name(
-                    cabinet.category_id,
-                    language,
-                )
+            result.city_name = item.get(
+                "city_name"
             )
-            result.profession_name = (
-                await self.repository.get_profession_name(
-                    cabinet.profession_id,
-                    language,
-                )
+            result.category_name = item.get(
+                "category_name"
             )
-            result.languages = await (
-                self.repository
-                .get_language_codes_for_specialist(
-                    result.specialist.id,
+            result.profession_name = item.get(
+                "profession_name"
+            )
+            result.languages = list(
+                item.get(
+                    "languages",
+                    [],
                 )
             )
 
