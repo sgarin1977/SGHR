@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.repositories.portfolio import (
     PortfolioRepository,
 )
+from database.repositories.specialist import (
+    SpecialistRepository,
+)
 from database.repositories.translation import (
     TranslationRepository,
 )
@@ -29,6 +32,7 @@ class SpecialistPortfolioActor:
     user_id: UUID
     tenant_id: UUID
     language: str
+    specialist_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +54,7 @@ class SpecialistPortfolioService:
         *,
         users: UserService | None = None,
         translations: TranslationService | None = None,
+        specialists: SpecialistRepository | None = None,
         portfolio: PortfolioService | None = None,
     ):
         self.session = session
@@ -59,6 +64,10 @@ class SpecialistPortfolioService:
             or TranslationService(
                 TranslationRepository(session)
             )
+        )
+        self.specialists = (
+            specialists
+            or SpecialistRepository(session)
         )
         self.portfolio = (
             portfolio
@@ -125,6 +134,111 @@ class SpecialistPortfolioService:
             language=self.normalize_language(
                 language
             ),
+        )
+
+    async def require_user_actor(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str | None,
+    ) -> SpecialistPortfolioActor:
+        specialist = (
+            await self.specialists.get_by_user_id(
+                user_id
+            )
+        )
+
+        if (
+            specialist is None
+            or specialist.user_id != user_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistPortfolioAccessError(
+                "Portfolio access denied."
+            )
+
+        return SpecialistPortfolioActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=self.normalize_language(
+                language
+            ),
+            specialist_id=specialist.id,
+        )
+
+    async def list_portfolio_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str | None,
+        professional_cabinet_id: UUID,
+        page: int,
+        platform: str,
+    ) -> SpecialistPortfolioAction:
+        actor = await self.require_user_actor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=language,
+        )
+
+        if actor.specialist_id is None:
+            raise SpecialistPortfolioAccessError(
+                "Portfolio access denied."
+            )
+
+        cabinet_row = await (
+            self.specialists
+            .get_professional_cabinet(
+                tenant_id=actor.tenant_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        if not cabinet_row:
+            raise SpecialistPortfolioAccessError(
+                "Portfolio access denied."
+            )
+
+        cabinet = cabinet_row[0]
+
+        if (
+            cabinet.id
+            != professional_cabinet_id
+            or cabinet.specialist_id
+            != actor.specialist_id
+            or cabinet.tenant_id
+            != actor.tenant_id
+        ):
+            raise SpecialistPortfolioAccessError(
+                "Portfolio access denied."
+            )
+
+        items = await (
+            self.portfolio
+            .list_active_items_for_viewer(
+                tenant_id=actor.tenant_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                viewer_user_id=actor.user_id,
+                page=max(0, page),
+                platform=platform,
+            )
+        )
+
+        return SpecialistPortfolioAction(
+            actor=actor,
+            result=items,
         )
 
     async def list_owner_items(

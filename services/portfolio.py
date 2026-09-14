@@ -320,6 +320,7 @@ class PortfolioService:
         professional_cabinet_id: UUID | None = None,
         viewer_user_id: UUID,
         page: int = 0,
+        platform: str = "telegram",
     ) -> list[PortfolioItemView]:
         items = await self.list_active_items(
             tenant_id=tenant_id,
@@ -347,7 +348,7 @@ class PortfolioService:
                     "page": max(int(page), 0),
                     "total_count": len(items),
                 },
-                platform="telegram",
+                platform=platform,
             )
             await self.repository.session.commit()
         except Exception as exc:

@@ -60,6 +60,7 @@ class SpecialistServicesService:
         *,
         users: UserService | None = None,
         translations: TranslationService | None = None,
+        repository: SpecialistRepository | None = None,
         specialist: SpecialistService | None = None,
     ):
         self.session = session
@@ -70,10 +71,14 @@ class SpecialistServicesService:
                 TranslationRepository(session)
             )
         )
+        self.repository = (
+            repository
+            or SpecialistRepository(session)
+        )
         self.specialist = (
             specialist
             or SpecialistService(
-                SpecialistRepository(session)
+                self.repository
             )
         )
 
@@ -190,6 +195,77 @@ class SpecialistServicesService:
             language=self.normalize_language(
                 language
             ),
+        )
+
+    async def require_user_actor(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str | None,
+    ) -> SpecialistServicesActor:
+        specialist = (
+            await self.repository.get_by_user_id(
+                user_id
+            )
+        )
+
+        if (
+            specialist is None
+            or specialist.user_id != user_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistServicesAccessError(
+                "specialist_not_found"
+            )
+
+        return SpecialistServicesActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            specialist_id=specialist.id,
+            language=self.normalize_language(
+                language
+            ),
+        )
+
+    async def list_services_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str | None,
+        professional_cabinet_id: UUID,
+        page: int,
+        page_size: int,
+        platform: str,
+    ) -> SpecialistServicesPage:
+        actor = await self.require_user_actor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=language,
+        )
+
+        total, items = await (
+            self.specialist
+            .list_service_items_page_for_cabinet(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                page=max(0, page),
+                page_size=max(1, page_size),
+                platform=platform,
+            )
+        )
+
+        return SpecialistServicesPage(
+            actor=actor,
+            total=total,
+            items=items,
         )
 
     async def list_services(

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SGHR Webhook Retention
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5m
+Unit=sghr-webhook-retention.service
+
+[Install]
+WantedBy=timers.target

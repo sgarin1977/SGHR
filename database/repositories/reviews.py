@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, func, literal, select
@@ -355,8 +355,10 @@ class ReviewRepository:
         if not review:
             raise ReviewError("Review not found.")
 
+        published_at = datetime.now(UTC)
         review.status = "published"
-        review.updated_at = datetime.utcnow()
+        review.published_at = published_at
+        review.updated_at = published_at
 
         await self.session.flush()
         return review
@@ -616,8 +618,15 @@ class ReviewRepository:
             )
 
         before_status = review.status
+        changed_at = datetime.now(UTC)
+
         review.status = status
-        review.updated_at = datetime.utcnow()
+        review.updated_at = changed_at
+
+        if status == "published":
+            review.published_at = (
+                changed_at
+            )
 
         await self.session.flush()
 

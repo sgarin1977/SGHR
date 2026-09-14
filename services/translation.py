@@ -325,6 +325,7 @@ class TranslationService:
         user_id: UUID,
         language_code: str,
         source: str,
+        platform: str = "telegram",
     ) -> TranslationSettingsView:
         normalized_language = (
             normalize_translation_language(
@@ -334,6 +335,9 @@ class TranslationService:
         normalized_source = (
             source or "settings"
         ).strip()[:100]
+        platform = (
+            platform or "unknown"
+        ).strip().lower()[:50]
 
         try:
             settings = (
@@ -362,7 +366,7 @@ class TranslationService:
                     "value": normalized_language,
                     "source": normalized_source,
                 },
-                platform="telegram",
+                platform=platform,
             )
 
             await self.repository.session.commit()

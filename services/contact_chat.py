@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from database.repositories.contact import ContactChatRepository
+from database.repositories.contact import (
+    ContactChatRepository,
+    ContactThreadNotFoundError,
+    ServiceOrderNotFoundError,
+)
 from database.repositories.translation import (
     TranslationRepository,
     normalize_translation_language,
@@ -18,6 +22,24 @@ from database.repositories.rate_limit import RateLimitRepository
 from services.rate_limit import RateLimitError, RateLimitService
 from datetime import datetime, timedelta
 class ContactChatError(Exception):
+    pass
+
+
+class ContactChatRateLimitError(
+    ContactChatError
+):
+    pass
+
+
+class ContactChatThreadNotFoundError(
+    ContactChatError
+):
+    pass
+
+
+class ContactChatOrderNotFoundError(
+    ContactChatError
+):
     pass
 
 
@@ -212,6 +234,17 @@ class ContactRequestDetail:
     status: str
     created_at: datetime
 
+@dataclass(frozen=True)
+class SpecialistClientListItem:
+    client_id: UUID
+    display_name: str
+    requests_count: int
+    first_request_at: datetime
+    last_request_at: datetime
+    last_request_status: str
+    latest_thread_id: UUID | None
+
+
 @dataclass
 class SpecialistContactRequestListItem:
     contact_request_id: UUID
@@ -241,8 +274,10 @@ class ContactChatService:
         self,
         repository: ContactChatRepository | None,
         rate_limit_service: RateLimitService | None = None,
+        webhook_publisher=None,
     ):
         self.repository = repository
+        self.webhook_publisher = webhook_publisher
 
         if rate_limit_service is not None:
             self.rate_limit_service = rate_limit_service
@@ -642,7 +677,9 @@ class ContactChatService:
                     )
                 )
             except RateLimitError as exc:
-                raise ContactChatError(str(exc)) from exc
+                raise ContactChatRateLimitError(
+                    str(exc)
+                ) from exc
 
         context = await self._get_contact_cabinet_context(
             tenant_id=tenant_id,
@@ -685,6 +722,8 @@ class ContactChatService:
         profession_id: UUID | None = None,
         message: str,
         original_language: str | None = None,
+        platform: str = "telegram",
+        commit: bool = True,
     ) -> ContactRequestResult:
         normalized_message = self._validate_contact_message(message)
         if self.rate_limit_service is not None:
@@ -694,7 +733,9 @@ class ContactChatService:
                     user_id=from_user_id,
                 )
             except RateLimitError as exc:
-                raise ContactChatError(str(exc)) from exc
+                raise ContactChatRateLimitError(
+                    str(exc)
+                ) from exc
 
         context = await self._get_contact_cabinet_context(
             tenant_id=tenant_id,
@@ -733,29 +774,85 @@ class ContactChatService:
                 was_existing=True,
             )
 
+        create_kwargs = {
+            "tenant_id": tenant_id,
+            "from_user_id": from_user_id,
+            "specialist_id": context.specialist_id,
+            "profession_id": context.profession_id,
+            "professional_cabinet_id": (
+                context.professional_cabinet_id
+            ),
+            "specialist_user_id": (
+                context.specialist_user_id
+            ),
+            "message": normalized_message,
+            "original_language": (
+                self._normalize_language(
+                    original_language
+                )
+            ),
+        }
+        if platform != "telegram":
+            create_kwargs["platform"] = platform
+        if (
+            not commit
+            or self.webhook_publisher is not None
+        ):
+            create_kwargs["commit"] = False
+
         contact_request, thread, first_message, notification = (
-            await self.repository.create_contact_request_with_thread(
-                tenant_id=tenant_id,
-                from_user_id=from_user_id,
-                specialist_id=context.specialist_id,
-                profession_id=context.profession_id,
-                professional_cabinet_id=(
-                    context.professional_cabinet_id
-                ),
-                specialist_user_id=(
-                    context.specialist_user_id
-                ),
-                message=normalized_message,
-                original_language=self._normalize_language(
-                    original_language,
-                ),
+            await self.repository
+            .create_contact_request_with_thread(
+                **create_kwargs
             )
         )
 
         contact_token = (contact_request.extra_metadata or {}).get("contact_token", "")
-        detection_result = await ContactDetectionService(
-            ContactDetectionRepository(self.repository.session)
-        ).process_message(first_message.id)
+        try:
+            detection_result = await ContactDetectionService(
+                ContactDetectionRepository(
+                    self.repository.session
+                )
+            ).process_message(
+                first_message.id,
+                commit=(
+                    commit
+                    and self.webhook_publisher is None
+                ),
+            )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type=(
+                        "contact_request.created"
+                    ),
+                    payload={
+                        "contact_request_id": str(
+                            contact_request.id
+                        ),
+                        "thread_id": str(
+                            thread.id
+                        ),
+                        "specialist_id": str(
+                            context.specialist_id
+                        ),
+                        "professional_cabinet_id": str(
+                            context.professional_cabinet_id
+                        ),
+                        "status": (
+                            contact_request.status
+                        ),
+                    },
+                )
+                if commit:
+                    await (
+                        self.repository.session.commit()
+                    )
+        except Exception:
+            await self.repository.session.rollback()
+            raise
+
         return ContactRequestResult(
             contact_request_id=contact_request.id,
             thread_id=thread.id,
@@ -777,24 +874,43 @@ class ContactChatService:
         profession_id: UUID | None = None,
         message: str,
         original_language: str | None = None,
+        platform: str = "telegram",
+        commit: bool = True,
     ) -> ContactRequestResult:
+        create_kwargs = {
+            "tenant_id": tenant_id,
+            "from_user_id": from_user_id,
+            "specialist_id": specialist_id,
+            "profession_id": profession_id,
+            "message": message,
+            "original_language": original_language,
+        }
+        if platform != "telegram":
+            create_kwargs["platform"] = platform
+        if not commit:
+            create_kwargs["commit"] = False
+
         result = await self.create_contact_request(
-            tenant_id=tenant_id,
-            from_user_id=from_user_id,
-            specialist_id=specialist_id,
-            profession_id=profession_id,
-            message=message,
-            original_language=original_language,
+            **create_kwargs
         )
 
         if not result.was_existing:
             return result
 
+        message_kwargs = {
+            "tenant_id": tenant_id,
+            "thread_id": result.thread_id,
+            "sender_user_id": from_user_id,
+            "text": message,
+            "original_language": original_language,
+        }
+        if platform != "telegram":
+            message_kwargs["platform"] = platform
+        if not commit:
+            message_kwargs["commit"] = False
+
         sent_message = await self.send_thread_message(
-            thread_id=result.thread_id,
-            sender_user_id=from_user_id,
-            text=message,
-            original_language=original_language,
+            **message_kwargs
         )
 
         return ContactRequestResult(
@@ -882,11 +998,14 @@ class ContactChatService:
         tenant_id: UUID,
         thread_id: UUID,
         actor_user_id: UUID,
+        platform: str = "telegram",
     ) -> ContactThreadFinishResult:
         try:
             requested_by_user_id = (
                 await self.repository.get_completion_requester_id(
+                    tenant_id=tenant_id,
                     thread_id=thread_id,
+                    user_id=actor_user_id,
                 )
             )
 
@@ -898,8 +1017,10 @@ class ContactChatService:
                     )
 
                 thread = await self.repository.complete_thread(
+                    tenant_id=tenant_id,
                     thread_id=thread_id,
                     actor_user_id=actor_user_id,
+                    platform=platform,
                 )
                 return ContactThreadFinishResult(
                     thread_id=thread.id,
@@ -912,6 +1033,7 @@ class ContactChatService:
                     tenant_id=tenant_id,
                     thread_id=thread_id,
                     actor_user_id=actor_user_id,
+                    platform=platform,
                 )
             )
             return ContactThreadFinishResult(
@@ -931,8 +1053,14 @@ class ContactChatService:
                     else None
                 ),
             ) 
+        except ContactThreadNotFoundError as exc:
+            raise ContactChatThreadNotFoundError(
+                str(exc)
+            ) from exc
         except ValueError as exc:
-            raise ContactChatError(str(exc)) from exc
+            raise ContactChatError(
+                str(exc)
+            ) from exc
 
     async def list_overdue_completion_requests(
         self,
@@ -1130,15 +1258,64 @@ class ContactChatService:
         contact_request_id: UUID,
         actor_user_id: UUID,
         tenant_id: UUID,
+        platform: str = "telegram",
+        commit: bool = True,
     ) -> ContactRequestStatusResult:
+        repository_kwargs = {
+            "contact_request_id": contact_request_id,
+            "actor_user_id": actor_user_id,
+            "tenant_id": tenant_id,
+            "platform": platform,
+        }
+        if (
+            not commit
+            or self.webhook_publisher is not None
+        ):
+            repository_kwargs["commit"] = False
+
         try:
-            contact_request, thread = await self.repository.cancel_contact_request_by_client(
-                contact_request_id=contact_request_id,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
+            contact_request, thread = await (
+                self.repository
+                .cancel_contact_request_by_client(
+                    **repository_kwargs
+                )
             )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type=(
+                        "contact_request.updated"
+                    ),
+                    payload={
+                        "contact_request_id": str(
+                            contact_request.id
+                        ),
+                        "thread_id": str(
+                            thread.id
+                        ),
+                        "status": (
+                            contact_request.status
+                        ),
+                        "thread_status": (
+                            thread.status
+                        ),
+                    },
+                )
+                if commit:
+                    await (
+                        self.repository.session.commit()
+                    )
         except ValueError as exc:
-            raise ContactChatError(str(exc)) from exc
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise ContactChatError(
+                str(exc)
+            ) from exc
+        except Exception:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise
 
         return ContactRequestStatusResult(
             contact_request_id=contact_request.id,
@@ -1199,12 +1376,14 @@ class ContactChatService:
     async def list_client_requests(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         limit: int = 5,
         offset: int = 0,
         language: str = "ru",
     ) -> list[ContactRequestListItem]:
         rows = await self.repository.list_contact_requests_for_client(
+            tenant_id=tenant_id,
             user_id=user_id,
             limit=limit,
             offset=offset,
@@ -1224,15 +1403,137 @@ class ContactChatService:
             for request, thread_id, specialist_name, profession_name in rows
         ]
 
+    async def list_specialist_clients_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[SpecialistClientListItem]:
+        rows = await (
+            self.repository
+            .list_specialist_clients_for_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                limit=limit,
+                offset=offset,
+            )
+        )
+
+        return [
+            SpecialistClientListItem(
+                client_id=row.client_id,
+                display_name=(
+                    row.display_name
+                    or "Client"
+                ),
+                requests_count=int(
+                    row.requests_count or 0
+                ),
+                first_request_at=(
+                    row.first_request_at
+                ),
+                last_request_at=(
+                    row.last_request_at
+                ),
+                last_request_status=(
+                    row.last_request_status
+                ),
+                latest_thread_id=(
+                    row.latest_thread_id
+                ),
+            )
+            for row in rows
+        ]
+
+    async def list_specialist_service_orders_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_user_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        language: str = "ru",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[ServiceOrderListItem]:
+        rows = await (
+            self.repository
+            .list_service_orders_for_specialist_cabinet(
+                tenant_id=tenant_id,
+                specialist_user_id=(
+                    specialist_user_id
+                ),
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                language=language,
+                limit=limit,
+                offset=offset,
+            )
+        )
+
+        items: list[ServiceOrderListItem] = []
+
+        for (
+            order,
+            specialist_name,
+            profession_name,
+            client_name,
+        ) in rows:
+            metadata = (
+                order.extra_metadata or {}
+            )
+            items.append(
+                ServiceOrderListItem(
+                    order_id=order.id,
+                    thread_id=order.thread_id,
+                    contact_request_id=(
+                        order.contact_request_id
+                    ),
+                    specialist_name=(
+                        specialist_name
+                    ),
+                    client_name=client_name,
+                    profession_name=(
+                        profession_name
+                    ),
+                    status=order.status,
+                    description=order.description,
+                    schedule_text=metadata.get(
+                        "schedule_text"
+                    ),
+                    agreed_amount=(
+                        float(order.agreed_amount)
+                        if order.agreed_amount
+                        is not None
+                        else None
+                    ),
+                    currency=order.currency,
+                    created_at=order.created_at,
+                    is_client=False,
+                )
+            )
+
+        return items
+
     async def list_user_service_orders(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         language: str = "ru",
         limit: int = 10,
         offset: int = 0,
     ) -> list[ServiceOrderListItem]:
         rows = await self.repository.list_service_orders_for_user(
+            tenant_id=tenant_id,
             user_id=user_id,
             language=language,
             limit=limit,
@@ -1268,11 +1569,13 @@ class ContactChatService:
     async def get_client_request_detail(
         self,
         *,
+        tenant_id: UUID,
         contact_request_id: UUID,
         user_id: UUID,
         language: str = "ru",
     ) -> ContactRequestDetail:
         row = await self.repository.get_contact_request_detail_for_client(
+            tenant_id=tenant_id,
             contact_request_id=contact_request_id,
             user_id=user_id,
             language=language,
@@ -1298,8 +1601,25 @@ class ContactChatService:
         thread_id: UUID,
         user_id: UUID,
         language: str = "ru",
+        tenant_id: UUID | None = None,
     ) -> ContactThreadDetail:
+        effective_tenant_id = tenant_id
+
+        if effective_tenant_id is None:
+            thread = await (
+                self.repository.get_thread_for_user(
+                    thread_id=thread_id,
+                    user_id=user_id,
+                )
+            )
+            if not thread:
+                raise ContactChatError(
+                    "Conversation thread not found."
+                )
+            effective_tenant_id = thread.tenant_id
+
         row = await self.repository.get_thread_detail_for_user(
+            tenant_id=effective_tenant_id,
             thread_id=thread_id,
             user_id=user_id,
             language=language,
@@ -1474,6 +1794,7 @@ class ContactChatService:
         participant_role: str,
         language: str = "ru",
         tenant_id: UUID | None = None,
+        platform: str = "telegram",
     ) -> ContactThreadDetail:
         thread = await self.repository.get_thread_for_user(
             thread_id=thread_id,
@@ -1518,6 +1839,7 @@ class ContactChatService:
             )
 
         detail = await self.get_thread_detail(
+            tenant_id=effective_tenant_id,
             thread_id=thread_id,
             user_id=user_id,
             language=language,
@@ -1544,7 +1866,7 @@ class ContactChatService:
                         thread.professional_cabinet_id
                     ),
                 },
-                platform="telegram",
+                platform=platform,
             )
 
             await self.repository.session.commit()
@@ -1558,11 +1880,14 @@ class ContactChatService:
     async def send_thread_message(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
         sender_user_id: UUID,
         text: str,
         original_language: str | None = None,
         attachment: dict | None = None,
+        platform: str = "telegram",
+        commit: bool = True,
     ) -> ContactThreadMessageResult:
         normalized_attachment = (
             self._validate_chat_attachment(attachment)
@@ -1589,36 +1914,62 @@ class ContactChatService:
                     thread_id=thread_id,
                     user_id=sender_user_id,
                 )
-                if not thread:
-                    raise ContactChatError("Conversation thread not found.")
+                if (
+                    not thread
+                    or thread.tenant_id != tenant_id
+                ):
+                    raise ContactChatThreadNotFoundError(
+                        "Conversation thread not found."
+                    )
 
                 await self.rate_limit_service.ensure_chat_message_allowed(
                     tenant_id=thread.tenant_id,
                     user_id=sender_user_id,
                 )
             except RateLimitError as exc:
-                raise ContactChatError(str(exc)) from exc
+                raise ContactChatRateLimitError(
+                    str(exc)
+                ) from exc
 
         try:
-            thread, message, notification = (
-                await self.repository.create_thread_message(
-                    thread_id=thread_id,
-                    sender_user_id=sender_user_id,
-                    original_text=normalized_text,
-                    original_language=self._normalize_language(
+            message_kwargs = {
+                "tenant_id": tenant_id,
+                "thread_id": thread_id,
+                "sender_user_id": sender_user_id,
+                "original_text": normalized_text,
+                "original_language": (
+                    self._normalize_language(
                         original_language
-                    ),
-                    message_metadata=(
-                        {
-                            "attachment": normalized_attachment,
-                        }
-                        if normalized_attachment
-                        else None
-                    ),
+                    )
+                ),
+                "message_metadata": (
+                    {
+                        "attachment": (
+                            normalized_attachment
+                        ),
+                    }
+                    if normalized_attachment
+                    else None
+                ),
+                "platform": platform,
+            }
+            if not commit:
+                message_kwargs["commit"] = False
+
+            thread, message, notification = (
+                await self.repository
+                .create_thread_message(
+                    **message_kwargs
                 )
             )
+        except ContactThreadNotFoundError as exc:
+            raise ContactChatThreadNotFoundError(
+                str(exc)
+            ) from exc
         except ValueError as exc:
-            raise ContactChatError(str(exc)) from exc
+            raise ContactChatError(
+                str(exc)
+            ) from exc
         detection_result = await ContactDetectionService(
             ContactDetectionRepository(self.repository.session)
         ).process_message(message.id)
@@ -1637,12 +1988,14 @@ class ContactChatService:
     async def mark_thread_read(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
         user_id: UUID,
     ) -> int:
         try:
             return await (
                 self.repository.mark_thread_read(
+                    tenant_id=tenant_id,
                     thread_id=thread_id,
                     user_id=user_id,
                 )
@@ -1683,19 +2036,71 @@ class ContactChatService:
         tenant_id: UUID,
         description: str | None = None,
         schedule_text: str | None = None,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
         agreed_amount: float | None = None,
         currency: str = "EUR",
+        platform: str = "telegram",
+        commit: bool = True,
     ) -> ServiceOrderDraftResult:
         try:
-            order = await self.repository.create_service_order_draft_from_thread(
-                thread_id=thread_id,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
-                description=description,
-                schedule_text=schedule_text,
-                agreed_amount=agreed_amount,
-                currency=currency,
+            create_kwargs = {
+                "thread_id": thread_id,
+                "actor_user_id": actor_user_id,
+                "tenant_id": tenant_id,
+                "description": description,
+                "schedule_text": schedule_text,
+                "start_at": start_at,
+                "end_at": end_at,
+                "agreed_amount": agreed_amount,
+                "currency": currency,
+                "platform": platform,
+            }
+            if (
+                not commit
+                or self.webhook_publisher is not None
+            ):
+                create_kwargs["commit"] = False
+
+            order = await (
+                self.repository
+                .create_service_order_draft_from_thread(
+                    **create_kwargs
+                )
             )
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type=(
+                        "service_order.created"
+                    ),
+                    payload={
+                        "service_order_id": str(
+                            order.id
+                        ),
+                        "thread_id": str(
+                            order.thread_id
+                        ),
+                        "contact_request_id": (
+                            str(
+                                order.contact_request_id
+                            )
+                            if order.contact_request_id
+                            is not None
+                            else None
+                        ),
+                        "status": order.status,
+                    },
+                )
+
+                if commit:
+                    await (
+                        self.repository.session.commit()
+                    )
+        except ContactThreadNotFoundError as exc:
+            raise ContactChatOrderNotFoundError(
+                str(exc)
+            ) from exc
         except ValueError as exc:
             raise ContactChatError(str(exc)) from exc
 
@@ -1706,26 +2111,209 @@ class ContactChatService:
             status=order.status,
         )
 
+    async def update_service_order_draft(
+        self,
+        *,
+        tenant_id: UUID,
+        actor_user_id: UUID,
+        order_id: UUID,
+        description: str | None,
+        start_at: datetime | None,
+        end_at: datetime | None,
+        agreed_amount: float | None,
+        currency: str,
+        platform: str = "telegram",
+    ) -> ServiceOrderStatusResult:
+        try:
+            order = await (
+                self.repository
+                .update_service_order_draft(
+                    tenant_id=tenant_id,
+                    actor_user_id=actor_user_id,
+                    order_id=order_id,
+                    description=description,
+                    start_at=start_at,
+                    end_at=end_at,
+                    agreed_amount=agreed_amount,
+                    currency=currency,
+                    platform=platform,
+                )
+            )
+        except ServiceOrderNotFoundError as exc:
+            raise ContactChatOrderNotFoundError(
+                str(exc)
+            ) from exc
+        except ValueError as exc:
+            raise ContactChatError(
+                str(exc)
+            ) from exc
+
+        return ServiceOrderStatusResult(
+            order_id=order.id,
+            thread_id=order.thread_id,
+            contact_request_id=(
+                order.contact_request_id
+            ),
+            status=order.status,
+        )
+
     async def confirm_service_order(
         self,
         *,
         order_id: UUID,
         actor_user_id: UUID,
         tenant_id: UUID,
+        platform: str = "telegram",
+        commit: bool = True,
     ) -> ServiceOrderStatusResult:
+        repository_kwargs = {
+            "order_id": order_id,
+            "actor_user_id": actor_user_id,
+            "tenant_id": tenant_id,
+            "platform": platform,
+        }
+        if (
+            not commit
+            or self.webhook_publisher is not None
+        ):
+            repository_kwargs["commit"] = False
+
         try:
-            order = await self.repository.confirm_service_order(
-                order_id=order_id,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
+            order = await (
+                self.repository.confirm_service_order(
+                    **repository_kwargs
+                )
             )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type=(
+                        "service_order.confirmed"
+                    ),
+                    payload={
+                        "service_order_id": str(
+                            order.id
+                        ),
+                        "thread_id": str(
+                            order.thread_id
+                        ),
+                        "contact_request_id": (
+                            str(order.contact_request_id)
+                            if order.contact_request_id
+                            is not None
+                            else None
+                        ),
+                        "status": order.status,
+                    },
+                )
+                if commit:
+                    await (
+                        self.repository.session.commit()
+                    )
+        except ServiceOrderNotFoundError as exc:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise ContactChatOrderNotFoundError(
+                str(exc)
+            ) from exc
         except ValueError as exc:
-            raise ContactChatError(str(exc)) from exc
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise ContactChatError(
+                str(exc)
+            ) from exc
+        except Exception:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise
 
         return ServiceOrderStatusResult(
             order_id=order.id,
             thread_id=order.thread_id,
-            contact_request_id=order.contact_request_id,
+            contact_request_id=(
+                order.contact_request_id
+            ),
+            status=order.status,
+        )
+
+    async def cancel_service_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+        platform: str = "telegram",
+        commit: bool = True,
+    ) -> ServiceOrderStatusResult:
+        repository_kwargs = {
+            "order_id": order_id,
+            "actor_user_id": actor_user_id,
+            "tenant_id": tenant_id,
+            "platform": platform,
+        }
+        if (
+            not commit
+            or self.webhook_publisher is not None
+        ):
+            repository_kwargs["commit"] = False
+
+        try:
+            order = await (
+                self.repository.cancel_service_order(
+                    **repository_kwargs
+                )
+            )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type=(
+                        "service_order.cancelled"
+                    ),
+                    payload={
+                        "service_order_id": str(
+                            order.id
+                        ),
+                        "thread_id": str(
+                            order.thread_id
+                        ),
+                        "contact_request_id": (
+                            str(order.contact_request_id)
+                            if order.contact_request_id
+                            is not None
+                            else None
+                        ),
+                        "status": order.status,
+                    },
+                )
+                if commit:
+                    await (
+                        self.repository.session.commit()
+                    )
+        except ServiceOrderNotFoundError as exc:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise ContactChatOrderNotFoundError(
+                str(exc)
+            ) from exc
+        except ValueError as exc:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise ContactChatError(
+                str(exc)
+            ) from exc
+        except Exception:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise
+
+        return ServiceOrderStatusResult(
+            order_id=order.id,
+            thread_id=order.thread_id,
+            contact_request_id=(
+                order.contact_request_id
+            ),
             status=order.status,
         )
 
@@ -1735,33 +2323,94 @@ class ContactChatService:
         order_id: UUID,
         actor_user_id: UUID,
         tenant_id: UUID,
+        platform: str = "telegram",
+        commit: bool = True,
     ) -> ServiceOrderStatusResult:
+        repository_kwargs = {
+            "order_id": order_id,
+            "actor_user_id": actor_user_id,
+            "tenant_id": tenant_id,
+            "platform": platform,
+        }
+        if (
+            not commit
+            or self.webhook_publisher is not None
+        ):
+            repository_kwargs["commit"] = False
+
         try:
-            order = await self.repository.complete_service_order(
-                order_id=order_id,
-                actor_user_id=actor_user_id,
-                tenant_id=tenant_id,
+            order = await (
+                self.repository.complete_service_order(
+                    **repository_kwargs
+                )
             )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type=(
+                        "service_order.completed"
+                    ),
+                    payload={
+                        "service_order_id": str(
+                            order.id
+                        ),
+                        "thread_id": str(
+                            order.thread_id
+                        ),
+                        "contact_request_id": (
+                            str(order.contact_request_id)
+                            if order.contact_request_id
+                            is not None
+                            else None
+                        ),
+                        "status": order.status,
+                    },
+                )
+                if commit:
+                    await (
+                        self.repository.session.commit()
+                    )
+        except ServiceOrderNotFoundError as exc:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise ContactChatOrderNotFoundError(
+                str(exc)
+            ) from exc
         except ValueError as exc:
-            raise ContactChatError(str(exc)) from exc
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise ContactChatError(
+                str(exc)
+            ) from exc
+        except Exception:
+            if self.webhook_publisher is not None:
+                await self.repository.session.rollback()
+            raise
 
         return ServiceOrderStatusResult(
             order_id=order.id,
             thread_id=order.thread_id,
-            contact_request_id=order.contact_request_id,
+            contact_request_id=(
+                order.contact_request_id
+            ),
             status=order.status,
         )
 
     async def complete_thread(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
         actor_user_id: UUID,
+        platform: str = "telegram",
     ) -> ContactThreadStatusResult:
         try:
             thread = await self.repository.complete_thread(
+                tenant_id=tenant_id,
                 thread_id=thread_id,
                 actor_user_id=actor_user_id,
+                platform=platform,
             )
         except ValueError as exc:
             raise ContactChatError(str(exc)) from exc
@@ -1812,6 +2461,7 @@ class ContactChatService:
     async def list_client_threads(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         view: str = "active",
         limit: int = 5,
@@ -1829,6 +2479,7 @@ class ContactChatService:
         )
 
         rows = await self.repository.list_threads_for_user(
+            tenant_id=tenant_id,
             user_id=user_id,
             participant_role="client",
             view=view,
@@ -1863,6 +2514,7 @@ class ContactChatService:
     async def list_specialist_threads(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         view: str = "active",
         limit: int = 5,
@@ -1891,6 +2543,7 @@ class ContactChatService:
         )
 
         rows = await self.repository.list_threads_for_user(
+            tenant_id=tenant_id,
             user_id=user_id,
             participant_role="specialist",
             view=view,
@@ -1930,6 +2583,7 @@ class ContactChatService:
     async def count_unread_messages(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         participant_role: str,
     ) -> int:
@@ -1949,6 +2603,7 @@ class ContactChatService:
         return await (
             self.repository
             .count_unread_messages_for_user(
+                tenant_id=tenant_id,
                 user_id=user_id,
                 participant_role=participant_role,
                 professional_cabinet_id=(
@@ -1966,6 +2621,7 @@ class ContactChatService:
         view: str,
         page: int,
         items_count: int | None = None,
+        platform: str = "telegram",
     ) -> None:
         payload = {
             "view": view,
@@ -1985,7 +2641,7 @@ class ContactChatService:
                 event_type="messages_opened",
                 entity_type="messages",
                 payload=payload,
-                platform="telegram",
+                platform=platform,
             )
 
             await self.repository.session.commit()

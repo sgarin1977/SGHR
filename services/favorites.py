@@ -163,6 +163,7 @@ class FavoriteService:
         page: int,
         page_size: int,
         language: str,
+        platform: str = "telegram",
     ) -> FavoriteCardsPage:
         normalized_page = max(
             0,
@@ -235,7 +236,7 @@ class FavoriteService:
                     "page": normalized_page,
                     "items_count": len(cards),
                 },
-                platform="telegram",
+                platform=platform,
             )
 
             await self.repository.session.commit()

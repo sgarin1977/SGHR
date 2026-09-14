@@ -498,8 +498,11 @@ class SpecialistService:
         self,
         repository: SpecialistRepository,
         rate_limit_service: RateLimitService | None = None,
+        *,
+        webhook_publisher=None,
     ):
         self.repository = repository
+        self.webhook_publisher = webhook_publisher
         if rate_limit_service is not None:
             self.rate_limit_service = rate_limit_service
         elif hasattr(repository, "session"):
@@ -637,7 +640,12 @@ class SpecialistService:
         user_id: UUID,
         specialist_id: UUID,
         professional_cabinet_id: UUID,
+        platform: str = "telegram",
     ) -> bool:
+        platform = (
+            platform or "telegram"
+        ).strip().lower()
+
         specialist = await self.repository.get_by_user_id(
             user_id
         )
@@ -698,7 +706,7 @@ class SpecialistService:
                         cabinet.id
                     ),
                 },
-                platform="telegram",
+                platform=platform,
             )
 
             await self.repository.session.commit()
@@ -799,7 +807,12 @@ class SpecialistService:
         category_id: UUID,
         profession_id: UUID,
         language: str,
+        platform: str = "telegram",
     ) -> ProfessionalCabinetOption:
+        platform = (
+            platform or "telegram"
+        ).strip().lower()
+
         specialist = await self.repository.get_by_user_id(
             user_id
         )
@@ -929,7 +942,7 @@ class SpecialistService:
                         profession.id
                     ),
                 },
-                platform="telegram",
+                platform=platform,
             )
 
             await self.repository.session.commit()
@@ -1117,6 +1130,114 @@ class SpecialistService:
                 != "approved"
             ),
         )
+
+    async def list_service_items_page_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        page: int,
+        page_size: int,
+        platform: str,
+    ) -> tuple[int, list]:
+        specialist = (
+            await self.repository.get_by_user_id(
+                user_id
+            )
+        )
+
+        if (
+            specialist is None
+            or specialist.id != specialist_id
+            or specialist.user_id != user_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistRegistrationError(
+                "Specialist profile not found."
+            )
+
+        cabinet_row = await (
+            self.repository
+            .get_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        if not cabinet_row:
+            raise SpecialistRegistrationError(
+                "Professional cabinet not found."
+            )
+
+        cabinet = cabinet_row[0]
+
+        if (
+            cabinet.id != professional_cabinet_id
+            or cabinet.specialist_id
+            != specialist_id
+            or cabinet.tenant_id != tenant_id
+        ):
+            raise SpecialistRegistrationError(
+                "Professional cabinet not found."
+            )
+
+        normalized_page = max(0, page)
+        normalized_page_size = max(
+            1,
+            page_size,
+        )
+
+        total, services = await (
+            self.repository
+            .list_specialist_services_page(
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                limit=normalized_page_size,
+                offset=(
+                    normalized_page
+                    * normalized_page_size
+                ),
+            )
+        )
+
+        try:
+            await EventRepository(
+                self.repository.session
+            ).create_event(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                event_type="service_list",
+                entity_type=(
+                    "professional_cabinet"
+                ),
+                entity_id=(
+                    professional_cabinet_id
+                ),
+                payload={
+                    "page": normalized_page,
+                    "count": len(services),
+                    "total": total,
+                },
+                platform=platform,
+            )
+
+            await (
+                self.repository.session.commit()
+            )
+        except Exception:
+            await (
+                self.repository.session.rollback()
+            )
+            raise
+
+        return total, services
 
     async def list_service_items_page_for_viewer(
         self,
@@ -1703,6 +1824,30 @@ class SpecialistService:
                 },
                 platform="telegram",
             )
+
+            if (
+                event_entity_type
+                == "professional_cabinet"
+                and self.webhook_publisher
+                is not None
+            ):
+                await self.webhook_publisher.publish(
+                    tenant_id=data.tenant_id,
+                    event_type=(
+                        "professional_cabinet.updated"
+                    ),
+                    payload={
+                        "professional_cabinet_id": str(
+                            event_entity_id
+                        ),
+                        "specialist_id": str(
+                            data.specialist_id
+                        ),
+                        "changed_fields": [
+                            field_name
+                        ],
+                    },
+                )
 
             await self.repository.session.commit()
 
@@ -2332,6 +2477,46 @@ class SpecialistService:
 
         return service, before_status
     
+    async def get_cabinet_availability(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> str:
+        specialist = (
+            await self.repository.get_by_user_id(
+                user_id
+            )
+        )
+        if (
+            not specialist
+            or specialist.id != specialist_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistRegistrationError(
+                "Specialist profile not found."
+            )
+
+        cabinet_row = await (
+            self.repository
+            .get_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+        if not cabinet_row:
+            raise SpecialistRegistrationError(
+                "Professional cabinet not found."
+            )
+
+        cabinet, _profession = cabinet_row
+        return cabinet.availability_status
+
     async def get_active_cabinet_availability(
         self,
         *,
@@ -2400,6 +2585,137 @@ class SpecialistService:
         return (
             cabinet.moderation_status
             or "draft"
+        )
+
+    async def update_cabinet_availability(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        availability_status: str,
+        platform: str = "telegram",
+    ) -> tuple[str, str, bool]:
+        allowed_statuses = {
+            "available",
+            "busy",
+            "vacation",
+            "temporarily_unavailable",
+        }
+        if availability_status not in allowed_statuses:
+            raise SpecialistRegistrationError(
+                "Invalid availability status."
+            )
+
+        specialist = (
+            await self.repository.get_by_user_id(
+                user_id
+            )
+        )
+        if (
+            not specialist
+            or specialist.id != specialist_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistRegistrationError(
+                "Specialist profile not found."
+            )
+
+        cabinet_row = await (
+            self.repository
+            .get_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+        if not cabinet_row:
+            raise SpecialistRegistrationError(
+                "Professional cabinet not found."
+            )
+
+        cabinet, _profession = cabinet_row
+        before_status = (
+            cabinet.availability_status
+        )
+
+        if before_status == availability_status:
+            return (
+                before_status,
+                availability_status,
+                False,
+            )
+
+        try:
+            await (
+                self.repository
+                .update_cabinet_availability(
+                    tenant_id=tenant_id,
+                    specialist_id=specialist_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                    availability_status=(
+                        availability_status
+                    ),
+                )
+            )
+
+            await EventRepository(
+                self.repository.session
+            ).create_event(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                event_type="change_submitted",
+                entity_type=(
+                    "professional_cabinet"
+                ),
+                entity_id=cabinet.id,
+                payload={
+                    "field": (
+                        "availability_status"
+                    ),
+                    "before": before_status,
+                    "after": availability_status,
+                },
+                platform=platform,
+            )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type=(
+                        "professional_cabinet."
+                        "availability_changed"
+                    ),
+                    payload={
+                        "professional_cabinet_id": str(
+                            cabinet.id
+                        ),
+                        "specialist_id": str(
+                            specialist_id
+                        ),
+                        "before": before_status,
+                        "after": availability_status,
+                    },
+                )
+
+            await (
+                self.repository.session.commit()
+            )
+        except Exception:
+            await (
+                self.repository.session.rollback()
+            )
+            raise
+
+        return (
+            before_status,
+            availability_status,
+            True,
         )
 
     async def update_availability(
@@ -2902,6 +3218,77 @@ class SpecialistService:
             True,
         )
 
+    async def get_skills_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        language: str,
+        limit: int = 30,
+    ) -> SpecialistSkillsEditData:
+        specialist = (
+            await self.repository.get_by_user_id(
+                user_id
+            )
+        )
+        if (
+            not specialist
+            or specialist.id != specialist_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistRegistrationError(
+                "Specialist profile not found."
+            )
+
+        cabinet_row = await (
+            self.repository
+            .get_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+        if not cabinet_row:
+            raise SpecialistRegistrationError(
+                "Professional cabinet not found."
+            )
+
+        cabinet, _profession = cabinet_row
+        skills = await (
+            self.repository
+            .list_skills_for_profession(
+                profession_id=(
+                    cabinet.profession_id
+                ),
+                limit=max(1, int(limit)),
+            )
+        )
+        selected_ids = await (
+            self.repository.list_cabinet_skill_ids(
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+            )
+        )
+
+        return SpecialistSkillsEditData(
+            skills=tuple(
+                SpecialistSkillOption(
+                    id=skill.id,
+                    name=_localized_model_name(
+                        skill,
+                        language,
+                    ),
+                )
+                for skill in skills
+            ),
+            selected_ids=tuple(selected_ids),
+        )
+
     async def get_skills_for_editing(
         self,
         *,
@@ -2968,6 +3355,135 @@ class SpecialistService:
             selected_ids=tuple(
                 selected_ids
             ),
+        )
+
+    async def update_skills_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        skill_ids: list[UUID],
+        platform: str = "telegram",
+    ):
+        selected = list(
+            dict.fromkeys(skill_ids)
+        )
+
+        specialist = (
+            await self.repository.get_by_user_id(
+                user_id
+            )
+        )
+        if (
+            not specialist
+            or specialist.id != specialist_id
+            or specialist.tenant_id != tenant_id
+        ):
+            raise SpecialistRegistrationError(
+                "Specialist profile not found."
+            )
+
+        cabinet_row = await (
+            self.repository
+            .get_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+        if not cabinet_row:
+            raise SpecialistRegistrationError(
+                "Professional cabinet not found."
+            )
+
+        cabinet, _profession = cabinet_row
+
+        allowed_skills = await (
+            self.repository
+            .list_skills_for_profession(
+                profession_id=(
+                    cabinet.profession_id
+                ),
+                limit=100,
+            )
+        )
+        allowed_ids = {
+            item.id
+            for item in allowed_skills
+        }
+        selected = [
+            skill_id
+            for skill_id in selected
+            if skill_id in allowed_ids
+        ]
+
+        before_skills = await (
+            self.repository.list_cabinet_skill_ids(
+                professional_cabinet_id=(
+                    cabinet.id
+                ),
+            )
+        )
+
+        if sorted(before_skills) == sorted(selected):
+            return (
+                before_skills,
+                selected,
+                False,
+            )
+
+        try:
+            await (
+                self.repository
+                .replace_cabinet_skills(
+                    professional_cabinet_id=(
+                        cabinet.id
+                    ),
+                    skill_ids=selected,
+                )
+            )
+
+            await EventRepository(
+                self.repository.session
+            ).create_event(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                event_type="change_submitted",
+                entity_type=(
+                    "professional_cabinet"
+                ),
+                entity_id=cabinet.id,
+                payload={
+                    "field": "skills",
+                    "before": [
+                        str(item)
+                        for item in before_skills
+                    ],
+                    "after": [
+                        str(item)
+                        for item in selected
+                    ],
+                },
+                platform=platform,
+            )
+
+            await (
+                self.repository.session.commit()
+            )
+        except Exception:
+            await (
+                self.repository.session.rollback()
+            )
+            raise
+
+        return (
+            before_skills,
+            selected,
+            True,
         )
 
     async def update_skills(

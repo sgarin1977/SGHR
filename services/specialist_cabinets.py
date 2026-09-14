@@ -7,7 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.repositories.specialist import (
     SpecialistRepository,
 )
-from services.specialist import SpecialistService
+from database.repositories.webhooks import (
+    WebhookRepository,
+)
+from services.specialist import (
+    ProfessionalCabinetAlreadyExistsError,
+    SpecialistRegistrationError,
+    SpecialistService,
+)
+from services.webhooks import (
+    WebhookEventPublisher,
+)
 from services.user_settings import (
     UserSettingsNotFoundError,
     UserSettingsService,
@@ -33,6 +43,14 @@ class SpecialistCabinetsProfileNotFoundError(
 
 
 class SpecialistCabinetsSelectionError(ValueError):
+    pass
+
+
+class SpecialistCabinetsValidationError(ValueError):
+    pass
+
+
+class SpecialistCabinetsConflictError(Exception):
     pass
 
 
@@ -76,7 +94,16 @@ class SpecialistCabinetsService:
         )
         self.specialists = (
             specialists
-            or SpecialistService(self.repository)
+            or SpecialistService(
+                self.repository,
+                webhook_publisher=(
+                    WebhookEventPublisher(
+                        repository=WebhookRepository(
+                            session
+                        )
+                    )
+                ),
+            )
         )
 
     @staticmethod
@@ -128,6 +155,224 @@ class SpecialistCabinetsService:
             language=context.interface_language,
         )
 
+    async def require_user_actor(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+    ) -> SpecialistCabinetsActor:
+        specialist = (
+            await self.repository.get_by_user_id(
+                user_id
+            )
+        )
+
+        if (
+            specialist is None
+            or specialist.tenant_id
+            != tenant_id
+        ):
+            raise (
+                SpecialistCabinetsProfileNotFoundError(
+                    "Specialist profile not found."
+                )
+            )
+
+        return SpecialistCabinetsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            specialist_id=specialist.id,
+            language=language,
+        )
+
+    async def require_owned_cabinet_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        professional_cabinet_id: UUID,
+    ) -> SpecialistCabinetsAction:
+        actor = await self.require_user_actor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=language,
+        )
+
+        cabinet_row = await (
+            self.repository
+            .get_professional_cabinet(
+                tenant_id=actor.tenant_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        if not cabinet_row:
+            raise SpecialistCabinetsSelectionError(
+                "Professional cabinet "
+                "was not found."
+            )
+
+        cabinet = cabinet_row[0]
+
+        if (
+            cabinet.id
+            != professional_cabinet_id
+            or cabinet.tenant_id
+            != actor.tenant_id
+            or cabinet.specialist_id
+            != actor.specialist_id
+        ):
+            raise SpecialistCabinetsSelectionError(
+                "Professional cabinet "
+                "was not found."
+            )
+
+        return SpecialistCabinetsAction(
+            actor=actor,
+            result=cabinet,
+        )
+
+    async def list_cabinets_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+    ) -> SpecialistCabinetsAction:
+        actor = await self.require_user_actor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=language,
+        )
+
+        result = await (
+            self.specialists
+            .list_professional_cabinet_options(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                language=actor.language,
+            )
+        )
+
+        return SpecialistCabinetsAction(
+            actor=actor,
+            result=result,
+        )
+
+    async def create_cabinet_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        category_id: UUID | str,
+        profession_id: UUID | str,
+        platform: str,
+    ) -> SpecialistCabinetsAction:
+        actor = await self.require_user_actor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=language,
+        )
+        parsed_category_id = self.parse_id(
+            category_id,
+            field="category id",
+        )
+        parsed_profession_id = self.parse_id(
+            profession_id,
+            field="profession id",
+        )
+
+        try:
+            result = await (
+                self.specialists
+                .create_professional_cabinet(
+                    tenant_id=actor.tenant_id,
+                    user_id=actor.user_id,
+                    specialist_id=(
+                        actor.specialist_id
+                    ),
+                    category_id=(
+                        parsed_category_id
+                    ),
+                    profession_id=(
+                        parsed_profession_id
+                    ),
+                    language=actor.language,
+                    platform=platform,
+                )
+            )
+        except ProfessionalCabinetAlreadyExistsError:
+            raise SpecialistCabinetsConflictError(
+                "Professional cabinet "
+                "already exists."
+            ) from None
+        except SpecialistRegistrationError:
+            raise SpecialistCabinetsValidationError(
+                "Professional cabinet data "
+                "is not valid."
+            ) from None
+
+        return SpecialistCabinetsAction(
+            actor=actor,
+            result=result,
+        )
+
+    async def switch_cabinet_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        professional_cabinet_id: UUID | str,
+        platform: str,
+    ) -> SpecialistCabinetsAction:
+        actor = await self.require_user_actor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=language,
+        )
+        cabinet_id = self.parse_id(
+            professional_cabinet_id,
+            field="professional cabinet id",
+        )
+
+        try:
+            result = await (
+                self.specialists
+                .switch_active_professional_cabinet(
+                    tenant_id=actor.tenant_id,
+                    user_id=actor.user_id,
+                    specialist_id=(
+                        actor.specialist_id
+                    ),
+                    professional_cabinet_id=(
+                        cabinet_id
+                    ),
+                    platform=platform,
+                )
+            )
+        except SpecialistRegistrationError:
+            raise SpecialistCabinetsValidationError(
+                "Professional cabinet "
+                "is not available."
+            ) from None
+
+        return SpecialistCabinetsAction(
+            actor=actor,
+            result=result,
+        )
+
     async def open_cabinet(
         self,
         *,
@@ -165,6 +410,45 @@ class SpecialistCabinetsService:
             context=context,
         )
 
+    async def get_availability_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        professional_cabinet_id: UUID,
+    ) -> SpecialistCabinetsAction:
+        cabinet_action = await (
+            self.require_owned_cabinet_for_user(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                language=language,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+        actor = cabinet_action.actor
+
+        result = await (
+            self.specialists
+            .get_cabinet_availability(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        return SpecialistCabinetsAction(
+            actor=actor,
+            result=result,
+        )
+
     async def get_availability(
         self,
         *,
@@ -181,6 +465,51 @@ class SpecialistCabinetsService:
                 specialist_id=actor.specialist_id,
             )
         )
+        return SpecialistCabinetsAction(
+            actor=actor,
+            result=result,
+        )
+
+    async def set_availability_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        professional_cabinet_id: UUID,
+        availability_status: str,
+        platform: str = "telegram",
+    ) -> SpecialistCabinetsAction:
+        cabinet_action = await (
+            self.require_owned_cabinet_for_user(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                language=language,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+        actor = cabinet_action.actor
+
+        result = await (
+            self.specialists
+            .update_cabinet_availability(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                availability_status=(
+                    availability_status
+                ),
+                platform=platform,
+            )
+        )
+
         return SpecialistCabinetsAction(
             actor=actor,
             result=result,

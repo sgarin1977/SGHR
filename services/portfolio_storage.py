@@ -5,6 +5,10 @@ from urllib.parse import quote
 
 import httpx
 
+from services.file_storage import (
+    FileStorageObjectMetadata,
+)
+
 
 _portfolio_storage_http_client: (
     httpx.AsyncClient | None
@@ -260,6 +264,74 @@ class SupabasePortfolioStorage:
                 f"Supabase upload failed: {exc}"
             ) from exc
 
+    async def create_signed_upload_url(
+        self,
+        *,
+        storage_path: str,
+        mime_type: str,
+        expires_in: int = 900,
+    ) -> str:
+        encoded_bucket = quote(
+            self.bucket,
+            safe="",
+        )
+        encoded_path = quote(
+            storage_path,
+            safe="/",
+        )
+
+        try:
+            client = (
+                self.client
+                or _get_portfolio_storage_http_client()
+            )
+            response = await client.post(
+                (
+                    f"{self.base_url}/storage/v1/"
+                    f"object/upload/sign/"
+                    f"{encoded_bucket}/{encoded_path}"
+                ),
+                headers={
+                    **self.headers,
+                    "Content-Type": mime_type,
+                },
+                json={},
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPError as exc:
+            raise PortfolioStorageError(
+                "Signed upload URL creation "
+                f"failed: {exc}"
+            ) from exc
+
+        signed_url = (
+            payload.get("signedURL")
+            or payload.get("signedUrl")
+            or payload.get("url")
+        )
+        if not signed_url:
+            raise PortfolioStorageError(
+                "Supabase returned no signed "
+                "upload URL."
+            )
+
+        if signed_url.startswith(
+            "/storage/v1/"
+        ):
+            return (
+                f"{self.base_url}{signed_url}"
+            )
+
+        if signed_url.startswith("/"):
+            return (
+                f"{self.base_url}/storage/v1"
+                f"{signed_url}"
+            )
+
+        return str(signed_url)
+
     async def create_signed_url(
         self,
         *,
@@ -306,6 +378,93 @@ class SupabasePortfolioStorage:
 
         return str(signed_url)
 
+    async def create_signed_download_url(
+        self,
+        *,
+        storage_path: str,
+        expires_in: int = 900,
+    ) -> str:
+        return await self.create_signed_url(
+            storage_path=storage_path,
+            expires_in=expires_in,
+        )
+
+    async def inspect_object(
+        self,
+        *,
+        storage_path: str,
+    ) -> FileStorageObjectMetadata:
+        try:
+            client = (
+                self.client
+                or _get_portfolio_storage_http_client()
+            )
+            response = await client.head(
+                self.object_url(storage_path),
+                headers=self.headers,
+                timeout=self.timeout_seconds,
+            )
+
+            if int(response.status_code) == 404:
+                return FileStorageObjectMetadata(
+                    exists=False,
+                    size_bytes=None,
+                    mime_type=None,
+                    provider_metadata={},
+                )
+
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise PortfolioStorageError(
+                f"Object inspection failed: {exc}"
+            ) from exc
+
+        raw_size = response.headers.get(
+            "content-length"
+        )
+        try:
+            size_bytes = (
+                int(raw_size)
+                if raw_size is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            size_bytes = None
+
+        raw_mime = response.headers.get(
+            "content-type"
+        )
+        mime_type = (
+            str(raw_mime)
+            .split(";", 1)[0]
+            .strip()
+            .lower()
+            if raw_mime
+            else None
+        )
+
+        provider_metadata = {}
+        etag = response.headers.get("etag")
+        last_modified = response.headers.get(
+            "last-modified"
+        )
+
+        if etag:
+            provider_metadata["etag"] = str(
+                etag
+            )
+        if last_modified:
+            provider_metadata[
+                "last_modified"
+            ] = str(last_modified)
+
+        return FileStorageObjectMetadata(
+            exists=True,
+            size_bytes=size_bytes,
+            mime_type=mime_type,
+            provider_metadata=provider_metadata,
+        )
+
     async def delete(self, *, storage_path: str) -> None:
         encoded_bucket = quote(self.bucket, safe="")
 
@@ -331,3 +490,6 @@ class SupabasePortfolioStorage:
             raise PortfolioStorageError(
                 f"Supabase delete failed: {exc}"
             ) from exc
+
+# Provider-neutral name for the shared storage adapter.
+SupabaseFileStorage = SupabasePortfolioStorage

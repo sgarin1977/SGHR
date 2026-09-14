@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 from sqlalchemy import text
 from database.models import AdminAction, Complaint, EventLog, Specialist, User
@@ -3341,22 +3342,26 @@ class ModerationService:
         *,
         admin_user_id: UUID,
         tenant_id: UUID,
-        target_type: str,
-        page: int,
+        target_type: str = "all",
+        page: int = 0,
         page_size: int = 5,
+        actor_user_id: UUID | None = None,
+        actions: set[str] | None = None,
+        target_types: set[str] | None = None,
+        target_id: UUID | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
     ) -> AdminAuditPage:
-        normalized_page = max(0, int(page))
+        normalized_page = max(
+            0,
+            int(page),
+        )
         normalized_page_size = max(
             1,
-            min(int(page_size), 10),
-        )
-
-        normalized_target_type = (
-            str(target_type or "all").strip().lower()
+            min(int(page_size), 100),
         )
 
         allowed_target_types = {
-            "all",
             "user",
             "specialist",
             "support_ticket",
@@ -3366,29 +3371,70 @@ class ModerationService:
             "blacklist",
         }
 
-        if normalized_target_type not in allowed_target_types:
-            normalized_target_type = "all"
+        if target_types is None:
+            legacy_target_type = str(
+                target_type or "all"
+            ).strip().lower()
+            normalized_target_types = (
+                {legacy_target_type}
+                if legacy_target_type
+                in allowed_target_types
+                else set()
+            )
+        else:
+            normalized_target_types = {
+                str(value).strip().lower()
+                for value in target_types
+                if (
+                    str(value).strip().lower()
+                    in allowed_target_types
+                )
+            }
 
-        target_types = (
-            None
-            if normalized_target_type == "all"
-            else {normalized_target_type}
+        normalized_actions = {
+            str(value).strip()
+            for value in (actions or set())
+            if str(value).strip()
+        }
+
+        visible_target_type = (
+            next(iter(normalized_target_types))
+            if len(normalized_target_types) == 1
+            else "all"
         )
 
         try:
-            rows = await self.repository.list_admin_audit_actions(
-                admin_user_id=admin_user_id,
-                tenant_id=tenant_id,
-                target_types=target_types,
-                limit=normalized_page_size + 1,
-                offset=(
-                    normalized_page
-                    * normalized_page_size
-                ),
+            rows = await (
+                self.repository
+                .list_admin_audit_actions(
+                    admin_user_id=admin_user_id,
+                    tenant_id=tenant_id,
+                    target_types=(
+                        normalized_target_types
+                        or None
+                    ),
+                    limit=(
+                        normalized_page_size + 1
+                    ),
+                    offset=(
+                        normalized_page
+                        * normalized_page_size
+                    ),
+                    actor_user_id=actor_user_id,
+                    actions=normalized_actions,
+                    target_id=target_id,
+                    date_from=date_from,
+                    date_to=date_to,
+                )
             )
 
-            has_next = len(rows) > normalized_page_size
-            visible_rows = rows[:normalized_page_size]
+            has_next = (
+                len(rows)
+                > normalized_page_size
+            )
+            visible_rows = rows[
+                :normalized_page_size
+            ]
 
             cards = tuple(
                 AdminAuditCard(
@@ -3397,7 +3443,8 @@ class ModerationService:
                         "%Y-%m-%d %H:%M"
                     ),
                     actor=(
-                        f"user-{row.actor_user_id.hex[:8]}"
+                        "user-"
+                        f"{row.actor_user_id.hex[:8]}"
                         if row.actor_user_id
                         else "system"
                     ),
@@ -3423,7 +3470,9 @@ class ModerationService:
                 entity_id=admin_user_id,
                 payload={
                     "page": normalized_page,
-                    "target_type": normalized_target_type,
+                    "target_type": (
+                        visible_target_type
+                    ),
                     "count": len(cards),
                     "has_next": has_next,
                 },
@@ -3434,13 +3483,17 @@ class ModerationService:
             ModerationAccessError,
             ModerationNotFoundError,
         ) as exc:
-            await self.repository.session.rollback()
-            raise ModerationError(str(exc)) from exc
+            await (
+                self.repository.session.rollback()
+            )
+            raise ModerationError(
+                str(exc)
+            ) from exc
 
         return AdminAuditPage(
             items=cards,
             page=normalized_page,
-            target_type=normalized_target_type,
+            target_type=visible_target_type,
             has_next=has_next,
         )
 

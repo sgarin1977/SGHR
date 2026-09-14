@@ -130,3 +130,29 @@ Check in Telegram:
 - hide profile works
 - delete geo works
 - data export request is created
+
+## SGHR API environment
+
+Required service:
+
+- /etc/systemd/system/sghr-api.service exists
+- API listens on 127.0.0.1:8000
+- API runs separately from the Telegram bot
+
+Required environment values:
+
+- API_JWT_SECRET contains at least 32 random characters
+- API_JWT_ISSUER=sghr-api
+- API_JWT_AUDIENCE=sghr-core
+- API_ACCESS_TOKEN_TTL_SECONDS=900
+
+Service commands:
+
+- sudo systemctl enable sghr-api
+- sudo systemctl start sghr-api
+- sudo systemctl status sghr-api --no-pager
+- sudo journalctl -u sghr-api -n 100 --no-pager
+
+Health check:
+
+- curl --fail http://127.0.0.1:8000/api/v1/health

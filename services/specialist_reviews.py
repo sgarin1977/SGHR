@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +42,56 @@ class SpecialistReviewsService:
             or ReviewService(
                 ReviewRepository(session)
             )
+        )
+
+    async def list_reviews_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        professional_cabinet_id: UUID,
+        page: int,
+        page_size: int,
+        platform: str,
+    ) -> SpecialistReviewsPage:
+        cabinet_action = await (
+            self.cabinets
+            .require_owned_cabinet_for_user(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                language=language,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+        actor = cabinet_action.actor
+
+        result = await (
+            self.reviews
+            .list_public_reviews_for_viewer(
+                tenant_id=actor.tenant_id,
+                specialist_id=(
+                    actor.specialist_id
+                ),
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                viewer_user_id=actor.user_id,
+                page=max(0, int(page)),
+                page_size=max(
+                    1,
+                    int(page_size),
+                ),
+                source="specialist_cabinet",
+                platform=platform,
+            )
+        )
+
+        return SpecialistReviewsPage(
+            actor=actor,
+            result=result,
         )
 
     async def list_reviews(

@@ -1,9 +1,19 @@
 import asyncio
 import logging
 
+from database.repositories.files import (
+    FileRepository,
+)
 from database.repositories.portfolio import PortfolioRepository
 from database.session import async_session
+from services.files import (
+    FileOrphanCleanupService,
+)
 from services.portfolio import PortfolioService
+
+from services.portfolio_storage import (
+    SupabaseFileStorage,
+)
 
 
 logging.basicConfig(
@@ -16,17 +26,36 @@ logger = logging.getLogger(__name__)
 
 async def main() -> None:
     async with async_session() as session:
+        storage = SupabaseFileStorage()
+
         service = PortfolioService(
-            PortfolioRepository(session)
+            PortfolioRepository(session),
+            storage=storage,
+        )
+        orphan_cleanup = (
+            FileOrphanCleanupService(
+                repository=FileRepository(
+                    session
+                ),
+                storage=storage,
+            )
         )
 
         cleaned_count = await service.cleanup_due_items(
             limit=500,
         )
+        orphan_deleted_count = await (
+            orphan_cleanup.cleanup(
+                limit=500,
+            )
+        )
 
     logger.info(
-        "portfolio_storage_cleanup_completed cleaned_count=%s",
+        "storage_cleanup_completed "
+        "portfolio_cleaned_count=%s "
+        "orphan_deleted_count=%s",
         cleaned_count,
+        orphan_deleted_count,
     )
 
 

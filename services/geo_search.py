@@ -241,6 +241,7 @@ class GeoSearchService:
         tenant_id: UUID,
         user_id: UUID,
         event: SearchResultsViewedEvent,
+        platform: str = "telegram",
     ) -> None:
         try:
             await self.events.create_event(
@@ -250,7 +251,7 @@ class GeoSearchService:
                 entity_type="search",
                 entity_id=None,
                 payload={
-                    "telegram_id": event.platform_user_id,
+                    "platform_user_id": event.platform_user_id,
                     "page": max(int(event.page), 0),
                     "visible_count": max(
                         int(event.visible_count),
@@ -273,7 +274,7 @@ class GeoSearchService:
                         event.search_text_query
                     ),
                 },
-                platform="telegram",
+                platform=platform,
             )
             await self.repository.session.commit()
         except Exception:
@@ -286,6 +287,7 @@ class GeoSearchService:
         tenant_id: UUID,
         user_id: UUID,
         event: EmptySearchEvent,
+        platform: str = "telegram",
     ) -> None:
         try:
             await self.events.create_event(
@@ -307,7 +309,7 @@ class GeoSearchService:
                     "language_code": event.language_code,
                     "work_format": event.work_format,
                 },
-                platform="telegram",
+                platform=platform,
             )
             await self.repository.session.commit()
         except Exception:

@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.repositories.specialist import (
     SpecialistRepository,
 )
+from database.repositories.webhooks import (
+    WebhookRepository,
+)
 from services.specialist import (
     SpecialistService,
     MAX_PROFESSIONS_PER_CATEGORY,
@@ -19,6 +22,11 @@ from services.specialist_cabinets import (
     SpecialistCabinetsProfileNotFoundError,
     SpecialistCabinetsService,
     SpecialistCabinetsUserNotFoundError,
+)
+
+
+from services.webhooks import (
+    WebhookEventPublisher,
 )
 
 
@@ -124,7 +132,14 @@ class SpecialistProfileService:
         self.specialists = (
             specialists
             or SpecialistService(
-                self.repository
+                self.repository,
+                webhook_publisher=(
+                    WebhookEventPublisher(
+                        repository=WebhookRepository(
+                            session
+                        )
+                    )
+                ),
             )
         )
         self.cabinets = (

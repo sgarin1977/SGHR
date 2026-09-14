@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
@@ -46,6 +47,36 @@ class BillingMarkPaidResult:
     invoice: Invoice
     promotion: SpecialistPromotion | None
     approval_required: bool
+
+
+@dataclass(frozen=True)
+class SpecialistSubscriptionView:
+    id: UUID
+    plan_code: str
+    status: str
+    billing_period: str
+    amount: Decimal
+    currency: str
+    starts_at: datetime
+    current_period_start: datetime | None
+    current_period_end: datetime | None
+    cancel_at_period_end: bool
+    cancelled_at: datetime | None
+    ended_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class SpecialistPromotionView:
+    id: UUID
+    promotion_type: str
+    starts_at: datetime | None
+    ends_at: datetime | None
+    price: Decimal
+    currency: str
+    status: str
+    created_at: datetime
 
 
 class BillingService:
@@ -263,6 +294,100 @@ class BillingService:
             promotion=promotion,
             approval_required=approval_required,
         )
+
+    async def list_subscriptions_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[SpecialistSubscriptionView]:
+        rows = await (
+            self.repository
+            .list_subscriptions_for_cabinet(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                limit=limit,
+                offset=offset,
+            )
+        )
+
+        return [
+            SpecialistSubscriptionView(
+                id=row.id,
+                plan_code=row.plan_code,
+                status=row.status,
+                billing_period=(
+                    row.billing_period
+                ),
+                amount=Decimal(
+                    str(row.amount)
+                ),
+                currency=row.currency,
+                starts_at=row.starts_at,
+                current_period_start=(
+                    row.current_period_start
+                ),
+                current_period_end=(
+                    row.current_period_end
+                ),
+                cancel_at_period_end=(
+                    row.cancel_at_period_end
+                ),
+                cancelled_at=(
+                    row.cancelled_at
+                ),
+                ended_at=row.ended_at,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+            )
+            for row in rows
+        ]
+
+    async def list_promotions_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[SpecialistPromotionView]:
+        rows = await (
+            self.repository
+            .list_specialist_promotions_for_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+                limit=limit,
+                offset=offset,
+            )
+        )
+
+        return [
+            SpecialistPromotionView(
+                id=row.id,
+                promotion_type=(
+                    row.promotion_type
+                ),
+                starts_at=row.starts_at,
+                ends_at=row.ends_at,
+                price=Decimal(
+                    str(row.price)
+                ),
+                currency=row.currency,
+                status=row.status,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
 
     async def expire_due_promotions(self) -> list[SpecialistPromotion]:
         try:

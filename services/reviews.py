@@ -35,9 +35,17 @@ class PublicReviewPage:
     has_next: bool
 
 class ReviewService:
-    def __init__(self, repository: ReviewRepository):
+    def __init__(
+        self,
+        repository: ReviewRepository,
+        *,
+        webhook_publisher=None,
+    ):
         self.repository = repository
-        self.events = EventRepository(repository.session)
+        self.events = EventRepository(
+            repository.session
+        )
+        self.webhook_publisher = webhook_publisher
 
     async def create_contact_review(
         self,
@@ -48,22 +56,69 @@ class ReviewService:
         rating: int,
         text: str | None = None,
     ) -> Review:
-        normalized_rating = self._normalize_rating(rating)
+        normalized_rating = self._normalize_rating(
+            rating
+        )
         normalized_text = self._normalize_text(text)
 
         try:
-            review = await self.repository.create_contact_review(
-                tenant_id=tenant_id,
-                reviewer_user_id=reviewer_user_id,
-                contact_request_id=contact_request_id,
-                rating=normalized_rating,
-                text=normalized_text,
+            review = await (
+                self.repository.create_contact_review(
+                    tenant_id=tenant_id,
+                    reviewer_user_id=(
+                        reviewer_user_id
+                    ),
+                    contact_request_id=(
+                        contact_request_id
+                    ),
+                    rating=normalized_rating,
+                    text=normalized_text,
+                )
             )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type="review.created",
+                    payload={
+                        "review_id": str(review.id),
+                        "professional_cabinet_id": (
+                            str(
+                                review
+                                .professional_cabinet_id
+                            )
+                            if review
+                            .professional_cabinet_id
+                            is not None
+                            else None
+                        ),
+                        "target_type": (
+                            review.target_type
+                        ),
+                        "target_id": str(
+                            review.target_id
+                        ),
+                        "context_type": (
+                            review.context_type
+                        ),
+                        "context_id": str(
+                            review.context_id
+                        ),
+                        "rating": review.rating,
+                        "status": review.status,
+                    },
+                )
+
             await self.repository.session.commit()
             return review
         except ReviewError as exc:
             await self.repository.session.rollback()
-            raise ReviewServiceError(str(exc)) from exc
+            raise ReviewServiceError(
+                str(exc)
+            ) from exc
+        except Exception:
+            await self.repository.session.rollback()
+            raise
 
     async def create_service_order_review(
         self,
@@ -74,22 +129,70 @@ class ReviewService:
         rating: int,
         text: str | None = None,
     ) -> Review:
-        normalized_rating = self._normalize_rating(rating)
+        normalized_rating = self._normalize_rating(
+            rating
+        )
         normalized_text = self._normalize_text(text)
 
         try:
-            review = await self.repository.create_service_order_review(
-                tenant_id=tenant_id,
-                reviewer_user_id=reviewer_user_id,
-                service_order_id=service_order_id,
-                rating=normalized_rating,
-                text=normalized_text,
+            review = await (
+                self.repository
+                .create_service_order_review(
+                    tenant_id=tenant_id,
+                    reviewer_user_id=(
+                        reviewer_user_id
+                    ),
+                    service_order_id=(
+                        service_order_id
+                    ),
+                    rating=normalized_rating,
+                    text=normalized_text,
+                )
             )
+
+            if self.webhook_publisher is not None:
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type="review.created",
+                    payload={
+                        "review_id": str(review.id),
+                        "professional_cabinet_id": (
+                            str(
+                                review
+                                .professional_cabinet_id
+                            )
+                            if review
+                            .professional_cabinet_id
+                            is not None
+                            else None
+                        ),
+                        "target_type": (
+                            review.target_type
+                        ),
+                        "target_id": str(
+                            review.target_id
+                        ),
+                        "context_type": (
+                            review.context_type
+                        ),
+                        "context_id": str(
+                            review.context_id
+                        ),
+                        "rating": review.rating,
+                        "status": review.status,
+                    },
+                )
+
             await self.repository.session.commit()
             return review
         except ReviewError as exc:
             await self.repository.session.rollback()
-            raise ReviewServiceError(str(exc)) from exc
+            raise ReviewServiceError(
+                str(exc)
+            ) from exc
+        except Exception:
+            await self.repository.session.rollback()
+            raise
 
     async def publish_review(self, *, review_id: UUID) -> ReviewResult:
         try:
@@ -300,6 +403,50 @@ class ReviewService:
                 },
             )
 
+            if (
+                status == "published"
+                and self.webhook_publisher
+                is not None
+            ):
+                await self.webhook_publisher.publish(
+                    tenant_id=tenant_id,
+                    event_type="review.published",
+                    payload={
+                        "review_id": str(review.id),
+                        "professional_cabinet_id": (
+                            str(
+                                review
+                                .professional_cabinet_id
+                            )
+                            if review
+                            .professional_cabinet_id
+                            is not None
+                            else None
+                        ),
+                        "target_type": (
+                            review.target_type
+                        ),
+                        "target_id": str(
+                            review.target_id
+                        ),
+                        "context_type": (
+                            review.context_type
+                        ),
+                        "context_id": str(
+                            review.context_id
+                        ),
+                        "rating": review.rating,
+                        "status": review.status,
+                        "published_at": (
+                            review.published_at
+                            .isoformat()
+                            if review.published_at
+                            is not None
+                            else None
+                        ),
+                    },
+                )
+
             await self.repository.session.commit()
 
             return ReviewResult(
@@ -309,7 +456,12 @@ class ReviewService:
 
         except ReviewError as exc:
             await self.repository.session.rollback()
-            raise ReviewServiceError(str(exc)) from exc
+            raise ReviewServiceError(
+                str(exc)
+            ) from exc
+        except Exception:
+            await self.repository.session.rollback()
+            raise
         
     async def add_specialist_reply(
         self,
@@ -410,6 +562,7 @@ class ReviewService:
         page: int = 0,
         page_size: int = 5,
         source: str | None = None,
+        platform: str = "telegram",
     ) -> PublicReviewPage:
         review_page = (
             await self.list_public_reviews_for_specialist(
@@ -447,7 +600,7 @@ class ReviewService:
                     or specialist_id
                 ),
                 payload=payload,
-                platform="telegram",
+                platform=platform,
             )
             await self.repository.session.commit()
 

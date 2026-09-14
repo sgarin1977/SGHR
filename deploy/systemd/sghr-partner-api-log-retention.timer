@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SGHR Partner API Log Retention
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5m
+Unit=sghr-partner-api-log-retention.service
+
+[Install]
+WantedBy=timers.target

@@ -1375,6 +1375,11 @@ class ModerationRepository:
         target_types: set[str] | None,
         limit: int,
         offset: int,
+        actor_user_id: UUID | None = None,
+        actions: set[str] | None = None,
+        target_id: UUID | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
     ) -> list[AdminAuditQueueItem]:
         await self.require_admin_role(
             admin_user_id,
@@ -1466,6 +1471,43 @@ class ModerationRepository:
                 combined.c.target_type.in_(
                     normalized_target_types
                 )
+            )
+
+        normalized_actions = {
+            str(action).strip()
+            for action in (actions or set())
+            if str(action).strip()
+        }
+
+        if actor_user_id is not None:
+            query = query.where(
+                combined.c.actor_user_id
+                == actor_user_id
+            )
+
+        if normalized_actions:
+            query = query.where(
+                combined.c.action.in_(
+                    normalized_actions
+                )
+            )
+
+        if target_id is not None:
+            query = query.where(
+                combined.c.target_id
+                == target_id
+            )
+
+        if date_from is not None:
+            query = query.where(
+                combined.c.created_at
+                >= date_from
+            )
+
+        if date_to is not None:
+            query = query.where(
+                combined.c.created_at
+                <= date_to
             )
 
         result = await self.session.execute(

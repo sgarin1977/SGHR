@@ -351,3 +351,28 @@ Bot crash alert:
 1. Check bot status: sudo systemctl status sghr-bot --no-pager
 2. Check logs: sudo journalctl -u sghr-bot -n 200 --no-pager
 3. Restart only after checking error: sudo systemctl restart sghr-bot
+
+## SGHR API service
+
+Install and start:
+
+```bash
+sudo cp /opt/sghr/deploy/systemd/sghr-api.service /etc/systemd/system/sghr-api.service
+sudo systemctl daemon-reload
+sudo systemctl enable sghr-api
+sudo systemctl start sghr-api
+```
+
+Verify:
+
+```bash
+sudo systemctl status sghr-api --no-pager
+sudo journalctl -u sghr-api -n 100 --no-pager
+curl --fail http://127.0.0.1:8000/api/v1/health
+```
+
+After updating the application:
+
+```bash
+sudo systemctl restart sghr-api
+```

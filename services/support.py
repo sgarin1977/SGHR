@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 from database.repositories.event import EventRepository
 from database.repositories.user import UserRepository
@@ -725,7 +725,7 @@ class SupportService:
                     thread=thread,
                     admin_user_id=admin_user_id,
                     reason=normalized_reason,
-                    completed_at=datetime.utcnow(),
+                    completed_at=datetime.now(UTC),
                 )
 
             await self.repository.add_message(

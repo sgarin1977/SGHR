@@ -1,0 +1,21 @@
+[Unit]
+Description=SGHR Outgoing Webhook Delivery Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sghr
+Group=sghr
+WorkingDirectory=/opt/sghr
+EnvironmentFile=/opt/sghr/.env
+Environment=PYTHONPATH=/opt/sghr
+ExecStart=/opt/sghr/venv/bin/python /opt/sghr/scripts/process_webhook_deliveries.py
+Restart=always
+RestartSec=2s
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=SGHR API Platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sghr
+Group=sghr
+WorkingDirectory=/opt/sghr
+EnvironmentFile=/opt/sghr/.env
+ExecStart=/opt/sghr/venv/bin/uvicorn api.app:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

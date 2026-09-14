@@ -17,6 +17,7 @@ from database.models import (
     ProfessionalCabinet,
     Specialist,
     SpecialistPromotion,
+    Subscription,
     User,
     UserRoleMapping,
 )
@@ -623,6 +624,65 @@ class BillingRepository:
         )
         await self.session.flush()
         return payment, invoice, promotion, False
+
+    async def list_subscriptions_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[Subscription]:
+        result = await self.session.execute(
+            select(Subscription)
+            .where(
+                Subscription.tenant_id
+                == tenant_id,
+                Subscription.user_id
+                == user_id,
+                Subscription
+                .professional_cabinet_id
+                == professional_cabinet_id,
+            )
+            .order_by(
+                Subscription.created_at.desc()
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        return list(result.scalars().all())
+
+    async def list_specialist_promotions_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[SpecialistPromotion]:
+        result = await self.session.execute(
+            select(SpecialistPromotion)
+            .where(
+                SpecialistPromotion.tenant_id
+                == tenant_id,
+                SpecialistPromotion.specialist_id
+                == specialist_id,
+                SpecialistPromotion
+                .professional_cabinet_id
+                == professional_cabinet_id,
+            )
+            .order_by(
+                SpecialistPromotion.created_at
+                .desc()
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        return list(result.scalars().all())
 
     async def expire_due_promotions(self, *, now: datetime | None = None) -> list[SpecialistPromotion]:
         now = now or datetime.utcnow()

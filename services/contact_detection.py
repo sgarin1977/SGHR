@@ -75,7 +75,12 @@ class ContactDetectionService:
 
         return masked_text
 
-    async def process_message(self, message_id: UUID) -> ContactDetectionResult:
+    async def process_message(
+        self,
+        message_id: UUID,
+        *,
+        commit: bool = True,
+    ) -> ContactDetectionResult:
         message = await self.repository.get_message(message_id)
         if not message:
             return ContactDetectionResult(
@@ -139,7 +144,8 @@ class ContactDetectionService:
                 reason="off_platform_payment",
             )
 
-        await self.repository.session.commit()
+        if commit:
+            await self.repository.session.commit()
 
         return ContactDetectionResult(
             message_id=message.id,

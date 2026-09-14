@@ -22,6 +22,10 @@ class UserFavoritesSelectionError(ValueError):
     pass
 
 
+class UserFavoritesNotFoundError(LookupError):
+    pass
+
+
 @dataclass(frozen=True)
 class UserFavoritesActor:
     user_id: UUID
@@ -90,6 +94,82 @@ class UserFavoritesService:
             user_id=context.user_id,
             tenant_id=context.tenant_id,
             language=context.interface_language,
+        )
+
+    async def list_favorites_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        language: str,
+        page: int = 0,
+        page_size: int = 20,
+    ) -> UserFavoritesPage:
+        actor = UserFavoritesActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=language,
+        )
+        normalized_page = max(
+            0,
+            int(page),
+        )
+        normalized_size = max(
+            1,
+            min(int(page_size), 100),
+        )
+
+        result = await (
+            self.favorites
+            .list_public_cards_page(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                page=normalized_page,
+                page_size=normalized_size,
+                language=actor.language,
+                platform="api",
+            )
+        )
+
+        return UserFavoritesPage(
+            actor=actor,
+            cards=list(result.cards),
+            page=result.page,
+            has_next=result.has_next,
+        )
+
+    async def save_favorite_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        professional_cabinet_id: UUID,
+    ) -> UserFavoritesAction:
+        actor = UserFavoritesActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language="",
+        )
+
+        try:
+            saved = await (
+                self.favorites
+                .save_professional_cabinet(
+                    tenant_id=actor.tenant_id,
+                    user_id=actor.user_id,
+                    professional_cabinet_id=(
+                        professional_cabinet_id
+                    ),
+                )
+            )
+        except ValueError as exc:
+            raise UserFavoritesNotFoundError(
+                "Favorite target is not available."
+            ) from exc
+
+        return UserFavoritesAction(
+            actor=actor,
+            result=bool(saved),
         )
 
     async def list_favorites(

@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.repositories.contact import (
     ContactChatRepository,
 )
+from database.repositories.webhooks import (
+    WebhookRepository,
+)
 from database.repositories.moderation import (
     ModerationRepository,
 )
@@ -20,9 +23,15 @@ from database.repositories.translation import (
     TranslationRepository,
     normalize_translation_language,
 )
+from services.api_idempotency import (
+    ApiIdempotencyService,
+)
 from services.contact_chat import (
     ContactChatError,
     ContactChatService,
+)
+from services.webhooks import (
+    WebhookEventPublisher,
 )
 from services.moderation import (
     ModerationService,
@@ -74,15 +83,44 @@ class UserDialogsPage:
 
 
 @dataclass(frozen=True)
+class UserContactRequestAction:
+    actor: UserDialogsActor
+    result: Any
+
+
+@dataclass(frozen=True)
+class UserContactRequestsPage:
+    actor: UserDialogsActor
+    items: list
+    page: int
+    has_next: bool
+
+
+@dataclass(frozen=True)
 class UserDialogDetail:
     actor: UserDialogsActor
     detail: object
 
 
 @dataclass(frozen=True)
+class UserContactRequestResult:
+    contact_request_id: UUID
+    thread_id: UUID
+    was_existing: bool
+    message_masked: bool
+    thread_restricted: bool
+
+
+@dataclass(frozen=True)
 class UserDialogContact:
     actor: UserDialogsActor
     chat: Any
+
+
+@dataclass(frozen=True)
+class UserDialogMessage:
+    actor: UserDialogsActor
+    result: Any
 
 
 @dataclass(frozen=True)
@@ -150,8 +188,12 @@ class UserDialogsService:
         translation: (
             TranslationService | None
         ) = None,
+        idempotency: (
+            ApiIdempotencyService | None
+        ) = None,
     ):
         self.session = session
+        self.idempotency = idempotency
         self.settings = (
             settings
             or UserSettingsService(session)
@@ -163,7 +205,14 @@ class UserDialogsService:
         self.chats = (
             chats
             or ContactChatService(
-                ContactChatRepository(session)
+                ContactChatRepository(session),
+                webhook_publisher=(
+                    WebhookEventPublisher(
+                        repository=WebhookRepository(
+                            session
+                        )
+                    )
+                ),
             )
         )
         self.specialists = (
@@ -220,6 +269,232 @@ class UserDialogsService:
             language=context.interface_language,
         )
 
+    async def list_dialogs_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        language: str,
+        role: str,
+        view: str = "active",
+        page: int = 0,
+        page_size: int = 20,
+        search_query: str | None = None,
+    ) -> UserDialogsPage:
+        if role not in {
+            "client",
+            "specialist",
+        }:
+            raise UserDialogsSelectionError(
+                "Invalid dialog role."
+            )
+
+        if view not in {
+            "active",
+            "new",
+            "completed",
+            "archive",
+            "hidden",
+        }:
+            raise UserDialogsSelectionError(
+                "Invalid dialog view."
+            )
+
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+        normalized_page = max(0, int(page))
+        normalized_size = max(
+            1,
+            int(page_size),
+        )
+        normalized_query = (
+            (search_query or "").strip()
+            or None
+        )
+
+        list_method = (
+            self.chats.list_client_threads
+            if role == "client"
+            else self.chats.list_specialist_threads
+        )
+
+        items = await list_method(
+            tenant_id=actor.tenant_id,
+            user_id=actor.user_id,
+            view=view,
+            limit=normalized_size + 1,
+            offset=(
+                normalized_page
+                * normalized_size
+            ),
+            language=actor.language,
+            search_query=normalized_query,
+        )
+
+        visible_items = items[
+            :normalized_size
+        ]
+
+        unread_messages = await (
+            self.chats.count_unread_messages(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                participant_role=role,
+            )
+        )
+
+        await self.chats.record_messages_opened(
+            tenant_id=actor.tenant_id,
+            user_id=actor.user_id,
+            participant_role=role,
+            view=view,
+            page=normalized_page,
+            items_count=len(visible_items),
+            platform="api",
+        )
+
+        return UserDialogsPage(
+            actor=actor,
+            items=visible_items,
+            unread_messages=unread_messages,
+            page=normalized_page,
+            has_next=(
+                len(items) > normalized_size
+            ),
+            show_role_switch=False,
+        )
+
+    async def get_dialog_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        thread_id: UUID | str,
+        language: str,
+        role: str,
+    ) -> UserDialogDetail:
+        if role not in {
+            "client",
+            "specialist",
+        }:
+            raise UserDialogsSelectionError(
+                "Invalid dialog role."
+            )
+
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+        parsed_thread_id = self.parse_thread_id(
+            thread_id
+        )
+
+        detail = await (
+            self.chats
+            .get_thread_detail_for_viewer(
+                tenant_id=actor.tenant_id,
+                thread_id=parsed_thread_id,
+                user_id=actor.user_id,
+                participant_role=role,
+                language=actor.language,
+                platform="api",
+            )
+        )
+
+        await self.chats.mark_thread_read(
+            tenant_id=actor.tenant_id,
+            thread_id=parsed_thread_id,
+            user_id=actor.user_id,
+        )
+
+        return UserDialogDetail(
+            actor=actor,
+            detail=detail,
+        )
+
+    async def send_dialog_message_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        thread_id: UUID | str,
+        language: str,
+        text: str,
+        attachment: dict | None = None,
+    ) -> UserDialogMessage:
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+        parsed_thread_id = self.parse_thread_id(
+            thread_id
+        )
+
+        result = await self.chats.send_thread_message(
+            tenant_id=actor.tenant_id,
+            thread_id=parsed_thread_id,
+            sender_user_id=actor.user_id,
+            text=text,
+            original_language=actor.language,
+            attachment=attachment,
+            platform="api",
+        )
+
+        return UserDialogMessage(
+            actor=actor,
+            result=result,
+        )
+
+    async def finish_dialog_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        thread_id: UUID | str,
+        language: str,
+    ) -> UserDialogCompletion:
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+        parsed_thread_id = self.parse_thread_id(
+            thread_id
+        )
+
+        result = await self.chats.finish_thread(
+            tenant_id=actor.tenant_id,
+            thread_id=parsed_thread_id,
+            actor_user_id=actor.user_id,
+            platform="api",
+        )
+
+        return UserDialogCompletion(
+            actor=actor,
+            result=result,
+        )
+
     async def list_specialist_dialogs(
         self,
         *,
@@ -236,6 +511,7 @@ class UserDialogsService:
         normalized_size = max(1, int(page_size))
 
         items = await self.chats.list_specialist_threads(
+            tenant_id=actor.tenant_id,
             user_id=actor.user_id,
             view=view,
             limit=normalized_size + 1,
@@ -249,6 +525,7 @@ class UserDialogsService:
         unread_messages = (
             await self.chats
             .count_unread_messages(
+                tenant_id=actor.tenant_id,
                 user_id=actor.user_id,
                 participant_role="specialist",
             )
@@ -287,6 +564,7 @@ class UserDialogsService:
         normalized_size = max(1, int(page_size))
 
         items = await self.chats.list_client_threads(
+            tenant_id=actor.tenant_id,
             user_id=actor.user_id,
             view=view,
             limit=normalized_size,
@@ -300,6 +578,7 @@ class UserDialogsService:
         unread_messages = (
             await self.chats
             .count_unread_messages(
+                tenant_id=actor.tenant_id,
                 user_id=actor.user_id,
                 participant_role="client",
             )
@@ -361,6 +640,7 @@ class UserDialogsService:
             )
         )
         await self.chats.mark_thread_read(
+            tenant_id=actor.tenant_id,
             thread_id=parsed_thread_id,
             user_id=actor.user_id,
         )
@@ -389,6 +669,7 @@ class UserDialogsService:
             language=actor.language,
         )
         await self.chats.mark_thread_read(
+            tenant_id=actor.tenant_id,
             thread_id=parsed_thread_id,
             user_id=actor.user_id,
         )
@@ -532,6 +813,7 @@ class UserDialogsService:
             items = (
                 await self.chats
                 .list_client_threads(
+                    tenant_id=actor.tenant_id,
                     user_id=actor.user_id,
                     view=normalized_view,
                     limit=normalized_size,
@@ -544,6 +826,7 @@ class UserDialogsService:
             items = (
                 await self.chats
                 .list_specialist_threads(
+                    tenant_id=actor.tenant_id,
                     user_id=actor.user_id,
                     view=normalized_view,
                     limit=normalized_size + 1,
@@ -556,6 +839,7 @@ class UserDialogsService:
         unread_messages = (
             await self.chats
             .count_unread_messages(
+                tenant_id=actor.tenant_id,
                 user_id=actor.user_id,
                 participant_role=(
                     normalized_role
@@ -627,6 +911,252 @@ class UserDialogsService:
         return cls.parse_entity_id(
             value,
             field=field,
+        )
+
+    async def cancel_contact_request_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        language: str,
+        contact_request_id: UUID,
+    ) -> UserContactRequestAction:
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+
+        result = await (
+            self.chats.cancel_contact_request(
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.user_id,
+                contact_request_id=(
+                    contact_request_id
+                ),
+                platform="api",
+            )
+        )
+
+        return UserContactRequestAction(
+            actor=actor,
+            result=result,
+        )
+
+    async def get_contact_request_for_user(
+        self,
+        *,
+        tenant_id: UUID,
+        user_id: UUID,
+        language: str,
+        contact_request_id: UUID,
+    ) -> UserDialogDetail:
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+
+        detail = await (
+            self.chats
+            .get_client_request_detail(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                language=actor.language,
+                contact_request_id=(
+                    contact_request_id
+                ),
+            )
+        )
+
+        return UserDialogDetail(
+            actor=actor,
+            detail=detail,
+        )
+
+    async def list_contact_requests_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        page: int = 0,
+        page_size: int = 20,
+    ) -> UserContactRequestsPage:
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+        normalized_page = max(
+            0,
+            int(page),
+        )
+        normalized_size = max(
+            1,
+            int(page_size),
+        )
+
+        items = await (
+            self.chats.list_client_requests(
+                tenant_id=actor.tenant_id,
+                user_id=actor.user_id,
+                language=actor.language,
+                limit=normalized_size + 1,
+                offset=(
+                    normalized_page
+                    * normalized_size
+                ),
+            )
+        )
+
+        return UserContactRequestsPage(
+            actor=actor,
+            items=items[:normalized_size],
+            page=normalized_page,
+            has_next=(
+                len(items) > normalized_size
+            ),
+        )
+
+    async def create_contact_request_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        specialist_id: UUID,
+        profession_id: UUID | None,
+        message: str,
+        idempotency_key: str | None = None,
+    ) -> UserDialogContact:
+        actor = UserDialogsActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=(
+                normalize_translation_language(
+                    language
+                )
+            ),
+        )
+
+        reservation = None
+        if (
+            idempotency_key is not None
+            and self.idempotency is not None
+        ):
+            reservation = await (
+                self.idempotency.reserve(
+                    tenant_id=tenant_id,
+                    principal_type="user",
+                    principal_id=user_id,
+                    operation=(
+                        "contact_request.create"
+                    ),
+                    idempotency_key=(
+                        idempotency_key
+                    ),
+                    payload={
+                        "specialist_id": str(
+                            specialist_id
+                        ),
+                        "profession_id": (
+                            str(profession_id)
+                            if profession_id
+                            is not None
+                            else None
+                        ),
+                        "message": message,
+                    },
+                )
+            )
+
+            if reservation.is_replay:
+                stored = (
+                    reservation.response_payload
+                )
+                return UserDialogContact(
+                    actor=actor,
+                    chat=UserContactRequestResult(
+                        contact_request_id=UUID(
+                            stored[
+                                "contact_request_id"
+                            ]
+                        ),
+                        thread_id=UUID(
+                            stored["thread_id"]
+                        ),
+                        was_existing=bool(
+                            stored["was_existing"]
+                        ),
+                        message_masked=bool(
+                            stored["message_masked"]
+                        ),
+                        thread_restricted=bool(
+                            stored[
+                                "thread_restricted"
+                            ]
+                        ),
+                    ),
+                )
+
+        create_kwargs = {
+            "tenant_id": actor.tenant_id,
+            "from_user_id": actor.user_id,
+            "specialist_id": specialist_id,
+            "profession_id": profession_id,
+            "message": message,
+            "original_language": actor.language,
+            "platform": "api",
+        }
+        if reservation is not None:
+            create_kwargs["commit"] = False
+
+        result = await (
+            self.chats.start_contact_chat(
+                **create_kwargs
+            )
+        )
+
+        if reservation is not None:
+            await self.idempotency.complete(
+                reservation=reservation,
+                response_status=201,
+                response_payload={
+                    "contact_request_id": str(
+                        result.contact_request_id
+                    ),
+                    "thread_id": str(
+                        result.thread_id
+                    ),
+                    "was_existing": bool(
+                        result.was_existing
+                    ),
+                    "message_masked": bool(
+                        result.message_masked
+                    ),
+                    "thread_restricted": bool(
+                        result.thread_restricted
+                    ),
+                },
+            )
+            await self.idempotency.commit()
+
+        return UserDialogContact(
+            actor=actor,
+            chat=result,
         )
 
     async def open_contact(
@@ -707,6 +1237,7 @@ class UserDialogsService:
         )
 
         await self.chats.mark_thread_read(
+            tenant_id=actor.tenant_id,
             thread_id=parsed_thread_id,
             user_id=actor.user_id,
         )
@@ -792,6 +1323,7 @@ class UserDialogsService:
 
         result = await (
             self.chats.send_thread_message(
+                tenant_id=actor.tenant_id,
                 thread_id=parsed_thread_id,
                 sender_user_id=actor.user_id,
                 text=text,

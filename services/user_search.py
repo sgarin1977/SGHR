@@ -1099,6 +1099,72 @@ class UserSearchService:
                 ),
             )
         )
+
+        return await (
+            self._search_results_for_actor(
+                actor=actor,
+                platform_user_id=(
+                    platform_user_id
+                ),
+                data=data,
+                page=page,
+                page_size=page_size,
+                default_radius_km=(
+                    default_radius_km
+                ),
+            )
+        )
+
+    async def search_specialists_for_user(
+        self,
+        *,
+        user_id: UUID,
+        tenant_id: UUID,
+        language: str,
+        data: Mapping[str, Any],
+        page: int | str,
+        page_size: int = 20,
+        default_radius_km: (
+            int | float
+        ) = 25,
+    ) -> UserSearchPage:
+        actor = UserSearchActor(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            language=self.fallback_language(
+                language
+            ),
+        )
+
+        return await (
+            self._search_results_for_actor(
+                actor=actor,
+                platform_user_id=None,
+                platform="api",
+                data=data,
+                page=page,
+                page_size=page_size,
+                default_radius_km=(
+                    default_radius_km
+                ),
+            )
+        )
+
+    async def _search_results_for_actor(
+        self,
+        *,
+        actor: UserSearchActor,
+        platform_user_id: (
+            int | str | None
+        ),
+        data: Mapping[str, Any],
+        page: int | str,
+        page_size: int,
+        default_radius_km: (
+            int | float
+        ),
+        platform: str = "telegram",
+    ) -> UserSearchPage:
         parsed_page = (
             self.parse_nonnegative_int(
                 page,
@@ -1183,8 +1249,11 @@ class UserSearchService:
                 tenant_id=actor.tenant_id,
                 user_id=actor.user_id,
                 event=SearchResultsViewedEvent(
-                    platform_user_id=str(
-                        platform_user_id
+                    platform_user_id=(
+                        str(platform_user_id)
+                        if platform_user_id
+                        is not None
+                        else None
                     ),
                     page=parsed_page,
                     visible_count=len(
@@ -1227,6 +1296,7 @@ class UserSearchService:
                         filters.search_text_query
                     ),
                 ),
+                platform=platform,
             )
         )
 
@@ -1271,6 +1341,7 @@ class UserSearchService:
                             filters.work_format
                         ),
                     ),
+                    platform=platform,
                 )
             )
 

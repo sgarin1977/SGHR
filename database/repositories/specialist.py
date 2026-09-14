@@ -19,6 +19,7 @@ from database.models import (
     SpecialistService,
     User,
     UserRoleMapping,
+    utcnow_naive,
     ProfileVisibilitySetting,
     ProfessionAlias,
     ProfessionSkill,
@@ -858,6 +859,38 @@ class SpecialistRepository:
         specialist.status = status
         await self.session.flush()
         return specialist
+
+    async def update_cabinet_availability(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        availability_status: str,
+    ) -> ProfessionalCabinet:
+        cabinet_row = await (
+            self.get_professional_cabinet(
+                tenant_id=tenant_id,
+                specialist_id=specialist_id,
+                professional_cabinet_id=(
+                    professional_cabinet_id
+                ),
+            )
+        )
+
+        if not cabinet_row:
+            raise ValueError(
+                "Professional cabinet not found."
+            )
+
+        cabinet, _profession = cabinet_row
+        cabinet.availability_status = (
+            availability_status
+        )
+        cabinet.updated_at = utcnow_naive()
+
+        await self.session.flush()
+        return cabinet
 
     async def update_active_cabinet_availability(
         self,

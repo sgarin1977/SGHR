@@ -1,18 +1,23 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from sqlalchemy import (
     String,
     ForeignKey,
     ForeignKeyConstraint,
+    Date,
     DateTime,
+    Time,
     Text,
     Integer,
+    SmallInteger,
+    LargeBinary,
     Boolean,
     Numeric,
+    CheckConstraint,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 def utcnow_naive() -> datetime:
@@ -26,15 +31,83 @@ def utcnow_naive() -> datetime:
 class Base(DeclarativeBase):
     pass
 
-# Оголошуємо модель tenants, щоб SQLAlchemy бачила зв'язок для ForeignKey
 class Tenant(Base):
     __tablename__ = "tenants"
-    
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    __table_args__ = (
+        UniqueConstraint(
+            "slug",
+            name="tenants_slug_key",
+        ),
+        CheckConstraint(
+            "status IN "
+            "('active', 'paused', "
+            "'suspended', 'deleted')",
+            name="chk_tenants_status",
+        ),
+    )
 
-# 6.1. Таблиця users за ТЗ
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    slug: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    default_language: Mapped[str] = (
+        mapped_column(
+            String(10),
+            nullable=False,
+            default="ru",
+        )
+    )
+    default_currency: Mapped[str] = (
+        mapped_column(
+            String(3),
+            nullable=False,
+            default="EUR",
+        )
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    extra_metadata: Mapped[dict] = (
+        mapped_column(
+            "metadata",
+            JSONB,
+            nullable=False,
+            default=dict,
+        )
+    )
+    created_at: Mapped[datetime] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=False,
+            default=lambda: datetime.now(
+                timezone.utc
+            ),
+        )
+    )
+    updated_at: Mapped[datetime] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=False,
+            default=lambda: datetime.now(
+                timezone.utc
+            ),
+            onupdate=lambda: datetime.now(
+                timezone.utc
+            ),
+        )
+    )
+
+
 class User(Base):
     __tablename__ = "users"
     
@@ -54,9 +127,6 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
-# ... далі йдуть класи UserAccount та UserRoleMapping без змін
-
-# 6.2. Таблиця user_accounts за ТЗ
 class UserAccount(Base):
     __tablename__ = "user_accounts"
     
@@ -774,6 +844,363 @@ class UserSkill(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
+class Employer(Base):
+    __tablename__ = "employers"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "user_id",
+            name=(
+                "employers_tenant_id_"
+                "user_id_key"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    company_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    representative_name: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    company_type: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    country_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey("countries.id"),
+        nullable=True,
+    )
+    city_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey("cities.id"),
+        nullable=True,
+    )
+    email: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    phone: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="active",
+        nullable=False,
+    )
+    extra_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+
+
+class Vacancy(Base):
+    __tablename__ = "vacancies"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    employer_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "employers.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    profession_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey("professions.id"),
+        nullable=True,
+    )
+    country_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey("countries.id"),
+        nullable=True,
+    )
+    city_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey("cities.id"),
+        nullable=True,
+    )
+    title: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    description: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    salary_min: Mapped[
+        Optional[float]
+    ] = mapped_column(
+        Numeric,
+        nullable=True,
+    )
+    salary_max: Mapped[
+        Optional[float]
+    ] = mapped_column(
+        Numeric,
+        nullable=True,
+    )
+    currency: Mapped[str] = mapped_column(
+        String(3),
+        default="EUR",
+        nullable=False,
+    )
+    employment_type: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    work_format: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    recruitment_mode: Mapped[str] = (
+        mapped_column(
+            Text,
+            default="direct",
+            nullable=False,
+        )
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="draft",
+        nullable=False,
+    )
+    published_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    extra_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+
+
+class Seeker(Base):
+    __tablename__ = "seekers"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "user_id",
+            name="seekers_tenant_id_user_id_key",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    profession_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("professions.id"),
+        nullable=True,
+    )
+    country_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("countries.id"),
+        nullable=True,
+    )
+    city_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("cities.id"),
+        nullable=True,
+    )
+    display_name: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    summary: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    salary_expectation_min: Mapped[Optional[float]] = mapped_column(
+        Numeric,
+        nullable=True,
+    )
+    salary_expectation_max: Mapped[Optional[float]] = mapped_column(
+        Numeric,
+        nullable=True,
+    )
+    currency: Mapped[str] = mapped_column(
+        String(3),
+        default="EUR",
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="active",
+        nullable=False,
+    )
+    extra_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class Application(Base):
+    __tablename__ = "applications"
+    __table_args__ = (
+        UniqueConstraint(
+            "vacancy_id",
+            "seeker_id",
+            name="applications_vacancy_id_seeker_id_key",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vacancy_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("vacancies.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    seeker_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("seekers.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    message: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="new",
+        nullable=False,
+    )
+    extra_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class Specialist(Base):
     __tablename__ = "specialists"
     __table_args__ = (
@@ -838,6 +1265,14 @@ class ProfessionalCabinet(Base):
             "specialist_id",
             "profession_id",
             name="uq_professional_cabinets_profession",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name=(
+                "uq_professional_cabinets_"
+                "tenant_id_id"
+            ),
         ),
     )
 
@@ -914,6 +1349,297 @@ class ProfessionalCabinet(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
+    )
+
+
+
+class ProfessionalCabinetCalendar(Base):
+    __tablename__ = (
+        "professional_cabinet_calendars"
+    )
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "professional_cabinet_id",
+            ],
+            [
+                "professional_cabinets.tenant_id",
+                "professional_cabinets.id",
+            ],
+            name="fk_cabinet_calendars_cabinet",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name=(
+                "uq_cabinet_calendars_"
+                "tenant_id_id"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "professional_cabinet_id",
+            name=(
+                "uq_cabinet_calendars_cabinet"
+            ),
+        ),
+        CheckConstraint(
+            "slot_duration_minutes > 0",
+            name=(
+                "chk_cabinet_calendars_"
+                "slot_duration"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    professional_cabinet_id: Mapped[
+        uuid.UUID
+    ] = mapped_column(
+        nullable=False,
+    )
+    timezone: Mapped[str] = mapped_column(
+        Text,
+        default="UTC",
+        nullable=False,
+    )
+    slot_duration_minutes: Mapped[int] = (
+        mapped_column(
+            Integer,
+            default=60,
+            nullable=False,
+        )
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+
+
+class ProfessionalCabinetWorkInterval(Base):
+    __tablename__ = (
+        "professional_cabinet_work_intervals"
+    )
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "calendar_id",
+            ],
+            [
+                "professional_cabinet_calendars.tenant_id",
+                "professional_cabinet_calendars.id",
+            ],
+            name=(
+                "fk_cabinet_work_intervals_"
+                "calendar"
+            ),
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "calendar_id",
+            "weekday",
+            "start_time",
+            "end_time",
+            name=(
+                "uq_cabinet_work_intervals"
+            ),
+        ),
+        CheckConstraint(
+            "weekday BETWEEN 1 AND 7",
+            name=(
+                "chk_cabinet_work_intervals_"
+                "weekday"
+            ),
+        ),
+        CheckConstraint(
+            "start_time < end_time",
+            name=(
+                "chk_cabinet_work_intervals_"
+                "time"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    calendar_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            nullable=False,
+        )
+    )
+    weekday: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+    )
+    start_time: Mapped[time] = mapped_column(
+        Time,
+        nullable=False,
+    )
+    end_time: Mapped[time] = mapped_column(
+        Time,
+        nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+
+
+class ProfessionalCabinetCalendarException(Base):
+    __tablename__ = (
+        "professional_cabinet_calendar_exceptions"
+    )
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "calendar_id",
+            ],
+            [
+                "professional_cabinet_calendars.tenant_id",
+                "professional_cabinet_calendars.id",
+            ],
+            name=(
+                "fk_cabinet_calendar_"
+                "exceptions_calendar"
+            ),
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            (
+                "exception_type IN "
+                "('unavailable', 'available')"
+            ),
+            name=(
+                "chk_cabinet_calendar_"
+                "exception_type"
+            ),
+        ),
+        CheckConstraint(
+            (
+                "(start_time IS NULL "
+                "AND end_time IS NULL) "
+                "OR (start_time IS NOT NULL "
+                "AND end_time IS NOT NULL "
+                "AND start_time < end_time)"
+            ),
+            name=(
+                "chk_cabinet_calendar_"
+                "exception_time"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    calendar_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            nullable=False,
+        )
+    )
+    exception_date: Mapped[date] = (
+        mapped_column(
+            Date,
+            nullable=False,
+        )
+    )
+    exception_type: Mapped[str] = (
+        mapped_column(
+            Text,
+            default="unavailable",
+            nullable=False,
+        )
+    )
+    start_time: Mapped[
+        Optional[time]
+    ] = mapped_column(
+        Time,
+        nullable=True,
+    )
+    end_time: Mapped[
+        Optional[time]
+    ] = mapped_column(
+        Time,
+        nullable=True,
+    )
+    reason: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
     )
 
 
@@ -1138,11 +1864,43 @@ class ContactRequest(Base):
     original_language: Mapped[str] = mapped_column(String(10), default="ru")
     status: Mapped[str] = mapped_column(Text, default="new")
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utcnow_naive,
+    )
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ServiceOrder(Base):
     __tablename__ = "service_orders"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "professional_cabinet_id",
+            ],
+            [
+                "professional_cabinets.tenant_id",
+                "professional_cabinets.id",
+            ],
+            name=(
+                "fk_service_orders_tenant_cabinet"
+            ),
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            (
+                "(start_at IS NULL "
+                "AND end_at IS NULL) "
+                "OR (start_at IS NOT NULL "
+                "AND end_at IS NOT NULL "
+                "AND end_at > start_at)"
+            ),
+            name=(
+                "chk_service_orders_"
+                "calendar_interval"
+            ),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), nullable=False)
@@ -1185,8 +1943,22 @@ class ServiceOrder(Base):
         default="draft",
     )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    due_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    due_date: Mapped[Optional[date]] = mapped_column(
+        Date,
+        nullable=True,
+    )
+    start_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    end_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     agreed_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
     currency: Mapped[str] = mapped_column(Text, default="EUR")
     created_by: Mapped[uuid.UUID] = mapped_column(
@@ -1205,9 +1977,15 @@ class ServiceOrder(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utcnow_naive,
+    )
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
@@ -1235,8 +2013,17 @@ class ConversationThread(Base):
         Text,
         default="waiting_specialist",
     )
+    completed_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utcnow_naive,
+    )
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 class ConversationParticipant(Base):
@@ -1517,6 +2304,12 @@ class Review(Base):
     text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     specialist_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, default="pending_moderation")
+    published_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
@@ -1610,6 +2403,133 @@ class ApprovalRequest(Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    professional_cabinet_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "professional_cabinets.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    plan_code: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        default="pending",
+        nullable=False,
+    )
+    billing_period: Mapped[str] = mapped_column(
+        Text,
+        default="month",
+        nullable=False,
+    )
+    amount: Mapped[float] = mapped_column(
+        Numeric,
+        default=0,
+        nullable=False,
+    )
+    currency: Mapped[str] = mapped_column(
+        String(3),
+        default="EUR",
+        nullable=False,
+    )
+    provider: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    provider_subscription_id: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    starts_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+    current_period_start: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    current_period_end: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    cancel_at_period_end: Mapped[bool] = (
+        mapped_column(
+            Boolean,
+            default=False,
+            nullable=False,
+        )
+    )
+    cancelled_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    ended_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    extra_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        default=dict,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+        nullable=False,
+    )
+
 
 class Plan(Base):
     __tablename__ = "plans"
@@ -1731,32 +2651,147 @@ class SpecialistPromotion(Base):
 
 class FileStorageObject(Base):
     __tablename__ = "file_storage_objects"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN "
+            "('pending_upload', 'ready', "
+            "'failed', 'deleted')",
+            name="ck_file_storage_objects_status",
+        ),
+        CheckConstraint(
+            "antivirus_status IN "
+            "('pending', 'not_scanned', "
+            "'clean', 'infected', "
+            "'quarantined', 'scan_failed')",
+            name=(
+                "ck_file_storage_objects_"
+                "antivirus_status"
+            ),
+        ),
+        CheckConstraint(
+            "size_bytes > 0",
+            name="ck_file_storage_objects_size",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(provider_metadata) "
+            "= 'object'",
+            name=(
+                "ck_file_storage_objects_"
+                "provider_metadata_object"
+            ),
+        ),
+        UniqueConstraint(
+            "storage_provider",
+            "storage_path",
+            name=(
+                "uq_file_storage_objects_"
+                "provider_path"
+            ),
+        ),
+    )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        ForeignKey("tenants.id", ondelete="CASCADE"),
-        nullable=True,
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
     )
-    owner_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"),
-        nullable=True,
+        nullable=False,
     )
-    entity_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
-    file_type: Mapped[str] = mapped_column(Text, nullable=False)
-    mime_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    storage_provider: Mapped[str] = mapped_column(Text, default="supabase")
-    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
-    public_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    visibility_scope: Mapped[str] = mapped_column(Text, default="private")
-    retention_until: Mapped[Optional[datetime]] = mapped_column(
-    DateTime(timezone=True),
-    nullable=True,
+    entity_type: Mapped[Optional[str]] = (
+        mapped_column(
+            Text,
+            nullable=True,
+        )
+    )
+    entity_id: Mapped[Optional[uuid.UUID]] = (
+        mapped_column(nullable=True)
+    )
+    file_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    mime_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    size_bytes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+    storage_provider: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="supabase",
+    )
+    storage_path: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    public_url: Mapped[Optional[str]] = (
+        mapped_column(
+            Text,
+            nullable=True,
+        )
+    )
+    visibility_scope: Mapped[str] = (
+        mapped_column(
+            Text,
+            nullable=False,
+            default="private",
+        )
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending_upload",
+    )
+    antivirus_status: Mapped[str] = (
+        mapped_column(
+            Text,
+            nullable=False,
+            default="pending",
+        )
+    )
+    provider_metadata: Mapped[dict] = (
+        mapped_column(
+            JSONB,
+            nullable=False,
+            default=dict,
+        )
+    )
+    completed_at: Mapped[Optional[datetime]] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=True,
+        )
+    )
+    retention_until: Mapped[Optional[datetime]] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=True,
+        )
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
     )
 
 
@@ -1789,3 +2824,1510 @@ class SpecialistPortfolioItem(Base):
     DateTime(timezone=True),
     default=lambda: datetime.now(timezone.utc),
 )
+
+class ApiAuthSession(Base):
+    __tablename__ = "api_auth_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    refresh_token_hash: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        unique=True,
+    )
+    auth_method: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="telegram",
+    )
+    device_id: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    device_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="active",
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+    last_used_at: Mapped[Optional[datetime]] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=True,
+        )
+    )
+    revoked_at: Mapped[Optional[datetime]] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=True,
+        )
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+class ApiEmailAuthChallenge(Base):
+    __tablename__ = "api_email_auth_challenges"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[Optional[uuid.UUID]] = (
+        mapped_column(
+            ForeignKey(
+                "tenants.id",
+                ondelete="CASCADE",
+            ),
+            nullable=True,
+        )
+    )
+    requested_user_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+    )
+    email: Mapped[str] = mapped_column(
+        String(320),
+        nullable=False,
+    )
+    challenge_hash: Mapped[str] = (
+        mapped_column(
+            String(64),
+            nullable=False,
+            unique=True,
+        )
+    )
+    challenge_type: Mapped[str] = (
+        mapped_column(
+            String(20),
+            nullable=False,
+            default="otp",
+        )
+    )
+    purpose: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="login",
+    )
+    device_id: Mapped[Optional[str]] = (
+        mapped_column(
+            String(255),
+            nullable=True,
+        )
+    )
+    device_name: Mapped[Optional[str]] = (
+        mapped_column(
+            String(255),
+            nullable=True,
+        )
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+    )
+    attempts_count: Mapped[int] = (
+        mapped_column(
+            Integer,
+            nullable=False,
+            default=0,
+        )
+    )
+    max_attempts: Mapped[int] = (
+        mapped_column(
+            Integer,
+            nullable=False,
+            default=5,
+        )
+    )
+    expires_at: Mapped[datetime] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=False,
+        )
+    )
+    used_at: Mapped[Optional[datetime]] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=True,
+        )
+    )
+    created_at: Mapped[datetime] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=False,
+            default=lambda: datetime.now(
+                timezone.utc
+            ),
+        )
+    )
+    updated_at: Mapped[datetime] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=False,
+            default=lambda: datetime.now(
+                timezone.utc
+            ),
+            onupdate=lambda: datetime.now(
+                timezone.utc
+            ),
+        )
+    )
+
+class TenantDomain(Base):
+    __tablename__ = "tenant_domains"
+    __table_args__ = (
+        UniqueConstraint(
+            "domain",
+            name="uq_tenant_domains_domain",
+        ),
+        CheckConstraint(
+            "status IN "
+            "('pending', 'active', 'disabled')",
+            name="ck_tenant_domains_status",
+        ),
+        CheckConstraint(
+            "domain = lower(btrim(domain))",
+            name="ck_tenant_domains_normalized",
+        ),
+        CheckConstraint(
+            "status <> 'active' "
+            "OR verified_at IS NOT NULL",
+            name="ck_tenant_domains_active_verified",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    domain: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending",
+    )
+    verified_at: Mapped[Optional[datetime]] = (
+        mapped_column(
+            DateTime(timezone=True),
+            nullable=True,
+        )
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+class TenantWhiteLabelSetting(Base):
+    __tablename__ = (
+        "tenant_white_label_settings"
+    )
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            name=(
+                "uq_white_label_settings_tenant"
+            ),
+        ),
+        CheckConstraint(
+            "primary_color IS NULL "
+            "OR primary_color ~ "
+            "'^#[0-9A-Fa-f]{6}$'",
+            name=(
+                "ck_white_label_primary_color"
+            ),
+        ),
+        CheckConstraint(
+            "secondary_color IS NULL "
+            "OR secondary_color ~ "
+            "'^#[0-9A-Fa-f]{6}$'",
+            name=(
+                "ck_white_label_secondary_color"
+            ),
+        ),
+        CheckConstraint(
+            "accent_color IS NULL "
+            "OR accent_color ~ "
+            "'^#[0-9A-Fa-f]{6}$'",
+            name=(
+                "ck_white_label_accent_color"
+            ),
+        ),
+        CheckConstraint(
+            "jsonb_typeof(theme_config) = "
+            "'object'",
+            name=(
+                "ck_white_label_theme_object"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    logo_url: Mapped[Optional[str]] = (
+        mapped_column(Text, nullable=True)
+    )
+    favicon_url: Mapped[Optional[str]] = (
+        mapped_column(Text, nullable=True)
+    )
+    primary_color: Mapped[Optional[str]] = (
+        mapped_column(
+            String(7),
+            nullable=True,
+        )
+    )
+    secondary_color: Mapped[Optional[str]] = (
+        mapped_column(
+            String(7),
+            nullable=True,
+        )
+    )
+    accent_color: Mapped[Optional[str]] = (
+        mapped_column(
+            String(7),
+            nullable=True,
+        )
+    )
+    theme_config: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+class TenantLanguage(Base):
+    __tablename__ = "tenant_languages"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "language_code",
+            name="uq_tenant_languages_pair",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    language_code: Mapped[str] = (
+        mapped_column(
+            ForeignKey(
+                "languages.code",
+                ondelete="RESTRICT",
+            ),
+            nullable=False,
+        )
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+class Suite(Base):
+    __tablename__ = "suites"
+    __table_args__ = (
+        UniqueConstraint(
+            "code",
+            name="uq_suites_code",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    code: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+class Module(Base):
+    __tablename__ = "modules"
+    __table_args__ = (
+        UniqueConstraint(
+            "code",
+            name="uq_modules_code",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    code: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+class SuiteModule(Base):
+    __tablename__ = "suite_modules"
+    __table_args__ = (
+        UniqueConstraint(
+            "suite_id",
+            "module_id",
+            name="uq_suite_modules_pair",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    suite_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "suites.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    module_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            ForeignKey(
+                "modules.id",
+                ondelete="RESTRICT",
+            ),
+            nullable=False,
+        )
+    )
+    is_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+class TenantSuite(Base):
+    __tablename__ = "tenant_suites"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "suite_id",
+            name="uq_tenant_suites_pair",
+        ),
+        CheckConstraint(
+            "status IN "
+            "('active', 'suspended', 'disabled')",
+            name="ck_tenant_suites_status",
+        ),
+        CheckConstraint(
+            "expires_at IS NULL "
+            "OR activated_at IS NULL "
+            "OR expires_at > activated_at",
+            name="ck_tenant_suites_period",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    suite_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "suites.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    activated_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+class TenantModule(Base):
+    __tablename__ = "tenant_modules"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "module_id",
+            name="uq_tenant_modules_pair",
+        ),
+        CheckConstraint(
+            "source IN ('suite', 'manual')",
+            name="ck_tenant_modules_source",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    module_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            ForeignKey(
+                "modules.id",
+                ondelete="RESTRICT",
+            ),
+            nullable=False,
+        )
+    )
+    is_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+    source: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+class ApiClient(Base):
+    __tablename__ = "api_clients"
+    __table_args__ = (
+        CheckConstraint(
+            "owner_type IN "
+            "('agency', 'partner', "
+            "'enterprise', 'service_account')",
+            name="ck_api_clients_owner_type",
+        ),
+        CheckConstraint(
+            "status IN "
+            "('active', 'suspended', "
+            "'disabled')",
+            name="ck_api_clients_status",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name="uq_api_clients_tenant_id_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    owner_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    owner_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    extra_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "api_client_id",
+            ],
+            [
+                "api_clients.tenant_id",
+                "api_clients.id",
+            ],
+            name="fk_api_keys_tenant_client",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "environment IN "
+            "('sandbox', 'production')",
+            name="ck_api_keys_environment",
+        ),
+        CheckConstraint(
+            "status IN "
+            "('active', 'revoked', 'expired')",
+            name="ck_api_keys_status",
+        ),
+        UniqueConstraint(
+            "key_prefix",
+            name="uq_api_keys_prefix",
+        ),
+        UniqueConstraint(
+            "key_hash",
+            name="uq_api_keys_hash",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name="uq_api_keys_tenant_id_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    api_client_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    key_prefix: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    key_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    environment: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    expires_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_used_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    ip_allowlist: Mapped[
+        Optional[list[str]]
+    ] = mapped_column(
+        ARRAY(INET),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+
+
+class ApiKeyScope(Base):
+    __tablename__ = "api_key_scopes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "api_key_id",
+            ],
+            [
+                "api_keys.tenant_id",
+                "api_keys.id",
+            ],
+            name=(
+                "fk_api_key_scopes_"
+                "tenant_key"
+            ),
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "api_key_id",
+            "scope",
+            name="uq_api_key_scopes_key_scope",
+        ),
+        CheckConstraint(
+            "scope IN ("
+            "'specialists.read', "
+            "'specialists.search', "
+            "'professional_cabinets.read', "
+            "'services.read', "
+            "'contact_requests.read', "
+            "'contact_requests.write', "
+            "'service_orders.read', "
+            "'service_orders.write', "
+            "'reviews.read', "
+            "'files.read', "
+            "'webhooks.read', "
+            "'webhooks.write'"
+            ")",
+            name="ck_api_key_scopes_whitelist",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    api_key_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    scope: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+
+class ApiLog(Base):
+    __tablename__ = "api_logs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "api_key_id",
+            ],
+            [
+                "api_keys.tenant_id",
+                "api_keys.id",
+            ],
+            name="fk_api_logs_tenant_key",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "api_client_id",
+            ],
+            [
+                "api_clients.tenant_id",
+                "api_clients.id",
+            ],
+            name="fk_api_logs_tenant_client",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "status_code BETWEEN 100 AND 599",
+            name="ck_api_logs_status_code",
+        ),
+        CheckConstraint(
+            "duration_ms >= 0",
+            name="ck_api_logs_duration",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    request_id: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    api_key_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    api_client_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    user_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    endpoint: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    method: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+    )
+    status_code: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+    )
+    duration_ms: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+    ip: Mapped[Optional[str]] = mapped_column(
+        INET,
+        nullable=True,
+    )
+    user_agent: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+
+class ApiIdempotencyRecord(Base):
+    __tablename__ = "api_idempotency_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "principal_type",
+            "principal_id",
+            "operation",
+            "key_hash",
+            name=(
+                "uq_api_idempotency_records_"
+                "principal_operation_key"
+            ),
+        ),
+        CheckConstraint(
+            "principal_type IN ('user', 'api_key')",
+            name=(
+                "ck_api_idempotency_records_"
+                "principal_type"
+            ),
+        ),
+        CheckConstraint(
+            "status IN ('processing', 'completed')",
+            name=(
+                "ck_api_idempotency_records_status"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    principal_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    principal_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    operation: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    key_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    request_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="processing",
+    )
+    response_status: Mapped[Optional[int]] = (
+        mapped_column(
+            SmallInteger,
+            nullable=True,
+        )
+    )
+    response_ciphertext: Mapped[
+        Optional[bytes]
+    ] = mapped_column(
+        LargeBinary,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    completed_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+
+
+class WebhookEndpoint(Base):
+    __tablename__ = "webhook_endpoints"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "api_client_id",
+            ],
+            [
+                "api_clients.tenant_id",
+                "api_clients.id",
+            ],
+            ondelete="CASCADE",
+            name=(
+                "fk_webhook_endpoints_"
+                "tenant_client"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name=(
+                "uq_webhook_endpoints_"
+                "tenant_id_id"
+            ),
+        ),
+        CheckConstraint(
+            "status IN "
+            "('active', 'suspended', 'disabled')",
+            name="ck_webhook_endpoints_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            nullable=False,
+        )
+    )
+    api_client_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            nullable=False,
+        )
+    )
+    callback_url: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    secret_ciphertext: Mapped[bytes] = (
+        mapped_column(
+            LargeBinary,
+            nullable=False,
+        )
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    consecutive_failures: Mapped[int] = (
+        mapped_column(
+            Integer,
+            nullable=False,
+            default=0,
+        )
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+
+class WebhookSubscription(Base):
+    __tablename__ = "webhook_subscriptions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "webhook_endpoint_id",
+            ],
+            [
+                "webhook_endpoints.tenant_id",
+                "webhook_endpoints.id",
+            ],
+            ondelete="CASCADE",
+            name=(
+                "fk_webhook_subscriptions_"
+                "tenant_endpoint"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "webhook_endpoint_id",
+            "event_type",
+            name=(
+                "uq_webhook_subscriptions_"
+                "endpoint_event"
+            ),
+        ),
+        CheckConstraint(
+            "event_type IN ("
+            "'contact_request.created', "
+            "'contact_request.updated', "
+            "'service_order.created', "
+            "'service_order.confirmed', "
+            "'service_order.completed', "
+            "'service_order.cancelled', "
+            "'review.created', "
+            "'review.published', "
+            "'professional_cabinet.updated', "
+            "'professional_cabinet."
+            "availability_changed'"
+            ")",
+            name=(
+                "ck_webhook_subscriptions_"
+                "event_type"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            nullable=False,
+        )
+    )
+    webhook_endpoint_id: Mapped[
+        uuid.UUID
+    ] = mapped_column(
+        nullable=False,
+    )
+    event_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+
+
+
+class WebhookEvent(Base):
+    __tablename__ = "webhook_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name="uq_webhook_events_tenant_id_id",
+        ),
+        CheckConstraint(
+            "event_type IN ("
+            "'contact_request.created', "
+            "'contact_request.updated', "
+            "'service_order.created', "
+            "'service_order.confirmed', "
+            "'service_order.completed', "
+            "'service_order.cancelled', "
+            "'review.created', "
+            "'review.published', "
+            "'professional_cabinet.updated', "
+            "'professional_cabinet."
+            "availability_changed'"
+            ")",
+            name="ck_webhook_events_event_type",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(payload) = 'object'",
+            name="ck_webhook_events_payload_object",
+        ),
+        CheckConstraint(
+            "expires_at > created_at",
+            name="ck_webhook_events_expiration",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            ForeignKey(
+                "tenants.id",
+                ondelete="CASCADE",
+                name="fk_webhook_events_tenant",
+            ),
+            nullable=False,
+        )
+    )
+    event_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    payload: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: (
+            datetime.now(timezone.utc)
+            + timedelta(days=90)
+        ),
+    )
+
+
+
+class WebhookDelivery(Base):
+    __tablename__ = "webhook_deliveries"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "webhook_event_id",
+            ],
+            [
+                "webhook_events.tenant_id",
+                "webhook_events.id",
+            ],
+            ondelete="CASCADE",
+            name=(
+                "fk_webhook_deliveries_"
+                "tenant_event"
+            ),
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "webhook_endpoint_id",
+            ],
+            [
+                "webhook_endpoints.tenant_id",
+                "webhook_endpoints.id",
+            ],
+            ondelete="CASCADE",
+            name=(
+                "fk_webhook_deliveries_"
+                "tenant_endpoint"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "webhook_event_id",
+            "webhook_endpoint_id",
+            name=(
+                "uq_webhook_deliveries_"
+                "event_endpoint"
+            ),
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'pending', "
+            "'processing', "
+            "'delivered', "
+            "'failed'"
+            ")",
+            name="ck_webhook_deliveries_status",
+        ),
+        CheckConstraint(
+            "attempt_count >= 0 "
+            "AND attempt_count <= 5",
+            name=(
+                "ck_webhook_deliveries_"
+                "attempt_count"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = (
+        mapped_column(
+            nullable=False,
+        )
+    )
+    webhook_event_id: Mapped[
+        uuid.UUID
+    ] = mapped_column(
+        nullable=False,
+    )
+    webhook_endpoint_id: Mapped[
+        uuid.UUID
+    ] = mapped_column(
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending",
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    next_attempt_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    response_status: Mapped[
+        Optional[int]
+    ] = mapped_column(
+        SmallInteger,
+        nullable=True,
+    )
+    error_category: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    delivered_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )

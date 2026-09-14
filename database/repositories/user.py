@@ -2,7 +2,7 @@ import os
 import uuid
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import bindparam, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from database.models import (
     ConversationParticipant,
     Profession,
     ProfessionalCabinet,
+    RoleScope,
     Specialist,
     Tenant,
     User,
@@ -38,6 +39,42 @@ class UserRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+
+    async def get_email_account_for_update(
+        self,
+        email: str,
+    ) -> Optional[UserAccount]:
+        normalized_email = (
+            email.strip().casefold()
+            if isinstance(email, str)
+            else ""
+        )
+
+        if (
+            not normalized_email
+            or len(normalized_email) > 320
+        ):
+            raise ValueError(
+                "Email address is invalid."
+            )
+
+        statement = (
+            select(UserAccount)
+            .where(
+                UserAccount.platform
+                == "email",
+                UserAccount.platform_user_id
+                == normalized_email,
+            )
+            .with_for_update()
+        )
+
+        result = await self.session.execute(
+            statement
+        )
+        return result.scalar_one_or_none()
+
 
     async def get_by_id(
         self,
@@ -102,17 +139,105 @@ class UserRepository:
     async def list_active_roles(
         self,
         user_id: uuid.UUID,
+        *,
+        tenant_id: uuid.UUID | None = None,
     ) -> list[str]:
+        conditions = [
+            UserRoleMapping.user_id == user_id,
+            UserRoleMapping.status == "active",
+        ]
+
+        if tenant_id is not None:
+            conditions.append(
+                UserRoleMapping.tenant_id
+                == tenant_id
+            )
+
         stmt = (
             select(UserRoleMapping.role)
-            .where(
-                UserRoleMapping.user_id == user_id,
-                UserRoleMapping.status == "active",
-            )
+            .where(*conditions)
             .distinct()
             .order_by(UserRoleMapping.role)
         )
         result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_active_role_scopes(
+        self,
+        *,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        roles: tuple[str, ...],
+    ) -> list[RoleScope]:
+        active_roles = tuple(
+            sorted(set(roles))
+        )
+
+        if not active_roles:
+            return []
+
+        stmt = (
+            select(RoleScope)
+            .join(
+                UserRoleMapping,
+                RoleScope.user_role_id
+                == UserRoleMapping.id,
+            )
+            .where(
+                RoleScope.tenant_id == tenant_id,
+                RoleScope.user_id == user_id,
+                RoleScope.status == "active",
+                RoleScope.role.in_(active_roles),
+                UserRoleMapping.tenant_id
+                == tenant_id,
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.status == "active",
+                UserRoleMapping.role
+                == RoleScope.role,
+            )
+            .order_by(
+                RoleScope.role,
+                RoleScope.scope_type,
+                RoleScope.id,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_active_permissions(
+        self,
+        *,
+        roles: tuple[str, ...],
+    ) -> list[str]:
+        active_roles = tuple(
+            sorted(set(roles))
+        )
+
+        if not active_roles:
+            return []
+
+        stmt = text(
+            """
+            SELECT DISTINCT
+                rp.permission_code
+            FROM role_permissions AS rp
+            INNER JOIN permissions AS p
+                ON p.code = rp.permission_code
+            WHERE rp.role IN :roles
+            ORDER BY rp.permission_code
+            """
+        ).bindparams(
+            bindparam(
+                "roles",
+                expanding=True,
+            )
+        )
+        result = await self.session.execute(
+            stmt,
+            {
+                "roles": active_roles,
+            },
+        )
         return list(result.scalars().all())
 
     async def get_client_profile_row(
@@ -318,6 +443,135 @@ class UserRepository:
         user.active_role = role
         await self.session.flush()
         return user
+
+
+    async def create_email_account(
+        self,
+        *,
+        user_id: uuid.UUID,
+        email: str,
+        source: str,
+    ) -> UserAccount:
+        normalized_email = (
+            email.strip().casefold()
+            if isinstance(email, str)
+            else ""
+        )
+
+        if (
+            not normalized_email
+            or len(normalized_email) > 320
+        ):
+            raise ValueError(
+                "Email address is invalid."
+            )
+
+        user = await self.session.get(
+            User,
+            user_id,
+        )
+
+        if (
+            user is None
+            or user.id != user_id
+            or user.tenant_id is None
+            or user.status != "active"
+        ):
+            raise ValueError(
+                "Email identity owner is "
+                "not available."
+            )
+
+        account = UserAccount(
+            user_id=user.id,
+            platform="email",
+            platform_user_id=(
+                normalized_email
+            ),
+            email=normalized_email,
+            source=source,
+        )
+
+        self.session.add(account)
+        await self.session.flush()
+
+        return account
+
+
+
+    async def create_email_user_core(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        email: str,
+        language_code: str,
+        source: str,
+    ) -> User:
+        if not isinstance(
+            tenant_id,
+            uuid.UUID,
+        ):
+            raise ValueError(
+                "Tenant ID is invalid."
+            )
+
+        normalized_email = (
+            email.strip().casefold()
+            if isinstance(email, str)
+            else ""
+        )
+
+        if (
+            not normalized_email
+            or len(normalized_email) > 320
+        ):
+            raise ValueError(
+                "Email address is invalid."
+            )
+
+        normalized_language = (
+            language_code.strip().lower()
+            if isinstance(
+                language_code,
+                str,
+            )
+            else ""
+        ) or "ru"
+
+        new_user = User(
+            tenant_id=tenant_id,
+            active_role=None,
+            language_code=(
+                normalized_language[:10]
+            ),
+            status="active",
+        )
+
+        self.session.add(new_user)
+        await self.session.flush()
+
+        account = UserAccount(
+            user_id=new_user.id,
+            platform="email",
+            platform_user_id=(
+                normalized_email
+            ),
+            email=normalized_email,
+            source=source,
+        )
+        role = UserRoleMapping(
+            user_id=new_user.id,
+            tenant_id=tenant_id,
+            role="client",
+            status="active",
+        )
+
+        self.session.add(account)
+        self.session.add(role)
+        await self.session.flush()
+
+        return new_user
+
 
     async def create_telegram_user_core(
         self,

@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import and_, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
+from datetime import UTC, datetime
 from database.models import (
     Blacklist,
     ContactRequest,
@@ -32,6 +32,18 @@ from database.repositories.translation import (
 from database.repositories.search import (
     PUBLIC_CABINET_MODERATION_STATUSES,
 )
+class ContactThreadNotFoundError(
+    ValueError
+):
+    pass
+
+
+class ServiceOrderNotFoundError(
+    ValueError
+):
+    pass
+
+
 class ContactChatRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -335,15 +347,19 @@ class ContactChatRepository:
     async def get_completion_requester_id(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
+        user_id: UUID,
     ) -> str | None:
-        thread = await self.session.get(
-            ConversationThread,
-            thread_id,
+        thread = await self.get_thread_for_user(
+            thread_id=thread_id,
+            user_id=user_id,
         )
         if (
             not thread
-            or thread.context_type != "contact_request"
+            or thread.tenant_id != tenant_id
+            or thread.context_type
+            != "contact_request"
             or not thread.context_id
         ):
             return None
@@ -352,7 +368,11 @@ class ContactChatRepository:
             ContactRequest,
             thread.context_id,
         )
-        if not contact_request:
+        if (
+            not contact_request
+            or contact_request.tenant_id
+            != tenant_id
+        ):
             return None
 
         metadata = dict(
@@ -382,7 +402,9 @@ class ContactChatRepository:
         )
 
         if not thread or thread.tenant_id != tenant_id:
-            raise ValueError("Conversation thread not found.")
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
+            )
 
         if (
             thread.context_type != "contact_request"
@@ -397,7 +419,9 @@ class ContactChatRepository:
             thread.specialist_id,
         )
         if not specialist:
-            raise ValueError("Specialist not found.")
+            raise ContactThreadNotFoundError(
+                "Specialist not found."
+            )
 
         if (
             actor_user_id == specialist.user_id
@@ -409,9 +433,8 @@ class ContactChatRepository:
                 != thread.professional_cabinet_id
             )
         ):
-            raise ValueError(
-                "Conversation belongs to another "
-                "professional cabinet."
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
             )
 
         participant_user_ids = {
@@ -419,8 +442,8 @@ class ContactChatRepository:
             specialist.user_id,
         }
         if actor_user_id not in participant_user_ids:
-            raise ValueError(
-                "User is not a conversation participant."
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
             )
 
         requested_for_user_id = (
@@ -443,7 +466,9 @@ class ContactChatRepository:
             not contact_request
             or contact_request.tenant_id != tenant_id
         ):
-            raise ValueError("Contact request not found.")
+            raise ContactThreadNotFoundError(
+                "Contact request not found."
+            )
 
         if contact_request.status not in {"new", "accepted"}:
             raise ValueError(
@@ -626,6 +651,7 @@ class ContactChatRepository:
         platform: str = "telegram",
     ) -> None:
         thread.status = "completed"
+        thread.completed_at = completed_at
         thread.updated_at = completed_at
 
         contact_request.status = "completed"
@@ -770,6 +796,7 @@ class ContactChatRepository:
         actor_user_id: UUID,
         tenant_id: UUID,
         platform: str = "telegram",
+        commit: bool = True,
     ) -> tuple[ContactRequest, ConversationThread]:
         contact_request = await self.session.get(ContactRequest, contact_request_id)
         if not contact_request or contact_request.tenant_id != tenant_id:
@@ -810,7 +837,8 @@ class ContactChatRepository:
             )
         )
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return contact_request, thread
 
     async def cancel_contact_request_by_admin(
@@ -1095,6 +1123,7 @@ class ContactChatRepository:
         message: str,
         original_language: str,
         platform: str = "telegram",
+        commit: bool = True,
     ) -> tuple[ContactRequest, ConversationThread, Message, Notification]:
         
         contact_token = secrets.token_urlsafe(9)
@@ -1234,7 +1263,8 @@ class ContactChatRepository:
             ]
         )
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return contact_request, thread, first_message, notification
 
     async def get_thread_for_user(
@@ -1275,6 +1305,7 @@ class ContactChatRepository:
     async def list_threads_for_user(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         participant_role: str,
         view: str = "active",
@@ -1384,8 +1415,12 @@ class ContactChatRepository:
                 == ProfessionalCabinet.profession_id,
             )
             .where(
-                ConversationParticipant.user_id == user_id,
-                ConversationParticipant.participant_role == participant_role,
+                ConversationThread.tenant_id
+                == tenant_id,
+                ConversationParticipant.user_id
+                == user_id,
+                ConversationParticipant.participant_role
+                == participant_role,
             )
         )
         if professional_cabinet_id is not None:
@@ -1475,6 +1510,7 @@ class ContactChatRepository:
     async def count_unread_messages_for_user(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         participant_role: str,
         professional_cabinet_id: UUID | None = None,
@@ -1494,6 +1530,8 @@ class ContactChatRepository:
                 == ConversationParticipant.thread_id,
             )
             .where(
+                ConversationThread.tenant_id
+                == tenant_id,
                 ConversationParticipant.user_id
                 == user_id,
                 ConversationParticipant.participant_role
@@ -1519,6 +1557,7 @@ class ContactChatRepository:
     async def list_contact_requests_for_client(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         limit: int = 5,
         offset: int = 0,
@@ -1566,16 +1605,108 @@ class ContactChatRepository:
                 Profession.id
                 == ProfessionalCabinet.profession_id,
             )
-            .where(ContactRequest.from_user_id == user_id)
+            .where(
+                ContactRequest.tenant_id
+                == tenant_id,
+                ContactRequest.from_user_id
+                == user_id,
+            )
             .order_by(ContactRequest.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
         return list(result.all())
 
+    async def list_service_orders_for_specialist_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_user_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+        language: str = "ru",
+    ) -> list[tuple]:
+        localized_profession_name = {
+            "ru": Profession.name_ru,
+            "en": Profession.name_en,
+            "pt": Profession.name_pt,
+            "uk": Profession.name_uk,
+            "pl": Profession.name_pl,
+            "de": Profession.name_de,
+            "nl": Profession.name_nl,
+        }.get(
+            language,
+            Profession.name_ru,
+        )
+
+        result = await self.session.execute(
+            select(
+                ServiceOrder,
+                Specialist.display_name.label(
+                    "specialist_name"
+                ),
+                func.coalesce(
+                    localized_profession_name,
+                    Profession.name_ru,
+                    Profession.name_en,
+                    Profession.name_pt,
+                    Profession.name,
+                ).label("profession_name"),
+                func.coalesce(
+                    UserAccount.display_name,
+                    UserAccount.first_name,
+                    UserAccount.username,
+                    literal("Client"),
+                ).label("client_name"),
+            )
+            .join(
+                Specialist,
+                Specialist.id
+                == ServiceOrder.specialist_id,
+            )
+            .outerjoin(
+                Profession,
+                Profession.id
+                == ServiceOrder.profession_id,
+            )
+            .outerjoin(
+                UserAccount,
+                (
+                    UserAccount.user_id
+                    == ServiceOrder.client_user_id
+                )
+                & (
+                    UserAccount.platform
+                    == "telegram"
+                ),
+            )
+            .where(
+                ServiceOrder.tenant_id
+                == tenant_id,
+                ServiceOrder.specialist_user_id
+                == specialist_user_id,
+                ServiceOrder.specialist_id
+                == specialist_id,
+                ServiceOrder
+                .professional_cabinet_id
+                == professional_cabinet_id,
+            )
+            .order_by(
+                ServiceOrder.created_at.desc(),
+                ServiceOrder.id.desc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        return list(result.all())
+
     async def list_service_orders_for_user(
         self,
         *,
+        tenant_id: UUID,
         user_id: UUID,
         limit: int = 10,
         offset: int = 0,
@@ -1620,13 +1751,154 @@ class ContactChatRepository:
                 & (UserAccount.platform == "telegram"),
             )
             .where(
-                (ServiceOrder.client_user_id == user_id)
-                | (ServiceOrder.specialist_user_id == user_id)
+                ServiceOrder.tenant_id == tenant_id,
+                (
+                    (ServiceOrder.client_user_id == user_id)
+                    | (
+                        ServiceOrder.specialist_user_id
+                        == user_id
+                    )
+                ),
             )
             .order_by(ServiceOrder.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
+        return list(result.all())
+
+    async def list_specialist_clients_for_cabinet(
+        self,
+        *,
+        tenant_id: UUID,
+        specialist_id: UUID,
+        professional_cabinet_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[tuple]:
+        client_rows = (
+            select(
+                ContactRequest.from_user_id.label(
+                    "client_id"
+                ),
+                func.count(ContactRequest.id)
+                .over(
+                    partition_by=(
+                        ContactRequest.from_user_id
+                    )
+                )
+                .label("requests_count"),
+                func.min(ContactRequest.created_at)
+                .over(
+                    partition_by=(
+                        ContactRequest.from_user_id
+                    )
+                )
+                .label("first_request_at"),
+                ContactRequest.created_at.label(
+                    "last_request_at"
+                ),
+                ContactRequest.status.label(
+                    "last_request_status"
+                ),
+                ConversationThread.id.label(
+                    "latest_thread_id"
+                ),
+                func.row_number()
+                .over(
+                    partition_by=(
+                        ContactRequest.from_user_id
+                    ),
+                    order_by=(
+                        ContactRequest.created_at.desc(),
+                        ContactRequest.id.desc(),
+                    ),
+                )
+                .label("client_row_number"),
+            )
+            .outerjoin(
+                ConversationThread,
+                (
+                    ConversationThread.context_type
+                    == "contact_request"
+                )
+                & (
+                    ConversationThread.context_id
+                    == ContactRequest.id
+                )
+                & (
+                    ConversationThread.tenant_id
+                    == tenant_id
+                )
+                & (
+                    ConversationThread.specialist_id
+                    == specialist_id
+                )
+                & (
+                    ConversationThread
+                    .professional_cabinet_id
+                    == professional_cabinet_id
+                ),
+            )
+            .where(
+                ContactRequest.tenant_id == tenant_id,
+                ContactRequest.specialist_id
+                == specialist_id,
+                ContactRequest
+                .professional_cabinet_id
+                == professional_cabinet_id,
+            )
+            .subquery()
+        )
+
+        client_names = (
+            select(
+                UserAccount.user_id.label(
+                    "client_id"
+                ),
+                func.coalesce(
+                    func.max(
+                        UserAccount.display_name
+                    ),
+                    func.max(
+                        UserAccount.first_name
+                    ),
+                    func.max(
+                        UserAccount.username
+                    ),
+                    literal("Client"),
+                ).label("display_name"),
+            )
+            .group_by(UserAccount.user_id)
+            .subquery()
+        )
+
+        result = await self.session.execute(
+            select(
+                client_rows.c.client_id,
+                client_names.c.display_name,
+                client_rows.c.requests_count,
+                client_rows.c.first_request_at,
+                client_rows.c.last_request_at,
+                client_rows.c.last_request_status,
+                client_rows.c.latest_thread_id,
+            )
+            .outerjoin(
+                client_names,
+                client_names.c.client_id
+                == client_rows.c.client_id,
+            )
+            .where(
+                client_rows.c.client_row_number
+                == 1
+            )
+            .order_by(
+                client_rows.c.last_request_at.desc(),
+                client_rows.c.client_id,
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
         return list(result.all())
 
     async def list_contact_requests_for_specialist(
@@ -1702,6 +1974,7 @@ class ContactChatRepository:
     async def get_contact_request_detail_for_client(
         self,
         *,
+        tenant_id: UUID,
         contact_request_id: UUID,
         user_id: UUID,
         language: str = "ru",
@@ -1749,8 +2022,12 @@ class ContactChatRepository:
                 == ProfessionalCabinet.profession_id,
             )
             .where(
-                ContactRequest.id == contact_request_id,
-                ContactRequest.from_user_id == user_id,
+                ContactRequest.id
+                == contact_request_id,
+                ContactRequest.tenant_id
+                == tenant_id,
+                ContactRequest.from_user_id
+                == user_id,
             )
         )
         return result.one_or_none()
@@ -1758,6 +2035,7 @@ class ContactChatRepository:
     async def get_thread_detail_for_user(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
         user_id: UUID,
         language: str = "ru",
@@ -1812,6 +2090,7 @@ class ContactChatRepository:
                 & (ServiceOrder.status.in_({"draft", "confirmed", "completed"})),
             )
             .where(
+                ConversationThread.tenant_id == tenant_id,
                 ConversationThread.id == thread_id,
                 ConversationThread.context_type == "contact_request",
                 (
@@ -1830,7 +2109,10 @@ class ContactChatRepository:
 
         messages_query = (
             select(Message)
-            .where(Message.thread_id == thread_id)
+            .where(
+                Message.tenant_id == tenant_id,
+                Message.thread_id == thread_id,
+            )
             .order_by(Message.created_at.desc())
         )
 
@@ -1870,19 +2152,26 @@ class ContactChatRepository:
     async def create_thread_message(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
         sender_user_id: UUID,
         original_text: str,
         original_language: str,
         message_metadata: dict | None = None,
         platform: str = "telegram",
+        commit: bool = True,
     ) -> tuple[ConversationThread, Message, Notification]:
         thread = await self.get_thread_for_user(
             thread_id=thread_id,
             user_id=sender_user_id,
         )
-        if not thread:
-            raise ValueError("Conversation thread not found.")
+        if (
+            not thread
+            or thread.tenant_id != tenant_id
+        ):
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
+            )
 
         if thread.status not in {"open", "waiting_client", "waiting_specialist", "in_discussion"}:
             raise ValueError("Conversation thread is not open for messages.")
@@ -1894,7 +2183,9 @@ class ContactChatRepository:
 
         specialist = await self.session.get(Specialist, thread.specialist_id)
         if not specialist:
-            raise ValueError("Specialist not found.")
+            raise ContactThreadNotFoundError(
+                "Specialist not found."
+            )
 
         if sender_user_id == thread.client_user_id:
             receiver_user_id = specialist.user_id
@@ -1905,7 +2196,7 @@ class ContactChatRepository:
             )
 
         else:
-            raise ValueError(
+            raise ContactThreadNotFoundError(
                 "User is not a thread participant."
             )
         if await self._is_user_blacklisted_or_blocked(
@@ -1995,12 +2286,14 @@ class ContactChatRepository:
             )
         )
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return thread, message, notification
 
     async def mark_thread_read(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
         user_id: UUID,
     ) -> int:
@@ -2009,7 +2302,10 @@ class ContactChatRepository:
             user_id=user_id,
         )
 
-        if not thread:
+        if (
+            not thread
+            or thread.tenant_id != tenant_id
+        ):
             raise ValueError(
                 "Conversation thread not found."
             )
@@ -2018,6 +2314,8 @@ class ContactChatRepository:
             await self.session.execute(
                 select(Message)
                 .where(
+                    Message.tenant_id
+                    == tenant_id,
                     Message.thread_id
                     == thread.id,
                     Message.receiver_user_id
@@ -2220,6 +2518,135 @@ class ContactChatRepository:
         await self.session.commit()
         return thread, participant
 
+    async def get_service_order_for_update(
+        self,
+        *,
+        tenant_id: UUID,
+        actor_user_id: UUID,
+        order_id: UUID,
+    ) -> ServiceOrder | None:
+        result = await self.session.execute(
+            select(ServiceOrder)
+            .where(
+                ServiceOrder.id == order_id,
+                ServiceOrder.tenant_id == tenant_id,
+                (
+                    ServiceOrder.client_user_id
+                    == actor_user_id
+                )
+                | (
+                    ServiceOrder.specialist_user_id
+                    == actor_user_id
+                ),
+            )
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def update_service_order_draft(
+        self,
+        *,
+        tenant_id: UUID,
+        actor_user_id: UUID,
+        order_id: UUID,
+        description: str | None,
+        start_at: datetime | None,
+        end_at: datetime | None,
+        agreed_amount: float | None,
+        currency: str,
+        platform: str = "telegram",
+    ) -> ServiceOrder:
+        order = await self.get_service_order_for_update(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            order_id=order_id,
+        )
+        if order is None:
+            raise ServiceOrderNotFoundError(
+                "Service order not found."
+            )
+
+        if order.status != "draft":
+            raise ValueError(
+                "Only draft order can be updated."
+            )
+
+        if (start_at is None) != (end_at is None):
+            raise ValueError(
+                "Order start and end must be "
+                "provided together."
+            )
+
+        if start_at is not None and end_at is not None:
+            if (
+                start_at.tzinfo is None
+                or start_at.utcoffset() is None
+                or end_at.tzinfo is None
+                or end_at.utcoffset() is None
+            ):
+                raise ValueError(
+                    "Order interval must be "
+                    "timezone-aware."
+                )
+
+            if end_at <= start_at:
+                raise ValueError(
+                    "Order end must be after start."
+                )
+
+        if (
+            agreed_amount is not None
+            and agreed_amount < 0
+        ):
+            raise ValueError(
+                "Order amount cannot be negative."
+            )
+
+        normalized_currency = (
+            currency or ""
+        ).strip().upper()
+        if (
+            len(normalized_currency) != 3
+            or not normalized_currency.isalpha()
+        ):
+            raise ValueError(
+                "Order currency is invalid."
+            )
+
+        updated_at = datetime.now(UTC)
+
+        order.description = (
+            (description or "").strip() or None
+        )
+        order.start_at = start_at
+        order.end_at = end_at
+        order.agreed_amount = agreed_amount
+        order.currency = normalized_currency
+        order.updated_at = updated_at
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                event_type="service_order_updated",
+                entity_type="service_order",
+                entity_id=order.id,
+                platform=platform,
+                payload={
+                    "thread_id": str(order.thread_id),
+                    "contact_request_id": (
+                        str(order.contact_request_id)
+                        if order.contact_request_id
+                        else None
+                    ),
+                    "status": order.status,
+                },
+            )
+        )
+
+        await self.session.commit()
+        return order
+
     async def create_service_order_draft_from_thread(
         self,
         *,
@@ -2228,16 +2655,44 @@ class ContactChatRepository:
         tenant_id: UUID,
         description: str | None = None,
         schedule_text: str | None = None,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
         agreed_amount: float | None = None,
         currency: str = "EUR",
         platform: str = "telegram",
+        commit: bool = True,
     ) -> ServiceOrder:
+        if (start_at is None) != (end_at is None):
+            raise ValueError(
+                "Order start and end must be "
+                "provided together."
+            )
+
+        if start_at is not None and end_at is not None:
+            if (
+                start_at.tzinfo is None
+                or start_at.utcoffset() is None
+                or end_at.tzinfo is None
+                or end_at.utcoffset() is None
+            ):
+                raise ValueError(
+                    "Order interval must be "
+                    "timezone-aware."
+                )
+
+            if end_at <= start_at:
+                raise ValueError(
+                    "Order end must be after start."
+                )
+
         thread = await self.get_thread_for_user(
             thread_id=thread_id,
             user_id=actor_user_id,
         )
         if not thread or thread.tenant_id != tenant_id:
-            raise ValueError("Conversation thread not found.")
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
+            )
 
         if thread.context_type != "contact_request" or not thread.context_id:
             raise ValueError("Conversation thread is not linked to a contact request.")
@@ -2291,7 +2746,13 @@ class ContactChatRepository:
             profession_id=contact_request.profession_id,
             professional_cabinet_id=thread.professional_cabinet_id,
             status="draft",
-            description=(description or contact_request.message or "").strip() or None,
+            description=(
+                description
+                or contact_request.message
+                or ""
+            ).strip() or None,
+            start_at=start_at,
+            end_at=end_at,
             agreed_amount=agreed_amount,
             currency=currency,
             created_by=actor_user_id,
@@ -2321,7 +2782,8 @@ class ContactChatRepository:
             )
         )
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return order
 
     async def confirm_service_order(
@@ -2331,10 +2793,17 @@ class ContactChatRepository:
         actor_user_id: UUID,
         tenant_id: UUID,
         platform: str = "telegram",
+        commit: bool = True,
     ) -> ServiceOrder:
-        order = await self.session.get(ServiceOrder, order_id)
-        if not order or order.tenant_id != tenant_id:
-            raise ValueError("Service order not found.")
+        order = await self.get_service_order_for_update(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            order_id=order_id,
+        )
+        if order is None:
+            raise ServiceOrderNotFoundError(
+                "Service order not found."
+            )
 
         if order.status != "draft":
             raise ValueError("Only draft order can be confirmed.")
@@ -2364,7 +2833,7 @@ class ContactChatRepository:
                     "Service order belongs to another "
                     "professional cabinet."
                 )
-        confirmed_at = datetime.utcnow()
+        confirmed_at = datetime.now(UTC)
         order.status = "confirmed"
         order.confirmed_by = actor_user_id
         order.confirmed_at = confirmed_at
@@ -2390,7 +2859,68 @@ class ContactChatRepository:
             )
         )
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
+        return order
+
+    async def cancel_service_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_user_id: UUID,
+        tenant_id: UUID,
+        platform: str = "telegram",
+        commit: bool = True,
+    ) -> ServiceOrder:
+        order = await self.get_service_order_for_update(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            order_id=order_id,
+        )
+        if order is None:
+            raise ServiceOrderNotFoundError(
+                "Service order not found."
+            )
+
+        if order.status not in {
+            "draft",
+            "confirmed",
+        }:
+            raise ValueError(
+                "Only draft or confirmed order "
+                "can be cancelled."
+            )
+
+        cancelled_at = datetime.now(UTC)
+        order.status = "cancelled"
+        order.cancelled_by = actor_user_id
+        order.cancelled_at = cancelled_at
+        order.updated_at = cancelled_at
+
+        self.session.add(
+            EventLog(
+                tenant_id=tenant_id,
+                user_id=actor_user_id,
+                event_type=(
+                    "service_order_cancelled"
+                ),
+                entity_type="service_order",
+                entity_id=order.id,
+                platform=platform,
+                payload={
+                    "thread_id": str(order.thread_id),
+                    "contact_request_id": (
+                        str(order.contact_request_id)
+                        if order.contact_request_id
+                        else None
+                    ),
+                    "status": order.status,
+                },
+            )
+        )
+
+        if commit:
+            await self.session.commit()
         return order
 
     async def complete_service_order(
@@ -2400,10 +2930,17 @@ class ContactChatRepository:
         actor_user_id: UUID,
         tenant_id: UUID,
         platform: str = "telegram",
+        commit: bool = True,
     ) -> ServiceOrder:
-        order = await self.session.get(ServiceOrder, order_id)
-        if not order or order.tenant_id != tenant_id:
-            raise ValueError("Service order not found.")
+        order = await self.get_service_order_for_update(
+                       tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            order_id=order_id,
+        )
+        if order is None:
+            raise ServiceOrderNotFoundError(
+                "Service order not found."
+            )
 
         if order.status != "confirmed":
             raise ValueError("Only confirmed order can be completed.")
@@ -2430,7 +2967,7 @@ class ContactChatRepository:
                     "Service order belongs to another "
                     "professional cabinet."
                 )
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(UTC)
         order.status = "completed"
         order.completed_by = actor_user_id
         order.completed_at = completed_at
@@ -2456,12 +2993,14 @@ class ContactChatRepository:
             )
         )
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return order
 
     async def complete_thread(
         self,
         *,
+        tenant_id: UUID,
         thread_id: UUID,
         actor_user_id: UUID,
         platform: str = "telegram",
@@ -2470,15 +3009,22 @@ class ContactChatRepository:
             thread_id=thread_id,
             user_id=actor_user_id,
         )
-        if not thread:
-            raise ValueError("Conversation thread not found.")
+        if (
+            not thread
+            or thread.tenant_id != tenant_id
+        ):
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
+            )
 
         specialist = await self.session.get(
             Specialist,
             thread.specialist_id,
         )
         if not specialist:
-            raise ValueError("Specialist not found.")
+            raise ContactThreadNotFoundError(
+                "Specialist not found."
+            )
         if (
             actor_user_id == specialist.user_id
             and (
@@ -2489,17 +3035,16 @@ class ContactChatRepository:
                 != thread.professional_cabinet_id
             )
         ):
-            raise ValueError(
-                "Conversation belongs to another "
-                "professional cabinet."
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
             )
         participant_user_ids = {
             thread.client_user_id,
             specialist.user_id,
         }
         if actor_user_id not in participant_user_ids:
-            raise ValueError(
-                "User is not a conversation participant."
+            raise ContactThreadNotFoundError(
+                "Conversation thread not found."
             )
 
         if (
@@ -2514,8 +3059,14 @@ class ContactChatRepository:
             ContactRequest,
             thread.context_id,
         )
-        if not contact_request:
-            raise ValueError("Contact request not found.")
+        if (
+            not contact_request
+            or contact_request.tenant_id
+            != tenant_id
+        ):
+            raise ContactThreadNotFoundError(
+                "Contact request not found."
+            )
 
         if contact_request.status not in {"new", "accepted"}:
             raise ValueError(
@@ -2548,9 +3099,10 @@ class ContactChatRepository:
                 "Conversation thread cannot be completed."
             )
 
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(UTC)
 
         thread.status = "completed"
+        thread.completed_at = completed_at
         thread.updated_at = completed_at
 
         contact_request.status = "completed"
