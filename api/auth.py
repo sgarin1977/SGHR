@@ -417,6 +417,7 @@ def require_permission(
 def require_module(
     module_code: str,
     *,
+    error_code: str = "module_disabled",
     actor_dependency=get_current_actor,
     service_dependency=(
         get_tenant_module_access_service
@@ -453,7 +454,7 @@ def require_module(
         except ModuleDisabledError as exc:
             raise ApiHttpError(
                 status_code=403,
-                code="module_disabled",
+                code=error_code,
                 message=(
                     "Required module "
                     "is not available."
@@ -468,6 +469,7 @@ def require_module(
 def require_suite(
     suite_code: str,
     *,
+    error_code: str = "module_disabled",
     actor_dependency=get_current_actor,
     service_dependency=(
         get_tenant_suite_access_service
@@ -502,7 +504,7 @@ def require_suite(
         except SuiteDisabledError as exc:
             raise ApiHttpError(
                 status_code=403,
-                code="module_disabled",
+                code=error_code,
                 message=(
                     "Required Suite "
                     "is not available."

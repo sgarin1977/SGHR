@@ -111,10 +111,32 @@ class ApiIdentityService:
         if (
             user is None
             or user.id != user_id
-            or user.tenant_id is None
-            or user.tenant_id != tenant_id
             or user.status != "active"
         ):
+            raise ApiIdentityAccessError(
+                "API actor is not available."
+            )
+
+        has_tenant_membership = (
+            user.tenant_id == tenant_id
+        )
+
+        if not has_tenant_membership:
+            membership_checker = getattr(
+                self.user_repository,
+                "has_active_tenant_membership",
+                None,
+            )
+
+            if membership_checker is not None:
+                has_tenant_membership = bool(
+                    await membership_checker(
+                        user_id=user_id,
+                        tenant_id=tenant_id,
+                    )
+                )
+
+        if not has_tenant_membership:
             raise ApiIdentityAccessError(
                 "API actor is not available."
             )
@@ -175,7 +197,7 @@ class ApiIdentityService:
 
         return ApiActorContext(
             user_id=user.id,
-            tenant_id=user.tenant_id,
+            tenant_id=tenant_id,
             active_role=active_role,
             roles=active_roles,
             language_code=user.language_code,
@@ -218,8 +240,6 @@ class ApiIdentityService:
             if (
                 updated_user.id
                 != actor.user_id
-                or updated_user.tenant_id
-                != actor.tenant_id
                 or updated_user.active_role
                 != normalized_role
             ):

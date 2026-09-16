@@ -20,6 +20,7 @@ from services.partner_api_logging import (
     PartnerApiRequestLogger,
 )
 from api.routes import (
+    construction_router,
     auth_router,
     health_router,
     white_label_router,
@@ -212,6 +213,11 @@ def create_app() -> FastAPI:
             message="Internal server error.",
         )
 
+    application.include_router(
+        construction_router,
+        prefix=API_PREFIX,
+        tags=["Construction"],
+    )
     application.include_router(
         health_router,
         prefix=API_PREFIX,

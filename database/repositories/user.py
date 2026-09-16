@@ -136,6 +136,32 @@ class UserRepository:
             "specialists": int(specialists_result.scalar_one() or 0),
         }
 
+    async def has_active_tenant_membership(
+        self,
+        *,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+    ) -> bool:
+        statement = (
+            select(UserRoleMapping.id)
+            .where(
+                UserRoleMapping.user_id
+                == user_id,
+                UserRoleMapping.tenant_id
+                == tenant_id,
+                UserRoleMapping.status
+                == "active",
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(
+            statement
+        )
+        return (
+            result.scalar_one_or_none()
+            is not None
+        )
+
     async def list_active_roles(
         self,
         user_id: uuid.UUID,

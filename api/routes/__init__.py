@@ -1,3 +1,4 @@
+from api.routes.construction import router as construction_router
 from api.routes.auth import router as auth_router
 from api.routes.health import router as health_router
 from api.routes.search_specialists import (
@@ -67,6 +68,7 @@ from api.routes.white_label import (
 )
 
 __all__ = [
+    "construction_router",
     "files_router",
     "webhooks_router",
     "partner_api_router",

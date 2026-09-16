@@ -141,6 +141,10 @@ Required service:
 
 Required environment values:
 
+- CONSTRUCTION_DATABASE_URL uses a dedicated PostgreSQL role without SUPERUSER or BYPASSRLS
+- CONSTRUCTION_DATABASE_URL connects to the same Supabase PostgreSQL database as DATABASE_URL, using different role credentials
+- Each authenticated Construction transaction sets app.current_tenant_id from the verified server tenant_id
+- Construction RLS policies compare table tenant_id with app.current_tenant_id
 - API_JWT_SECRET contains at least 32 random characters
 - API_JWT_ISSUER=sghr-api
 - API_JWT_AUDIENCE=sghr-core

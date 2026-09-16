@@ -4331,3 +4331,137 @@ class WebhookDelivery(Base):
             timezone.utc
         ),
     )
+
+
+class ConstructionBackgroundJobRecord(Base):
+    __tablename__ = "construction_background_jobs"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "user_id",
+            "job_type",
+            "idempotency_key",
+            name=(
+                "uq_construction_background_jobs_"
+                "idempotency"
+            ),
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'QUEUED', "
+            "'RUNNING', "
+            "'RETRY', "
+            "'READY', "
+            "'FAILED', "
+            "'CANCELLED'"
+            ")",
+            name=(
+                "ck_construction_background_jobs_"
+                "status"
+            ),
+        ),
+        CheckConstraint(
+            "attempts >= 0",
+            name=(
+                "ck_construction_background_jobs_"
+                "attempts"
+            ),
+        ),
+        CheckConstraint(
+            "progress >= 0 AND progress <= 100",
+            name=(
+                "ck_construction_background_jobs_"
+                "progress"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+    resource_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    resource_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    job_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="QUEUED",
+    )
+    idempotency_key: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    available_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    lease_owner: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    lease_expires_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    progress: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    error_code: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    result_reference: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
