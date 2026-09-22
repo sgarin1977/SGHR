@@ -1253,6 +1253,9 @@ def test_con_p005_builds_session_factory_from_dedicated_database_identity(
         construction_url,
         {
             "pool_pre_ping": True,
+            "connect_args": {
+                "statement_cache_size": 0,
+            },
         },
     )
     assert calls[1][0] == "session_factory"
@@ -3271,3 +3274,68 @@ async def test_con_p006_rejects_paths_outside_confirmed_storage_convention():
             )
 
     assert calls == []
+
+
+def test_con_p005_disables_asyncpg_statement_cache_for_shared_pooler(
+    monkeypatch,
+):
+    import database.construction_session as session_module
+
+    database_url = (
+        "postgresql+asyncpg://"
+        "construction_api.project:secret@"
+        "pooler.example:6543/postgres"
+    )
+    engine = object()
+    factory = object()
+    calls = {}
+
+    monkeypatch.setattr(
+        session_module,
+        "get_construction_database_url",
+        lambda: database_url,
+    )
+
+    def fake_create_async_engine(
+        url,
+        **kwargs,
+    ):
+        calls["engine"] = {
+            "url": url,
+            **kwargs,
+        }
+        return engine
+
+    def fake_async_sessionmaker(
+        bound_engine,
+        **kwargs,
+    ):
+        calls["sessionmaker"] = {
+            "engine": bound_engine,
+            **kwargs,
+        }
+        return factory
+
+    monkeypatch.setattr(
+        session_module,
+        "create_async_engine",
+        fake_create_async_engine,
+    )
+    monkeypatch.setattr(
+        session_module,
+        "async_sessionmaker",
+        fake_async_sessionmaker,
+    )
+
+    result = (
+        session_module
+        .build_construction_session_factory()
+    )
+
+    assert result is factory
+    assert calls["engine"]["url"] == database_url
+    assert calls["engine"]["pool_pre_ping"] is True
+    assert calls["engine"]["connect_args"] == {
+        "statement_cache_size": 0,
+    }
+    assert calls["sessionmaker"]["engine"] is engine

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
+from decimal import Decimal
 from typing import Optional
 from sqlalchemy import (
     String,
@@ -16,8 +17,9 @@ from sqlalchemy import (
     Numeric,
     CheckConstraint,
     UniqueConstraint,
+    text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB, ExcludeConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 def utcnow_naive() -> datetime:
@@ -4465,3 +4467,785 @@ class ConstructionBackgroundJobRecord(Base):
             timezone.utc
         ),
     )
+
+
+class ConstructionAccessGrant(Base):
+    __tablename__ = "construction_access_grants"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ("
+            "'OWNER', "
+            "'ADMIN', "
+            "'SURVEYOR', "
+            "'ESTIMATOR', "
+            "'PROJECT_MANAGER', "
+            "'EXECUTOR', "
+            "'OBSERVER'"
+            ")",
+            name=(
+                "ck_construction_access_grants_role"
+            ),
+        ),
+        CheckConstraint(
+            "scope_type IN ("
+            "'tenant', "
+            "'project', "
+            "'document'"
+            ")",
+            name=(
+                "ck_construction_access_grants_"
+                "scope_type"
+            ),
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'active', "
+            "'revoked'"
+            ")",
+            name=(
+                "ck_construction_access_grants_status"
+            ),
+        ),
+        CheckConstraint(
+            "scope_type <> 'tenant' "
+            "OR scope_id = tenant_id",
+            name=(
+                "ck_construction_access_grants_"
+                "tenant_scope"
+            ),
+        ),
+        CheckConstraint(
+            "scope_type <> 'tenant' "
+            "OR role IN ('OWNER', 'ADMIN')",
+            name=(
+                "ck_construction_access_grants_"
+                "tenant_role_scope"
+            ),
+        ),
+        CheckConstraint(
+            "expires_at IS NULL "
+            "OR expires_at > granted_at",
+            name=(
+                "ck_construction_access_grants_"
+                "expiration"
+            ),
+        ),
+        CheckConstraint(
+            "("
+            "status = 'active' "
+            "AND revoked_at IS NULL "
+            "AND revoked_by_user_id IS NULL"
+            ") OR ("
+            "status = 'revoked' "
+            "AND revoked_at IS NOT NULL "
+            "AND revoked_by_user_id IS NOT NULL"
+            ")",
+            name=(
+                "ck_construction_access_grants_"
+                "revocation"
+            ),
+        ),
+        ExcludeConstraint(
+            ("tenant_id", "="),
+            ("user_id", "="),
+            ("role", "="),
+            ("scope_type", "="),
+            ("scope_id", "="),
+            (
+                text(
+                    "tstzrange("
+                    "granted_at, "
+                    "expires_at, "
+                    "'[)'"
+                    ")"
+                ),
+                "&&",
+            ),
+            where=text(
+                "status = 'active'"
+            ),
+            using="gist",
+            name=(
+                "ex_construction_access_grants_"
+                "active_period"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    scope_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    scope_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="active",
+    )
+    expires_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    granted_by_user_id: Mapped[
+        uuid.UUID
+    ] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    revoked_by_user_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    revoked_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class ConstructionClient(Base):
+    __tablename__ = "construction_clients"
+    __table_args__ = (
+        CheckConstraint(
+            "client_type IN ("
+            "'person', "
+            "'company'"
+            ")",
+            name=(
+                "ck_construction_clients_"
+                "client_type"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name=(
+                "uq_construction_clients_"
+                "tenant_id_id"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    display_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    client_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    phone: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    email: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    notes: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    deleted_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class ConstructionProject(Base):
+    __tablename__ = "construction_projects"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ("
+            "'draft', "
+            "'planning', "
+            "'active', "
+            "'completed', "
+            "'cancelled'"
+            ")",
+            name=(
+                "ck_construction_projects_status"
+            ),
+        ),
+        CheckConstraint(
+            "address_verification_status IN ("
+            "'pending', "
+            "'verified', "
+            "'failed'"
+            ")",
+            name=(
+                "ck_construction_projects_"
+                "address_status"
+            ),
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name=(
+                "ck_construction_projects_"
+                "row_version"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name=(
+                "uq_construction_projects_"
+                "tenant_id_id"
+            ),
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "client_id",
+            ],
+            [
+                "construction_clients.tenant_id",
+                "construction_clients.id",
+            ],
+            name=(
+                "fk_construction_projects_"
+                "tenant_client"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    client_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="draft",
+    )
+    responsible_user_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    comment: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    address_raw: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    address_formatted: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    country_code: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    region: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    city: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    postal_code: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    latitude: Mapped[
+        Optional[Decimal]
+    ] = mapped_column(
+        Numeric,
+        nullable=True,
+    )
+    longitude: Mapped[
+        Optional[Decimal]
+    ] = mapped_column(
+        Numeric,
+        nullable=True,
+    )
+    address_provider: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    provider_place_id: Mapped[
+        Optional[str]
+    ] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    address_verification_status: Mapped[
+        str
+    ] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending",
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    deleted_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    row_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+    )
+
+    __mapper_args__ = {
+        "version_id_col": row_version,
+    }
+
+
+class ConstructionProjectArea(Base):
+    __tablename__ = "construction_project_areas"
+    __table_args__ = (
+        CheckConstraint(
+            "area_type IN ("
+            "'ROOM', "
+            "'PROJECT_GENERAL', "
+            "'EXTERIOR', "
+            "'OTHER'"
+            ")",
+            name=(
+                "ck_construction_project_areas_type"
+            ),
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'draft', "
+            "'measured', "
+            "'confirmed'"
+            ")",
+            name=(
+                "ck_construction_project_areas_"
+                "status"
+            ),
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name=(
+                "ck_construction_project_areas_"
+                "row_version"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            name=(
+                "uq_construction_project_areas_"
+                "tenant_id_id"
+            ),
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "project_id",
+            ],
+            [
+                "construction_projects.tenant_id",
+                "construction_projects.id",
+            ],
+            ondelete="CASCADE",
+            name=(
+                "fk_construction_project_areas_"
+                "tenant_project"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        nullable=False,
+    )
+    area_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    sort_order: Mapped[
+        Optional[int]
+    ] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="draft",
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    deleted_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    row_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+    )
+
+    __mapper_args__ = {
+        "version_id_col": row_version,
+    }
+
+
+class ConstructionAreaElement(Base):
+    __tablename__ = (
+        "construction_area_elements"
+    )
+    __table_args__ = (
+        CheckConstraint(
+            "element_type IN ("
+            "'WALL', "
+            "'SLAB', "
+            "'CEILING', "
+            "'FLOOR', "
+            "'WINDOW', "
+            "'DOOR', "
+            "'NICHE', "
+            "'OPENING', "
+            "'ENGINEERING_POINT', "
+            "'LINEAR_ROUTE', "
+            "'OTHER'"
+            ")",
+            name=(
+                "ck_construction_area_elements_type"
+            ),
+        ),
+        CheckConstraint(
+            "length(btrim(name)) > 0",
+            name=(
+                "ck_construction_area_elements_name"
+            ),
+        ),
+        CheckConstraint(
+            "jsonb_typeof(geometry_json) = "
+            "'object' "
+            "AND geometry_json ? "
+            "'schema_version' "
+            "AND jsonb_typeof("
+            "geometry_json -> 'schema_version'"
+            ") = 'number' "
+            "AND geometry_json ->> "
+            "'schema_version' = '1'",
+            name=(
+                "ck_construction_area_elements_"
+                "geometry"
+            ),
+        ),
+        CheckConstraint(
+            "parent_element_id IS NULL "
+            "OR element_type IN ("
+            "'WINDOW', "
+            "'DOOR', "
+            "'OPENING'"
+            ")",
+            name=(
+                "ck_construction_area_elements_"
+                "parent_type"
+            ),
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name=(
+                "ck_construction_area_elements_"
+                "row_version"
+            ),
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "project_area_id",
+            "id",
+            name=(
+                "uq_construction_area_elements_"
+                "tenant_area_id"
+            ),
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "project_area_id",
+            ],
+            [
+                "construction_project_areas."
+                "tenant_id",
+                "construction_project_areas.id",
+            ],
+            name=(
+                "fk_construction_area_elements_"
+                "tenant_area"
+            ),
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "project_area_id",
+                "parent_element_id",
+            ],
+            [
+                "construction_area_elements."
+                "tenant_id",
+                "construction_area_elements."
+                "project_area_id",
+                "construction_area_elements.id",
+            ],
+            name=(
+                "fk_construction_area_elements_"
+                "parent_wall"
+            ),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+    project_area_id: Mapped[
+        uuid.UUID
+    ] = mapped_column(
+        nullable=False,
+    )
+    parent_element_id: Mapped[
+        Optional[uuid.UUID]
+    ] = mapped_column(
+        nullable=True,
+    )
+    element_type: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    sort_order: Mapped[
+        Optional[int]
+    ] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    geometry_json: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        ),
+    )
+    deleted_at: Mapped[
+        Optional[datetime]
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    row_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+    )
+
+    __mapper_args__ = {
+        "version_id_col": row_version,
+    }

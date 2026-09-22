@@ -4,6 +4,9 @@ from database.construction_session import (
     construction_transaction,
 )
 from services.api_identity import ApiActorContext
+from services.construction_permissions import (
+    CONSTRUCTION_PERMISSION_CODES,
+)
 
 from api.auth import (
     get_current_actor,
@@ -35,12 +38,13 @@ def require_construction_permission(
         else ""
     )
 
-    if not normalized_permission.startswith(
-        "construction."
+    if (
+        normalized_permission
+        not in CONSTRUCTION_PERMISSION_CODES
     ):
         raise ValueError(
-            "Construction permission "
-            "is required."
+            "A registered Construction "
+            "permission is required."
         )
 
     dependency = require_permission(

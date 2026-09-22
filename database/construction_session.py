@@ -176,6 +176,9 @@ def build_construction_session_factory():
     engine = create_async_engine(
         database_url,
         pool_pre_ping=True,
+        connect_args={
+            "statement_cache_size": 0,
+        },
     )
     return async_sessionmaker(
         engine,
