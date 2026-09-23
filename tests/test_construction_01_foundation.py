@@ -4836,7 +4836,7 @@ async def test_con_005_area_creation_rejects_terminal_project(
             calls.append(("rollback", {}))
 
     class FakeProjectRepository:
-        async def get_active_project(
+        async def get_active_project_for_update(
             self,
             **kwargs,
         ):
@@ -4958,11 +4958,11 @@ async def test_con_005_area_service_creates_draft_in_verified_project_scope():
             calls.append(("rollback", {}))
 
     class FakeProjectRepository:
-        async def get_active_project(
+        async def get_active_project_for_update(
             self,
             **kwargs,
         ):
-            calls.append(("get_project", kwargs))
+            calls.append(("lock_project", kwargs))
             return project
 
     class FakeAreaRepository:
@@ -5002,7 +5002,7 @@ async def test_con_005_area_service_creates_draft_in_verified_project_scope():
     assert result is expected
     assert calls == [
         (
-            "get_project",
+            "lock_project",
             {
                 "tenant_id": tenant_id,
                 "project_id": project_id,
@@ -13993,7 +13993,7 @@ async def test_con_007_project_area_create_audit_failure_rolls_back_domain_chang
             calls.append(("rollback", {}))
 
     class FakeProjectRepository:
-        async def get_active_project(
+        async def get_active_project_for_update(
             self,
             **kwargs,
         ):
@@ -15142,3 +15142,789 @@ async def test_con_002_admin_cannot_delegate_owner_permissions_beyond_own_policy
             scope_type="tenant",
             scope_id=tenant_id,
         )
+
+
+@pytest.mark.asyncio
+async def test_con_004_locked_project_refreshes_cached_orm_state():
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from database.repositories.construction import (
+        ConstructionProjectRepository,
+    )
+
+    tenant_id = uuid4()
+    project_id = uuid4()
+    statements = []
+
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return SimpleNamespace(
+                id=project_id,
+                tenant_id=tenant_id,
+                status="completed",
+            )
+
+    class FakeSession:
+        async def execute(self, statement):
+            statements.append(statement)
+            return FakeResult()
+
+    repository = ConstructionProjectRepository(
+        FakeSession()
+    )
+
+    result = (
+        await repository
+        .get_active_project_for_update(
+            tenant_id=tenant_id,
+            project_id=project_id,
+        )
+    )
+
+    assert result.status == "completed"
+    assert len(statements) == 1
+
+    statement = statements[0]
+
+    assert (
+        statement.get_execution_options()
+        .get("populate_existing")
+        is True
+    )
+
+
+@pytest.mark.asyncio
+async def test_construction_locking_reads_refresh_cached_orm_state():
+    from uuid import uuid4
+
+    from database.repositories.construction import (
+        ConstructionAccessRepository,
+        ConstructionAreaElementRepository,
+        ConstructionClientRepository,
+        ConstructionProjectAreaRepository,
+    )
+
+    tenant_id = uuid4()
+    user_id = uuid4()
+    grant_id = uuid4()
+    client_id = uuid4()
+    project_id = uuid4()
+    area_id = uuid4()
+    element_id = uuid4()
+    statements = []
+
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return None
+
+    class FakeSession:
+        async def execute(self, statement):
+            statements.append(statement)
+            return FakeResult()
+
+    session = FakeSession()
+
+    await ConstructionAccessRepository(
+        session
+    ).get_grant_for_update(
+        tenant_id=tenant_id,
+        grant_id=grant_id,
+    )
+
+    await ConstructionClientRepository(
+        session
+    ).get_active_client_for_update(
+        tenant_id=tenant_id,
+        client_id=client_id,
+    )
+
+    await ConstructionProjectAreaRepository(
+        session
+    ).get_active_area_for_update(
+        tenant_id=tenant_id,
+        project_id=project_id,
+        area_id=area_id,
+    )
+
+    element_repository = (
+        ConstructionAreaElementRepository(session)
+    )
+
+    await element_repository.get_active_parent_wall(
+        tenant_id=tenant_id,
+        project_area_id=area_id,
+        parent_element_id=element_id,
+    )
+
+    await element_repository.get_active_element_for_update(
+        tenant_id=tenant_id,
+        project_area_id=area_id,
+        element_id=element_id,
+    )
+
+    assert len(statements) == 5
+
+    missing = [
+        index
+        for index, statement in enumerate(
+            statements,
+            start=1,
+        )
+        if (
+            statement.get_execution_options()
+            .get("populate_existing")
+            is not True
+        )
+    ]
+
+    assert missing == []
+
+
+def test_con_006_geometry_comparison_distinguishes_json_boolean_from_number():
+    from services.construction_elements import (
+        construction_json_equal,
+    )
+
+    original = {
+        "schema_version": 1,
+        "metadata": {
+            "verified": True,
+        },
+    }
+
+    same_value = {
+        "metadata": {
+            "verified": True,
+        },
+        "schema_version": 1,
+    }
+
+    changed_type = {
+        "schema_version": 1,
+        "metadata": {
+            "verified": 1,
+        },
+    }
+
+    assert construction_json_equal(
+        original,
+        same_value,
+    )
+    assert not construction_json_equal(
+        original,
+        changed_type,
+    )
+
+@pytest.mark.asyncio
+async def test_con_006_element_service_persists_json_boolean_to_number_change():
+    from services.construction_elements import (
+        ConstructionAreaElementService,
+    )
+    from services.construction_permissions import (
+        ConstructionAccessContext,
+        ConstructionGrantContext,
+    )
+
+    tenant_id = uuid4()
+    user_id = uuid4()
+    project_id = uuid4()
+    project_area_id = uuid4()
+    element_id = uuid4()
+    parent_element_id = uuid4()
+    calls = []
+
+    actor = SimpleNamespace(
+        tenant_id=tenant_id,
+        user_id=user_id,
+    )
+    access_context = ConstructionAccessContext(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        roles=("PROJECT_MANAGER",),
+        permissions=(
+            "construction.projects.edit",
+        ),
+        grants=(
+            ConstructionGrantContext(
+                role="PROJECT_MANAGER",
+                scope_type="project",
+                scope_id=project_id,
+            ),
+        ),
+    )
+    project = SimpleNamespace(
+        id=project_id,
+        tenant_id=tenant_id,
+        status="active",
+        deleted_at=None,
+    )
+    area = SimpleNamespace(
+        id=project_area_id,
+        tenant_id=tenant_id,
+        project_id=project_id,
+        status="draft",
+        deleted_at=None,
+    )
+    element = SimpleNamespace(
+        id=element_id,
+        tenant_id=tenant_id,
+        project_area_id=project_area_id,
+        element_type="WINDOW",
+        name="Old window",
+        sort_order=10,
+        geometry_json={
+            "schema_version": 1,
+            "width": "1.00",
+            "future_data": {
+                "preserved": True,
+            },
+        },
+        parent_element_id=None,
+        deleted_at=None,
+        row_version=1,
+    )
+    parent_wall = SimpleNamespace(
+        id=parent_element_id,
+        tenant_id=tenant_id,
+        project_area_id=project_area_id,
+        element_type="WALL",
+        deleted_at=None,
+    )
+    geometry_json = {
+        "schema_version": 1,
+        "width": "1.00",
+        "future_data": {
+            "preserved": 1,
+        },
+    }
+
+    class FakeSession:
+        async def commit(self):
+            calls.append(("commit", {}))
+
+        async def rollback(self):
+            calls.append(("rollback", {}))
+
+    class FakeProjectRepository:
+        async def get_active_project_for_update(self, **kwargs):
+            calls.append(("project", kwargs))
+            return project
+
+    class FakeAreaRepository:
+        async def get_active_area_for_update(self, **kwargs):
+            calls.append(("get_area", kwargs))
+            return area
+
+    class FakeElementRepository:
+        async def get_active_element_for_update(
+            self,
+            **kwargs,
+        ):
+            calls.append(("get_element", kwargs))
+            return element
+
+        async def get_active_parent_wall(
+            self,
+            **kwargs,
+        ):
+            calls.append(("get_parent", kwargs))
+            return parent_wall
+
+        async def update_element(self, **kwargs):
+            calls.append(("update", kwargs))
+            target = kwargs["element"]
+            target.name = kwargs["name"]
+            target.sort_order = kwargs["sort_order"]
+            target.geometry_json = (
+                kwargs["geometry_json"]
+            )
+            target.parent_element_id = (
+                kwargs["parent_element_id"]
+            )
+            target.row_version += 1
+            return target
+
+    class FakeEventRepository:
+        async def create_event(
+            self,
+            **kwargs,
+        ):
+            calls.append(("event", kwargs))
+
+    service = ConstructionAreaElementService(
+        session=FakeSession(),
+        repository=FakeElementRepository(),
+        area_repository=FakeAreaRepository(),
+        project_repository=FakeProjectRepository(),
+        event_repository=FakeEventRepository(),
+    )
+
+    result = await service.update_element(
+        actor=actor,
+        access_context=access_context,
+        project_id=project_id,
+        project_area_id=project_area_id,
+        element_id=element_id,
+        expected_row_version=1,
+        parent_element_id=None,
+        name="  Old window  ",
+        sort_order=10,
+        geometry_json=geometry_json,
+        trace_id="trace-con-006-update",
+    )
+
+    assert result is element
+    assert result.row_version == 2
+    assert (
+        result.geometry_json[
+            "future_data"
+        ]["preserved"]
+        == 1
+    )
+    assert type(
+        result.geometry_json[
+            "future_data"
+        ]["preserved"]
+    ) is int
+
+    assert [
+        name
+        for name, _ in calls
+    ] == [
+        "project",
+        "get_area",
+        "get_element",
+        "update",
+        "event",
+        "commit",
+    ]
+
+    event_kwargs = next(
+        kwargs
+        for name, kwargs in calls
+        if name == "event"
+    )
+
+    assert event_kwargs["payload"]["changes"] == [
+        {
+            "field": "geometry_json",
+            "old_value": {
+                "schema_version": 1,
+                "width": "1.00",
+                "future_data": {
+                    "preserved": True,
+                },
+            },
+            "new_value": {
+                "schema_version": 1,
+                "width": "1.00",
+                "future_data": {
+                    "preserved": 1,
+                },
+            },
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_con_002_grant_service_lists_active_tenant_access_for_authorized_manager():
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from services.construction_grants import (
+        ConstructionAccessGrantService,
+    )
+    from services.construction_permissions import (
+        ConstructionAccessContext,
+        ConstructionGrantContext,
+    )
+
+    tenant_id = uuid4()
+    actor_user_id = uuid4()
+    target_user_id = uuid4()
+    project_id = uuid4()
+    now = datetime(
+        2026,
+        9,
+        23,
+        12,
+        0,
+        tzinfo=UTC,
+    )
+    calls = []
+
+    actor = SimpleNamespace(
+        tenant_id=tenant_id,
+        user_id=actor_user_id,
+    )
+    access_context = ConstructionAccessContext(
+        user_id=actor_user_id,
+        tenant_id=tenant_id,
+        roles=("OWNER",),
+        permissions=(
+            "construction.access.manage",
+        ),
+        grants=(
+            ConstructionGrantContext(
+                role="OWNER",
+                scope_type="tenant",
+                scope_id=tenant_id,
+            ),
+        ),
+    )
+    expected = [
+        SimpleNamespace(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            user_id=target_user_id,
+            role="PROJECT_MANAGER",
+            scope_type="project",
+            scope_id=project_id,
+            status="active",
+            expires_at=None,
+        ),
+    ]
+
+    class FakeSession:
+        async def rollback(self):
+            calls.append(("rollback", {}))
+
+    class FakeRepository:
+        async def list_active_grants(
+            self,
+            **kwargs,
+        ):
+            calls.append(("list", kwargs))
+            return expected
+
+    service = ConstructionAccessGrantService(
+        session=FakeSession(),
+        repository=FakeRepository(),
+        event_repository=object(),
+        now_provider=lambda: now,
+    )
+
+    result = await service.list_access(
+        actor=actor,
+        access_context=access_context,
+        target_user_id=target_user_id,
+    )
+
+    assert result is expected
+    assert calls == [
+        (
+            "list",
+            {
+                "tenant_id": tenant_id,
+                "user_id": target_user_id,
+                "as_of": now,
+            },
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_con_002_grant_service_list_fails_closed_without_tenant_access_manager():
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from services.construction_grants import (
+        ConstructionAccessGrantService,
+    )
+    from services.construction_permissions import (
+        ConstructionAccessContext,
+        ConstructionGrantContext,
+        ConstructionPermissionDeniedError,
+    )
+
+    tenant_id = uuid4()
+    actor_user_id = uuid4()
+    target_user_id = uuid4()
+    project_id = uuid4()
+
+    actor = SimpleNamespace(
+        tenant_id=tenant_id,
+        user_id=actor_user_id,
+    )
+    access_context = ConstructionAccessContext(
+        user_id=actor_user_id,
+        tenant_id=tenant_id,
+        roles=("PROJECT_MANAGER",),
+        permissions=(
+            "construction.projects.read",
+        ),
+        grants=(
+            ConstructionGrantContext(
+                role="PROJECT_MANAGER",
+                scope_type="project",
+                scope_id=project_id,
+            ),
+        ),
+    )
+
+    class FakeSession:
+        async def rollback(self):
+            raise AssertionError(
+                "AUTHORIZATION FAILURE MUST OCCUR "
+                "BEFORE REPOSITORY TRANSACTION"
+            )
+
+    class FakeRepository:
+        async def list_active_grants(
+            self,
+            **kwargs,
+        ):
+            raise AssertionError(
+                "UNAUTHORIZED GRANT LIST MUST NOT "
+                "REACH REPOSITORY"
+            )
+
+    service = ConstructionAccessGrantService(
+        session=FakeSession(),
+        repository=FakeRepository(),
+        event_repository=object(),
+    )
+
+    with pytest.raises(
+        ConstructionPermissionDeniedError,
+    ):
+        await service.list_access(
+            actor=actor,
+            access_context=access_context,
+            target_user_id=target_user_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_con_002_grant_service_lists_access_within_project_manager_scope():
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from services.construction_grants import (
+        ConstructionAccessGrantService,
+    )
+    from services.construction_permissions import (
+        ConstructionAccessContext,
+        ConstructionGrantContext,
+    )
+
+    tenant_id = uuid4()
+    actor_user_id = uuid4()
+    target_user_id = uuid4()
+    project_id = uuid4()
+    now = datetime(
+        2026,
+        9,
+        23,
+        13,
+        0,
+        tzinfo=UTC,
+    )
+    calls = []
+
+    actor = SimpleNamespace(
+        tenant_id=tenant_id,
+        user_id=actor_user_id,
+    )
+    access_context = ConstructionAccessContext(
+        user_id=actor_user_id,
+        tenant_id=tenant_id,
+        roles=("ADMIN",),
+        permissions=(
+            "construction.access.manage",
+        ),
+        grants=(
+            ConstructionGrantContext(
+                role="ADMIN",
+                scope_type="project",
+                scope_id=project_id,
+            ),
+        ),
+    )
+    expected = [
+        SimpleNamespace(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            user_id=target_user_id,
+            role="EXECUTOR",
+            scope_type="project",
+            scope_id=project_id,
+            status="active",
+            expires_at=None,
+        ),
+    ]
+
+    class FakeSession:
+        async def rollback(self):
+            calls.append(("rollback", {}))
+
+    class FakeRepository:
+        async def list_active_grants(
+            self,
+            **kwargs,
+        ):
+            calls.append(("list", kwargs))
+            return expected
+
+    service = ConstructionAccessGrantService(
+        session=FakeSession(),
+        repository=FakeRepository(),
+        event_repository=object(),
+        now_provider=lambda: now,
+    )
+
+    result = await service.list_access(
+        actor=actor,
+        access_context=access_context,
+        target_user_id=target_user_id,
+        project_id=project_id,
+    )
+
+    assert result is expected
+    assert calls == [
+        (
+            "list",
+            {
+                "tenant_id": tenant_id,
+                "user_id": target_user_id,
+                "as_of": now,
+                "scope_type": "project",
+                "scope_id": project_id,
+            },
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_con_002_repository_lists_active_grants_only_in_requested_project_scope():
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from sqlalchemy.dialects import postgresql
+
+    from database.repositories.construction import (
+        ConstructionAccessRepository,
+    )
+
+    tenant_id = uuid4()
+    target_user_id = uuid4()
+    project_id = uuid4()
+    now = datetime(
+        2026,
+        9,
+        23,
+        14,
+        0,
+        tzinfo=UTC,
+    )
+    statements = []
+
+    class FakeScalars:
+        def all(self):
+            return []
+
+    class FakeResult:
+        def scalars(self):
+            return FakeScalars()
+
+    class FakeSession:
+        async def execute(self, statement):
+            statements.append(statement)
+            return FakeResult()
+
+    repository = ConstructionAccessRepository(
+        FakeSession()
+    )
+
+    result = await repository.list_active_grants(
+        tenant_id=tenant_id,
+        user_id=target_user_id,
+        as_of=now,
+        scope_type="project",
+        scope_id=project_id,
+    )
+
+    assert result == []
+    assert len(statements) == 1
+
+    sql = str(
+        statements[0].compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={
+                "literal_binds": True,
+            },
+        )
+    )
+
+    assert (
+        "construction_access_grants.scope_type "
+        "= 'project'"
+        in sql
+    )
+    assert (
+        "construction_access_grants.scope_id "
+        f"= '{project_id}'"
+        in sql
+    )
+
+
+@pytest.mark.asyncio
+async def test_con_002_grant_list_rejects_other_project_before_repository():
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from services.construction_grants import (
+        ConstructionAccessGrantService,
+    )
+    from services.construction_permissions import (
+        ConstructionAccessContext,
+        ConstructionGrantContext,
+        ConstructionScopeDeniedError,
+    )
+
+    tenant_id = uuid4()
+    actor_user_id = uuid4()
+    allowed_project_id = uuid4()
+    other_project_id = uuid4()
+
+    actor = SimpleNamespace(
+        tenant_id=tenant_id,
+        user_id=actor_user_id,
+    )
+    access_context = ConstructionAccessContext(
+        user_id=actor_user_id,
+        tenant_id=tenant_id,
+        roles=("ADMIN",),
+        permissions=("construction.access.manage",),
+        grants=(
+            ConstructionGrantContext(
+                role="ADMIN",
+                scope_type="project",
+                scope_id=allowed_project_id,
+            ),
+        ),
+    )
+
+    class FakeRepository:
+        async def list_active_grants(self, **kwargs):
+            raise AssertionError(
+                "OTHER PROJECT MUST NOT REACH REPOSITORY"
+            )
+
+    service = ConstructionAccessGrantService(
+        session=object(),
+        repository=FakeRepository(),
+        event_repository=object(),
+    )
+
+    with pytest.raises(ConstructionScopeDeniedError):
+        await service.list_access(
+            actor=actor,
+            access_context=access_context,
+            target_user_id=uuid4(),
+            project_id=other_project_id,
+        )
+

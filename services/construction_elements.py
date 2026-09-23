@@ -122,6 +122,78 @@ def validate_construction_geometry(
     return geometry_json
 
 
+def construction_json_equal(
+    left,
+    right,
+) -> bool:
+    if (
+        isinstance(left, bool)
+        or isinstance(right, bool)
+    ):
+        return (
+            type(left) is type(right)
+            and left == right
+        )
+
+    if (
+        isinstance(left, dict)
+        or isinstance(right, dict)
+    ):
+        if (
+            not isinstance(left, dict)
+            or not isinstance(right, dict)
+            or left.keys() != right.keys()
+        ):
+            return False
+
+        return all(
+            construction_json_equal(
+                left[key],
+                right[key],
+            )
+            for key in left
+        )
+
+    if (
+        isinstance(left, list)
+        or isinstance(right, list)
+    ):
+        if (
+            not isinstance(left, list)
+            or not isinstance(right, list)
+            or len(left) != len(right)
+        ):
+            return False
+
+        return all(
+            construction_json_equal(
+                left_value,
+                right_value,
+            )
+            for left_value, right_value in zip(
+                left,
+                right,
+            )
+        )
+
+    return left == right
+
+
+def _construction_element_field_equal(
+    *,
+    field: str,
+    left,
+    right,
+) -> bool:
+    if field == "geometry_json":
+        return construction_json_equal(
+            left,
+            right,
+        )
+
+    return left == right
+
+
 class ConstructionAreaElementValidationError(
     ValueError
 ):
@@ -753,7 +825,21 @@ class ConstructionAreaElementService:
                 ),
             }
 
-            if requested_values == previous_values:
+            compared_fields = (
+                "name",
+                "sort_order",
+                "geometry_json",
+                "parent_element_id",
+            )
+
+            if all(
+                _construction_element_field_equal(
+                    field=field,
+                    left=previous_values[field],
+                    right=requested_values[field],
+                )
+                for field in compared_fields
+            ):
                 await self.session.commit()
                 return element
 
@@ -798,15 +884,13 @@ class ConstructionAreaElementService:
                         current_values[field]
                     ),
                 )
-                for field in (
-                    "name",
-                    "sort_order",
-                    "geometry_json",
-                    "parent_element_id",
-                )
-                if (
-                    previous_values[field]
-                    != current_values[field]
+                for field in compared_fields
+                if not (
+                    _construction_element_field_equal(
+                        field=field,
+                        left=previous_values[field],
+                        right=current_values[field],
+                    )
                 )
             )
 

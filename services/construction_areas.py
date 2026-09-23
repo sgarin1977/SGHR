@@ -237,23 +237,11 @@ class ConstructionProjectAreaService:
 
         try:
             project = (
-                await self.project_repository
-                .get_active_project(
+                await self
+                ._require_mutable_project_for_update(
                     tenant_id=actor.tenant_id,
                     project_id=project_id,
                 )
-            )
-
-            if project is None:
-                raise (
-                    ConstructionProjectAreaProjectNotFoundError(
-                        "Construction project "
-                        "is not available."
-                    )
-                )
-
-            require_construction_project_mutable(
-                project_status=project.status,
             )
 
             area = await self.repository.create_area(

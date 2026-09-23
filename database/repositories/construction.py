@@ -105,6 +105,9 @@ class ConstructionAccessRepository:
                 == grant_id,
             )
             .limit(1)
+            .execution_options(
+                populate_existing=True,
+            )
             .with_for_update()
         )
 
@@ -176,23 +179,46 @@ class ConstructionAccessRepository:
         tenant_id: UUID,
         user_id: UUID,
         as_of: datetime,
+        scope_type: str | None = None,
+        scope_id: UUID | None = None,
     ) -> list[ConstructionAccessGrant]:
+        if (
+            (scope_type is None)
+            != (scope_id is None)
+        ):
+            raise ValueError(
+                "Construction grant scope filter "
+                "must be complete."
+            )
+
+        filters = [
+            ConstructionAccessGrant.tenant_id
+            == tenant_id,
+            ConstructionAccessGrant.user_id
+            == user_id,
+            ConstructionAccessGrant.status
+            == "active",
+            or_(
+                ConstructionAccessGrant.expires_at
+                .is_(None),
+                ConstructionAccessGrant.expires_at
+                > as_of,
+            ),
+        ]
+
+        if scope_type is not None:
+            filters.extend(
+                (
+                    ConstructionAccessGrant.scope_type
+                    == scope_type,
+                    ConstructionAccessGrant.scope_id
+                    == scope_id,
+                )
+            )
+
         statement = (
             select(ConstructionAccessGrant)
-            .where(
-                ConstructionAccessGrant.tenant_id
-                == tenant_id,
-                ConstructionAccessGrant.user_id
-                == user_id,
-                ConstructionAccessGrant.status
-                == "active",
-                or_(
-                    ConstructionAccessGrant.expires_at
-                    .is_(None),
-                    ConstructionAccessGrant.expires_at
-                    > as_of,
-                ),
-            )
+            .where(*filters)
             .order_by(
                 ConstructionAccessGrant.role,
                 ConstructionAccessGrant.scope_type,
@@ -278,6 +304,9 @@ class ConstructionClientRepository:
                 .is_(None),
             )
             .limit(1)
+            .execution_options(
+                populate_existing=True,
+            )
             .with_for_update()
         )
 
@@ -406,6 +435,9 @@ class ConstructionProjectRepository:
                 .is_(None),
             )
             .limit(1)
+            .execution_options(
+                populate_existing=True,
+            )
             .with_for_update()
         )
 
@@ -514,6 +546,9 @@ class ConstructionProjectAreaRepository:
                 .is_(None),
             )
             .limit(1)
+            .execution_options(
+                populate_existing=True,
+            )
             .with_for_update()
         )
 
@@ -706,6 +741,9 @@ class ConstructionAreaElementRepository:
                 .is_(None),
             )
             .limit(1)
+            .execution_options(
+                populate_existing=True,
+            )
             .with_for_update()
         )
 
@@ -792,6 +830,9 @@ class ConstructionAreaElementRepository:
                 .is_(None),
             )
             .limit(1)
+            .execution_options(
+                populate_existing=True,
+            )
             .with_for_update()
         )
 

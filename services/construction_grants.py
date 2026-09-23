@@ -9,6 +9,7 @@ from services.construction_audit import (
     ConstructionAuditLogger,
 )
 from services.construction_permissions import (
+    require_construction_access_manager,
     CONSTRUCTION_PERMISSION_CODES,
     CONSTRUCTION_ROLES,
     CONSTRUCTION_SCOPE_TYPES,
@@ -178,6 +179,48 @@ class ConstructionAccessGrantService:
                 )
             )
         )
+
+    async def list_access(
+        self,
+        *,
+        actor,
+        access_context: ConstructionAccessContext,
+        target_user_id: UUID,
+        project_id: UUID | None = None,
+    ):
+        require_construction_access_manager(
+            actor=actor,
+            access_context=access_context,
+            project_id=project_id,
+        )
+
+        query = {
+            "tenant_id": actor.tenant_id,
+            "user_id": target_user_id,
+            "as_of": self.now_provider(),
+        }
+
+        if project_id is not None:
+            query.update(
+                {
+                    "scope_type": "project",
+                    "scope_id": project_id,
+                }
+            )
+
+        try:
+            return (
+                await self.repository
+                .list_active_grants(
+                    **query,
+                )
+            )
+        except Exception as exc:
+            await self.session.rollback()
+            raise ConstructionGrantOperationError(
+                "Construction access operation "
+                "failed."
+            ) from exc
 
     async def revoke_access(
         self,
