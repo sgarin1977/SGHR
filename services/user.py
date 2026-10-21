@@ -236,6 +236,7 @@ class UserService:
         return await self.get_client_profile_by_user_id(
             user_id=user.id,
             language=language,
+            telegram_platform_user_id=str(telegram_id),
         )
 
     async def get_user_by_id(
@@ -251,10 +252,12 @@ class UserService:
         *,
         user_id: uuid.UUID,
         language: str = "ru",
+        telegram_platform_user_id: str | None = None,
     ) -> ClientProfileResult | None:
         row = await self.repository.get_client_profile_row(
             user_id,
             language=language,
+            telegram_platform_user_id=telegram_platform_user_id,
         )
 
         if not row:
@@ -574,6 +577,23 @@ class UserService:
             role=role,
             is_new=True,
         )
+
+    async def lock_telegram_authentication(self, *, user_id: uuid.UUID, telegram_user_id: int) -> None:
+        """Recheck canonical identity under locks held by the auth transaction."""
+        from database.repositories.platform_telegram_accounts import (
+            PlatformTelegramAccountRepository,
+            PlatformTelegramAccountAlreadyLinkedError,
+            PlatformTelegramIdentityUnavailableError,
+        )
+        from database.repositories.user import PlatformTelegramAccountUnlinkedError
+
+        try:
+            await PlatformTelegramAccountRepository(self.session).lock_account_for_authentication(
+                user_id=user_id, telegram_user_id=telegram_user_id,
+            )
+        except (PlatformTelegramAccountAlreadyLinkedError,
+                PlatformTelegramIdentityUnavailableError, PlatformTelegramAccountUnlinkedError):
+            raise PlatformTelegramAccountUnlinkedError() from None
 async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int | str) -> Optional[User]:
     service = UserService(session)
     return await service.get_user_by_telegram_id(telegram_id)

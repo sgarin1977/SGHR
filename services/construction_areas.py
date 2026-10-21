@@ -621,7 +621,15 @@ class ConstructionProjectAreaService:
         area_id: UUID,
         expected_row_version: int,
         trace_id: str | None = None,
+        manage_transaction: bool = True,
     ):
+        if type(manage_transaction) is not bool:
+            raise ConstructionProjectAreaValidationError("Transaction mode must be a boolean.")
+        if not manage_transaction and (
+            not callable(getattr(self.session, "in_transaction", None))
+            or self.session.in_transaction() is not True
+        ):
+            raise ConstructionProjectAreaOperationError("Area archive requires an active caller transaction.")
         require_construction_access(
             actor=actor,
             access_context=access_context,
@@ -728,7 +736,8 @@ class ConstructionProjectAreaService:
                 trace_id=trace_id,
             )
 
-            await self.session.commit()
+            if manage_transaction:
+                await self.session.commit()
             return area
         except (
             ConstructionProjectAreaProjectNotFoundError,
@@ -738,10 +747,12 @@ class ConstructionProjectAreaService:
             ConstructionProjectTerminalError,
             ConstructionRowVersionConflictError,
         ):
-            await self.session.rollback()
+            if manage_transaction:
+                await self.session.rollback()
             raise
         except Exception as exc:
-            await self.session.rollback()
+            if manage_transaction:
+                await self.session.rollback()
             raise ConstructionProjectAreaOperationError(
                 "Construction project area "
                 "operation failed."
@@ -940,3 +951,93 @@ class ConstructionProjectAreaService:
                 "Construction project area "
                 "operation failed."
             ) from exc
+
+    async def patch_area(
+        self, *, actor, access_context: ConstructionAccessContext,
+        project_id: UUID, area_id: UUID, expected_row_version: int,
+        fields: dict[str, object], trace_id: str | None = None,
+        manage_transaction: bool = True,
+    ):
+        from sqlalchemy.orm.exc import StaleDataError
+
+        if type(manage_transaction) is not bool:
+            raise ConstructionProjectAreaValidationError("Transaction mode must be a boolean.")
+        if not manage_transaction and (
+            not callable(getattr(self.session, "in_transaction", None))
+            or self.session.in_transaction() is not True
+        ):
+            raise ConstructionProjectAreaOperationError("Area patch requires an active caller transaction.")
+        require_construction_access(
+            actor=actor, access_context=access_context,
+            permission_code="construction.projects.edit", project_id=project_id,
+        )
+        if (
+            not isinstance(project_id, UUID) or not isinstance(area_id, UUID)
+            or type(expected_row_version) is not int or expected_row_version <= 0
+            or not isinstance(fields, dict) or set(fields) - {"name", "sort_order"}
+        ):
+            raise ConstructionProjectAreaValidationError("Area patch request is invalid.")
+        normalized = {}
+        if "name" in fields:
+            if not isinstance(fields["name"], str) or not fields["name"].strip():
+                raise ConstructionProjectAreaValidationError("Area name is required.")
+            normalized["name"] = fields["name"].strip()
+        if "sort_order" in fields:
+            value = fields["sort_order"]
+            if value is not None and type(value) is not int:
+                raise ConstructionProjectAreaValidationError("Area sort order is invalid.")
+            normalized["sort_order"] = value
+
+        try:
+            await self._require_mutable_project_for_update(
+                tenant_id=actor.tenant_id, project_id=project_id,
+            )
+            area = await self.repository.get_active_area_for_update(
+                tenant_id=actor.tenant_id, project_id=project_id, area_id=area_id,
+            )
+            if area is None:
+                raise ConstructionProjectAreaNotFoundError("Area is not available.")
+            if (
+                area.id != area_id or area.tenant_id != actor.tenant_id
+                or area.project_id != project_id or area.deleted_at is not None
+            ):
+                raise ConstructionProjectAreaOperationError("Area lock context is invalid.")
+            require_expected_row_version(
+                actual_row_version=area.row_version, expected_row_version=expected_row_version,
+            )
+            changed = {
+                field: value for field, value in normalized.items()
+                if getattr(area, field) != value
+            }
+            if changed:
+                changes = tuple(
+                    ConstructionAuditChange(
+                        field=field, old_value=getattr(area, field), new_value=value,
+                    )
+                    for field, value in changed.items()
+                )
+                area = await self.repository.update_area_fields(area=area, fields=changed)
+                await self.audit_logger.record_operation(
+                    actor=actor, event_type="construction_project_area_updated",
+                    entity_type="construction_project_area", entity_id=area.id,
+                    operation="update", changes=changes, trace_id=trace_id,
+                )
+            if manage_transaction:
+                await self.session.commit()
+            return area
+        except StaleDataError:
+            if manage_transaction:
+                await self.session.rollback()
+            raise ConstructionRowVersionConflictError() from None
+        except (
+            ConstructionProjectAreaProjectNotFoundError, ConstructionProjectAreaNotFoundError,
+            ConstructionProjectTerminalError, ConstructionRowVersionConflictError,
+            ConstructionProjectAreaOperationError,
+        ):
+            if manage_transaction:
+                await self.session.rollback()
+            raise
+        except Exception as error:
+            if manage_transaction:
+                await self.session.rollback()
+            raise ConstructionProjectAreaOperationError("Area patch failed.") from error

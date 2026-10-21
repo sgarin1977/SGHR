@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from database.models import (
     ConstructionAccessGrant,
@@ -30,6 +31,11 @@ class ConstructionOrganizationRepository:
     ) -> Tenant | None:
         statement = (
             select(Tenant)
+            .options(load_only(
+                Tenant.id, Tenant.name, Tenant.slug,
+                Tenant.default_language, Tenant.default_currency,
+                Tenant.status, raiseload=True,
+            ))
             .where(
                 Tenant.id == tenant_id,
                 Tenant.status == "active",
@@ -231,6 +237,21 @@ class ConstructionAccessRepository:
         )
         return list(result.scalars().all())
 
+    async def get_grant_member_id(self, *, tenant_id, grant_id):
+        """Non-locking UUID locator for the membership barrier, not a grant DTO."""
+        if (not isinstance(tenant_id, UUID) or not isinstance(grant_id, UUID)
+                or self.session.in_transaction() is not True):
+            raise ValueError('Grant membership locator requires UUID context and a transaction.')
+        with self.session.no_autoflush:
+            result = await self.session.execute(
+                select(ConstructionAccessGrant.user_id).where(
+                    ConstructionAccessGrant.tenant_id == tenant_id,
+                    ConstructionAccessGrant.id == grant_id,
+                ).execution_options(autoflush=False)
+            )
+        return result.scalar_one_or_none()
+
+
 
 class ConstructionClientRepository:
     def __init__(
@@ -279,6 +300,10 @@ class ConstructionClientRepository:
                 ConstructionClient.deleted_at
                 .is_(None),
             )
+            .execution_options(
+                populate_existing=True,
+                autoflush=False,
+            )
             .limit(1)
         )
 
@@ -306,6 +331,7 @@ class ConstructionClientRepository:
             .limit(1)
             .execution_options(
                 populate_existing=True,
+                autoflush=False,
             )
             .with_for_update()
         )
@@ -411,6 +437,7 @@ class ConstructionProjectRepository:
                 .is_(None),
             )
             .limit(1)
+            .execution_options(populate_existing=True, autoflush=False)
         )
 
         result = await self.session.execute(
@@ -682,6 +709,53 @@ class ConstructionProjectAreaRepository:
         await self.session.flush()
         return area
 
+    async def find_active_area_project_id(
+        self, *, tenant_id: UUID, area_id: UUID,
+        allowed_project_ids: tuple[UUID, ...] | None,
+    ) -> UUID | None:
+        if not isinstance(tenant_id, UUID) or not isinstance(area_id, UUID):
+            raise ValueError("Area lookup requires UUID identifiers.")
+        if allowed_project_ids is not None:
+            if not isinstance(allowed_project_ids, tuple) or any(
+                not isinstance(value, UUID) for value in allowed_project_ids
+            ):
+                raise ValueError("Area lookup requires trusted project scope identifiers.")
+            if not allowed_project_ids:
+                return None
+        statement = (
+            select(ConstructionProjectArea.project_id)
+            .where(
+                ConstructionProjectArea.tenant_id == tenant_id,
+                ConstructionProjectArea.id == area_id,
+                ConstructionProjectArea.deleted_at.is_(None),
+            )
+            .execution_options(autoflush=False)
+        )
+        if allowed_project_ids is not None:
+            statement = statement.where(
+                ConstructionProjectArea.project_id.in_(allowed_project_ids)
+            )
+        result = await self.session.execute(statement)
+        project_id = result.scalar_one_or_none()
+        if project_id is not None and not isinstance(project_id, UUID):
+            raise ValueError("Area lookup returned an invalid project identifier.")
+        if allowed_project_ids is not None and project_id not in allowed_project_ids:
+            return None
+        return project_id
+
+    async def update_area_fields(
+        self, *, area: ConstructionProjectArea, fields: dict[str, object],
+    ) -> ConstructionProjectArea:
+        if not isinstance(fields, dict) or set(fields) - {"name", "sort_order"}:
+            raise ValueError("Area update fields are invalid.")
+        if not fields:
+            return area
+        for field, value in fields.items():
+            setattr(area, field, value)
+        await self.session.flush()
+        return area
+
+
 
 class ConstructionAreaElementRepository:
     def __init__(
@@ -908,3 +982,132 @@ class ConstructionAreaElementRepository:
         element.row_version += 1
         await self.session.flush()
         return element
+
+
+class ConstructionInvitationRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def create_invitation(
+        self, *,
+        tenant_id: UUID,
+        email: str,
+        user_id: UUID | None,
+        role: str,
+        scopes: list[tuple[str, UUID]],
+        expires_at: datetime,
+        grant_expires_at: datetime | None,
+        created_by_user_id: UUID,
+        token_hash: str,
+        delivery_metadata: dict,
+    ):
+        from database.models import (
+            ConstructionInvitation,
+            ConstructionInvitationScope,
+        )
+
+        invitation = ConstructionInvitation(
+            tenant_id=tenant_id,
+            email=email,
+            user_id=user_id,
+            role=role,
+            status="pending",
+            expires_at=expires_at,
+            grant_expires_at=grant_expires_at,
+            created_by_user_id=created_by_user_id,
+            token_hash=token_hash,
+            token_used_at=None,
+            delivery_metadata=dict(delivery_metadata),
+            row_version=1,
+        )
+        self.session.add(invitation)
+        await self.session.flush()
+
+        for scope_type, scope_id in scopes:
+            self.session.add(ConstructionInvitationScope(
+                tenant_id=tenant_id,
+                invitation_id=invitation.id,
+                scope_type=scope_type,
+                scope_id=scope_id,
+            ))
+        await self.session.flush()
+        return invitation
+
+    async def get_invitation_for_update(
+        self, *, tenant_id: UUID, invitation_id: UUID,
+    ):
+        from database.models import ConstructionInvitation
+
+        statement = (
+            select(ConstructionInvitation)
+            .where(
+                ConstructionInvitation.tenant_id == tenant_id,
+                ConstructionInvitation.id == invitation_id,
+            )
+            .limit(1)
+            .execution_options(populate_existing=True)
+            .with_for_update()
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def update_delivery_metadata(
+        self, *, invitation, delivery_metadata: dict,
+    ):
+        invitation.delivery_metadata = dict(delivery_metadata)
+        await self.session.flush()
+        return invitation
+
+    async def resend_invitation(
+        self, *, invitation, token_hash: str,
+        expires_at: datetime, delivery_metadata: dict,
+    ):
+        invitation.token_hash = token_hash
+        invitation.expires_at = expires_at
+        invitation.delivery_metadata = dict(delivery_metadata)
+        await self.session.flush()
+        return invitation
+
+    async def accept_invitation(
+        self, *, invitation, user_id: UUID, accepted_at: datetime,
+    ):
+        invitation.user_id = user_id
+        invitation.status = "accepted"
+        invitation.token_used_at = accepted_at
+        await self.session.flush()
+        return invitation
+
+    async def revoke_invitation(self, *, invitation):
+        if invitation.status != "pending":
+            raise ValueError("Only pending invitations can be revoked.")
+        invitation.status = "revoked"
+        await self.session.flush()
+        return invitation
+
+    async def decline_invitation(self, *, invitation):
+        if invitation.status != "pending":
+            raise ValueError("Only pending invitations can be declined.")
+        invitation.status = "declined"
+        await self.session.flush()
+        return invitation
+
+    async def list_invitation_scopes(
+        self, *, tenant_id: UUID, invitation_id: UUID,
+    ):
+        from database.models import ConstructionInvitationScope
+
+        statement = (
+            select(ConstructionInvitationScope)
+            .where(
+                ConstructionInvitationScope.tenant_id == tenant_id,
+                ConstructionInvitationScope.invitation_id == invitation_id,
+            )
+            .order_by(
+                ConstructionInvitationScope.scope_type,
+                ConstructionInvitationScope.scope_id,
+                ConstructionInvitationScope.id,
+            )
+            .execution_options(populate_existing=True)
+        )
+        result = await self.session.execute(statement)
+        return list(result.scalars().all())

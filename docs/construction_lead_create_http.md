@@ -1,0 +1,15 @@
+# CON-C009: POST /api/v1/construction/crm/leads
+
+Authority: rev.12 section 22 explicitly lists this endpoint and requires a shared OpenAPI/service contract. The customer clarification of 07.10 repeats its inclusion in the Stage 1 HTTP boundary. The lead domain is a Stage 1A dependency of this closure. Existing clarifications require construction.projects.create and mandatory Idempotency-Key for create lead; source extensibility and work_type_description follow the corrected contract.
+
+Request fields: source, name, work_type_description, optional phone/email/address_raw/comment/responsible_user_id. At least one nonblank phone/email is required under the existing input contract. Strict strings and extra=forbid prevent accepting server-owned tenant/user/id/status/version/conversion fields. Raw command values reach the verified workflow before normalization so request-hash behavior remains consistent. Canonical classification inputs remain deferred under the approved work-type catalog decision.
+
+The route uses the canonical actor, shared Construction access context, dedicated tenant-scoped construction session, suite/module gates and the existing shared permission. The workflow factory uses API_IDEMPOTENCY_ENCRYPTION_KEY through ApiIdempotencySettings. No repository imports, commits, rollbacks or flushes are introduced in this API adapter.
+
+Successful creation and replay return HTTP 201 with the typed public creation envelope and request ID. OpenAPI marks Idempotency-Key required. Errors use the existing envelope: authentication 401; module/permission/current-access denial 403; unavailable original lead 404; changed-command key reuse 409 IDEMPOTENCY_KEY_REUSED; processing reservation 409 idempotency_in_progress; invalid body/key/responsible membership 422 validation_error; unexpected failure 500 internal_error. Private exception details and encrypted binding metadata are excluded.
+
+Verification includes real service/workflow/shared idempotency/Fernet through ASGI, strict input/header validation, canonical tenant isolation at the HTTP boundary, fresh permission denial, replay, audit failure/rollback, typed OpenAPI, unique app registration, and unchanged existing project/client/area/invitation behavior in the selected regression.
+
+A separate broad legacy API foundation run found pre-existing direct repository imports in existing API files. Its two subprocess import checks could not run with dependencies available in the parent-only Windows verification environment. These are tracked separately from this endpoint; the new adapter passes its own service-layer boundary check. No existing legacy tests are modified or weakened by this installer.
+
+This step creates the route/test/document and registers the route in api/app.py. It performs no Supabase, Storage or real email operations. Physical lead schema is not created. PostgreSQL RLS/concurrency and deployment acceptance are pending; local passing tests do not close the whole Stage 1. Next: review the approved lead conversion contract for POST /crm/leads/{id}/convert.

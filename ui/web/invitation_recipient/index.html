@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>SGHR · Team invitation</title>
+  <link rel="stylesheet" href="/construction/invitations/recipient/style.css">
+  <script type="module" src="/construction/invitations/recipient/boot.mjs"></script>
+</head>
+<body>
+  <header class="top"><span class="brand">SGHR<span class="dot">.</span></span><span class="suite">Construction</span>
+    <label class="language"><span class="sr-only">Language</span><select id="language" aria-label="Language"><option value="en">EN</option><option value="ru">RU</option><option value="pt">PT</option></select></label>
+  </header>
+  <main>
+    <div class="eyebrow" data-i18n="eyebrow">YOUR NEXT PROJECT STARTS HERE</div>
+    <h1 data-i18n="title">Join the team.</h1>
+    <p class="intro" data-i18n="intro">Verify the email that received this invitation. Then review the access before you decide.</p>
+    <ol class="steps" aria-label="Progress"><li id="step-auth"><span>01</span><b data-i18n="signIn">Verify email</b></li><li id="step-review"><span>02</span><b data-i18n="review">Review invitation</b></li><li id="step-done"><span>03</span><b data-i18n="decision">Your decision</b></li></ol>
+    <section class="card" aria-labelledby="card-title">
+      <div class="card-heading"><span class="icon" aria-hidden="true">↗</span><div><p class="overline" data-i18n="platform">SGHR PLATFORM</p><h2 id="card-title" data-i18n="cardTitle">Team invitation</h2></div></div>
+      <p id="message" role="status" aria-live="polite"></p>
+      <noscript>JavaScript is required to verify your email and review this invitation.</noscript>
+      <form id="email-form" hidden>
+        <label for="email" data-i18n="emailLabel">Invited email address</label>
+        <input id="email" name="email" type="email" maxlength="320" autocomplete="email" placeholder="you@company.com" required>
+        <p class="hint" data-i18n="emailHint">Use the address this invitation was sent to. Sign-in uses your existing Platform email flow.</p>
+        <button id="send-code" type="submit" class="primary" data-i18n="sendCode">Send verification code</button>
+      </form>
+      <form id="code-form" hidden>
+        <label for="code" data-i18n="codeLabel">Verification code</label>
+        <input id="code" name="code" type="text" maxlength="512" autocomplete="one-time-code" inputmode="numeric" required>
+        <p class="hint" id="challenge-note"></p>
+        <button id="verify-code" type="submit" class="primary" data-i18n="verifyCode">Verify and review</button>
+      </form>
+      <section id="preview" hidden aria-label="Invitation access">
+        <dl><div><dt data-i18n="role">Role</dt><dd id="role"></dd></div><div><dt data-i18n="expires">Invitation valid until</dt><dd id="expires"></dd></div><div><dt data-i18n="accessUntil">Access valid until</dt><dd id="access-until"></dd></div></dl>
+        <h3 data-i18n="scope">Access scope</h3><ul id="scopes" class="scope-list"></ul>
+      </section>
+      <p id="pending-note" class="hint" hidden data-i18n="pending">The previous result is unconfirmed. Retry the same decision to recover its result.</p>
+      <div id="actions" class="actions" hidden><button id="accept" type="button" class="primary" data-i18n="accept">Accept invitation</button><button id="decline" type="button" class="secondary" data-i18n="decline">Decline</button></div>
+      <button id="retry-preview" type="button" class="primary" hidden data-i18n="retryPreview">Review invitation again</button>
+      <button id="change-email" type="button" class="text-button" hidden data-i18n="changeEmail">Use another email</button>
+      <button id="forget" type="button" class="text-button" hidden data-i18n="forget">Clear this invitation from this tab</button>
+    </section>
+    <p class="footnote" data-i18n="footnote">Opening this link does not grant access. Only your confirmed decision changes your membership.</p>
+  </main>
+  <footer><span>SGHR Construction Suite</span><span data-i18n="footer">One platform. A connected team.</span></footer>
+</body>
+</html>

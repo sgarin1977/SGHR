@@ -1,0 +1,94 @@
+{
+  "format_version": 1,
+  "scope": "historical_subset_of_applied_stage_1_1a_sql",
+  "complete_schema_bootstrap": false,
+  "ordered_migration_chain": false,
+  "database_state_revalidated": false,
+  "automatic_execution": false,
+  "source": "Previously supplied guarded Supabase SQL scripts; corrected variants only.",
+  "files": [
+    {
+      "file": "stage_1_create_lead_storage.sql",
+      "sha256": "ba253ea077dc2ce9ed411c5c507f2f7f70b45ee8ba05ed0ff995ab06983c8010",
+      "bytes": 12441,
+      "purpose": "CON-C009/C010/C012: lead storage",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "fix_ordinary_membership_select_policies.sql",
+      "sha256": "08b6f86d1bf2433d0ec411f5ab1956629d4cd7bb9257ce310d04e896292d29ac",
+      "bytes": 14434,
+      "purpose": "Ordinary membership SELECT policies",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "fix_tenants_scoped_select_v2.sql",
+      "sha256": "f879060526eddb87ad2402e538a43b14dcdcae1243367dc7efba51a692206a13",
+      "bytes": 11306,
+      "purpose": "Current organization six-column SELECT",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c011_create_activity_storage.sql",
+      "sha256": "2f99cf1614fd577694fe26f401d0ad851d1c931baf5540f11ea5620c186171ed",
+      "bytes": 18563,
+      "purpose": "CON-C011: activity storage",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c013_event_logs_scoped_select.sql",
+      "sha256": "1b988f70741ca0ffcc3f043423e74a59a97f799516964cf4225c2af235690af8",
+      "bytes": 17873,
+      "purpose": "CON-C013: restricted Construction history SELECT",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c014_binding_storage_schema_v2.sql",
+      "sha256": "70441d668cedd37485a6913d2bfab300a98e07d0ced7ba2fc0068672a28b41ac",
+      "bytes": 23803,
+      "purpose": "CON-C014: hash-only Telegram binding storage",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c014_account_lifecycle_schema.sql",
+      "sha256": "1e88cfe943f8f94aefa5b15c7a5b0c70492b65f2367dc25108d0a249741c4090",
+      "bytes": 30467,
+      "purpose": "CON-C014: canonical account lifecycle",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c014_client_user_link_schema.sql",
+      "sha256": "dbcf3892e19b16a38cba8e032d014200b318d941a3eb9401e80ccb85b18f4db4",
+      "bytes": 40956,
+      "purpose": "CON-C014: optional client identity and version",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c014_client_confirmation_storage_schema_v2.sql",
+      "sha256": "2e0a688b4f9f9442ce3a90ef70ae08217edc0273eab04263796e8b75754054c7",
+      "bytes": 27495,
+      "purpose": "CON-C014: operator confirmation storage",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c014_confirmation_invalidation_schema.sql",
+      "sha256": "80e5b613c1beef4bd931b85253224ca09e65717aa10ed4565b5b80b2805a8111",
+      "bytes": 20110,
+      "purpose": "CON-C014: confirmation invalidation state",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    },
+    {
+      "file": "con_c014_self_unlink_rls_policy.sql",
+      "sha256": "aa55fba8a3f29ee32b2954e4e84445db04fde3ad9edb1cc9d4a07791a38e44b2",
+      "bytes": 21717,
+      "purpose": "CON-C014: narrow own-link read-only lookup",
+      "evidence": "User reported APPLIED for this guarded SQL change in this conversation."
+    }
+  ],
+  "absent_from_this_archive": [
+    "Original Platform and Construction foundation schema and role provisioning",
+    "Original company profile, settings, identifiers and bank account migrations",
+    "Original invitation, queue and shared idempotency storage migrations",
+    "users.tenant_id nullable change and tenant default-language trigger repair"
+  ]
+}

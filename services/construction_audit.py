@@ -25,6 +25,23 @@ CONSTRUCTION_AUDIT_EVENT_TYPES = frozenset(
 )
 
 
+CONSTRUCTION_STAGE_1A_AUDIT_EVENT_TYPES = frozenset({
+    'construction_client_user_link_confirmed',
+    'construction_client_user_link_requested',
+    'construction_invitation_created',
+    'construction_invitation_resent',
+    'construction_invitation_revoked',
+    'construction_invitation_declined',
+    'construction_invitation_accepted',
+    'construction_lead_created',
+    'construction_lead_converted',
+    'construction_lead_status_changed',
+    'construction_activity_created',
+    'construction_activity_cancelled',
+    'construction_activity_completed',
+})
+
+
 class ConstructionAuditContractError(
     ValueError
 ):
@@ -99,7 +116,10 @@ class ConstructionAuditLogger:
 
         if (
             normalized_event_type
-            not in CONSTRUCTION_AUDIT_EVENT_TYPES
+            not in (
+                CONSTRUCTION_AUDIT_EVENT_TYPES
+                | CONSTRUCTION_STAGE_1A_AUDIT_EVENT_TYPES
+            )
         ):
             raise ConstructionAuditContractError(
                 "Construction audit event type "

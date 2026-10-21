@@ -4,6 +4,8 @@ from decimal import Decimal
 from typing import Optional
 from sqlalchemy import (
     String,
+    CHAR,
+    Index,
     ForeignKey,
     ForeignKeyConstraint,
     Date,
@@ -11,6 +13,7 @@ from sqlalchemy import (
     Time,
     Text,
     Integer,
+    BigInteger,
     SmallInteger,
     LargeBinary,
     Boolean,
@@ -110,6 +113,156 @@ class Tenant(Base):
     )
 
 
+class TenantCompanyProfile(Base):
+    __tablename__ = "tenant_company_profiles"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            name="uq_tenant_company_profiles_tenant_id",
+        ),
+        CheckConstraint(
+            "length(btrim(legal_name)) > 0",
+            name="ck_tenant_company_profiles_legal_name",
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name="ck_tenant_company_profiles_row_version",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id"),
+        nullable=False,
+    )
+    legal_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    commercial_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    registered_address_raw: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    operational_address_raw: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    phone: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    email: Mapped[Optional[str]] = mapped_column(
+        String(320),
+        nullable=True,
+    )
+    website: Mapped[Optional[str]] = mapped_column(
+        String(2048),
+        nullable=True,
+    )
+    signatory_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    signatory_position: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    logo_file_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("file_storage_objects.id"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    row_version: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
+
+    __mapper_args__ = {
+        "version_id_col": row_version,
+    }
+
+
+class TenantCompanyIdentifier(Base):
+    __tablename__ = "tenant_company_identifiers"
+    __table_args__ = (
+        UniqueConstraint(
+            "country_code",
+            "identifier_type",
+            "identifier_value_normalized",
+            name="uq_tenant_company_identifiers_normalized",
+        ),
+        Index(
+            "uq_tenant_company_identifiers_primary_scope",
+            "tenant_company_profile_id",
+            "country_code",
+            "identifier_type",
+            unique=True,
+            postgresql_where=text("is_primary"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_company_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenant_company_profiles.id"),
+        nullable=False,
+    )
+    country_code: Mapped[str] = mapped_column(
+        CHAR(2),
+        nullable=False,
+    )
+    identifier_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+    identifier_value: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    identifier_value_normalized: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class User(Base):
     __tablename__ = "users"
     
@@ -149,6 +302,16 @@ class UserAccount(Base):
     raw_profile: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+
+    # Canonical account connection lifecycle; SQL migration precedes this ORM.
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="active", server_default=text("'active'"))
+    row_version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default=text("1"))
+    __table_args__ = (
+        CheckConstraint("status IN ('active','unlinked')", name="ck_user_accounts_status"),
+        CheckConstraint("status <> 'unlinked' OR platform = 'telegram'", name="ck_user_accounts_unlinked_platform"),
+        CheckConstraint("row_version > 0", name="ck_user_accounts_row_version"),
+    )
+    __mapper_args__ = {"version_id_col": row_version}
 
 # 6.3. Таблиця user_roles за ТЗ
 class UserRoleMapping(Base):
@@ -4658,6 +4821,10 @@ class ConstructionClient(Base):
                 "client_type"
             ),
         ),
+        CheckConstraint(
+            "row_version > 0",
+            name="ck_construction_clients_row_version",
+        ),
         UniqueConstraint(
             "tenant_id",
             "id",
@@ -4728,6 +4895,24 @@ class ConstructionClient(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+
+    linked_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey(
+            "users.id",
+            name="fk_construction_clients_linked_user",
+            onupdate="NO ACTION",
+            ondelete="NO ACTION",
+        ),
+        nullable=True,
+    )
+    row_version: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
+    __mapper_args__ = {"version_id_col": row_version}
 
 
 class ConstructionProject(Base):
@@ -5249,3 +5434,507 @@ class ConstructionAreaElement(Base):
     __mapper_args__ = {
         "version_id_col": row_version,
     }
+
+
+class ConstructionTenantSetting(Base):
+    __tablename__ = "construction_tenant_settings"
+    __table_args__ = (
+        CheckConstraint(
+            "accent_color IS NULL OR "
+            "accent_color ~ '^#[0-9A-Fa-f]{6}$'",
+            name="ck_construction_tenant_settings_accent_color",
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name="ck_construction_tenant_settings_row_version",
+        ),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id"),
+        primary_key=True,
+        nullable=False,
+    )
+    display_name_override: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    phone_override: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    email_override: Mapped[Optional[str]] = mapped_column(
+        String(320),
+        nullable=True,
+    )
+    website_override: Mapped[Optional[str]] = mapped_column(
+        String(2048),
+        nullable=True,
+    )
+    logo_file_id_override: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("file_storage_objects.id"),
+        nullable=True,
+    )
+    document_header_text: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    document_footer_text: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    accent_color: Mapped[Optional[str]] = mapped_column(
+        String(7),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    row_version: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
+
+    __mapper_args__ = {
+        "version_id_col": row_version,
+    }
+
+
+class TenantCompanyBankAccount(Base):
+    __tablename__ = "tenant_company_bank_accounts"
+    __table_args__ = (
+        CheckConstraint(
+            "NULLIF(btrim(iban), '') IS NOT NULL OR "
+            "NULLIF(btrim(account_number), '') IS NOT NULL",
+            name="ck_tenant_company_bank_accounts_number_present",
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name="ck_tenant_company_bank_accounts_row_version",
+        ),
+        Index(
+            "uq_tenant_company_bank_accounts_active_primary_currency",
+            "tenant_company_profile_id",
+            "currency",
+            unique=True,
+            postgresql_where=text("is_active AND is_primary"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    tenant_company_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenant_company_profiles.id"),
+        nullable=False,
+    )
+    label: Mapped[Optional[str]] = mapped_column(String(100))
+    account_holder_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    bank_name: Mapped[Optional[str]] = mapped_column(String(255))
+    country_code: Mapped[Optional[str]] = mapped_column(CHAR(2))
+    iban: Mapped[Optional[str]] = mapped_column(String(34))
+    bic_swift: Mapped[Optional[str]] = mapped_column(String(11))
+    account_number: Mapped[Optional[str]] = mapped_column(String(100))
+    currency: Mapped[str] = mapped_column(CHAR(3), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("true"),
+    )
+    show_in_documents: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    row_version: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
+
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionInvitation(Base):
+    __tablename__ = "construction_invitations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'declined', 'expired', 'revoked')",
+            name="ck_construction_invitations_status",
+        ),
+        CheckConstraint(
+            "role IN ('OWNER', 'ADMIN', 'SURVEYOR', 'ESTIMATOR', "
+            "'PROJECT_MANAGER', 'EXECUTOR', 'OBSERVER')",
+            name="ck_construction_invitations_role",
+        ),
+        CheckConstraint(
+            "length(btrim(email)) > 0",
+            name="ck_construction_invitations_email",
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name="ck_construction_invitations_row_version",
+        ),
+        UniqueConstraint(
+            "tenant_id", "id",
+            name="uq_construction_invitations_tenant_id_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id"), nullable=True)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="pending", server_default=text("'pending'"))
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False)
+    grant_expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    token_used_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    delivery_metadata: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict,
+        server_default=text("'{}'::jsonb"))
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc))
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"))
+
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionInvitationScope(Base):
+    __tablename__ = "construction_invitation_scopes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "invitation_id"],
+            ["construction_invitations.tenant_id", "construction_invitations.id"],
+            name="fk_construction_invitation_scopes_tenant_invitation",
+        ),
+        UniqueConstraint(
+            "tenant_id", "invitation_id", "scope_type", "scope_id",
+            name="uq_construction_invitation_scopes_target",
+        ),
+        CheckConstraint(
+            "scope_type IN ('tenant', 'project', 'document')",
+            name="ck_construction_invitation_scopes_type",
+        ),
+        CheckConstraint(
+            "scope_type <> 'tenant' OR scope_id = tenant_id",
+            name="ck_construction_invitation_scopes_tenant_scope",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, nullable=False, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    invitation_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    scope_type: Mapped[str] = mapped_column(Text, nullable=False)
+    scope_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+
+
+class ConstructionLead(Base):
+    __tablename__ = "construction_leads"
+    __table_args__ = (
+        CheckConstraint('length(btrim(source)) > 0', name='ck_construction_leads_source'),
+        CheckConstraint(
+            "status IN ('new', 'contacted', 'measurement_scheduled', 'measurement_completed', "
+            "'estimate_preparation', 'proposal_sent', 'negotiation', 'won', 'lost')",
+            name="ck_construction_leads_status",
+        ),
+        CheckConstraint("length(btrim(name)) > 0", name="ck_construction_leads_name"),
+        CheckConstraint('length(btrim(work_type_description)) > 0', name='ck_construction_leads_work_type_description'),
+        CheckConstraint(
+            "(phone IS NOT NULL AND length(btrim(phone)) > 0) OR "
+            "(email IS NOT NULL AND length(btrim(email)) > 0)",
+            name="ck_construction_leads_contact",
+        ),
+        CheckConstraint("row_version > 0", name="ck_construction_leads_row_version"),
+        UniqueConstraint("tenant_id", "id", name="uq_construction_leads_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "converted_client_id"],
+            ["construction_clients.tenant_id", "construction_clients.id"],
+            name="fk_construction_leads_tenant_converted_client",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "converted_project_id"],
+            ["construction_projects.tenant_id", "construction_projects.id"],
+            name="fk_construction_leads_tenant_converted_project",
+        ),
+        Index("ix_construction_leads_tenant_updated_id", "tenant_id", "updated_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False,
+    )
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    phone: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    address_raw: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    work_type_description: Mapped[str] = mapped_column(Text, nullable=False)
+    responsible_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="new", server_default=text("'new'"),
+    )
+    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    converted_client_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    converted_project_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+    )
+
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionActivity(Base):
+    __tablename__ = "construction_activities"
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ('call', 'message', 'meeting', 'site_visit', 'follow_up', 'task', 'other')",
+            name="ck_construction_activities_type",
+        ),
+        CheckConstraint("status IN ('planned', 'completed', 'cancelled')",
+                        name="ck_construction_activities_status"),
+        CheckConstraint("lead_id IS NOT NULL OR client_id IS NOT NULL OR project_id IS NOT NULL",
+                        name="ck_construction_activities_links"),
+        CheckConstraint("length(btrim(timezone)) > 0", name="ck_construction_activities_timezone"),
+        CheckConstraint("row_version > 0", name="ck_construction_activities_row_version"),
+        CheckConstraint(
+            "(status = 'planned' AND completed_at IS NULL AND cancelled_at IS NULL) OR "
+            "(status = 'completed' AND completed_at IS NOT NULL AND cancelled_at IS NULL) OR "
+            "(status = 'cancelled' AND completed_at IS NULL AND cancelled_at IS NOT NULL)",
+            name="ck_construction_activities_completion",
+        ),
+        UniqueConstraint("tenant_id", "id", name="uq_construction_activities_tenant_id_id"),
+        ForeignKeyConstraint(["tenant_id", "lead_id"],
+            ["construction_leads.tenant_id", "construction_leads.id"],
+            name="fk_construction_activities_tenant_lead"),
+        ForeignKeyConstraint(["tenant_id", "client_id"],
+            ["construction_clients.tenant_id", "construction_clients.id"],
+            name="fk_construction_activities_tenant_client"),
+        ForeignKeyConstraint(["tenant_id", "project_id"],
+            ["construction_projects.tenant_id", "construction_projects.id"],
+            name="fk_construction_activities_tenant_project"),
+        Index("ix_construction_activities_next_action_lead", "tenant_id", "lead_id", "due_at", "id",
+              postgresql_where=text("status = 'planned' AND deleted_at IS NULL"),
+              sqlite_where=text("status = 'planned' AND deleted_at IS NULL")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="planned", server_default=text("'planned'"))
+    lead_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    client_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    project_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    timezone: Mapped[str] = mapped_column(Text, nullable=False)
+    responsible_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc))
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    row_version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default=text("1"))
+
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class PlatformTelegramBindingToken(Base):
+    """Platform verification challenge; canonical accounts remain UserAccount.
+
+    The secret is hash-only. Target user, initiation tenant and initiator are
+    persisted from authorized server context and are not changed by consume.
+    Token mutations and their mandatory audit must share the caller transaction.
+    """
+
+    __tablename__ = "platform_telegram_binding_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_platform_telegram_binding_tokens_hash"),
+        CheckConstraint(
+            "token_hash ~ '^[0-9a-f]{64}$'",
+            name="ck_platform_telegram_binding_tokens_hash",
+        ),
+        CheckConstraint(
+            "expires_at = issued_at + interval '15 minutes'",
+            name="ck_platform_telegram_binding_tokens_ttl",
+        ),
+        CheckConstraint(
+            "consumed_at IS NULL OR (consumed_at >= issued_at AND consumed_at < expires_at)",
+            name="ck_platform_telegram_binding_tokens_consumed_at",
+        ),
+        CheckConstraint(
+            "revoked_at IS NULL OR revoked_at >= issued_at",
+            name="ck_platform_telegram_binding_tokens_revoked_at",
+        ),
+        CheckConstraint("row_version > 0", name="ck_platform_telegram_binding_tokens_row_version"),
+        Index("ix_platform_telegram_binding_tokens_user_issued", "user_id", "issued_at", "id"),
+        Index("ix_platform_telegram_binding_tokens_expiry", "expires_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"),
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False,
+    )
+    initiated_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+    )
+
+    __mapper_args__ = {"version_id_col": row_version}
+
+class ConstructionClientUserLinkRequest(Base):
+    """One-time confirmation context, not a user/account/membership or grant.
+
+    The target confirms a specific client/base version and previous identity.
+    The previous identity is a historical snapshot, not a new identity relation.
+    Only the token hash is persisted. Expiry is explicit; no Telegram TTL is
+    inherited. A later consume service must authenticate the target, recheck
+    edit authority and atomically update client, request and mandatory audit.
+    """
+
+    __tablename__ = "construction_client_user_link_requests"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "client_id"],
+            ["construction_clients.tenant_id", "construction_clients.id"],
+            name="fk_con_client_link_requests_client",
+            onupdate="NO ACTION", ondelete="NO ACTION",
+        ),
+        UniqueConstraint("token_hash", name="uq_con_client_link_requests_hash"),
+        CheckConstraint(
+            "length(token_hash) = 64 AND translate(token_hash, '0123456789abcdef', '') = ''",
+            name="ck_con_client_link_requests_hash",
+        ),
+        CheckConstraint("expires_at > issued_at", name="ck_con_client_link_requests_expiry"),
+        CheckConstraint(
+            "consumed_at IS NULL OR (consumed_at >= issued_at AND consumed_at < expires_at)",
+            name="ck_con_client_link_requests_consumed_at",
+        ),
+        CheckConstraint("expected_client_row_version > 0", name="ck_con_client_link_requests_base_version"),
+        CheckConstraint("row_version > 0", name="ck_con_client_link_requests_version"),
+        CheckConstraint(
+            "invalidated_at IS NULL OR (invalidated_at >= issued_at AND invalidated_at < expires_at)",
+            name="ck_con_client_link_requests_invalidated_at",
+        ),
+        CheckConstraint(
+            "consumed_at IS NULL OR invalidated_at IS NULL",
+            name="ck_con_client_link_requests_terminal",
+        ),
+        Index("ix_con_client_link_requests_client", "tenant_id", "client_id", "issued_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    client_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    initiated_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", name="fk_con_client_link_requests_initiator",
+            onupdate="NO ACTION", ondelete="NO ACTION"), nullable=False,
+    )
+    target_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", name="fk_con_client_link_requests_target",
+            onupdate="NO ACTION", ondelete="NO ACTION"), nullable=False,
+    )
+    expected_linked_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    expected_client_row_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+    )
+    invalidated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    __mapper_args__ = {"version_id_col": row_version}

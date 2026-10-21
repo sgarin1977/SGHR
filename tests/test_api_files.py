@@ -1629,6 +1629,7 @@ async def test_file_complete_endpoint_uses_current_actor_scope():
             "tenant_id": tenant_id,
             "owner_user_id": user_id,
             "file_id": file_id,
+            "actor": actor,
         }
     ]
     assert response.json() == {
@@ -1803,6 +1804,7 @@ async def test_file_download_url_endpoint_uses_current_actor_scope():
             "tenant_id": tenant_id,
             "owner_user_id": user_id,
             "file_id": file_id,
+            "actor": actor,
         }
     ]
     assert response.json() == {
@@ -2103,51 +2105,56 @@ def file_api_rate_limit_sandbox(
 @pytest.mark.asyncio
 async def test_file_access_denies_non_owner_without_parent_relation():
     from types import SimpleNamespace
+    from unittest.mock import AsyncMock
     from uuid import uuid4
 
-    from services.file_access import (
-        FileAccessDeniedError,
-        FileAccessService,
+    from sqlalchemy.dialects import postgresql
+    from database.repositories.files import (
+        FileRepository, FileStorageObjectNotFoundError,
     )
+    from services.files import FileService
 
     tenant_id = uuid4()
     actor_user_id = uuid4()
-    owner_user_id = uuid4()
-    portfolio_id = uuid4()
-    calls = []
-
-    storage_object = SimpleNamespace(
-        tenant_id=tenant_id,
-        owner_user_id=owner_user_id,
-        entity_type="portfolio",
-        entity_id=portfolio_id,
+    file_id = uuid4()
+    actor = SimpleNamespace(
+        tenant_id=tenant_id, user_id=actor_user_id, status="active",
     )
 
-    class FakeParentAccess:
-        async def can_actor_read_parent(
-            self,
-            **kwargs,
-        ):
-            calls.append(kwargs)
-            return False
-
-    service = FileAccessService(
-        parent_access=FakeParentAccess(),
+    # A foreign portfolio file has neither an owner match nor an organization
+    # relation. Execute the real repository lookups with no authorized row.
+    result = SimpleNamespace(scalar_one_or_none=lambda: None)
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+    storage = SimpleNamespace(create_signed_download_url=AsyncMock())
+    service = FileService(
+        repository=FileRepository(session),
+        storage=storage,
+        storage_provider_name="supabase",
     )
 
-    with pytest.raises(FileAccessDeniedError):
-        await service.ensure_user_can_read(
-            tenant_id=tenant_id,
-            actor_user_id=actor_user_id,
-            storage_object=storage_object,
+    with pytest.raises(FileStorageObjectNotFoundError):
+        await service.create_download_url(
+            actor=actor, tenant_id=tenant_id,
+            owner_user_id=actor_user_id, file_id=file_id,
         )
 
-    assert calls == [
-        {
-            "tenant_id": tenant_id,
-            "actor_user_id": actor_user_id,
-            "entity_type": "portfolio",
-            "entity_id": portfolio_id,
-        },
+    assert session.execute.await_count == 2
+    statements = [call.args[0] for call in session.execute.await_args_list]
+    where_clauses = [
+        str(statement.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )).partition("WHERE ")[2]
+        for statement in statements
     ]
+    for where_sql in where_clauses:
+        assert f"file_storage_objects.tenant_id = '{tenant_id}'" in where_sql
+        assert f"file_storage_objects.id = '{file_id}'" in where_sql
+    assert (
+        f"file_storage_objects.owner_user_id = '{actor_user_id}'"
+        in where_clauses[0]
+    )
+    assert "file_storage_objects.entity_type = 'organization'" in where_clauses[1]
+    assert f"file_storage_objects.entity_id = '{tenant_id}'" in where_clauses[1]
+    storage.create_signed_download_url.assert_not_awaited()
 

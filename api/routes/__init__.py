@@ -68,6 +68,7 @@ from api.routes.white_label import (
 )
 
 __all__ = [
+    "company_profiles_router",
     "construction_router",
     "files_router",
     "webhooks_router",
@@ -139,3 +140,5 @@ from api.routes.webhooks import (
 from api.routes.files import (
     router as files_router,
 )
+
+from api.routes.company_profiles import router as company_profiles_router

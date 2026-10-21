@@ -1,6 +1,8 @@
 from decimal import Decimal
 from uuid import UUID
 
+from services.construction_audit_client_correlation import construction_audit_client_details
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.repositories.event import (
@@ -118,143 +120,50 @@ class ConstructionProjectService:
             ),
         )
 
-    async def create_project(
-        self,
-        *,
-        actor,
-        access_context: ConstructionAccessContext,
-        name: str,
-        address_raw: str,
-        client_id: UUID | None,
-        responsible_user_id: UUID | None,
-        comment: str | None,
-        trace_id: str | None = None,
-    ):
-        require_construction_access(
-            actor=actor,
-            access_context=access_context,
-            permission_code=(
-                "construction.projects.create"
-            ),
-        )
-
-        normalized_name = (
-            name.strip()
-            if isinstance(name, str)
-            else ""
-        )
-        normalized_address_raw = (
-            address_raw.strip()
-            if isinstance(address_raw, str)
-            else ""
-        )
-
+    async def create_project(self, *, actor, access_context: ConstructionAccessContext, name: str, address_raw: str, client_id: UUID | None, responsible_user_id: UUID | None, comment: str | None, trace_id: str | None=None, manage_transaction: bool=True):
+        if type(manage_transaction) is not bool:
+            raise ConstructionProjectValidationError('Transaction mode must be a boolean.')
+        if not manage_transaction and (not callable(getattr(self.session, 'in_transaction', None)) or self.session.in_transaction() is not True):
+            raise ConstructionProjectOperationError('Project creation requires an active caller transaction.')
+        require_construction_access(actor=actor, access_context=access_context, permission_code='construction.projects.create')
+        normalized_name = name.strip() if isinstance(name, str) else ''
+        normalized_address_raw = address_raw.strip() if isinstance(address_raw, str) else ''
         if not normalized_name:
-            raise ConstructionProjectValidationError(
-                "Construction project name "
-                "is required."
-            )
-
+            raise ConstructionProjectValidationError('Construction project name is required.')
         if not normalized_address_raw:
-            raise ConstructionProjectValidationError(
-                "Construction project address "
-                "is required."
-            )
-
+            raise ConstructionProjectValidationError('Construction project address is required.')
         if client_id is not None:
             if self.client_repository is None:
-                raise ConstructionProjectOperationError(
-                    "Construction project operation "
-                    "failed."
-                )
-
+                raise ConstructionProjectOperationError('Construction project operation failed.')
             try:
-                client = (
-                    await self.client_repository
-                    .get_active_client(
-                        tenant_id=actor.tenant_id,
-                        client_id=client_id,
-                    )
-                )
+                client = await self.client_repository.get_active_client(tenant_id=actor.tenant_id, client_id=client_id)
             except Exception as exc:
-                await self.session.rollback()
-                raise ConstructionProjectOperationError(
-                    "Construction project operation "
-                    "failed."
-                ) from exc
-
+                if manage_transaction:
+                    await self.session.rollback()
+                raise ConstructionProjectOperationError('Construction project operation failed.') from exc
             if client is None:
-                raise ConstructionProjectValidationError(
-                    "Construction project client "
-                    "is not available."
-                )
-
+                raise ConstructionProjectValidationError('Construction project client is not available.')
         if responsible_user_id is not None:
             if self.access_repository is None:
-                raise ConstructionProjectOperationError(
-                    "Construction project operation "
-                    "failed."
-                )
-
+                raise ConstructionProjectOperationError('Construction project operation failed.')
             try:
-                has_membership = (
-                    await self.access_repository
-                    .has_active_platform_membership(
-                        tenant_id=actor.tenant_id,
-                        user_id=responsible_user_id,
-                    )
-                )
+                has_membership = await self.access_repository.has_active_platform_membership(tenant_id=actor.tenant_id, user_id=responsible_user_id)
             except Exception as exc:
-                await self.session.rollback()
-                raise ConstructionProjectOperationError(
-                    "Construction project operation "
-                    "failed."
-                ) from exc
-
+                if manage_transaction:
+                    await self.session.rollback()
+                raise ConstructionProjectOperationError('Construction project operation failed.') from exc
             if not has_membership:
-                raise ConstructionProjectValidationError(
-                    "Construction project responsible "
-                    "user is not available."
-                )
-
+                raise ConstructionProjectValidationError('Construction project responsible user is not available.')
         try:
-            project = (
-                await self.repository.create_project(
-                    tenant_id=actor.tenant_id,
-                    client_id=client_id,
-                    name=normalized_name,
-                    responsible_user_id=(
-                        responsible_user_id
-                    ),
-                    comment=comment,
-                    address_raw=(
-                        normalized_address_raw
-                    ),
-                    created_by=actor.user_id,
-                )
-            )
-
-            await self.audit_logger.record_operation(
-                actor=actor,
-                event_type=(
-                    "construction_project_created"
-                ),
-                entity_type=(
-                    "construction_project"
-                ),
-                entity_id=project.id,
-                operation="create",
-                trace_id=trace_id,
-            )
-
-            await self.session.commit()
+            project = await self.repository.create_project(tenant_id=actor.tenant_id, client_id=client_id, name=normalized_name, responsible_user_id=responsible_user_id, comment=comment, address_raw=normalized_address_raw, created_by=actor.user_id)
+            await self.audit_logger.record_operation(actor=actor, event_type='construction_project_created', entity_type='construction_project', entity_id=project.id, operation='create', trace_id=trace_id, details=construction_audit_client_details(tenant_id=actor.tenant_id, entity_type="construction_project", entity=project))
+            if manage_transaction:
+                await self.session.commit()
             return project
         except Exception as exc:
-            await self.session.rollback()
-            raise ConstructionProjectOperationError(
-                "Construction project operation "
-                "failed."
-            ) from exc
+            if manage_transaction:
+                await self.session.rollback()
+            raise ConstructionProjectOperationError('Construction project operation failed.') from exc
 
     async def update_project(
         self,
@@ -545,6 +454,7 @@ class ConstructionProjectService:
                 operation="update",
                 changes=tuple(changes),
                 trace_id=trace_id,
+                details=construction_audit_client_details(tenant_id=actor.tenant_id, entity_type="construction_project", entity=project),
             )
 
             await self.session.commit()
@@ -644,6 +554,7 @@ class ConstructionProjectService:
                     ),
                 ),
                 trace_id=trace_id,
+                details=construction_audit_client_details(tenant_id=actor.tenant_id, entity_type="construction_project", entity=project),
             )
 
             await self.session.commit()

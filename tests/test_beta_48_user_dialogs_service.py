@@ -174,6 +174,7 @@ async def test_specialist_dialog_list_uses_actor_scope():
     assert chats.calls[0] == (
         "specialist_list",
         {
+            "tenant_id": current.tenant_id,
             "user_id": current.user_id,
             "view": "archive",
             "limit": 6,
@@ -212,6 +213,7 @@ async def test_client_dialog_list_uses_actor_scope():
     assert users.calls == [456]
 
     assert chats.calls[0][1] == {
+        "tenant_id": current.tenant_id,
         "user_id": current.user_id,
         "view": "completed",
         "limit": 5,
@@ -246,6 +248,7 @@ async def test_specialist_detail_validates_actor():
         "language": "uk",
     }
     assert chats.calls[1][1] == {
+        "tenant_id": current.tenant_id,
         "thread_id": thread_id,
         "user_id": current.user_id,
     }
@@ -839,6 +842,7 @@ async def test_client_dialog_search_uses_actor_scope():
         (
             "client_list",
             {
+                "tenant_id": current.tenant_id,
                 "user_id": current.user_id,
                 "view": "archive",
                 "limit": 5,
@@ -850,6 +854,7 @@ async def test_client_dialog_search_uses_actor_scope():
         (
             "unread",
             {
+                "tenant_id": current.tenant_id,
                 "user_id": current.user_id,
                 "participant_role": "client",
             },
@@ -880,6 +885,7 @@ async def test_specialist_dialog_search_uses_lookahead():
         (
             "specialist_list",
             {
+                "tenant_id": current.tenant_id,
                 "user_id": current.user_id,
                 "view": "active",
                 "limit": 6,
@@ -891,6 +897,7 @@ async def test_specialist_dialog_search_uses_lookahead():
         (
             "unread",
             {
+                "tenant_id": current.tenant_id,
                 "user_id": current.user_id,
                 "participant_role": (
                     "specialist"
@@ -1566,6 +1573,7 @@ async def test_contact_chat_detail_uses_actor_scope():
     ]
     assert chats.read_calls == [
         {
+            "tenant_id": actor.tenant_id,
             "thread_id": thread_id,
             "user_id": actor.user_id,
         }
@@ -2086,6 +2094,7 @@ async def test_contact_message_send_uses_actor_scope():
 
     assert chats.send_calls == [
         {
+            "tenant_id": actor.tenant_id,
             "thread_id": thread_id,
             "sender_user_id": actor.user_id,
             "text": "Hello",

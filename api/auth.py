@@ -1036,6 +1036,10 @@ def require_authenticated_user_rate_limit(
 
         return actor
 
+    # Metadata for composition only; the guard, bucket and error behavior
+    # remain shared with every existing Platform API consumer.
+    authenticated_user_rate_limit_dependency.api_rate_limit_context = (
+        "authenticated_user", actor_dependency, service_dependency)
     return authenticated_user_rate_limit_dependency
 
 

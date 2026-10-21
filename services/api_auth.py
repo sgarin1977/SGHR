@@ -17,6 +17,7 @@ from services.user import (
     TelegramUserData,
     UserService,
 )
+from database.repositories.user import PlatformTelegramAccountUnlinkedError
 
 
 class ApiAuthAccessError(Exception):
@@ -272,23 +273,27 @@ class ApiAuthService:
 
             raise
 
-        registration = await (
-            self.user_service
-            .register_telegram_user(
-                TelegramUserData(
-                    platform_user_id=str(
-                        identity.platform_user_id
-                    ),
-                    username=identity.username,
-                    first_name=identity.first_name,
-                    last_name=identity.last_name,
-                    language_code=(
-                        identity.language_code
-                        or "ru"
-                    ),
+        try:
+            registration = await (
+                self.user_service
+                .register_telegram_user(
+                    TelegramUserData(
+                        platform_user_id=str(
+                            identity.platform_user_id
+                        ),
+                        username=identity.username,
+                        first_name=identity.first_name,
+                        last_name=identity.last_name,
+                        language_code=(
+                            identity.language_code
+                            or "ru"
+                        ),
+                    )
                 )
             )
-        )
+        except PlatformTelegramAccountUnlinkedError:
+            await self.session.rollback()
+            raise ApiAuthAccessError("Authenticated user is not available.") from None
         user = await (
             self.user_service.get_user_by_id(
                 registration.user_id
@@ -307,6 +312,11 @@ class ApiAuthService:
             )
 
         try:
+            # Registration may commit before this point. Revalidate the exact
+            # identity while holding the same user/account locks as unlink.
+            await self.user_service.lock_telegram_authentication(
+                user_id=user.id, telegram_user_id=identity.platform_user_id,
+            )
             token_pair = await (
                 self.prepare_token_pair(
                     user=user,
@@ -339,6 +349,9 @@ class ApiAuthService:
                 )
 
             await self.session.commit()
+        except PlatformTelegramAccountUnlinkedError:
+            await self.session.rollback()
+            raise ApiAuthAccessError("Authenticated user is not available.") from None
         except Exception:
             await self.session.rollback()
             raise

@@ -70,6 +70,27 @@ class ConstructionAccessContextResolver:
             )
         )
 
+        checked_at = self.now_provider()
+        if (
+            not isinstance(checked_at, datetime)
+            or checked_at.tzinfo is None or checked_at.utcoffset() is None
+        ):
+            raise ConstructionGrantOperationError("Construction access clock is invalid.")
+        current_grants = []
+        for grant in grants:
+            deadline = getattr(grant, "expires_at", None)
+            if deadline is not None and (
+                not isinstance(deadline, datetime)
+                or deadline.tzinfo is None or deadline.utcoffset() is None
+            ):
+                raise ConstructionGrantOperationError("Construction access expiration is invalid.")
+            if (
+                getattr(grant, "status", "active") == "active"
+                and (deadline is None or deadline > checked_at)
+            ):
+                current_grants.append(grant)
+        grants = current_grants
+
         roles = tuple(
             sorted(
                 {
@@ -254,6 +275,11 @@ class ConstructionAccessGrantService:
                 scope_type=grant.scope_type,
                 scope_id=grant.scope_id,
                 project_id=project_id,
+            )
+
+            require_delegable_construction_role(
+                actor=actor, access_context=access_context, target_role=grant.role,
+                scope_type=grant.scope_type, scope_id=grant.scope_id, project_id=project_id,
             )
 
             if grant.status == "revoked":
@@ -553,3 +579,26 @@ class ConstructionAccessGrantService:
                 "Construction access operation "
                 "failed."
             ) from exc
+
+
+def build_construction_access_context_resolver(session):
+    from database.repositories.construction import (
+        ConstructionAccessRepository,
+    )
+
+    return ConstructionAccessContextResolver(
+        repository=ConstructionAccessRepository(session),
+    )
+
+
+def build_construction_access_grant_service(*, session):
+    """Compose repository and mandatory audit with the caller's scoped session."""
+    from database.repositories.construction import ConstructionAccessRepository
+    from database.repositories.event import EventRepository
+
+    from services.construction_membership_writers import SerializedConstructionAccessGrantService
+    return SerializedConstructionAccessGrantService(
+        session=session,
+        repository=ConstructionAccessRepository(session),
+        event_repository=EventRepository(session),
+    )

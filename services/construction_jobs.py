@@ -204,6 +204,8 @@ class ConstructionBackgroundJobWorker:
         self.clock = clock
 
     async def run_once(self) -> UUID | None:
+        from database.repositories.job_queue import JobLeaseLostError
+
         started_at = self.clock()
 
         job = await self.queue.claim_next(
@@ -263,6 +265,8 @@ class ConstructionBackgroundJobWorker:
             )
 
             return job.id
+        except JobLeaseLostError:
+            raise
         except Exception:
             failed_at = self.clock()
 

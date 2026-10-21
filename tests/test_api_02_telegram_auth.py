@@ -327,6 +327,9 @@ async def test_telegram_auth_service_creates_token_session():
                 status="active",
             )
 
+        async def lock_telegram_authentication(self, *, user_id, telegram_user_id):
+            calls.append(("identity_lock", user_id, telegram_user_id))
+
     class FakeAccessTokenCodec:
         access_ttl_seconds = 900
 
@@ -442,6 +445,12 @@ async def test_telegram_auth_service_creates_token_session():
 
     assert database_session.commits == 1
     assert database_session.rollbacks == 0
+
+    identity_locks = [call for call in calls if call[0] == "identity_lock"]
+    assert identity_locks == [("identity_lock", user_id, 123456789)]
+    lock_index = next(i for i, call in enumerate(calls) if call[0] == "identity_lock")
+    for label in ("refresh_token", "access_token", "create_session"):
+        assert lock_index < next(i for i, call in enumerate(calls) if call[0] == label)
 
 
 @pytest.mark.asyncio
@@ -1022,6 +1031,8 @@ async def test_successful_telegram_auth_is_security_audited():
         expires_in=900,
     )
 
+    locks = []
+
     class FakeUserService:
         async def register_telegram_user(
             self,
@@ -1037,6 +1048,9 @@ async def test_successful_telegram_auth_is_security_audited():
         ):
             assert value == user_id
             return user
+
+        async def lock_telegram_authentication(self, *, user_id, telegram_user_id):
+            locks.append((user_id, telegram_user_id))
 
     verifier = SimpleNamespace(
         verify=Mock(
@@ -1100,6 +1114,7 @@ async def test_successful_telegram_auth_is_security_audited():
         .await_args.kwargs["payload"]
     )
     assert "init_data" not in payload
+    assert locks == [(user_id, 123456789)]
 
 
 @pytest.mark.asyncio

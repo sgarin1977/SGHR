@@ -24,9 +24,145 @@ from database.models import (
 )
 
 
+class PlatformTelegramAccountUnlinkedError(PermissionError):
+    """A disconnected canonical identity must never enter automatic onboarding."""
+
+    def __init__(self):
+        super().__init__("Telegram account is not available.")
+
+
+class PlatformInvitationMembershipConflictError(Exception):
+    """An invitation cannot restore blocked Platform membership."""
+
+    status_code = 409
+    code = "PLATFORM_MEMBERSHIP_CONFLICT"
+
+    def __init__(self):
+        super().__init__("Platform membership requires an authorized Platform operation.")
+
+
+class PlatformInvitationMembershipUnavailableError(PermissionError):
+    def __init__(self):
+        super().__init__("Platform invitation membership is not available.")
+
+
 class UserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def has_verified_email(self, *, user_id: uuid.UUID, email: str) -> bool:
+        from sqlalchemy import or_
+        from database.models import ApiEmailAuthChallenge, EventLog
+
+        if not isinstance(user_id, uuid.UUID) or not isinstance(email, str):
+            return False
+        normalized_email = email.strip().casefold()
+        if not normalized_email or len(normalized_email) > 320:
+            return False
+
+        matching_proof = (
+            select(UserAccount.id)
+            .join(User, User.id == UserAccount.user_id)
+            .join(EventLog, EventLog.user_id == UserAccount.user_id)
+            .join(ApiEmailAuthChallenge,
+                  ApiEmailAuthChallenge.id == EventLog.entity_id)
+            .where(
+                UserAccount.user_id == user_id,
+                User.status == "active",
+                UserAccount.platform == "email",
+                UserAccount.email == normalized_email,
+                UserAccount.platform_user_id == normalized_email,
+                EventLog.event_type == "api_email_auth_succeeded",
+                EventLog.entity_type == "api_email_auth_challenge",
+                EventLog.platform == "api",
+                ApiEmailAuthChallenge.email == normalized_email,
+                ApiEmailAuthChallenge.status == "used",
+                ApiEmailAuthChallenge.used_at.is_not(None),
+                ApiEmailAuthChallenge.challenge_type.in_(("otp", "magic_link")),
+                or_(
+                    ApiEmailAuthChallenge.requested_user_id.is_(None),
+                    ApiEmailAuthChallenge.requested_user_id == user_id,
+                ),
+            )
+        )
+        result = await self.session.execute(select(matching_proof.exists()))
+        return result.scalar_one() is True
+
+    async def list_team_identity_accounts(
+        self, *, tenant_id: uuid.UUID, user_ids,
+    ):
+        from sqlalchemy import case, or_
+        from database.models import ApiEmailAuthChallenge, EventLog
+
+        ids = tuple(dict.fromkeys(user_ids))
+        if not isinstance(tenant_id, uuid.UUID):
+            raise ValueError("Invalid tenant identity scope.")
+        if any(not isinstance(item, uuid.UUID) for item in ids):
+            raise ValueError("Invalid user identity scope.")
+        if not ids:
+            return []
+
+        membership = (
+            select(UserRoleMapping.id)
+            .where(
+                UserRoleMapping.user_id == User.id,
+                UserRoleMapping.tenant_id == tenant_id,
+                UserRoleMapping.status == "active",
+            )
+            .correlate(User)
+            .exists()
+        )
+
+        verified_email = (
+            select(EventLog.id)
+            .join(
+                ApiEmailAuthChallenge,
+                EventLog.entity_id == ApiEmailAuthChallenge.id,
+            )
+            .where(
+                EventLog.user_id == UserAccount.user_id,
+                EventLog.event_type == "api_email_auth_succeeded",
+                EventLog.entity_type == "api_email_auth_challenge",
+                EventLog.platform == "api",
+                ApiEmailAuthChallenge.status == "used",
+                ApiEmailAuthChallenge.used_at.is_not(None),
+                ApiEmailAuthChallenge.challenge_type.in_(
+                    ("otp", "magic_link")
+                ),
+                ApiEmailAuthChallenge.email == UserAccount.email,
+                ApiEmailAuthChallenge.email
+                == UserAccount.platform_user_id,
+                UserAccount.platform == "email",
+                or_(
+                    ApiEmailAuthChallenge.requested_user_id.is_(None),
+                    ApiEmailAuthChallenge.requested_user_id
+                    == UserAccount.user_id,
+                ),
+            )
+            .correlate(UserAccount)
+            .exists()
+        )
+
+        statement = (
+            select(
+                UserAccount.user_id,
+                UserAccount.display_name,
+                case(
+                    (verified_email, UserAccount.email),
+                    else_=None,
+                ).label("verified_email"),
+            )
+            .join(User, User.id == UserAccount.user_id)
+            .where(
+                UserAccount.user_id.in_(ids),
+                User.status == "active",
+                or_(User.tenant_id == tenant_id, membership),
+            )
+            .order_by(UserAccount.user_id, UserAccount.id)
+        )
+        result = await self.session.execute(statement)
+        return [dict(row) for row in result.mappings().all()]
+
 
     async def get_by_platform_account(
         self,
@@ -37,8 +173,15 @@ class UserRepository:
             UserAccount.platform == platform,
             UserAccount.platform_user_id == platform_user_id,
         )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        # Do not hide an unlinked account as "missing": onboarding would
+        # otherwise create a second Platform user for the same Telegram identity.
+        stmt = stmt.execution_options(populate_existing=True)
+        with self.session.no_autoflush:
+            result = await self.session.execute(stmt)
+        account = result.scalar_one_or_none()
+        if platform == "telegram" and account is not None and account.status != "active":
+            raise PlatformTelegramAccountUnlinkedError()
+        return account
 
 
     async def get_email_account_for_update(
@@ -92,6 +235,7 @@ class UserRepository:
         stmt = select(UserAccount).where(
             UserAccount.user_id == user_id,
             UserAccount.platform == "telegram",
+            UserAccount.status == "active",
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -270,6 +414,8 @@ class UserRepository:
         self,
         user_id: uuid.UUID,
         language: str = "ru",
+        *,
+        telegram_platform_user_id: str | None = None,
     ):
         localized_city_name = {
             "ru": City.name_ru,
@@ -287,7 +433,6 @@ class UserRepository:
         result = await self.session.execute(
             select(
                 User,
-                UserAccount,
                 func.coalesce(
                     localized_city_name,
                     City.name_ru,
@@ -296,15 +441,104 @@ class UserRepository:
                     City.name,
                 ).label("city_name"),
             )
-            .outerjoin(
-                UserAccount,
-                (UserAccount.user_id == User.id)
-                & (UserAccount.platform == "telegram"),
-            )
             .outerjoin(City, City.id == User.city_id)
             .where(User.id == user_id)
+            .execution_options(autoflush=False, populate_existing=True)
         )
-        return result.one_or_none()
+        profile = result.one_or_none()
+        if profile is None:
+            return None
+
+        # A Platform user may own several Telegram identities. Keep the profile
+        # row independent of account cardinality; use an explicit identity when
+        # supplied by the incoming Telegram context. User-only reads have no
+        # primary-account heuristic and expose no arbitrary account's fields.
+        statement = select(UserAccount).where(
+            UserAccount.user_id == user_id,
+            UserAccount.platform == "telegram",
+            UserAccount.status == "active",
+        )
+        if telegram_platform_user_id is not None:
+            statement = statement.where(
+                UserAccount.platform_user_id == telegram_platform_user_id,
+            )
+        accounts = await self.session.execute(
+            statement.limit(2).execution_options(
+                autoflush=False, populate_existing=True,
+            )
+        )
+        candidates = accounts.scalars().all()
+        account = candidates[0] if len(candidates) == 1 else None
+        user, city_name = profile
+        return user, account, city_name
+
+    async def ensure_invitation_tenant_membership(
+        self, *, user_id: uuid.UUID, tenant_id: uuid.UUID,
+    ) -> bool:
+        """Return True only when a new client membership is inserted.
+
+        The caller must first validate invitation, token and verified email,
+        bind trusted recipient/tenant context for RLS, and use the same
+        transaction for membership, grants, invitation and audit.
+        This method never commits, rolls back or restores any role.
+        """
+        from sqlalchemy.dialects.postgresql import insert
+
+        if not isinstance(user_id, uuid.UUID) or not isinstance(tenant_id, uuid.UUID):
+            raise ValueError("Verified Platform user and tenant UUIDs are required.")
+        if not self.session.in_transaction():
+            raise ValueError("Platform invitation membership requires an active transaction.")
+
+        # Lock the existing global user first, including the missing-role case.
+        result = await self.session.execute(
+            select(User.id, User.tenant_id, User.status)
+            .where(User.id == user_id)
+            .with_for_update()
+        )
+        user = result.mappings().one_or_none()
+        if user is None or user["status"] != "active":
+            raise PlatformInvitationMembershipUnavailableError()
+
+        role_statement = (
+            select(UserRoleMapping.id, UserRoleMapping.role, UserRoleMapping.status)
+            .where(
+                UserRoleMapping.user_id == user_id,
+                UserRoleMapping.tenant_id == tenant_id,
+            )
+            .order_by(UserRoleMapping.id)
+            .with_for_update()
+        )
+        result = await self.session.execute(role_statement)
+        roles = result.mappings().all()
+        if any(row["role"] == "client" and row["status"] != "active" for row in roles):
+            raise PlatformInvitationMembershipConflictError()
+        if user["tenant_id"] == tenant_id or any(row["status"] == "active" for row in roles):
+            return False
+
+        table = UserRoleMapping.__table__
+        result = await self.session.execute(
+            insert(table).values(
+                id=uuid.uuid4(), user_id=user_id, tenant_id=tenant_id,
+                role="client", status="active", granted_by=None,
+                granted_at=func.now(),
+            )
+            .on_conflict_do_nothing(
+                index_elements=[table.c.user_id, table.c.tenant_id, table.c.role],
+            )
+            .returning(table.c.id)
+        )
+        if result.scalar_one_or_none() is not None:
+            return True
+
+        # The physical unique key may have won a concurrent insert.
+        # Re-read its status instead of updating or assuming it is active.
+        result = await self.session.execute(role_statement)
+        roles = result.mappings().all()
+        if any(row["role"] == "client" and row["status"] != "active" for row in roles):
+            raise PlatformInvitationMembershipConflictError()
+        if any(row["role"] == "client" and row["status"] == "active" for row in roles):
+            return False
+        raise PlatformInvitationMembershipConflictError()
 
     async def ensure_active_role(
         self,
@@ -326,6 +560,7 @@ class UserRepository:
         result = await self.session.execute(
             select(UserRoleMapping).where(
                 UserRoleMapping.user_id == user_id,
+                UserRoleMapping.tenant_id == tenant_id,
                 UserRoleMapping.role == role,
             )
         )

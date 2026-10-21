@@ -70,17 +70,31 @@ class ApiIdempotencyService:
             idempotency_key.encode("utf-8")
         ).hexdigest()
 
-        record = await (
-            self.repository
-            .get_active_record_for_update(
-                tenant_id=tenant_id,
-                principal_type=principal_type,
-                principal_id=principal_id,
-                operation=operation,
-                key_hash=key_hash,
+        reserve_record = getattr(self.repository, "reserve_record", None)
+        if callable(reserve_record):
+            record, is_new = await reserve_record(
+                tenant_id=tenant_id, principal_type=principal_type,
+                principal_id=principal_id, operation=operation,
+                key_hash=key_hash, request_hash=request_hash,
                 now=current_time,
+                expires_at=current_time + IDEMPOTENCY_RETENTION,
             )
-        )
+            if record is None:
+                raise RuntimeError("Idempotency reservation could not be resolved.")
+            if is_new:
+                return ApiIdempotencyReservation(record=record, is_replay=False)
+        else:
+            record = await (
+                self.repository
+                .get_active_record_for_update(
+                    tenant_id=tenant_id,
+                    principal_type=principal_type,
+                    principal_id=principal_id,
+                    operation=operation,
+                    key_hash=key_hash,
+                    now=current_time,
+                )
+            )
 
         if record is not None:
             if record.request_hash != request_hash:

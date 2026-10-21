@@ -124,6 +124,16 @@ class ApiRequestRateLimitService:
         return current_count
 
 
+    async def ensure_platform_user_allowed(self, *, user_id: UUID) -> int:
+        """Shared authenticated Platform bucket independent of organization selection."""
+        if not isinstance(user_id, UUID):
+            raise ValueError('Platform user UUID is required.')
+        count = await self.store.increment(
+            key=f'api-rate-limit:platform-user:{user_id}', window_seconds=API_RATE_LIMIT_WINDOW_SECONDS)
+        if count > AUTHENTICATED_USER_RATE_LIMIT:
+            raise ApiRequestRateLimitExceededError()
+        return count
+
     async def ensure_partner_api_allowed(
         self,
         *,
@@ -208,6 +218,22 @@ class ApiRequestRateLimitService:
             raise ApiRequestRateLimitExceededError()
 
         return current_count
+
+    async def ensure_telegram_binding_allowed(self, *, bot_id: int, telegram_user_id: int) -> int:
+        """Rate-limit trusted Bot API identity before an unlinked token lookup.
+
+        The identifiers come from the configured bot and its dispatched Update,
+        never from a web request body. Use the existing shared store/window.
+        """
+        if (type(bot_id) is not int or bot_id <= 0
+            or type(telegram_user_id) is not int or telegram_user_id <= 0):
+            raise ValueError('Telegram binding rate-limit identity is invalid.')
+        key = f'api-rate-limit:telegram-binding:bot:{bot_id}:telegram-user:{telegram_user_id}'
+        current_count = await self.store.increment(key=key, window_seconds=API_RATE_LIMIT_WINDOW_SECONDS)
+        if current_count > PUBLIC_API_RATE_LIMIT:
+            raise ApiRequestRateLimitExceededError()
+        return current_count
+
 
 
 class RedisApiRequestRateLimitStore:

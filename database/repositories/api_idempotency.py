@@ -41,8 +41,65 @@ class ApiIdempotencyRepository:
                 > now,
             )
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
         return result.scalar_one_or_none()
+
+
+    async def reserve_record(
+        self, *, tenant_id: UUID, principal_type: str,
+        principal_id: UUID, operation: str, key_hash: str,
+        request_hash: str, now: datetime, expires_at: datetime,
+    ) -> tuple[ApiIdempotencyRecord, bool]:
+        from uuid import uuid4
+        from sqlalchemy.dialects.postgresql import insert
+
+        if expires_at <= now:
+            raise ValueError("Idempotency expiration must be in the future.")
+
+        renewed = {
+            "request_hash": request_hash,
+            "status": "processing",
+            "response_status": None,
+            "response_ciphertext": None,
+            "completed_at": None,
+            "created_at": now,
+            "expires_at": expires_at,
+        }
+        statement = (
+            insert(ApiIdempotencyRecord)
+            .values(
+                id=uuid4(), tenant_id=tenant_id,
+                principal_type=principal_type, principal_id=principal_id,
+                operation=operation, key_hash=key_hash, **renewed,
+            )
+            .on_conflict_do_update(
+                index_elements=[
+                    ApiIdempotencyRecord.tenant_id,
+                    ApiIdempotencyRecord.principal_type,
+                    ApiIdempotencyRecord.principal_id,
+                    ApiIdempotencyRecord.operation,
+                    ApiIdempotencyRecord.key_hash,
+                ],
+                set_=renewed,
+                where=ApiIdempotencyRecord.expires_at <= now,
+            )
+            .returning(ApiIdempotencyRecord)
+            .execution_options(populate_existing=True)
+        )
+        result = await self.session.execute(statement)
+        record = result.scalar_one_or_none()
+        if record is not None:
+            return record, True
+
+        record = await self.get_active_record_for_update(
+            tenant_id=tenant_id, principal_type=principal_type,
+            principal_id=principal_id, operation=operation,
+            key_hash=key_hash, now=now,
+        )
+        if record is None:
+            raise RuntimeError("Idempotency reservation could not be resolved.")
+        return record, False
 
 
     async def create_record(

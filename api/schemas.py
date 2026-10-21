@@ -1730,6 +1730,7 @@ class FileUploadRequest(ApiSchema):
         "message",
         "cv",
         "document",
+        "organization",
     ]
     entity_id: UUID | None = None
     filename: str = Field(
@@ -1789,3 +1790,162 @@ class FileDownloadResponse(ApiSchema):
     data: FileDownloadData
     meta: ResponseMeta
     request_id: str
+
+
+
+class CompanyProfileCreateRequest(ApiSchema):
+    legal_name: str
+    commercial_name: str | None = None
+    registered_address_raw: str | None = None
+    operational_address_raw: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    signatory_name: str | None = None
+    signatory_position: str | None = None
+    logo_file_id: UUID | None = None
+
+
+class CompanyProfileUpdateRequest(ApiSchema):
+    expected_row_version: int = Field(gt=0, strict=True)
+    legal_name: str | None = None
+    commercial_name: str | None = None
+    registered_address_raw: str | None = None
+    operational_address_raw: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    signatory_name: str | None = None
+    signatory_position: str | None = None
+    logo_file_id: UUID | None = None
+
+
+class CompanyProfileData(ApiSchema):
+    id: UUID
+    tenant_id: UUID
+    legal_name: str
+    commercial_name: str | None
+    registered_address_raw: str | None
+    operational_address_raw: str | None
+    phone: str | None
+    email: str | None
+    website: str | None
+    signatory_name: str | None
+    signatory_position: str | None
+    logo_file_id: UUID | None
+    created_at: datetime
+    updated_at: datetime
+    row_version: int
+
+
+class CompanyProfileReadResponse(ApiSchema):
+    data: CompanyProfileData | None
+    meta: ResponseMeta
+    request_id: str
+
+
+class CompanyProfileResponse(ApiSchema):
+    data: CompanyProfileData
+    meta: ResponseMeta
+    request_id: str
+
+
+class CompanyIdentifierData(ApiSchema):
+    id: UUID
+    country_code: str
+    identifier_type: str
+    identifier_value: str
+    is_primary: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class CompanyIdentifierListResponse(ApiSchema):
+    data: list[CompanyIdentifierData]
+    meta: ResponseMeta
+    request_id: str
+
+
+class CompanyIdentifierCreateRequest(ApiSchema):
+    country_code: str
+    identifier_type: str
+    identifier_value: str
+    is_primary: bool = Field(default=False, strict=True)
+
+
+class CompanyIdentifierResponse(ApiSchema):
+    data: CompanyIdentifierData
+    meta: ResponseMeta
+    request_id: str
+
+
+class CompanyIdentifierDeleteData(ApiSchema):
+    id: UUID
+    deleted: bool
+
+
+class CompanyIdentifierDeleteResponse(ApiSchema):
+    data: CompanyIdentifierDeleteData
+    meta: ResponseMeta
+    request_id: str
+
+
+class CompanyBankAccountData(ApiSchema):
+    id: UUID
+    label: str | None
+    account_holder_name: str
+    bank_name: str | None
+    country_code: str | None
+    iban: str | None
+    bic_swift: str | None
+    account_number: str | None
+    currency: str
+    is_primary: bool
+    is_active: bool
+    show_in_documents: bool
+    created_at: datetime
+    updated_at: datetime
+    row_version: int
+
+
+class CompanyBankAccountListResponse(ApiSchema):
+    data: list[CompanyBankAccountData]
+    meta: ResponseMeta
+    request_id: str
+
+
+class CompanyBankAccountResponse(ApiSchema):
+    data: CompanyBankAccountData
+    meta: ResponseMeta
+    request_id: str
+
+
+class CompanyBankAccountCreateRequest(ApiSchema):
+    account_holder_name: str
+    currency: str
+    iban: str | None = None
+    account_number: str | None = None
+    bic_swift: str | None = None
+    country_code: str | None = None
+    label: str | None = None
+    bank_name: str | None = None
+    is_primary: bool = Field(default=False, strict=True)
+    show_in_documents: bool = Field(default=False, strict=True)
+
+
+class CompanyBankAccountUpdateRequest(ApiSchema):
+    expected_row_version: int = Field(gt=0, strict=True)
+    label: str | None = None
+    account_holder_name: str | None = None
+    bank_name: str | None = None
+    country_code: str | None = None
+    iban: str | None = None
+    bic_swift: str | None = None
+    account_number: str | None = None
+    currency: str | None = None
+    is_primary: bool | None = None
+    show_in_documents: bool | None = None
+
+
+class CompanyBankAccountDeactivateRequest(ApiSchema):
+    expected_row_version: int = Field(gt=0, strict=True)

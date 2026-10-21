@@ -22,13 +22,19 @@ from api.schemas import (
     FileUploadRequestResponse,
 )
 from services.api_identity import ApiActorContext
-from database.repositories.files import (
+from services.files import (
     FileStorageObjectNotFoundError,
 )
 from services.files import (
     FileService,
     FileUploadValidationError,
     FileUploadVerificationError,
+)
+
+
+from services.platform_company_profile_access import (
+    CompanyProfilePermissionDeniedError,
+    load_company_profile_write_context,
 )
 
 
@@ -59,15 +65,27 @@ async def create_file_upload_request(
     ],
 ):
     try:
-        result = await service.create_upload_request(
-            tenant_id=actor.tenant_id,
-            owner_user_id=actor.user_id,
-            object_type=payload.object_type,
-            entity_id=payload.entity_id,
-            filename=payload.filename,
-            mime_type=payload.mime_type,
-            size_bytes=payload.size_bytes,
-        )
+        upload_kwargs = {
+            "tenant_id": actor.tenant_id,
+            "owner_user_id": actor.user_id,
+            "object_type": payload.object_type,
+            "entity_id": payload.entity_id,
+            "filename": payload.filename,
+            "mime_type": payload.mime_type,
+            "size_bytes": payload.size_bytes,
+        }
+        if payload.object_type == "organization":
+            upload_kwargs["actor"] = actor
+            upload_kwargs["construction_access_context"] = (
+                await load_company_profile_write_context(actor=actor)
+            )
+        result = await service.create_upload_request(**upload_kwargs)
+    except CompanyProfilePermissionDeniedError as exc:
+        raise ApiHttpError(
+            status_code=403,
+            code="forbidden",
+            message="Organization file access is not available.",
+        ) from exc
     except FileUploadValidationError as exc:
         raise ApiHttpError(
             status_code=422,
@@ -111,7 +129,14 @@ async def complete_file_upload(
             tenant_id=actor.tenant_id,
             owner_user_id=actor.user_id,
             file_id=file_id,
+            actor=actor,
         )
+    except CompanyProfilePermissionDeniedError as exc:
+        raise ApiHttpError(
+            status_code=403,
+            code="forbidden",
+            message="Organization file access is not available.",
+        ) from exc
     except FileStorageObjectNotFoundError as exc:
         raise ApiHttpError(
             status_code=404,
@@ -163,6 +188,7 @@ async def create_file_download_url(
             tenant_id=actor.tenant_id,
             owner_user_id=actor.user_id,
             file_id=file_id,
+            actor=actor,
         )
     except FileStorageObjectNotFoundError as exc:
         raise ApiHttpError(

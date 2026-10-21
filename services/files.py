@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from database.repositories.files import (
     FileRepository,
+    FileStorageObjectNotFoundError,
 )
 from services.file_storage import (
     FILE_SIGNED_URL_TTL_SECONDS,
@@ -29,6 +30,7 @@ ALLOWED_FILE_OBJECT_TYPES = frozenset(
         "message",
         "cv",
         "document",
+        "organization",
     }
 )
 
@@ -228,7 +230,30 @@ class FileService:
         filename: str,
         mime_type: str,
         size_bytes: int,
+        actor=None,
+        construction_access_context=None,
     ) -> FileUploadRequestView:
+        if str(object_type or "").strip().lower() == "organization":
+            from services.platform_company_profile_access import (
+                CompanyProfilePermissionDeniedError,
+                require_company_profile_manage,
+            )
+
+            if (
+                actor is None
+                or getattr(actor, "status", None) != "active"
+                or getattr(actor, "tenant_id", None) != tenant_id
+                or getattr(actor, "user_id", None) != owner_user_id
+                or entity_id != tenant_id
+            ):
+                raise CompanyProfilePermissionDeniedError(
+                    "Organization file access is not available."
+                )
+            require_company_profile_manage(
+                actor=actor,
+                construction_access_context=construction_access_context,
+            )
+
         validated = validate_file_upload(
             object_type=object_type,
             filename=filename,
@@ -304,6 +329,7 @@ class FileService:
         tenant_id: UUID,
         owner_user_id: UUID,
         file_id: UUID,
+        actor=None,
     ) -> FileCompletedView:
         try:
             storage_object = await (
@@ -316,6 +342,33 @@ class FileService:
                     file_id=file_id,
                 )
             )
+
+            if getattr(storage_object, "entity_type", None) == "organization":
+                from services.platform_company_profile_access import (
+                    CompanyProfilePermissionDeniedError,
+                    load_company_profile_write_context,
+                    require_company_profile_manage,
+                )
+
+                if (
+                    actor is None
+                    or not isinstance(tenant_id, UUID)
+                    or not isinstance(owner_user_id, UUID)
+                    or getattr(actor, "status", None) != "active"
+                    or getattr(actor, "tenant_id", None) != tenant_id
+                    or getattr(actor, "user_id", None) != owner_user_id
+                    or getattr(storage_object, "id", None) != file_id
+                    or getattr(storage_object, "tenant_id", None) != tenant_id
+                    or getattr(storage_object, "owner_user_id", None) != owner_user_id
+                    or getattr(storage_object, "entity_id", None) != tenant_id
+                ):
+                    raise CompanyProfilePermissionDeniedError(
+                        "Organization upload completion requires authorized management."
+                    )
+                access_context = await load_company_profile_write_context(actor=actor)
+                require_company_profile_manage(
+                    actor=actor, construction_access_context=access_context,
+                )
 
             actual = await (
                 self.storage.inspect_object(
@@ -395,14 +448,52 @@ class FileService:
         tenant_id: UUID,
         owner_user_id: UUID,
         file_id: UUID,
+        actor=None,
     ) -> FileDownloadView:
-        storage_object = await (
-            self.repository.get_downloadable_file(
+        organization_fallback = False
+        try:
+            storage_object = await self.repository.get_downloadable_file(
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
                 file_id=file_id,
             )
-        )
+        except FileStorageObjectNotFoundError:
+            if (
+                actor is None
+                or getattr(actor, "status", None) != "active"
+                or getattr(actor, "tenant_id", None) != tenant_id
+                or getattr(actor, "user_id", None) != owner_user_id
+            ):
+                raise
+            storage_object = await (
+                self.repository.get_organization_downloadable_file(
+                    tenant_id=tenant_id,
+                    file_id=file_id,
+                )
+            )
+            organization_fallback = True
+
+        if (
+            organization_fallback
+            or getattr(storage_object, "entity_type", None)
+            == "organization"
+        ):
+            if (
+                actor is None
+                or getattr(actor, "status", None) != "active"
+                or getattr(actor, "tenant_id", None) != tenant_id
+                or getattr(actor, "user_id", None) != owner_user_id
+                or getattr(storage_object, "tenant_id", None)
+                != tenant_id
+                or getattr(storage_object, "id", None) != file_id
+                or getattr(storage_object, "entity_type", None)
+                != "organization"
+                or getattr(storage_object, "entity_id", None)
+                != tenant_id
+            ):
+                raise FileStorageObjectNotFoundError(
+                    "Downloadable file not found."
+                )
 
         download_url = await (
             self.storage

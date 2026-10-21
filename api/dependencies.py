@@ -361,13 +361,9 @@ def get_api_idempotency_service(
 
 
 from api.settings import ApiWebhookSettings
-from database.repositories.webhooks import (
-    WebhookRepository,
-)
 from services.webhooks import (
-    WebhookCallbackUrlValidator,
-    WebhookSecretCodec,
     WebhookService,
+    build_webhook_service,
 )
 
 
@@ -375,26 +371,11 @@ def get_webhook_service(
     session=Depends(get_api_session),
 ) -> WebhookService:
     settings = ApiWebhookSettings.from_env()
-
-    return WebhookService(
+    return build_webhook_service(
         session=session,
-        repository=WebhookRepository(
-            session
-        ),
-        secret_codec=WebhookSecretCodec(
-            encryption_key=(
-                settings.secret_encryption_key
-            ),
-        ),
-        callback_validator=(
-            WebhookCallbackUrlValidator()
-        ),
+        secret_encryption_key=settings.secret_encryption_key,
         environment=settings.environment,
-        idempotency=(
-            get_api_idempotency_service(
-                session=session
-            )
-        ),
+        idempotency=get_api_idempotency_service(session=session),
     )
 
 

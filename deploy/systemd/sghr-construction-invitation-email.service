@@ -1,0 +1,23 @@
+[Unit]
+Description=SGHR Construction Invitation Email Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sghr
+Group=sghr
+WorkingDirectory=/opt/sghr
+EnvironmentFile=/opt/sghr/.env
+Environment=PYTHONPATH=/opt/sghr
+ExecStart=/opt/sghr/venv/bin/python /opt/sghr/scripts/process_construction_invitation_emails.py
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=330s
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

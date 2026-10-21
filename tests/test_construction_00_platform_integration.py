@@ -1,3 +1,4 @@
+from construction_rate_limit_fixture import with_local_construction_rate_limit, construction_module_dependencies
 import pytest
 from api.app import API_PREFIX, create_app
 
@@ -885,9 +886,14 @@ async def test_con_p008_enforces_all_guards_through_http():
     from api.errors import ApiHttpError
     from api.routes.construction import (
         ConstructionAPIRouter,
+        get_construction_access_context,
         get_construction_scoped_session,
         require_construction_permission,
         router as construction_router,
+    )
+    from services.construction_permissions import (
+        ConstructionAccessContext,
+        ConstructionGrantContext,
     )
 
     permission = (
@@ -915,7 +921,7 @@ async def test_con_p008_enforces_all_guards_through_http():
     async def guard_probe():
         return {"ok": True}
 
-    application = create_app()
+    application = with_local_construction_rate_limit(create_app())
     application.include_router(
         test_router,
         prefix=API_PREFIX,
@@ -938,25 +944,40 @@ async def test_con_p008_enforces_all_guards_through_http():
         actor = SimpleNamespace(
             user_id=uuid4(),
             tenant_id=uuid4(),
-            permissions=(permission,),
+            status="active",
+            permissions=(),
         )
+        access_state = {
+            "context": ConstructionAccessContext(
+                user_id=actor.user_id,
+                tenant_id=actor.tenant_id,
+                roles=("OWNER",),
+                permissions=(permission,),
+                grants=(ConstructionGrantContext(
+                    role="OWNER",
+                    scope_type="tenant",
+                    scope_id=actor.tenant_id,
+                ),),
+            ),
+        }
 
         application.dependency_overrides[
             get_current_actor
         ] = lambda: actor
+        application.dependency_overrides[
+            get_construction_access_context
+        ] = lambda: access_state["context"]
 
         application.dependency_overrides[
             get_construction_scoped_session
         ] = lambda: object()
 
         suite_guard = (
-            construction_router
-            .dependencies[2]
+            construction_module_dependencies(construction_router)[0]
             .dependency
         )
         module_guard = (
-            construction_router
-            .dependencies[3]
+            construction_module_dependencies(construction_router)[1]
             .dependency
         )
 
@@ -999,12 +1020,19 @@ async def test_con_p008_enforces_all_guards_through_http():
             suite_guard
         ] = lambda: actor
 
-        actor.permissions = ()
+        access_state["context"] = ConstructionAccessContext(
+            user_id=actor.user_id,
+            tenant_id=actor.tenant_id,
+            roles=(),
+            permissions=(),
+            grants=(),
+        )
 
         response = await client.get(
             "/api/v1/construction/guard-probe"
         )
         assert response.status_code == 403
+        assert response.json()["error"]["code"] == "permission_required"
 
 async def test_con_p003_switches_role_in_selected_secondary_organization():
     from types import SimpleNamespace

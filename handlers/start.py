@@ -11,6 +11,7 @@ from utils.telegram_cleanup import (
     edit_or_replace_menu_message,
     edit_or_replace_tracked_menu_message,
 )
+from database.repositories.user import PlatformTelegramAccountUnlinkedError
 start_router = Router()
 
 
@@ -984,6 +985,9 @@ async def cmd_start(message: Message, state: FSMContext):
         language = (
             start_action.context.language
         )
+    except PlatformTelegramAccountUnlinkedError:
+        await message.answer(t("platform_telegram_account_unlinked", language))
+        return
     except RateLimitError:
         state_data = await state.get_data()
 

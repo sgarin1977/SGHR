@@ -1,0 +1,19 @@
+# CON-C012: lead conversion HTTP endpoint
+
+Authority: rev.12 section 5.1 and section 22 explicitly define POST /api/v1/construction/crm/leads/{id}/convert. clarifications.txt CON-C012 specifies three selections, successful won status and stored client/project links, atomic conversion and idempotent repeats; its Idempotency-Key list explicitly includes convert lead. new clarification.txt restores this endpoint as a required Stage 1 HTTP dependency. CON-C012 remains a Stage 1A domain code.
+
+The authenticated ConstructionAPIRouter checks Construction Suite and construction.core through the existing entitlement gates and uses the common construction.projects.edit permission. The workflow/service performs fresh Platform membership, shared permission and tenant/scope checks; new resources also require projects.create. No new CRM permission, role matrix, automatic grant, membership record or trust in supplied tenant headers/query parameters is introduced.
+
+The strict body accepts only expected_row_version, optional selected client_id/project_id and the normal new-resource fields client_type/project_name/project_address_raw. Selection and conditional creation requirements are validated using the confirmed conversion command, without normalizing supplied text before workflow hashing. The lead ID comes only from the typed path. Tenant, principal, lead state, conversion links and resource IDs are server-owned and cannot be added to the request body.
+
+A single nonblank Idempotency-Key header of 1..255 characters is required. Duplicate headers are rejected. The workflow factory reuses get_construction_scoped_session and ApiIdempotencySettings/Fernet configuration; the route does not import repositories or perform commit/rollback/flush.
+
+Successful conversion and replay return HTTP 200 with the common data/meta/request_id envelope. data contains lead_id, tenant_id, client_id, project_id, won status and row_version. Public serialization checks strict response fields, trusted tenant and path, canonical identifiers and explicitly selected target IDs. Client/project details remain available through the existing GET endpoints. No raw ORM object, ciphertext, reservation binding, key/hash, contact data or work/comment text is exposed by this conversion response.
+
+Error mappings reuse existing API codes: 401 authentication; 403 MODULE_DISABLED/permission_required/forbidden; 404 not_found for unavailable tenant resources; 409 ROW_VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED, idempotency_in_progress, or conflict for an ineligible lifecycle; 422 validation_error for request/selection/precondition validation; 500 internal_error for unexpected operational failure. Private exception details are suppressed. The route does not add reopening of lost leads or ordinary pipeline transitions.
+
+The route is imported and included exactly once by api/app.py using /api/v1. No additional client/project CRUD route is introduced. The existing creation and read routes remain registered.
+
+Local ASGI tests use the real conversion service/workflow with offline fixtures, covering three selections, stable replay, changed raw command, required/duplicate headers, authentication/entitlements/shared role-scope, trusted tenant, strict body/path/response, error mappings, crypto factory and OpenAPI registration. Existing workflow/service SQL tests cover commit/rollback. These local checks do not prove deployed HTTP authentication, PostgreSQL concurrency or RLS.
+
+The installer adds the route/test/document and surgically extends api/app.py after verifying its AST and unique anchors. It preserves unrelated code, comments, BOM and newline style and rejects unexpected changes; repeated registration is a no-op. No Supabase, Storage or real email operations. Physical lead schema remains uncreated; Stage 1 is not declared accepted. Next: STAGE_1_AREA_DUPLICATE_DEPENDENCIES_REVIEW.

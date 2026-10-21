@@ -81,6 +81,7 @@ CONSTRUCTION_PERMISSION_CODES = frozenset(
         "construction.contracts.read",
         "construction.contracts.manage",
         "construction.contracts.activate",
+        "construction.settings.manage",
     }
 )
 

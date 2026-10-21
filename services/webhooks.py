@@ -1890,3 +1890,17 @@ class WebhookService:
                 "Webhook redelivery failed."
             ) from exc
 
+
+
+def build_webhook_service(*, session, secret_encryption_key, environment, idempotency):
+    """Compose the existing webhook service without opening or committing a session."""
+    from database.repositories.webhooks import WebhookRepository
+
+    return WebhookService(
+        session=session,
+        repository=WebhookRepository(session),
+        secret_codec=WebhookSecretCodec(encryption_key=secret_encryption_key),
+        callback_validator=WebhookCallbackUrlValidator(),
+        environment=environment,
+        idempotency=idempotency,
+    )

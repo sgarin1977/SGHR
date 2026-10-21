@@ -103,6 +103,8 @@ class ApiIdentityService:
         user_id: UUID,
         tenant_id: UUID,
     ) -> ApiActorContext:
+        if not isinstance(user_id, UUID) or not isinstance(tenant_id, UUID):
+            raise ApiIdentityAccessError("API actor is not available.")
         user = (
             await self.user_service
             .get_user_by_id(user_id)

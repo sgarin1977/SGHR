@@ -1849,6 +1849,7 @@ class ModerationRepository:
             .join(UserAccount, UserAccount.user_id == User.id)
             .where(
                 UserAccount.platform == "telegram",
+                UserAccount.status == "active",
                 UserAccount.platform_user_id == str(platform_user_id),
             )
         )

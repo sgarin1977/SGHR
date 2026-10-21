@@ -143,6 +143,31 @@ class FileRepository:
             )
 
         return storage_object
+    async def get_organization_downloadable_file(
+        self,
+        *,
+        tenant_id: UUID,
+        file_id: UUID,
+    ) -> FileStorageObject:
+        result = await self.session.execute(
+            select(FileStorageObject).where(
+                FileStorageObject.tenant_id == tenant_id,
+                FileStorageObject.id == file_id,
+                FileStorageObject.entity_type == "organization",
+                FileStorageObject.entity_id == tenant_id,
+                FileStorageObject.status == "ready",
+                FileStorageObject.antivirus_status.in_(
+                    ("not_scanned", "clean")
+                ),
+            )
+        )
+        storage_object = result.scalar_one_or_none()
+        if storage_object is None:
+            raise FileStorageObjectNotFoundError(
+                "Downloadable file not found."
+            )
+        return storage_object
+
     async def list_orphan_uploads_for_update(
         self,
         *,

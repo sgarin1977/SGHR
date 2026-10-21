@@ -293,7 +293,7 @@ class SupabasePortfolioStorage:
                 ),
                 headers={
                     **self.headers,
-                    "Content-Type": mime_type,
+                    "Content-Type": "application/json",
                 },
                 json={},
                 timeout=self.timeout_seconds,
@@ -412,6 +412,35 @@ class SupabasePortfolioStorage:
                     mime_type=None,
                     provider_metadata={},
                 )
+
+            if int(response.status_code) == 400:
+                # HEAD has no JSON body; confirm the Storage error code.
+                info_response = await client.get(
+                    (
+                        f"{self.base_url}/storage/v1/object/info/authenticated/"
+                        f"{quote(self.bucket, safe='')}/"
+                        f"{quote(storage_path, safe='/')}"
+                    ),
+                    headers=self.headers,
+                    timeout=self.timeout_seconds,
+                )
+                if int(info_response.status_code) in (400, 404):
+                    try:
+                        info_error = info_response.json()
+                    except ValueError:
+                        info_error = None
+                    if (
+                        isinstance(info_error, dict)
+                        and info_error.get("code") == "NoSuchKey"
+                        and str(info_error.get("statusCode", "404")) == "404"
+                    ):
+                        return FileStorageObjectMetadata(
+                            exists=False,
+                            size_bytes=None,
+                            mime_type=None,
+                            provider_metadata={},
+                        )
+                info_response.raise_for_status()
 
             response.raise_for_status()
         except httpx.HTTPError as exc:

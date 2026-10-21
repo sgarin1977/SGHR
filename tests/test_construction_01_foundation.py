@@ -260,6 +260,7 @@ def test_con_002_defines_confirmed_permission_and_scope_registry():
             "construction.contracts.read",
             "construction.contracts.manage",
             "construction.contracts.activate",
+            "construction.settings.manage",
         }
     )
 
@@ -2152,8 +2153,8 @@ def test_con_002_fixed_role_permission_policy_matches_confirmed_matrix():
         for role, permissions
         in CONSTRUCTION_ROLE_PERMISSIONS.items()
     } == {
-        "OWNER": 47,
-        "ADMIN": 46,
+        "OWNER": 48,
+        "ADMIN": 47,
         "SURVEYOR": 12,
         "ESTIMATOR": 21,
         "PROJECT_MANAGER": 40,
@@ -2339,6 +2340,8 @@ def test_con_003_client_model_matches_confirmed_release_contract():
         "created_at",
         "updated_at",
         "deleted_at",
+        "linked_user_id",
+        "row_version",
     }
 
     assert table.c.id.primary_key
@@ -2382,7 +2385,9 @@ def test_con_003_client_model_matches_confirmed_release_contract():
     assert "'PERSON'" in client_type_check
     assert "'COMPANY'" in client_type_check
 
-    assert "linked_user_id" not in table.columns
+    assert table.c.linked_user_id.nullable
+    assert not table.c.row_version.nullable
+    assert ConstructionClient.__mapper__.version_id_col is table.c.row_version
     assert "status" not in table.columns
 
 @pytest.mark.asyncio
@@ -2579,6 +2584,7 @@ async def test_con_003_client_service_creates_client_in_verified_actor_tenant():
                     "operation": "create",
                     "changes": [],
                     "reason": None,
+                    "related_client_id": str(client_id),
                 },
                 "platform": "api",
                 "trace_id": (
@@ -2805,6 +2811,7 @@ async def test_con_003_client_service_archives_locked_client_in_verified_tenant(
         ),
     )
     client = SimpleNamespace(
+        row_version=1,
         id=client_id,
         tenant_id=tenant_id,
         deleted_at=None,
@@ -2833,6 +2840,7 @@ async def test_con_003_client_service_archives_locked_client_in_verified_tenant(
             kwargs["client"].deleted_at = (
                 kwargs["deleted_at"]
             )
+            kwargs["client"].row_version += 1
             return kwargs["client"]
 
     class FakeEventRepository:
@@ -2849,7 +2857,7 @@ async def test_con_003_client_service_archives_locked_client_in_verified_tenant(
         now_provider=lambda: deleted_at,
     )
 
-    result = await service.archive_client(
+    result = await service.archive_client(expected_row_version=1,
         actor=actor,
         access_context=access_context,
         client_id=client_id,
@@ -2897,6 +2905,7 @@ async def test_con_003_client_service_archives_locked_client_in_verified_tenant(
                         },
                     ],
                     "reason": None,
+                    "related_client_id": str(client_id),
                 },
                 "platform": "api",
                 "trace_id": (
@@ -3321,6 +3330,7 @@ async def test_con_004_project_service_creates_draft_from_verified_actor_scope()
         address_verification_status=(
             "pending"
         ),
+        client_id=None,
     )
 
     class FakeSession:
@@ -3571,6 +3581,7 @@ async def test_con_004_project_service_validates_optional_responsible_platform_m
         responsible_user_id=(
             responsible_user_id
         ),
+        client_id=None,
     )
 
     class FakeSession:
@@ -4513,6 +4524,7 @@ async def test_con_004_project_service_transitions_locked_project_in_verified_sc
         status="draft",
         deleted_at=None,
         row_version=1,
+        client_id=None,
     )
 
     class FakeSession:
@@ -12024,6 +12036,7 @@ async def test_con_003_client_service_updates_locked_client_and_audits_atomicall
         ),
     )
     client = SimpleNamespace(
+        row_version=1,
         id=client_id,
         tenant_id=tenant_id,
         display_name="Old name",
@@ -12064,6 +12077,7 @@ async def test_con_003_client_service_updates_locked_client_and_audits_atomicall
             target.phone = kwargs["phone"]
             target.email = kwargs["email"]
             target.notes = kwargs["notes"]
+            target.row_version += 1
             return target
 
     class FakeEventRepository:
@@ -12079,7 +12093,7 @@ async def test_con_003_client_service_updates_locked_client_and_audits_atomicall
         event_repository=FakeEventRepository(),
     )
 
-    result = await service.update_client(
+    result = await service.update_client(expected_row_version=1,
         actor=actor,
         access_context=access_context,
         client_id=client_id,
@@ -12163,6 +12177,7 @@ async def test_con_003_client_service_updates_locked_client_and_audits_atomicall
                         },
                     ],
                     "reason": None,
+                    "related_client_id": str(client_id),
                 },
                 "platform": "api",
                 "trace_id": (
@@ -12319,6 +12334,7 @@ async def test_con_007_client_update_audit_failure_rolls_back_domain_change():
         ),
     )
     client = SimpleNamespace(
+        row_version=1,
         id=client_id,
         tenant_id=tenant_id,
         display_name="Old name",
@@ -12355,6 +12371,7 @@ async def test_con_007_client_update_audit_failure_rolls_back_domain_change():
             target.phone = kwargs["phone"]
             target.email = kwargs["email"]
             target.notes = kwargs["notes"]
+            target.row_version += 1
             return target
 
     class FailingEventRepository:
@@ -12378,7 +12395,7 @@ async def test_con_007_client_update_audit_failure_rolls_back_domain_change():
     with pytest.raises(
         ConstructionClientOperationError,
     ):
-        await service.update_client(
+        await service.update_client(expected_row_version=1,
             actor=actor,
             access_context=access_context,
             client_id=client_id,
@@ -12455,6 +12472,7 @@ async def test_con_007_client_archive_audit_failure_rolls_back_domain_change():
         ),
     )
     client = SimpleNamespace(
+        row_version=1,
         id=client_id,
         tenant_id=tenant_id,
         deleted_at=None,
@@ -12483,6 +12501,7 @@ async def test_con_007_client_archive_audit_failure_rolls_back_domain_change():
             kwargs["client"].deleted_at = (
                 kwargs["deleted_at"]
             )
+            kwargs["client"].row_version += 1
             return kwargs["client"]
 
     class FailingEventRepository:
@@ -12507,7 +12526,7 @@ async def test_con_007_client_archive_audit_failure_rolls_back_domain_change():
     with pytest.raises(
         ConstructionClientOperationError,
     ):
-        await service.archive_client(
+        await service.archive_client(expected_row_version=1,
             actor=actor,
             access_context=access_context,
             client_id=client_id,
@@ -12575,6 +12594,7 @@ async def test_con_007_project_status_audit_failure_rolls_back_domain_change():
         status="draft",
         deleted_at=None,
         row_version=1,
+        client_id=None,
     )
 
     class FakeSession:
@@ -13892,6 +13912,7 @@ async def test_con_007_project_create_audit_failure_rolls_back_domain_change():
                 id=project_id,
                 tenant_id=tenant_id,
                 status="draft",
+                client_id=None,
             )
 
     class FailingEventRepository:
@@ -14202,49 +14223,26 @@ async def test_con_007_area_element_create_audit_failure_rolls_back_domain_chang
 
 
 
-def test_con_008_does_not_expose_deferred_stage_one_domain_crud():
-    from api.routes.construction import (
-        router,
+def test_con_008_project_read_route_has_permission_and_scoped_session():
+    from api.auth import get_current_actor
+    from api.routes.construction import get_construction_scoped_session
+    from api.routes.construction_project_read import (
+        get_project_read_service, router,
     )
 
-    deferred_resource_paths = (
-        "/construction/clients",
-        "/construction/projects",
-        "/construction/project-areas",
-        "/construction/areas",
-        "/construction/area-elements",
-        "/construction/elements",
-    )
-
-    registered_routes = [
-        (
-            method,
-            route.path,
-        )
-        for route in router.routes
-        for method in sorted(
-            getattr(route, "methods", ())
-        )
+    targets = [
+        route for route in router.routes
+        if getattr(route, "path", None) == "/construction/projects/{id}"
+        and "GET" in getattr(route, "methods", ())
     ]
-
-    forbidden_routes = [
-        (
-            method,
-            route_path,
-        )
-        for method, route_path
-        in registered_routes
-        if any(
-            route_path == deferred_path
-            or route_path.startswith(
-                f"{deferred_path}/"
-            )
-            for deferred_path
-            in deferred_resource_paths
-        )
+    assert len(targets) == 1
+    codes = [
+        getattr(dependency.dependency, "construction_permission_code", None)
+        for dependency in targets[0].dependencies
     ]
-
-    assert forbidden_routes == []
+    assert [code for code in codes if code is not None] == ["construction.projects.read"]
+    assert get_current_actor in [item.dependency for item in router.dependencies]
+    assert get_project_read_service.__defaults__[0].dependency is get_construction_scoped_session
 
 
 
@@ -14314,7 +14312,7 @@ async def test_con_008_client_and_project_services_fail_closed_without_permissio
         ),
         (
             "client_update",
-            lambda: client_service.update_client(
+            lambda: client_service.update_client(expected_row_version=1,
                 actor=actor,
                 access_context=access_context,
                 client_id=client_id,
@@ -14327,7 +14325,7 @@ async def test_con_008_client_and_project_services_fail_closed_without_permissio
         ),
         (
             "client_archive",
-            lambda: client_service.archive_client(
+            lambda: client_service.archive_client(expected_row_version=1,
                 actor=actor,
                 access_context=access_context,
                 client_id=client_id,
