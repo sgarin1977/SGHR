@@ -28,7 +28,11 @@ function setup(options = {}) {
   const request = async (path, inputs) => {
     calls.push({path, ...inputs});
     let value;
-    if (path === "/api/v1/me") value = {id: USER, status: "active"};
+    if (path === "/api/v1/platform/identity") value = {id: USER, status: "active"};
+    else if (path === "/api/v1/platform/organizations/session") value = {
+      user_id: USER, tenant_id: TENANT, access_token: "private-selected",
+      refresh_token: "private-selected-refresh", token_type: "bearer", expires_in: 900,
+    };
     else if (path === BINDING_PATH) {
       if (!receipts.has(inputs.key)) receipts.set(inputs.key, receipt(clock));
       value = structuredClone(receipts.get(inputs.key));
@@ -52,6 +56,7 @@ function setup(options = {}) {
 
 function invitation(onAccepted) {
   const records = new Map(), calls = [];
+  let logins = 0;
   const storage = {
     getItem: key => records.get(key) || null,
     setItem: (key, value) => records.set(key, value),
@@ -62,16 +67,21 @@ function invitation(onAccepted) {
     if (path.endsWith("/email/request")) return {
       challenge_id: OTHER, challenge_type: "otp", expires_at: new Date(INITIAL + 600000).toISOString(),
     };
-    if (path.endsWith("/email/verify")) return {
-      access_token: "private-access", refresh_token: "private-refresh", token_type: "bearer",
-    };
-    if (path.endsWith("/me")) return {id: USER, status: "active"};
+    if (path.endsWith("/email/verify")) {
+      logins++;
+      return {
+        access_token: logins === 1 ? "private-access" : "private-access-" + logins,
+        refresh_token: logins === 1 ? "private-refresh" : "private-refresh-" + logins,
+        token_type: "bearer",
+      };
+    }
+    if (path.endsWith("/identity")) return {id: USER, status: "active"};
     if (path.endsWith("/preview")) return {
       id: INVITE, row_version: 3, status: "pending", role: "OBSERVER",
       scopes: [{scope_type: "tenant", scope_id: TENANT}],
       expires_at: new Date(INITIAL + 604800000).toISOString(), grant_expires_at: null,
     };
-    if (path.endsWith("/accept")) return {id: INVITE, status: "accepted", row_version: 4};
+    if (path.endsWith("/accept")) return {data: {id: INVITE, status: "accepted", row_version: 4}, meta: {organization_id: TENANT}};
     if (path.endsWith("/decline")) return {id: INVITE, status: "declined", row_version: 4};
     throw Error("Unexpected request");
   };
@@ -119,7 +129,7 @@ test("binding observer failure cannot turn accepted invitation into a failure", 
 test("explicit issue uses fresh canonical identity and the existing empty-body POST", async () => {
   const c = setup(); c.attach();
   await c.controller.issue();
-  assert.deepEqual(c.calls.map(call => call.path), ["/api/v1/me", BINDING_PATH]);
+  assert.deepEqual(c.calls.map(call => call.path), ["/api/v1/platform/identity", BINDING_PATH]);
   const call = c.calls.at(-1);
   assert.deepEqual(call.body, {});
   assert.equal(call.bearer, "private-access");
@@ -200,7 +210,7 @@ test("double click sends one issuance", async () => {
 
 test("changed or inactive identity is denied before issuance", async () => {
   for (const me of [{id: OTHER, status: "active"}, {id: USER, status: "blocked"}]) {
-    const c = setup({request: async path => path === "/api/v1/me" ? me : undefined});
+    const c = setup({request: async path => path === "/api/v1/platform/identity" ? me : undefined});
     c.attach(); await c.controller.issue();
     assert.equal(c.calls.filter(call => call.path === BINDING_PATH).length, 0);
     assert.equal(c.controller.snapshot().message, "auth");
@@ -264,3 +274,158 @@ test("all binding labels provide seven languages", () => {
     values.length === 7 && values.every(value => typeof value === "string" && value.length > 0)
   )));
 });
+
+// invitation_identity_only_v1
+
+
+const SESSION_PATH = "/api/v1/platform/organizations/session";
+
+async function acceptedBinding(options = {}) {
+  const c = setup(options);
+  c.invitation = invitation(session => c.controller.acceptSession(session));
+  await login(c.invitation);
+  await c.invitation.flow.decide("accept");
+  return c;
+}
+
+test("accepted recipient selects its organization before the empty-body binding POST", async () => {
+  const c = await acceptedBinding();
+  assert.equal(c.calls.length, 0);
+  await c.controller.issue();
+  assert.deepEqual(c.calls.map(call => call.path),
+    ["/api/v1/platform/identity", SESSION_PATH, BINDING_PATH]);
+  assert.deepEqual(c.calls[1].body, {tenant_id: TENANT, refresh_token: "private-refresh"});
+  assert.equal(c.calls[1].bearer, "private-access");
+  assert.deepEqual(c.calls[2].body, {});
+  assert.equal(c.calls[2].bearer, "private-selected");
+  assert.equal(c.controller.snapshot().phase, "issued");
+  assert.equal(c.invitation.storage.getItem(STORAGE_KEY), null);
+  const visible = JSON.stringify([c.controller.snapshot(), c.invitation.flow.snapshot()]);
+  for (const secret of ["private-access", "private-refresh", "private-selected"]) {
+    assert.equal(visible.includes(secret), false);
+  }
+});
+
+test("uncertain selection signs in again without accepting or previewing again", async () => {
+  let first = true;
+  const c = await acceptedBinding({request: async path => {
+    if (path === SESSION_PATH && first) { first = false; throw new ApiProblem(0, "network"); }
+  }});
+  await c.controller.issue();
+  assert.equal(c.controller.snapshot().phase, "auth");
+  assert.equal(c.calls.filter(call => call.path === BINDING_PATH).length, 0);
+  assert.equal(c.invitation.flow.reauthenticateAccepted(), true);
+  c.controller.pauseForAuthentication();
+  await login(c.invitation);
+  await c.controller.issue();
+  assert.equal(c.controller.snapshot().phase, "issued");
+  const selections = c.calls.filter(call => call.path === SESSION_PATH);
+  assert.equal(selections[1].body.refresh_token, "private-refresh-2");
+  assert.equal(c.invitation.calls.filter(call => call.path.endsWith("/accept")).length, 1);
+  assert.equal(c.invitation.calls.filter(call => call.path.endsWith("/preview")).length, 1);
+  assert.equal(c.keys.length, 1);
+});
+
+test("reauthentication retains the original unresolved binding key and expiry", async () => {
+  let lost = true, expired = false;
+  const c = await acceptedBinding({request: async path => {
+    if (path === BINDING_PATH && lost) { lost = false; throw new ApiProblem(0, "network"); }
+    if (path === "/api/v1/platform/identity" && expired) throw new ApiProblem(401, "invalid_token");
+  }});
+  await c.controller.issue();
+  const original = c.calls.at(-1);
+  expired = true; await c.controller.issue();
+  assert.equal(c.controller.snapshot().phase, "auth");
+  c.invitation.flow.reauthenticateAccepted(); c.controller.pauseForAuthentication();
+  expired = false; await login(c.invitation);
+  c.advance(900001); await c.controller.issue();
+  assert.equal(c.calls.at(-1).key, original.key);
+  assert.deepEqual(c.calls.at(-1).body, original.body);
+  assert.equal(c.keys.length, 1);
+  assert.equal(c.controller.snapshot().phase, "expired");
+  assert.equal(c.controller.getLink(), null);
+});
+
+test("an auth continuation cannot switch to a different Platform user", async () => {
+  const c = await acceptedBinding({request: async path => {
+    if (path === SESSION_PATH) throw new ApiProblem(403, "forbidden");
+  }});
+  await c.controller.issue();
+  assert.throws(() => c.controller.acceptSession({
+    bearer: "other-access", userId: OTHER, tenantId: TENANT, refreshToken: "other-refresh",
+  }), ApiProblem);
+  assert.equal(c.controller.getLink(), null);
+  assert.equal(c.invitation.flow.snapshot().message, "accepted");
+});
+
+test("selection rate limit retries the same binding attempt", async () => {
+  let first = true;
+  const c = await acceptedBinding({request: async path => {
+    if (path === SESSION_PATH && first) { first = false; throw new ApiProblem(429, "RATE_LIMIT_EXCEEDED"); }
+  }});
+  await c.controller.issue();
+  assert.equal(c.controller.snapshot().message, "rate");
+  await c.controller.issue();
+  assert.equal(c.controller.snapshot().phase, "issued");
+  assert.equal(c.keys.length, 1);
+});
+
+test("closing ignores a late selected session", async () => {
+  let release, entered;
+  const wait = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { entered = resolve; });
+  const c = await acceptedBinding({request: async path => {
+    if (path === SESSION_PATH) { entered(); await wait; }
+  }});
+  const pending = c.controller.issue();
+  await started; c.controller.close(); release(); await pending;
+  assert.equal(c.controller.snapshot().active, false);
+  assert.equal(c.calls.filter(call => call.path === BINDING_PATH).length, 0);
+});
+
+test("a mismatched session response cannot issue a binding", async () => {
+  for (const change of [{user_id: OTHER}, {tenant_id: OTHER}, {access_token: ""},
+      {token_type: "other"}, {expires_in: 0}]) {
+    const c = await acceptedBinding({request: async (path, inputs, value) =>
+      path === SESSION_PATH ? {...value, ...change} : undefined});
+    await c.controller.issue();
+    assert.equal(c.controller.snapshot().phase, "auth");
+    assert.equal(c.calls.filter(call => call.path === BINDING_PATH).length, 0);
+  }
+});
+
+test("the shared transport retains acceptance metadata and bounds the session path", async () => {
+  const calls = [];
+  const request = createHttpClient(async (path, options) => {
+    calls.push({path, options});
+    return {ok: true, status: 200, json: async () => ({
+      data: {id: INVITE}, meta: {organization_id: TENANT},
+    })};
+  });
+  const result = await request("/api/v1/construction/invitations/accept", {
+    body: {}, includeMeta: true, bearer: "private-access",
+  });
+  assert.equal(result.meta.organization_id, TENANT);
+  await request(SESSION_PATH, {
+    body: {tenant_id: TENANT, refresh_token: "private-refresh"}, bearer: "private-access",
+  });
+  assert.equal(calls.at(-1).options.credentials, "omit");
+  assert.equal(calls.at(-1).options.cache, "no-store");
+  await assert.rejects(request(SESSION_PATH + "?tenant_id=" + TENANT), ApiProblem);
+  assert.equal(calls.length, 2);
+});
+
+test("sign-in cannot extend the unresolved binding replay window", async () => {
+  const c = await acceptedBinding({request: async path => {
+    if (path === SESSION_PATH) throw new ApiProblem(0, "network");
+  }});
+  await c.controller.issue(); c.advance(86400000);
+  c.invitation.flow.reauthenticateAccepted(); c.controller.pauseForAuthentication();
+  await login(c.invitation);
+  const before = c.calls.length;
+  await c.controller.issue();
+  assert.equal(calls.length, before);
+  assert.equal(c.controller.snapshot().message, "window");
+});
+
+// invitation_binding_session_v1

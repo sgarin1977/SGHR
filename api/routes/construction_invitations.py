@@ -3,7 +3,7 @@ from typing import Annotated
 from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictInt
-from api.auth import get_current_actor
+from api.construction_recipient_rate_limit import get_invitation_recipient_actor
 from api.construction_recipient_rate_limit import require_invitation_recipient_rate_limit
 from api.dependencies import get_api_session, get_tenant_module_access_service, get_tenant_suite_access_service
 from api.errors import ApiHttpError
@@ -38,7 +38,7 @@ def get_invitation_crypto_settings():
 def get_recipient_context_codec(settings=Depends(get_invitation_crypto_settings)):
     return ConstructionInvitationRecipientContextCodec(encryption_key=settings.encryption_key)
 
-def get_acceptance_input(body: InvitationAcceptRequest, idempotency_key: Annotated[str, Header(alias='Idempotency-Key', min_length=1, max_length=255)], actor=Depends(get_current_actor)):
+def get_acceptance_input(body: InvitationAcceptRequest, idempotency_key: Annotated[str, Header(alias='Idempotency-Key', min_length=1, max_length=255)], actor=Depends(get_invitation_recipient_actor)):
     if getattr(actor, 'status', None) != 'active' or not isinstance(getattr(actor, 'user_id', None), UUID):
         raise ApiHttpError(status_code=403, code='forbidden', message='Invitation acceptance is not available.')
     if not idempotency_key.strip():
@@ -85,7 +85,7 @@ def _acceptance_error(exc):
         status, code, message = (500, 'internal_error', 'Invitation acceptance failed.')
     return ApiHttpError(status_code=status, code=code, message=message)
 
-router = APIRouter(prefix='/construction/invitations', dependencies=[Depends(get_current_actor),
+router = APIRouter(prefix='/construction/invitations', dependencies=[Depends(get_invitation_recipient_actor),
     Depends(require_invitation_recipient_rate_limit)],
     responses={429: {'description': 'RATE_LIMIT_EXCEEDED'}})
 
@@ -97,4 +97,9 @@ async def accept_invitation(request: Request, inputs=Depends(get_acceptance_inpu
             raise ConstructionInvitationOperationError('Accepted invitation response is invalid.')
     except Exception as exc:
         raise _acceptance_error(exc) from None
-    return success_envelope(data=dict(result), request_id=request.state.request_id)
+    return success_envelope(data=dict(result), request_id=request.state.request_id,
+        meta={"organization_id": str(context.tenant_id)})
+
+# invitation_identity_only_v1
+
+# invitation_binding_session_v1

@@ -8,7 +8,7 @@ import httpx
 import pytest
 from cryptography.fernet import Fernet
 from api.app import create_app
-from api.auth import get_current_actor
+from api.construction_recipient_rate_limit import get_invitation_recipient_actor
 from api.dependencies import get_tenant_module_access_service, get_tenant_suite_access_service
 import api.routes.construction_invitations as routes
 from database.repositories.user import PlatformInvitationMembershipConflictError
@@ -40,9 +40,9 @@ def http_case():
 
 async def post(case, *, authenticated=True, body=None, headers=None, query=''):
     if authenticated:
-        case.app.dependency_overrides[get_current_actor] = lambda: case.actor
+        case.app.dependency_overrides[get_invitation_recipient_actor] = lambda: case.actor
     else:
-        case.app.dependency_overrides.pop(get_current_actor, None)
+        case.app.dependency_overrides.pop(get_invitation_recipient_actor, None)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=case.app, raise_app_exceptions=False), base_url='http://testserver') as client:
         return await client.post('/api/v1/construction/invitations/accept' + query, json=case.body if body is None else body, headers={'Idempotency-Key': 'accept-key', 'X-Request-ID': 'accept-http'} if headers is None else headers)
 
@@ -59,7 +59,7 @@ async def test_acceptance_http_uses_invitation_tenant_without_recipient_membersh
     case = http_case
     response = await post(case, query='?tenant_id=' + str(uuid4()))
     assert response.status_code == 200, response.text
-    assert response.json() == {'data': {'id': str(case.material.invitation_id), 'status': 'accepted', 'row_version': 5}, 'meta': {}, 'request_id': 'accept-http'}
+    assert response.json() == {'data': {'id': str(case.material.invitation_id), 'status': 'accepted', 'row_version': 5}, 'meta': {'organization_id': str(case.material.tenant_id)}, 'request_id': 'accept-http'}
     assert response.headers['X-Request-ID'] == 'accept-http'
     case.suite.require_enabled.assert_awaited_once_with(tenant_id=case.material.tenant_id, suite_code='construction')
     case.module.require_enabled.assert_awaited_once_with(tenant_id=case.material.tenant_id, module_code='construction.core')
@@ -182,3 +182,7 @@ def test_acceptance_factory_rejects_shared_identity_and_write_session():
     with pytest.raises(ApiHttpError) as caught:
         routes.get_acceptance_workflow(construction_session=session, platform_session=session, settings=SimpleNamespace(encryption_key='configured-key'))
     assert caught.value.status_code == 500
+
+# invitation_identity_only_v1
+
+# invitation_binding_session_v1

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
-from api.auth import get_current_actor
+from api.construction_recipient_rate_limit import get_invitation_recipient_actor
 from api.construction_recipient_rate_limit import require_invitation_recipient_rate_limit
 from api.dependencies import get_api_session, get_tenant_module_access_service, get_tenant_suite_access_service
 from api.errors import ApiHttpError
@@ -28,10 +28,10 @@ def _input(body, actor):
         raise ApiHttpError(status_code=403, code='forbidden', message='Invitation is not available.')
     return RecipientInput(actor=actor, body=body)
 
-def get_preview_input(body: InvitationPreviewRequest, actor=Depends(get_current_actor)):
+def get_preview_input(body: InvitationPreviewRequest, actor=Depends(get_invitation_recipient_actor)):
     return _input(body, actor)
 
-def get_decline_input(body: InvitationAcceptRequest, actor=Depends(get_current_actor)):
+def get_decline_input(body: InvitationAcceptRequest, actor=Depends(get_invitation_recipient_actor)):
     return _input(body, actor)
 
 def _context_dependency(input_dependency):
@@ -76,7 +76,7 @@ def get_decline_workflow(session=Depends(get_decline_session), platform_session=
 def _error(exc):
     mapped = _acceptance_error(exc)
     return ApiHttpError(status_code=mapped.status_code, code=mapped.code, message='Invitation is not available.' if mapped.status_code == 403 else 'Invitation operation failed.' if mapped.status_code == 500 else mapped.message)
-router = APIRouter(prefix='/construction/invitations', dependencies=[Depends(get_current_actor),
+router = APIRouter(prefix='/construction/invitations', dependencies=[Depends(get_invitation_recipient_actor),
     Depends(require_invitation_recipient_rate_limit)],
     responses={429: {'description': 'RATE_LIMIT_EXCEEDED'}})
 
@@ -99,3 +99,5 @@ async def decline_invitation(request: Request, inputs=Depends(get_decline_input)
     except Exception as exc:
         raise _error(exc) from None
     return success_envelope(data=dict(result), request_id=request.state.request_id)
+
+# invitation_identity_only_v1

@@ -111,6 +111,8 @@ from api.routes.construction_client_unlink import router as construction_client_
 
 from api.routes.platform_telegram_binding import router as platform_telegram_binding_router
 from api.routes.platform_bot_entry import router as platform_bot_entry_router
+from api.routes.platform_identity import router as platform_identity_router
+from api.routes.platform_organization_session import router as platform_organization_session_router
 from api.routes.platform_bot_client_links import router as platform_bot_client_links_router
 from api.routes.platform_organization_create import router as platform_organization_create_router
 from api.routes.platform_organization_create import bot_router as platform_bot_organization_create_router
@@ -500,6 +502,8 @@ def create_app() -> FastAPI:
     application.include_router(platform_telegram_account_state_router, prefix=API_PREFIX, tags=['Platform Telegram'])
     application.include_router(construction_client_own_link_state_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(platform_organization_membership_router, prefix=API_PREFIX, tags=["Platform organizations"])
+    application.include_router(platform_identity_router, prefix=API_PREFIX, tags=['Platform identity'])
+    application.include_router(platform_organization_session_router, prefix=API_PREFIX, tags=['Platform organizations'])
     application.include_router(platform_bot_entry_router, prefix=API_PREFIX)
     application.include_router(platform_bot_client_links_router, prefix=API_PREFIX)
     application.include_router(platform_organization_create_router, prefix=API_PREFIX, tags=["Platform organizations"])
@@ -511,3 +515,5 @@ def create_app() -> FastAPI:
 app = create_app()
 
 # client_link_confirmation_page_v1
+
+# invitation_identity_only_v1

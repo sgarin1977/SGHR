@@ -13,7 +13,7 @@ def page_app():
     return app
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('suffix,media',[('', 'text/html'),('/style.css','text/css'),('/flow.mjs','text/javascript'),('/boot.mjs','text/javascript')])
+@pytest.mark.parametrize('suffix,media',[('', 'text/html'),('/style.css','text/css'),('/flow.mjs','text/javascript'),('/boot.mjs','text/javascript'),('/telegram-binding.mjs','text/javascript')])
 async def test_public_assets_without_auth_or_database(page_app,suffix,media):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=page_app),base_url='https://test') as client:
         response=await client.get('/construction/invitations/recipient'+suffix)
@@ -39,3 +39,5 @@ def test_shell_uses_local_assets_and_no_inline_script(page_app):
     assert '<script>' not in html and 'https://' not in html
     source=(root/'api/app.py').read_text(encoding='utf-8')
     assert 'application.include_router(construction_invitation_page_router)' in source
+
+# invitation_binding_session_v1

@@ -6,7 +6,7 @@ import httpx
 import pytest
 from sqlalchemy.dialects import postgresql
 import api.routes.construction_invitation_recipient as routes
-from api.auth import get_current_actor
+from api.construction_recipient_rate_limit import get_invitation_recipient_actor
 from api.dependencies import get_tenant_module_access_service
 from database.repositories.construction.construction_invitation_preview import ConstructionInvitationPreviewRepository
 from services.construction.construction_invitation_preview import ConstructionInvitationPreviewService
@@ -90,7 +90,7 @@ def recipient_http(http_case):
 
 async def request(case, operation, *, anonymous=False, changes=None):
     if not anonymous:
-        case.app.dependency_overrides[get_current_actor] = lambda: case.actor
+        case.app.dependency_overrides[get_invitation_recipient_actor] = lambda: case.actor
     body = dict(case.body)
     if operation == 'preview':
         body.pop('expected_row_version')
@@ -154,3 +154,5 @@ async def test_recipient_decline_preserves_row_version_conflict(recipient_http):
     response = await request(case, 'decline')
     assert response.status_code == 409
     assert response.json()['error']['code'] == 'ROW_VERSION_CONFLICT'
+
+# invitation_identity_only_v1

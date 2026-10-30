@@ -29,3 +29,8 @@ def invitation_recipient_flow(): return asset('flow.mjs','text/javascript')
 
 @router.get(PREFIX+'/boot.mjs')
 def invitation_recipient_boot(): return asset('boot.mjs','text/javascript')
+
+@router.get(PREFIX+'/telegram-binding.mjs')
+def invitation_recipient_telegram_binding(): return asset('telegram-binding.mjs','text/javascript')
+
+# invitation_binding_session_v1

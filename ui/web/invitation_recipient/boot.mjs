@@ -44,6 +44,7 @@ const telegramBinding = mountTelegramBinding({
   request: createHttpClient(window.fetch.bind(window)),
   randomKey: () => crypto.randomUUID(),
   getLanguage: () => language,
+  onAuthenticate: () => flow.reauthenticateAccepted(),
 });
 window.addEventListener("pagehide", () => telegramBinding.close());
 const flow = createInvitationFlow({hash: location.hash, storage,
@@ -61,3 +62,5 @@ $("forget").addEventListener("click", () => flow.forget());
 $("language").addEventListener("change", () => { language = $("language").value; render(current); telegramBinding.refreshLanguage(); });
 
 // invitation_telegram_onboarding_v1
+
+// invitation_binding_session_v1

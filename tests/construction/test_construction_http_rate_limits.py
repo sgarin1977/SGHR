@@ -12,7 +12,7 @@ from api.app import create_app
 from api.auth import get_current_actor, require_authenticated_user_rate_limit
 from api.dependencies import get_api_request_rate_limit_service
 from api.routes.construction import ConstructionAPIRouter
-from api.construction_recipient_rate_limit import require_invitation_recipient_rate_limit
+from api.construction_recipient_rate_limit import require_invitation_recipient_rate_limit, get_invitation_recipient_actor
 from services.api_rate_limits import ApiRequestRateLimitService, InMemoryApiRequestRateLimitStore
 from test_construction_01_project_read_http import walk_routes
 from test_construction_1a_invitation_acceptance_http import http_case
@@ -135,7 +135,7 @@ async def test_store_failure_fails_closed_and_is_sanitized_before_business(limit
 async def test_recipient_limit_precedes_token_crypto_and_domain_even_without_target_membership(http_case,operation,monkeypatch):
     c=http_case
     rate=ApiRequestRateLimitService(store=InMemoryApiRequestRateLimitStore())
-    c.app.dependency_overrides[get_current_actor]=lambda:c.actor
+    c.app.dependency_overrides[get_invitation_recipient_actor]=lambda:c.actor
     c.app.dependency_overrides[get_api_request_rate_limit_service]=lambda:rate
     assert c.actor.tenant_id!=c.material.tenant_id
     for _ in range(120):await rate.ensure_platform_user_allowed(user_id=c.actor.user_id)
@@ -172,3 +172,5 @@ def test_new_rate_responses_are_documented_without_new_business_paths():
         ('/api/v1/construction/invitations/preview','post'),('/api/v1/construction/invitations/decline','post')):
         assert '429' in paths[path][method]['responses']
     assert '/api/v1/construction/rate-probe' not in paths
+
+# invitation_identity_only_v1

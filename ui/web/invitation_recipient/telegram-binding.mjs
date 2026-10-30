@@ -1,11 +1,17 @@
 import {ApiProblem} from "./flow.mjs";
 
 export const BINDING_PATH = "/api/v1/platform/integrations/telegram/bindings";
+export const ORGANIZATION_SESSION_PATH = "/api/v1/platform/organizations/session";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KEY_WINDOW_MS = 86340000;
 const LANGUAGES = ["uk", "ru", "en", "pt", "pl", "de", "nl"];
 
 export const LABELS = {
+  signIn: [
+    "Увійти до Platform знову", "Войти в Platform снова", "Sign in to Platform again",
+    "Iniciar sessão novamente", "Zaloguj się ponownie", "Erneut bei Platform anmelden",
+    "Opnieuw inloggen bij Platform",
+  ],
   title: ["Telegram", "Telegram", "Telegram", "Telegram", "Telegram", "Telegram", "Telegram"],
   note: [
     "Відкрийте посилання в Telegram-акаунті, який хочете пов’язати зі своїм Platform-акаунтом. Посилання одноразове, діє 15 хвилин. Не передавайте його іншим.",
@@ -149,7 +155,8 @@ function checkedReceipt(value) {
 export function createTelegramBinding({
   request, randomKey, now = () => Date.now(), onChange = () => {},
 }) {
-  let bearer = "", userId = null, active = false, busy = false;
+  let bearer = "", userId = null, tenantId = null, refreshToken = "";
+  let needsSelection = false, active = false, busy = false;
   let phase = "closed", message = "", attempt = null, receipt = null, generation = 0;
   const safeWindow = () => !attempt || (
     now() - attempt.startedAt >= 0 && now() - attempt.startedAt < KEY_WINDOW_MS
@@ -169,27 +176,41 @@ export function createTelegramBinding({
   }
   function emit() { onChange(snapshot()); }
   function close() {
-    generation++; bearer = ""; userId = null; active = false; busy = false;
+    generation++; bearer = ""; refreshToken = ""; userId = null; tenantId = null;
+    needsSelection = false; active = false; busy = false;
     attempt = null; receipt = null; phase = "closed"; message = ""; emit();
   }
   return {
     snapshot,
     close,
+    pauseForAuthentication() {
+      if (phase !== "auth") return;
+      generation++; bearer = ""; refreshToken = ""; active = false; busy = false;
+      emit();
+    },
     getLink() { return active && receipt && now() < receipt.expires ? receipt.link : null; },
     acceptSession(session) {
+      const select = session?.tenantId !== undefined || session?.refreshToken !== undefined;
       if (!session || !UUID.test(session.userId)
-          || typeof session.bearer !== "string" || !session.bearer.trim()) {
+          || typeof session.bearer !== "string" || !session.bearer.trim()
+          || (select && (!UUID.test(session.tenantId)
+              || typeof session.refreshToken !== "string" || !session.refreshToken))) {
         throw new ApiProblem(0, "invalid_session");
       }
-      generation++; bearer = session.bearer; userId = session.userId;
-      active = true; busy = false; attempt = null; receipt = null;
-      phase = "ready"; message = "ready"; emit();
+      const nextTenant = select ? session.tenantId : null;
+      const resume = phase === "auth" && userId !== null;
+      if (resume && (userId !== session.userId || tenantId !== nextTenant)) {
+        throw new ApiProblem(403, "account_unavailable");
+      }
+      generation++; bearer = session.bearer; userId = session.userId; tenantId = nextTenant;
+      refreshToken = select ? session.refreshToken : ""; needsSelection = select;
+      active = true; busy = false; receipt = null;
+      if (!resume) attempt = null;
+      phase = attempt ? "pending" : "ready"; message = attempt ? "pending" : "ready"; emit();
     },
     async issue() {
       if (!active || !bearer || busy) return;
       if (receipt && now() < receipt.expires) return;
-      // A new key is allowed only after an explicit click and a known,
-      // successfully received link has expired.
       if (receipt) { receipt = null; attempt = null; }
       if (!safeWindow()) { emit(); return; }
       if (!attempt) {
@@ -201,12 +222,29 @@ export function createTelegramBinding({
       }
       const current = generation;
       const operation = {...attempt};
+      let selecting = false;
       busy = true; phase = "pending"; message = "pending"; emit();
       try {
-        const me = await request("/api/v1/me", {bearer});
+        const me = await request("/api/v1/platform/identity", {bearer});
         if (generation !== current) return;
         if (!me || me.id !== userId || me.status !== "active") {
           throw new ApiProblem(403, "account_unavailable");
+        }
+        if (needsSelection) {
+          selecting = true;
+          const session = await request(ORGANIZATION_SESSION_PATH, {
+            body: {tenant_id: tenantId, refresh_token: refreshToken}, bearer,
+          });
+          if (generation !== current) return;
+          if (!session || session.user_id !== userId || session.tenant_id !== tenantId
+              || typeof session.access_token !== "string" || !session.access_token
+              || typeof session.refresh_token !== "string" || !session.refresh_token
+              || session.token_type !== "bearer"
+              || !Number.isInteger(session.expires_in) || session.expires_in < 1) {
+            throw new ApiProblem(401, "invalid_session");
+          }
+          bearer = session.access_token; refreshToken = ""; needsSelection = false;
+          selecting = false;
         }
         const value = await request(BINDING_PATH, {
           body: {}, bearer, key: operation.key,
@@ -216,8 +254,9 @@ export function createTelegramBinding({
         phase = "issued"; message = "issued";
       } catch (error) {
         if (generation !== current) return;
-        if (error?.status === 401 || error?.status === 403) {
-          bearer = ""; userId = null; receipt = null;
+        const uncertainSelection = selecting && (!error?.status || error.status >= 500);
+        if (error?.status === 401 || error?.status === 403 || uncertainSelection) {
+          bearer = ""; refreshToken = ""; receipt = null;
           phase = "auth"; message = "auth";
         } else {
           phase = "pending";
@@ -230,7 +269,7 @@ export function createTelegramBinding({
   };
 }
 
-export function mountTelegramBinding({root, request, randomKey, getLanguage}) {
+export function mountTelegramBinding({root, request, randomKey, getLanguage, onAuthenticate = () => false}) {
   let controller, timer = null;
   const text = (key, language) => LABELS[key][languageIndex(language)];
   function close() {
@@ -280,6 +319,14 @@ export function mountTelegramBinding({root, request, randomKey, getLanguage}) {
       button.addEventListener("click", () => controller.issue());
       actions.append(button);
     }
+    if (state.phase === "auth") {
+      const signIn = element("button", text("signIn", language), "primary");
+      signIn.type = "button";
+      signIn.addEventListener("click", () => {
+        if (onAuthenticate() === true) controller.pauseForAuthentication();
+      });
+      actions.append(signIn);
+    }
     const dismiss = element("button", text("close", language), "text-button");
     dismiss.type = "button"; dismiss.addEventListener("click", close);
     actions.append(dismiss); root.append(actions);
@@ -295,3 +342,7 @@ export function mountTelegramBinding({root, request, randomKey, getLanguage}) {
     refreshLanguage() { render(controller.snapshot()); },
   };
 }
+
+// invitation_identity_only_v1
+
+// invitation_binding_session_v1

@@ -11,8 +11,8 @@ export class ApiProblem extends Error {
   constructor(status, code) { super("Request unavailable"); this.status = status; this.code = code; }
 }
 export function createHttpClient(fetchImpl, timeoutMs = 20000) {
-  return async function request(path, {body, bearer, key} = {}) {
-    if (!/^\/api\/v1\/(auth\/email\/(request|verify)|me|construction\/invitations\/(preview|accept|decline)|platform\/integrations\/telegram\/bindings)$/.test(path)) throw new ApiProblem(0, "invalid_request");
+  return async function request(path, {body, bearer, key, includeMeta = false} = {}) {
+    if (!/^\/api\/v1\/(auth\/email\/(request|verify)|platform\/identity|platform\/organizations\/session|construction\/invitations\/(preview|accept|decline)|platform\/integrations\/telegram\/bindings)$/.test(path)) throw new ApiProblem(0, "invalid_request");
     const headers = {Accept: "application/json"};
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (bearer) headers.Authorization = "Bearer " + bearer;
@@ -25,13 +25,14 @@ export function createHttpClient(fetchImpl, timeoutMs = 20000) {
       let value; try { value = await response.json(); } catch { throw new ApiProblem(response.status, "invalid_response"); }
       if (!response.ok) throw new ApiProblem(response.status, value?.error?.code || "request_failed");
       if (!value || typeof value.data !== "object" || value.data === null) throw new ApiProblem(response.status, "invalid_response");
-      return value.data;
+      return includeMeta ? {data: value.data, meta: value.meta} : value.data;
     } catch (error) { if (error instanceof ApiProblem) throw error; throw new ApiProblem(0, "network"); }
     finally { clearTimeout(timer); }
   };
 }
 export function createInvitationFlow({hash, storage, replaceUrl, request, randomKey, onChange = () => {}, onAccepted = () => {}}) {
-  let link = null, pending = null, bearer = "", userId = null, challenge = null, preview = null;
+  let link = null, pending = null, bearer = "", refreshToken = "", userId = null;
+  let challenge = null, preview = null, acceptedContext = null;
   let phase = "invalid", busy = false, message = "invalidLink", email = "", storageOk = true;
   const snapshot = () => ({phase, busy, message, email, preview, storageOk, pendingKind: pending?.kind || null,
     authenticated: Boolean(bearer), challengeExpiresAt: challenge?.expires_at || null});
@@ -64,7 +65,7 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
   }
   restore();
   function failure(error) {
-    if (error.status === 401) { bearer = ""; userId = null; challenge = null; preview = null; phase = "email"; message = "sessionExpired"; }
+    if (error.status === 401) { bearer = ""; refreshToken = ""; userId = null; challenge = null; preview = null; phase = "email"; message = "sessionExpired"; }
     else if (error.status === 403) message = "unavailable";
     else if (error.status === 409) message = "conflict";
     else if (error.status === 429) message = "rateLimit";
@@ -72,7 +73,7 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
     else message = "network";
   }
   async function task(callback) {
-    if (busy || !link) return;
+    if (busy || (!link && !acceptedContext)) return;
     busy = true; message = ""; emit();
     try { await callback(); } catch (error) { failure(error); }
     finally { busy = false; emit(); }
@@ -88,6 +89,11 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
   }
   return {
     snapshot,
+    reauthenticateAccepted() {
+      if (busy || !acceptedContext) return false;
+      bearer = ""; refreshToken = ""; userId = null; challenge = null; preview = null;
+      phase = "email"; message = ""; emit(); return true;
+    },
     async sendCode(value) { return task(async () => {
       if (!["email", "code"].includes(phase)) return;
       const candidate = String(value).trim();
@@ -102,13 +108,27 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
       let tokens;
       try { tokens = await request("/api/v1/auth/email/verify", {body: {challenge_id: challenge.challenge_id, email, secret: secret.trim(), language_code: language}}); }
       catch (error) { if (error.status === 401 && error.code === "invalid_email_challenge") { message = "invalidRequest"; return; } throw error; }
-      if (typeof tokens.access_token !== "string" || !tokens.access_token || tokens.token_type?.toLowerCase() !== "bearer") throw new ApiProblem(0, "invalid_response");
-      bearer = tokens.access_token;
-      const me = await request("/api/v1/me", {bearer});
+      if (typeof tokens.access_token !== "string" || !tokens.access_token
+          || typeof tokens.refresh_token !== "string" || !tokens.refresh_token
+          || tokens.token_type?.toLowerCase() !== "bearer") throw new ApiProblem(0, "invalid_response");
+      bearer = tokens.access_token; refreshToken = tokens.refresh_token;
+      const me = await request("/api/v1/platform/identity", {bearer});
       if (!UUID.test(me.id) || me.status !== "active") throw new ApiProblem(401, "invalid_identity");
       userId = me.id; challenge = null; phase = "ready";
+      if (acceptedContext) {
+        if (userId !== acceptedContext.userId) {
+          bearer = ""; refreshToken = ""; userId = null;
+          phase = "email"; message = "differentAccount"; return;
+        }
+        const session = Object.freeze({bearer, userId, refreshToken,
+          tenantId: acceptedContext.tenantId});
+        bearer = ""; refreshToken = ""; userId = null;
+        phase = "done"; message = "accepted";
+        try { onAccepted(session); } catch {}
+        return;
+      }
       if (pending) {
-        if (pending.userId !== userId) { bearer = ""; userId = null; phase = "email"; message = "differentAccount"; return; }
+        if (pending.userId !== userId) { bearer = ""; refreshToken = ""; userId = null; phase = "email"; message = "differentAccount"; return; }
         phase = "recover"; message = "pending";
       } else await loadPreview();
     }); },
@@ -123,12 +143,22 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
       }
       const operation = pending;
       try {
-        const result = await request("/api/v1/construction/invitations/" + kind, {bearer,
-          body: {...link, expected_row_version: operation.version}, key: kind === "accept" ? operation.key : undefined});
+        const envelope = await request("/api/v1/construction/invitations/" + kind, {bearer,
+          body: {...link, expected_row_version: operation.version},
+          key: kind === "accept" ? operation.key : undefined, includeMeta: kind === "accept"});
+        const result = kind === "accept" ? envelope?.data : envelope;
+        if (!result || (kind === "accept" && !UUID.test(envelope?.meta?.organization_id))) {
+          throw new ApiProblem(0, "invalid_response");
+        }
         if (result.id !== operation.id || result.status !== (kind === "accept" ? "accepted" : "declined")
             || result.row_version !== operation.version + 1) throw new ApiProblem(0, "invalid_response");
-        const acceptedSession = kind === "accept" ? Object.freeze({bearer, userId}) : null;
-        link = null; pending = null; preview = null; bearer = ""; userId = null; persist();
+        const acceptedSession = kind === "accept" ? Object.freeze({
+          bearer, userId, refreshToken, tenantId: envelope.meta.organization_id,
+        }) : null;
+        acceptedContext = acceptedSession ? Object.freeze({
+          userId, tenantId: acceptedSession.tenantId,
+        }) : null;
+        link = null; pending = null; preview = null; bearer = ""; refreshToken = ""; userId = null; persist();
         phase = "done"; message = kind === "accept" ? "accepted" : "declined";
         // This observer cannot change the already confirmed invitation result.
         // Credentials are handed to the optional in-memory Platform component.
@@ -139,9 +169,13 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
         throw error;
       }
     }); },
-    changeEmail() { if (busy || !link) return; bearer = ""; userId = null; challenge = null; preview = null; email = ""; phase = "email"; message = ""; emit(); },
-    forget() { if (busy) return; link = null; pending = null; bearer = ""; userId = null; challenge = null; preview = null; email = ""; persist(); phase = "invalid"; message = "cleared"; emit(); },
+    changeEmail() { if (busy || (!link && !acceptedContext)) return; bearer = ""; refreshToken = ""; userId = null; challenge = null; preview = null; email = ""; phase = "email"; message = ""; emit(); },
+    forget() { if (busy) return; acceptedContext = null; link = null; pending = null; bearer = ""; refreshToken = ""; userId = null; challenge = null; preview = null; email = ""; persist(); phase = "invalid"; message = "cleared"; emit(); },
   };
 }
 
 // invitation_telegram_onboarding_v1
+
+// invitation_identity_only_v1
+
+// invitation_binding_session_v1
