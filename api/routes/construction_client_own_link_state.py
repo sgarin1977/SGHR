@@ -10,8 +10,8 @@ from api.responses import success_envelope
 from database.construction_client_unlink_context import construction_client_unlink_lookup_transaction
 from services.api_identity import ApiIdentityAccessError
 from services.api_rate_limits import ApiRequestRateLimitExceededError
-from services.construction_client_unlink import ConstructionClientUnlinkDeniedError
-from services.construction_client_own_link_state import build_construction_client_own_link_state_service
+from services.construction.construction_client_unlink import ConstructionClientUnlinkDeniedError
+from services.construction.construction_client_own_link_state import build_construction_client_own_link_state_service
 
 class ClientOwnLinkStateResponse(BaseModel):
     model_config = ConfigDict(extra='forbid')

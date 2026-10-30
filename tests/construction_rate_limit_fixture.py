@@ -21,3 +21,7 @@ def construction_module_dependencies(router):
               if getattr(dependency.dependency, '__name__', None) in names]
     assert [item.dependency.__name__ for item in result] == list(names)
     return result
+
+
+# shared_local_api_rate_limit_v1
+with_local_api_rate_limit = with_local_construction_rate_limit

@@ -10,10 +10,10 @@ from api.routes.construction import (
     ConstructionAPIRouter, get_construction_access_context, get_construction_scoped_session,
 )
 from api.routes.construction_access_read import access_permission
-from services.construction_permissions import (
+from services.construction.construction_permissions import (
     CONSTRUCTION_ROLE_PERMISSIONS, ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
 )
-from services.construction_role_options import build_construction_role_options_service, ConstructionRoleOptionsError
+from services.construction.construction_role_options import build_construction_role_options_service, ConstructionRoleOptionsError
 
 class RoleOptionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")

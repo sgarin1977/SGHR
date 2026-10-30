@@ -1670,8 +1670,9 @@ async def test_contact_request_creation_forwards_deferred_commit_to_repository(
     notification_id = uuid4()
     calls = []
 
+    # contact_request_deferred_commit_fixture_v1
     class FakeRepository:
-        session = object()
+        session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
 
         async def get_active_contact_request_for_pair(
             self,
@@ -1702,8 +1703,9 @@ async def test_contact_request_creation_forwards_deferred_commit_to_repository(
         def __init__(self, repository):
             self.repository = repository
 
-        async def process_message(self, value):
+        async def process_message(self, value, *, commit=True):
             assert value == message_id
+            assert commit is False
             return SimpleNamespace(
                 is_masked=False,
                 detected_types=[],
@@ -1766,6 +1768,8 @@ async def test_contact_request_creation_forwards_deferred_commit_to_repository(
             "commit": False,
         }
     ]
+    repository.session.commit.assert_not_awaited()
+    repository.session.rollback.assert_not_awaited()
 
 
 

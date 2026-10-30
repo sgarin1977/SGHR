@@ -1,3 +1,4 @@
+from construction_rate_limit_fixture import with_local_api_rate_limit
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -476,7 +477,7 @@ async def test_admin_audit_endpoint_uses_current_actor_and_release_filters():
                 has_next=False,
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor

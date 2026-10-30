@@ -19,7 +19,7 @@ class ApiAuthSessionRepository:
     async def create_session(
         self,
         *,
-        tenant_id: UUID,
+        tenant_id: UUID | None,
         user_id: UUID,
         refresh_token_hash: str,
         auth_method: str,
@@ -27,6 +27,11 @@ class ApiAuthSessionRepository:
         device_name: str | None,
         expires_at: datetime,
     ) -> ApiAuthSession:
+        if (
+            not isinstance(user_id, UUID)
+            or (tenant_id is not None and not isinstance(tenant_id, UUID))
+        ):
+            raise ValueError("Session identity is invalid.")
         if len(refresh_token_hash) != 64:
             raise ValueError(
                 "Refresh token hash must "

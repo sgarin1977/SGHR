@@ -52,7 +52,7 @@ class ApiAuthSessionRepository(Protocol):
     async def create_session(
         self,
         *,
-        tenant_id: UUID,
+        tenant_id: UUID | None,
         user_id: UUID,
         refresh_token_hash: str,
         auth_method: str,
@@ -141,9 +141,9 @@ class ApiAuthService:
         if (
             user is None
             or not isinstance(user.id, UUID)
-            or not isinstance(
-                user.tenant_id,
-                UUID,
+            or (
+                user.tenant_id is not None
+                and not isinstance(user.tenant_id, UUID)
             )
             or user.status != "active"
         ):
@@ -317,6 +317,15 @@ class ApiAuthService:
             await self.user_service.lock_telegram_authentication(
                 user_id=user.id, telegram_user_id=identity.platform_user_id,
             )
+            # telegram_auth_final_tenant_gate_v1
+            if (
+                user.id != registration.user_id
+                or user.tenant_id is None
+                or user.status != "active"
+            ):
+                raise ApiAuthAccessError(
+                    "Authenticated user is not available."
+                )
             token_pair = await (
                 self.prepare_token_pair(
                     user=user,
@@ -420,15 +429,28 @@ class ApiAuthService:
                 user is None
                 or user.id
                 != auth_session.user_id
-                or user.tenant_id is None
-                or user.tenant_id
-                != auth_session.tenant_id
+                or (
+                    auth_session.tenant_id is not None
+                    and not isinstance(auth_session.tenant_id, UUID)
+                )
                 or user.status != "active"
             ):
                 raise ApiAuthRefreshError(
                     "Refresh session is not "
                     "available."
                 )
+
+            if (
+                auth_session.tenant_id is not None
+                and user.tenant_id != auth_session.tenant_id
+            ):
+                membership_reader = getattr(
+                    getattr(self.user_service, "repository", None),
+                    "has_active_tenant_membership", None,
+                )
+                if (not callable(membership_reader) or await membership_reader(
+                        user_id=user.id, tenant_id=auth_session.tenant_id) is not True):
+                    raise ApiAuthRefreshError("Refresh session is not available.")
 
             refresh_material = (
                 self.refresh_token_codec
@@ -438,7 +460,7 @@ class ApiAuthService:
                 self.access_token_codec
                 .issue_access_token(
                     user_id=user.id,
-                    tenant_id=user.tenant_id,
+                    tenant_id=auth_session.tenant_id,
                     now=current_time,
                 )
             )

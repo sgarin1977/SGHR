@@ -13,15 +13,15 @@ from api.routes.construction import (
     require_construction_permission,
 )
 from api.routes.construction_lead_status import LeadPipelineStatus
-from services.construction_lead_list_read import (
+from services.construction.construction_lead_list_read import (
     ConstructionLeadListFilters, ConstructionLeadListReadPage, build_construction_lead_list_read_service,
 )
-from services.construction_lead_read import (
+from services.construction.construction_lead_read import (
     LEAD_READ_PERMISSION, PUBLIC_LEAD_DETAIL_FIELDS, ConstructionLeadReadNotFoundError,
     ConstructionLeadReadResponse, ConstructionLeadReadService, build_construction_lead_read_service,
 )
-from services.construction_lead_rules import ConstructionLeadValidationError
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_lead_rules import ConstructionLeadValidationError
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 
 
 class LeadReadEnvelope(BaseModel):

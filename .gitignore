@@ -14,3 +14,6 @@ exports/
 *Zone.Identifier
 /locales/
 /scripts/i18n/
+
+# Local source backups of the Construction package refactor
+/.construction-refactor-backups/

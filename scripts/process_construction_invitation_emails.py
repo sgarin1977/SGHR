@@ -19,7 +19,7 @@ def parse_args(argv=None):
 async def serve(settings, *, once=False):
     from database.session import async_session, engine
     from services.resend_email_provider import close_resend_http_client
-    from services.construction_invitation_worker_runtime import run_invitation_worker, verify_invitation_worker_connection
+    from services.construction.construction_invitation_worker_runtime import run_invitation_worker, verify_invitation_worker_connection
     stop, loop, installed = asyncio.Event(), asyncio.get_running_loop(), []
     try:
         for signum in (signal.SIGTERM, signal.SIGINT):
@@ -46,7 +46,7 @@ async def serve(settings, *, once=False):
 def main(argv=None):
     args = parse_args(argv)
     try:
-        from services.construction_invitation_worker_runtime import InvitationWorkerSettings
+        from services.construction.construction_invitation_worker_runtime import InvitationWorkerSettings
         settings = InvitationWorkerSettings.from_env()
     except Exception:
         print('STOP: Invitation worker settings are missing or invalid. Check EMAIL_*, WEB_APP_URL, RESEND_API_KEY, API_IDEMPOTENCY_ENCRYPTION_KEY and CONSTRUCTION_INVITATION_*.', file=sys.stderr)

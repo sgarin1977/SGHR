@@ -22,6 +22,7 @@ from config import (
 )
 from logger import configure_logging
 from handlers.start import start_router
+from handlers.construction.construction_suite import construction_suite_router
 from handlers.platform_telegram_binding import platform_telegram_binding_router
 from handlers.legal import legal_router
 from fsm.specialist_form import specialist_form_router
@@ -121,9 +122,32 @@ async def main():
 
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
+    from handlers.platform_organization_create import organization_navigation_middleware
+    dp.callback_query.outer_middleware(organization_navigation_middleware)
+    from handlers.construction.construction_project_catalog import catalog_navigation_middleware
+    dp.callback_query.outer_middleware(catalog_navigation_middleware)
+    from handlers.construction.construction_client_catalog import client_catalog_navigation_middleware
+    dp.callback_query.outer_middleware(client_catalog_navigation_middleware)
+    from handlers.construction.construction_company_profile import company_navigation_middleware
+    dp.callback_query.outer_middleware(company_navigation_middleware)
+    from handlers.construction.construction_company_identifiers import identifier_navigation_middleware
+    dp.callback_query.outer_middleware(identifier_navigation_middleware)
+    from handlers.construction.construction_company_banks import bank_navigation_middleware
+    dp.callback_query.outer_middleware(bank_navigation_middleware)
+    from handlers.construction.construction_company_logo import logo_navigation_middleware
+    dp.callback_query.outer_middleware(logo_navigation_middleware)
+    from handlers.construction.construction_company_settings import settings_navigation_middleware
+    dp.callback_query.outer_middleware(settings_navigation_middleware)
+    from handlers.construction.construction_invitations import invitation_navigation_middleware
+    dp.callback_query.outer_middleware(invitation_navigation_middleware)
+    from handlers.construction.construction_lead_filters import filter_navigation_middleware
+    dp.callback_query.outer_middleware(filter_navigation_middleware)
+    from handlers.construction.construction_team_permissions import permissions_navigation_middleware
+    dp.callback_query.outer_middleware(permissions_navigation_middleware)
 
     dp.include_router(platform_telegram_binding_router)
     dp.include_router(start_router)
+    dp.include_router(construction_suite_router)
     dp.include_router(legal_router)
     dp.include_router(specialist_form_router)
     dp.include_router(search_router)

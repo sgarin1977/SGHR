@@ -9,16 +9,16 @@ from api.errors import ApiHttpError
 from api.responses import success_envelope
 from api.dependencies import get_api_session, get_api_request_rate_limit_service
 from services.api_identity import ApiActorContext
-from services.construction_permissions import (
+from services.construction.construction_permissions import (
     CONSTRUCTION_PERMISSION_CODES,
     CONSTRUCTION_ROLE_PERMISSIONS,
     ConstructionPermissionDeniedError,
     ConstructionScopeDeniedError,
 )
-from services.construction_grants import (
+from services.construction.construction_grants import (
     build_construction_access_context_resolver,
 )
-from services.construction_team import (
+from services.construction.construction_team import (
     build_construction_team_access,
     build_construction_team_service,
 )
@@ -101,6 +101,74 @@ def require_construction_permission(
     return dependency
 
 
+def require_construction_grant_management():
+    """Coarse HTTP admission; domain checks authorize the exact grant scope."""
+    from services.construction.construction_permissions import (
+        ConstructionAccessContext, require_construction_access,
+        require_construction_role_scope,
+    )
+
+    async def dependency(
+        actor=Depends(get_current_actor),
+        access_context=Depends(get_construction_access_context),
+    ):
+        if (
+            getattr(actor, "status", None) == "active"
+            and isinstance(getattr(actor, "user_id", None), UUID)
+            and isinstance(getattr(actor, "tenant_id", None), UUID)
+            and isinstance(access_context, ConstructionAccessContext)
+            and access_context.user_id == actor.user_id
+            and access_context.tenant_id == actor.tenant_id
+        ):
+            for grant in access_context.grants:
+                if not isinstance(grant.scope_id, UUID):
+                    continue
+                try:
+                    require_construction_role_scope(
+                        role=grant.role, scope_type=grant.scope_type,
+                    )
+                except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError):
+                    continue
+                codes = (
+                    ("construction.access.manage",)
+                    if grant.scope_type == "document"
+                    else ("construction.access.manage", "construction.team.manage")
+                )
+                for code in codes:
+                    try:
+                        require_construction_access(
+                            actor=actor, access_context=access_context,
+                            permission_code=code,
+                            project_id=grant.scope_id if grant.scope_type == "project" else None,
+                            document_id=grant.scope_id if grant.scope_type == "document" else None,
+                        )
+                        return access_context
+                    except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError):
+                        continue
+        raise ApiHttpError(
+            status_code=403, code="permission_required",
+            message="Construction grant management is unavailable.",
+        )
+
+    dependency.construction_permission_codes = (
+        "construction.access.manage", "construction.team.manage",
+    )
+    return dependency
+
+
+def _has_construction_permission_marker(dependency):
+    callback = dependency.dependency
+    code = getattr(callback, "construction_permission_code", None)
+    if isinstance(code, str) and code in CONSTRUCTION_PERMISSION_CODES:
+        return True
+    codes = getattr(callback, "construction_permission_codes", None)
+    return (
+        isinstance(codes, tuple) and bool(codes)
+        and all(isinstance(value, str) and value in CONSTRUCTION_PERMISSION_CODES
+                for value in codes)
+    )
+
+
 def _is_default_authenticated_rate_limit(dependency):
     return getattr(dependency.dependency, "api_rate_limit_context", None) == (
         "authenticated_user", get_current_actor, get_api_request_rate_limit_service)
@@ -128,11 +196,7 @@ class ConstructionAPIRouter(APIRouter):
         )
 
         has_construction_permission = any(
-            getattr(
-                dependency.dependency,
-                "construction_permission_code",
-                None,
-            )
+            _has_construction_permission_marker(dependency)
             for dependency in route_dependencies
         )
 

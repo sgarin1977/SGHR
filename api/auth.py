@@ -227,6 +227,9 @@ async def get_current_actor(
     except ApiAuthenticationError:
         raise invalid_token_error() from None
 
+    if claims.tenant_id is None:
+        raise invalid_token_error()
+
     try:
         return await (
             identity_service.require_actor(

@@ -15,7 +15,7 @@ from sqlalchemy import select
 from database.models import ConstructionAccessGrant as Grant, RoleScope, User, UserRoleMapping
 from database.repositories.platform_membership_authorization import MembershipRemovalEvidence as Evidence
 from services.api_identity import ApiActorContext
-from services.construction_permissions import (
+from services.construction.construction_permissions import (
     CONSTRUCTION_PERMISSION_CODES, CONSTRUCTION_ROLE_PERMISSIONS,
     ConstructionAccessContext, ConstructionGrantContext,
 )

@@ -5,7 +5,7 @@ not confirmation of frontend readiness or deployed email delivery.
 
 ## Platform integration
 
-`services.construction_invitation_platform_email` uses the existing
+`services.construction.construction_invitation_platform_email` uses the existing
 `services.email_delivery.EmailProvider` protocol. Release configuration
 uses the existing Resend adapter, EMAIL_FROM, WEB_APP_URL and RESEND_API_KEY.
 

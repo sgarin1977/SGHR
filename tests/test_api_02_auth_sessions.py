@@ -32,7 +32,7 @@ def test_api_auth_session_model_contract():
     assert columns.refresh_token_hash.nullable is False
     assert columns.refresh_token_hash.unique is True
 
-    assert columns.tenant_id.nullable is False
+    assert columns.tenant_id.nullable is True
     assert columns.user_id.nullable is False
     assert columns.expires_at.nullable is False
 

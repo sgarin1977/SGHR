@@ -97,7 +97,7 @@ async def load_company_profile_write_context(*, actor):
     from database.repositories.construction import (
         ConstructionAccessRepository,
     )
-    from services.construction_grants import (
+    from services.construction.construction_grants import (
         ConstructionAccessContextResolver,
     )
 

@@ -235,85 +235,176 @@ def callback_routes(modules):
     return exact, prefixes
 
 
+def _unregistered_router_symbols(modules, bot_tree):
+    """Resolve imported aliases and nested router inclusion from the bot root."""
+    trees = {
+        ".".join(path.with_suffix("").parts).removesuffix(".__init__"): tree
+        for path, (_, tree) in modules.items()
+    }
+    trees["bot"] = bot_tree
+    aliases, factories, declared = {}, {}, set()
+
+    def router_call(node):
+        return isinstance(node, ast.Call) and (
+            isinstance(node.func, ast.Name) and node.func.id == "Router"
+            or isinstance(node.func, ast.Attribute) and node.func.attr == "Router"
+        )
+
+    def targets(node):
+        if isinstance(node, ast.Assign):
+            return node.targets
+        if isinstance(node, ast.AnnAssign):
+            return [node.target]
+        return []
+
+    for module, tree in trees.items():
+        for node in tree.body:
+            if isinstance(node, ast.ImportFrom):
+                for item in node.names:
+                    aliases[module + "." + (item.asname or item.name)] = (
+                        (node.module or "") + "." + item.name
+                    )
+            elif isinstance(node, ast.Import):
+                for item in node.names:
+                    aliases[module + "." + (item.asname or item.name.split(".")[0])] = (
+                        item.name if item.asname else item.name.split(".")[0]
+                    )
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                local = {
+                    target.id
+                    for child in node.body
+                    if router_call(getattr(child, "value", None))
+                    for target in targets(child) if isinstance(target, ast.Name)
+                }
+                returned = {
+                    child.value.id for child in node.body
+                    if isinstance(child, ast.Return)
+                    and isinstance(child.value, ast.Name)
+                    and child.value.id in local
+                }
+                if len(returned) == 1:
+                    factories[module + "." + node.name] = (
+                        module + "." + node.name + "." + next(iter(returned))
+                    )
+
+    def resolve(module, node):
+        if isinstance(node, ast.Name):
+            symbol = module + "." + node.id
+        elif isinstance(node, ast.Attribute):
+            base = resolve(module, node.value)
+            symbol = base + "." + node.attr if base else None
+        elif isinstance(node, ast.Call):
+            return factories.get(resolve(module, node.func))
+        else:
+            return None
+        seen = set()
+        while symbol in aliases and symbol not in seen:
+            seen.add(symbol)
+            symbol = aliases[symbol]
+        return symbol
+
+    for module, tree in trees.items():
+        for node in tree.body:
+            for target in targets(node):
+                if not isinstance(target, ast.Name):
+                    continue
+                symbol = module + "." + target.id
+                value = getattr(node, "value", None)
+                if router_call(value):
+                    declared.add(symbol)
+                elif isinstance(value, ast.Call):
+                    factory = resolve(module, value)
+                    if factory:
+                        aliases[symbol] = factory
+                        declared.add(factory)
+                elif isinstance(value, (ast.Name, ast.Attribute)):
+                    resolved = resolve(module, value)
+                    if resolved:
+                        aliases[symbol] = resolved
+
+    edges, roots, unresolved = defaultdict(set), set(), set()
+    for module, tree in trees.items():
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in {"include_router", "include_routers"}
+            ):
+                continue
+            parent = resolve(module, node.func.value)
+            for argument in node.args:
+                child = resolve(module, argument)
+                if child not in declared:
+                    unresolved.add(f"{module}:{node.lineno}: unresolved child {child}")
+                if parent == "bot.dp":
+                    roots.add(child)
+                elif parent in declared:
+                    edges[parent].add(child)
+                else:
+                    unresolved.add(f"{module}:{node.lineno}: unresolved parent {parent}")
+
+    reachable, pending = set(), list(roots)
+    while pending:
+        symbol = pending.pop()
+        if symbol in reachable:
+            continue
+        reachable.add(symbol)
+        pending.extend(edges[symbol])
+    return sorted((declared - reachable) | unresolved)
+
+
 def test_all_declared_routers_are_registered():
     modules = load_modules()
-    declared = set()
+    bot_tree = ast.parse(Path("bot.py").read_text(encoding="utf-8-sig"))
+    missing = _unregistered_router_symbols(modules, bot_tree)
+    assert not missing, missing
 
-    for _, tree in modules.values():
-        for node in tree.body:
-            if not isinstance(
-                node,
-                (ast.Assign, ast.AnnAssign),
-            ):
-                continue
 
-            targets = (
-                node.targets
-                if isinstance(
-                    node,
-                    ast.Assign,
-                )
-                else [node.target]
-            )
-            value = node.value
-
-            if not (
-                isinstance(value, ast.Call)
-                and (
-                    (
-                        isinstance(
-                            value.func,
-                            ast.Name,
-                        )
-                        and value.func.id
-                        == "Router"
-                    )
-                    or (
-                        isinstance(
-                            value.func,
-                            ast.Attribute,
-                        )
-                        and value.func.attr
-                        == "Router"
-                    )
-                )
-            ):
-                continue
-
-            for target in targets:
-                if isinstance(
-                    target,
-                    ast.Name,
-                ):
-                    declared.add(
-                        target.id
-                    )
-
-    bot_tree = ast.parse(
-        Path("bot.py").read_text(
-            encoding="utf-8-sig"
-        )
-    )
-    registered = {
-        call.args[0].id
-        for call in ast.walk(bot_tree)
-        if isinstance(call, ast.Call)
-        and isinstance(
-            call.func,
-            ast.Attribute,
-        )
-        and call.func.attr
-        == "include_router"
-        and call.args
-        and isinstance(
-            call.args[0],
-            ast.Name,
-        )
+def test_router_graph_detects_detached_router_with_same_local_name():
+    modules = {
+        Path("handlers/a.py"): ("", ast.parse("router = Router()\n")),
+        Path("handlers/b.py"): ("", ast.parse("router = Router()\n")),
     }
+    bot_tree = ast.parse(
+        "from handlers.a import router as first\n"
+        "dp.include_router(first)\n"
+    )
+    assert _unregistered_router_symbols(modules, bot_tree) == ["handlers.b.router"]
 
-    assert not (
-        declared - registered
-    ), sorted(declared - registered)
+
+def test_router_graph_follows_nested_import_aliases():
+    modules = {
+        Path("handlers/child.py"): ("", ast.parse("date_router = Router()\n")),
+        Path("handlers/parent.py"): ("", ast.parse(
+            "from handlers.child import date_router as dates\n"
+            "router = Router()\n"
+            "router.include_router(dates)\n"
+        )),
+    }
+    bot_tree = ast.parse(
+        "from handlers.parent import router as parent\n"
+        "dp.include_router(parent)\n"
+    )
+    assert _unregistered_router_symbols(modules, bot_tree) == []
+
+
+def test_router_graph_checks_exported_factory_router():
+    modules = {
+        Path("handlers/factory.py"): ("", ast.parse(
+            "def build_router():\n"
+            "    router = Router()\n"
+            "    return router\n"
+            "exported = build_router()\n"
+        )),
+    }
+    bot_tree = ast.parse(
+        "from handlers.factory import exported as root\n"
+        "dp.include_router(root)\n"
+    )
+    assert _unregistered_router_symbols(modules, bot_tree) == []
+    assert _unregistered_router_symbols(modules, ast.parse("")) == [
+        "handlers.factory.build_router.router",
+    ]
 
 
 def test_event_helpers_are_reachable_or_decorated():
@@ -332,6 +423,23 @@ def test_event_helpers_are_reachable_or_decorated():
                 calls[node.func.id].append(
                     (str(path), node.lineno)
                 )
+
+    # Programmatic aiogram observer registration also makes a handler reachable.
+    for path, (_, tree) in modules.items():
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "register"
+                and isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr in {
+                    "message", "callback_query", "inline_query",
+                    "chosen_inline_result", "edited_message", "channel_post",
+                }
+                and node.args
+                and isinstance(node.args[0], ast.Name)
+            ):
+                calls[node.args[0].id].append((str(path), node.lineno))
 
     allowed_compatibility_helpers = {
         "send_specialist_cabinet_message",

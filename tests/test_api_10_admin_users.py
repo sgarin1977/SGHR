@@ -1,3 +1,4 @@
+from construction_rate_limit_fixture import with_local_api_rate_limit
 from uuid import uuid4
 
 import pytest
@@ -462,7 +463,7 @@ async def test_admin_users_endpoint_uses_current_actor():
                 has_next=False,
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor
@@ -579,7 +580,7 @@ async def test_admin_user_detail_endpoint_uses_current_actor():
                 created_at=created_at,
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor

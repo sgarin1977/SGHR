@@ -11,12 +11,12 @@ from api.routes.construction import (
     ConstructionAPIRouter, get_construction_access_context, get_construction_scoped_session,
     require_construction_permission,
 )
-from services.construction_address_matching import ConstructionAddressSuggestion
-from services.construction_address_suggestions import (
+from services.construction.construction_address_matching import ConstructionAddressSuggestion
+from services.construction.construction_address_suggestions import (
     ConstructionAddressSuggestionsService, ConstructionAddressSuggestionValidationError,
     build_construction_address_suggestions_service,
 )
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 
 
 # Transport resource bound only; saved address_raw is not restricted by this.

@@ -586,6 +586,22 @@ async def send_global_main_menu(
             ],
         )
         await state.clear()
+        from handlers.platform_organization_create import retain_organization_attempt
+        await retain_organization_attempt(
+            state, previous_data, callback.from_user.id,
+        )
+        from handlers.construction.construction_project_team import retain_project_team_attempt
+        await retain_project_team_attempt(
+            state, previous_data, callback.from_user.id,
+        )
+        from handlers.construction.construction_project_revoke import retain_project_revoke_attempt
+        await retain_project_revoke_attempt(
+            state, previous_data, callback.from_user.id,
+        )
+        from handlers.construction.construction_project_replace import retain_project_replace_attempt
+        await retain_project_replace_attempt(
+            state, previous_data, callback.from_user.id,
+        )
 
     fallback_language = normalize_language(
         language
@@ -738,8 +754,8 @@ def all_services_keyboard(language: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text=t("all_services_crm_btn", language),
-                    callback_data="CAB_CRM_STUB",
+                    text=t("all_services_suites_btn", language),
+                    callback_data="M_SUITES",
                 )
             ],
             [
@@ -823,6 +839,69 @@ async def open_all_services(
             menu_message.message_id
         )
     )
+
+def suites_keyboard(language: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=t("suites_construction_btn", language),
+            callback_data="M_SUITE_CONSTRUCTION",
+        )],
+        [InlineKeyboardButton(
+            text=t("menu_all_services", language),
+            callback_data="M_ALL_SERVICES",
+        )],
+        [InlineKeyboardButton(
+            text=t("main_menu", language),
+            callback_data="GLOBAL_MAIN_MENU",
+        )],
+    ])
+
+
+@start_router.callback_query(F.data == "M_SUITES")
+async def open_suites(callback: CallbackQuery, state: FSMContext):
+    await show_suite_navigation(callback, state, construction=False)
+
+
+@start_router.callback_query(F.data == "M_SUITE_CONSTRUCTION")
+async def open_construction_suite(
+    callback: CallbackQuery, state: FSMContext, bot=None, event_update=None,
+):
+    from handlers.construction.construction_suite import open_construction
+    await open_construction(
+        callback, state, bot=bot, event_update=event_update
+    )
+
+
+async def show_suite_navigation(
+    callback: CallbackQuery, state: FSMContext, *, construction: bool,
+):
+    # Public navigation only. No tenant context or domain authority is inferred.
+    async with get_session() as session:
+        language = await UserStartService(session).get_language(
+            platform_user_id=callback.from_user.id,
+            fallback_language=normalize_language(callback.from_user.language_code),
+        )
+    await callback.answer()
+    if construction:
+        text_key = "suites_construction_intro"
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=t("all_services_suites_btn", language),
+                callback_data="M_SUITES",
+            )],
+            [InlineKeyboardButton(
+                text=t("main_menu", language),
+                callback_data="GLOBAL_MAIN_MENU",
+            )],
+        ])
+    else:
+        text_key = "suites_title"
+        keyboard = suites_keyboard(language)
+    menu_message = await edit_or_replace_menu_message(
+        callback=callback, text=t(text_key, language), reply_markup=keyboard,
+    )
+    await state.update_data(last_menu_message_id=menu_message.message_id)
+
 
 @start_router.callback_query(
     F.data == "M_SPECIALIST"

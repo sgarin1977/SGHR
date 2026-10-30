@@ -13,8 +13,8 @@ from api.routes.construction import (
     get_construction_scoped_session, require_construction_permission,
 )
 from api.routes.construction_invitations import get_invitation_crypto_settings, _acceptance_error
-from services.construction_invitation_workflows import build_construction_invitation_workflow
-from services.construction_invitations import ConstructionInvitationOperationError, ConstructionInvitationTransitionError
+from services.construction.construction_invitation_workflows import build_construction_invitation_workflow
+from services.construction.construction_invitations import ConstructionInvitationOperationError, ConstructionInvitationTransitionError
 
 Role = Literal["OWNER", "ADMIN", "SURVEYOR", "ESTIMATOR", "PROJECT_MANAGER", "EXECUTOR", "OBSERVER"]
 

@@ -13,13 +13,13 @@ from api.routes.construction import (
 )
 from api.settings import ApiIdempotencySettings
 from services.api_idempotency import ApiIdempotencyKeyReusedError
-from services.construction_access_errors import ConstructionAccessGrantConflictError
-from services.construction_access_workflows import (
+from services.construction.construction_access_errors import ConstructionAccessGrantConflictError
+from services.construction.construction_access_workflows import (
     ConstructionAccessIdempotencyInProgressError, PUBLIC_GRANT_FIELDS,
     build_construction_access_mutation_workflow,
 )
-from services.construction_grants import ConstructionGrantOperationError
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_grants import ConstructionGrantOperationError
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 
 Role = Literal["OWNER", "ADMIN", "SURVEYOR", "ESTIMATOR", "PROJECT_MANAGER", "EXECUTOR", "OBSERVER"]
 
@@ -108,7 +108,8 @@ def _public(result, *, actor, grant_id, target=None):
     return item.model_dump(mode="json")
 
 
-access_permission = require_construction_permission("construction.access.manage")
+from api.routes.construction import require_construction_grant_management
+access_permission = require_construction_grant_management()
 router = ConstructionAPIRouter(
     prefix="/construction/team/access-grants",
     dependencies=[

@@ -9,7 +9,7 @@ from api.auth import get_current_actor, require_module, require_suite, require_a
 from api.responses import success_envelope
 from api.routes.construction import get_construction_access_context
 from services.platform_company_profile_access import resolve_company_profile_permissions, PLATFORM_ORGANIZATION_PROFILE_MANAGE
-from services.construction_tenant_settings import require_construction_settings_manage, ConstructionTenantSettingsPermissionDeniedError
+from services.construction.construction_tenant_settings import require_construction_settings_manage, ConstructionTenantSettingsPermissionDeniedError
 from services.files import IMAGE_MAX_SIZE_BYTES, _FILE_TYPES_BY_EXTENSION
 
 ASSETS=Path(__file__).resolve().parents[2]/'ui/web/company_settings'

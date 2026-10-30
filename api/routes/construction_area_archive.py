@@ -12,16 +12,16 @@ from api.routes.construction import (
     ConstructionAPIRouter, get_construction_access_context,
     get_construction_scoped_session, require_construction_permission,
 )
-from services.construction_area_archive_workflow import (
+from services.construction.construction_area_archive_workflow import (
     PUBLIC_AREA_ARCHIVE_FIELDS, build_construction_area_archive_workflow,
 )
-from services.construction_areas import (
+from services.construction.construction_areas import (
     ConstructionProjectAreaNotFoundError, ConstructionProjectAreaProjectNotFoundError,
     ConstructionProjectAreaTransitionError, ConstructionProjectAreaHasActiveElementsError,
     ConstructionProjectAreaValidationError,
 )
-from services.construction_foundation import ConstructionProjectTerminalError, ConstructionRowVersionConflictError
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_foundation import ConstructionProjectTerminalError, ConstructionRowVersionConflictError
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 
 
 class AreaArchiveRequest(BaseModel):

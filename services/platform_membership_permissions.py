@@ -30,7 +30,7 @@ def resolve_platform_membership_default_permissions(*, actor, construction_acces
     """
     from uuid import UUID
     from services.api_identity import ApiActorContext
-    from services.construction_permissions import (
+    from services.construction.construction_permissions import (
         CONSTRUCTION_ROLE_PERMISSIONS, ConstructionAccessContext, ConstructionGrantContext,
         ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
         require_construction_role_scope,
@@ -73,7 +73,7 @@ def resolve_platform_membership_explicit_permissions(*, actor, construction_acce
     from uuid import UUID
     from database.repositories.platform_organization_permissions import validate_permission_grant
     from services.api_identity import ApiActorContext
-    from services.construction_permissions import (
+    from services.construction.construction_permissions import (
         CONSTRUCTION_ROLE_PERMISSIONS, ConstructionAccessContext, ConstructionGrantContext,
         require_construction_role_scope,
     )

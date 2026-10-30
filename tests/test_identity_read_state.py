@@ -158,8 +158,8 @@ async def test_invalid_client_version_never_fabricated(client_http, version):
 
 
 from database.construction_client_unlink_context import OWN_LINK_CLIENT_SETTING, OWN_LINK_USER_SETTING
-from services.construction_client_own_link_state import build_construction_client_own_link_state_service
-from services.construction_client_unlink import ConstructionClientUnlinkDeniedError
+from services.construction.construction_client_own_link_state import build_construction_client_own_link_state_service
+from services.construction.construction_client_unlink import ConstructionClientUnlinkDeniedError
 import api.routes.construction_client_own_link_state as own_routes
 
 @pytest.fixture

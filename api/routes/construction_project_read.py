@@ -13,9 +13,9 @@ from api.routes.construction import (
     ConstructionAPIRouter, get_construction_access_context,
     get_construction_scoped_session, require_construction_permission,
 )
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
-from services.construction_project_read import build_construction_project_read_service
-from services.construction_projects import ConstructionProjectNotFoundError, ConstructionProjectValidationError
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError, require_construction_access
+from services.construction.construction_project_read import build_construction_project_read_service
+from services.construction.construction_projects import ConstructionProjectNotFoundError, ConstructionProjectValidationError
 
 
 class ProjectReadResponse(BaseModel):
@@ -58,6 +58,35 @@ class ProjectReadEnvelope(BaseModel):
 
 def get_project_read_service(session=Depends(get_construction_scoped_session)):
     return build_construction_project_read_service(session)
+
+
+def project_action_capabilities(*, actor, access_context, project_id):
+    """Project UI projection; mutation endpoints keep their own authorization."""
+    from services.construction.construction_activity_create import ACTIVITY_CREATE_PERMISSION
+
+    if getattr(actor, "status", None) != "active":
+        raise ConstructionPermissionDeniedError()
+
+    require_construction_access(
+        actor=actor, access_context=access_context,
+        permission_code="construction.projects.read", project_id=project_id,
+    )
+    result = {}
+    for name, permission in (
+        ("can_edit_project", "construction.projects.edit"),
+        ("can_plan_activity", ACTIVITY_CREATE_PERMISSION),
+        ("can_open_team", "construction.team.manage"),
+    ):
+        try:
+            require_construction_access(
+                actor=actor, access_context=access_context,
+                permission_code=permission, project_id=project_id,
+            )
+        except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError):
+            result[name] = False
+        else:
+            result[name] = True
+    return result
 
 
 def public_project(project, *, tenant_id, project_id):
@@ -106,6 +135,9 @@ async def read_project(
             actor=actor, access_context=access_context, project_id=id,
         )
         data = public_project(project, tenant_id=actor.tenant_id, project_id=id)
+        capabilities = project_action_capabilities(
+            actor=actor, access_context=access_context, project_id=id,
+        )
     except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError):
         raise ApiHttpError(
             status_code=403, code="forbidden", message="Construction project access is not available.",
@@ -122,4 +154,7 @@ async def read_project(
         raise ApiHttpError(
             status_code=500, code="internal_error", message="Construction project read failed.",
         ) from None
-    return success_envelope(data=data, request_id=request.state.request_id)
+    return success_envelope(
+        data=data, request_id=request.state.request_id,
+        meta={"capabilities": capabilities},
+    )

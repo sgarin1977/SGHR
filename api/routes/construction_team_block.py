@@ -9,8 +9,8 @@ from api.routes.construction import (
     ConstructionAPIRouter, get_construction_scoped_session, require_construction_permission,
 )
 from api.routes.construction_access_mutations import _error
-from services.construction_grants import ConstructionGrantOperationError
-from services.construction_team_block_workflow import (
+from services.construction.construction_grants import ConstructionGrantOperationError
+from services.construction.construction_team_block_workflow import (
     PUBLIC_TEAM_BLOCK_FIELDS, build_construction_team_block_workflow,
 )
 

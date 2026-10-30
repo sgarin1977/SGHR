@@ -5,7 +5,7 @@ from aiogram import Bot, Router
 from aiogram.filters import CommandObject, CommandStart, Filter
 from aiogram.types import Message, Update
 
-from api.dependencies import get_api_request_rate_limit_service
+from services.platform_telegram_binding_rate_limit import get_binding_rate_limit_service
 from api.settings import ApiIdempotencySettings
 from api.telegram_auth import TelegramAuthenticationError
 from database.repositories.platform_telegram_accounts import PlatformTelegramAccountAlreadyLinkedError
@@ -60,7 +60,7 @@ async def binding_start(message: Message, bot: Bot, command: CommandObject, even
     response = 'platform_telegram_binding_unavailable'
     try:
         TelegramBotBindingUpdateVerifier(bot=bot, update=event_update)
-        rates = get_api_request_rate_limit_service()
+        rates = get_binding_rate_limit_service()
         await rates.ensure_telegram_binding_allowed(bot_id=bot.id, telegram_user_id=message.from_user.id)
         read_platform_telegram_binding_start_parameter(command.args)
         encryption_key = get_binding_encryption_key()

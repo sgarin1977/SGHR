@@ -13,8 +13,8 @@ import json
 import re
 from uuid import UUID
 
-from services.construction_lead_list_read import ConstructionLeadListFilters, ConstructionLeadListReadCursor
-from services.construction_lead_rules import ConstructionLeadValidationError
+from services.construction.construction_lead_list_read import ConstructionLeadListFilters, ConstructionLeadListReadCursor
+from services.construction.construction_lead_rules import ConstructionLeadValidationError
 
 MAX_LEAD_LIST_CURSOR_LENGTH = 1024
 _KIND = 'construction.crm.leads'

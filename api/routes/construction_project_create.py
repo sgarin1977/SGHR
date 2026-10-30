@@ -15,12 +15,12 @@ from api.routes.construction_project_read import ProjectReadEnvelope, ProjectRea
 from api.routes.construction_project_read import public_project
 from api.settings import ApiIdempotencySettings
 from services.api_idempotency import ApiIdempotencyKeyReusedError
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
-from services.construction_project_create_workflow import (
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_project_create_workflow import (
     ConstructionProjectIdempotencyInProgressError, PUBLIC_PROJECT_FIELDS,
     build_construction_project_create_workflow,
 )
-from services.construction_projects import ConstructionProjectNotFoundError, ConstructionProjectValidationError
+from services.construction.construction_projects import ConstructionProjectNotFoundError, ConstructionProjectValidationError
 
 
 class ProjectCreateRequest(BaseModel):

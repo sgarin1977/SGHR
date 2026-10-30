@@ -14,9 +14,9 @@ from api.routes.construction_access_mutations import (
     GrantMutationResponse, GrantReplaceRequest, Role, _error, optional_idempotency_key,
 )
 from api.settings import ApiIdempotencySettings
-from services.construction_access_issuance_workflow import build_construction_access_issuance_workflow
-from services.construction_access_workflows import PUBLIC_GRANT_FIELDS
-from services.construction_grants import ConstructionGrantOperationError
+from services.construction.construction_access_issuance_workflow import build_construction_access_issuance_workflow
+from services.construction.construction_access_workflows import PUBLIC_GRANT_FIELDS
+from services.construction.construction_grants import ConstructionGrantOperationError
 
 
 class GrantCreateRequest(BaseModel):
@@ -58,7 +58,8 @@ def _public(result, *, actor, user_id, target):
     return item.model_dump(mode="json")
 
 
-access_permission = require_construction_permission("construction.access.manage")
+from api.routes.construction import require_construction_grant_management
+access_permission = require_construction_grant_management()
 router = ConstructionAPIRouter(
     prefix="/construction/team",
     dependencies=[

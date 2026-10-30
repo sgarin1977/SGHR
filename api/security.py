@@ -20,7 +20,7 @@ class ApiAuthenticationError(Exception):
 @dataclass(frozen=True)
 class AccessTokenClaims:
     user_id: UUID
-    tenant_id: UUID
+    tenant_id: UUID | None
     token_id: UUID
     issued_at: datetime
     expires_at: datetime
@@ -57,9 +57,14 @@ class AccessTokenCodec:
         self,
         *,
         user_id: UUID,
-        tenant_id: UUID,
+        tenant_id: UUID | None,
         now: datetime | None = None,
     ) -> str:
+        if (
+            not isinstance(user_id, UUID)
+            or (tenant_id is not None and not isinstance(tenant_id, UUID))
+        ):
+            raise ValueError("Token identity is invalid.")
         issued_at = now or datetime.now(UTC)
 
         if issued_at.tzinfo is None:
@@ -78,7 +83,7 @@ class AccessTokenCodec:
 
         payload = {
             "sub": str(user_id),
-            "tenant_id": str(tenant_id),
+            "tenant_id": None if tenant_id is None else str(tenant_id),
             "jti": str(uuid4()),
             "typ": "access",
             "iss": self.issuer,
@@ -110,7 +115,6 @@ class AccessTokenCodec:
                 options={
                     "require": [
                         "sub",
-                        "tenant_id",
                         "jti",
                         "typ",
                         "iss",
@@ -122,6 +126,11 @@ class AccessTokenCodec:
                 },
             )
 
+            # PyJWT treats a null required claim as missing. Require the
+            # key explicitly while allowing its intentional JSON null value.
+            if "tenant_id" not in payload:
+                raise ApiAuthenticationError("Missing tenant context.")
+
             if payload["typ"] != "access":
                 raise ApiAuthenticationError(
                     "Invalid access token type."
@@ -131,8 +140,9 @@ class AccessTokenCodec:
                 user_id=UUID(
                     str(payload["sub"])
                 ),
-                tenant_id=UUID(
-                    str(payload["tenant_id"])
+                tenant_id=(
+                    None if payload["tenant_id"] is None
+                    else UUID(str(payload["tenant_id"]))
                 ),
                 token_id=UUID(
                     str(payload["jti"])

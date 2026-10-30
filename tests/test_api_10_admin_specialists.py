@@ -1,3 +1,4 @@
+from construction_rate_limit_fixture import with_local_api_rate_limit
 from uuid import uuid4
 
 import pytest
@@ -642,7 +643,7 @@ async def test_admin_specialists_endpoint_uses_current_actor():
                 has_next=False,
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor
@@ -773,7 +774,7 @@ async def test_admin_specialist_detail_endpoint_uses_current_actor():
             calls.append(kwargs)
             return item
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor
@@ -1188,7 +1189,7 @@ async def test_admin_specialist_moderation_endpoints_use_current_actor():
                 message="Restored.",
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor

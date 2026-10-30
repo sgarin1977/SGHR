@@ -7,12 +7,12 @@ from database.repositories.platform_membership_authorization import (
     MembershipRemovalEvidence, PlatformMembershipAuthorizationRepository,
 )
 from services.api_identity import ApiActorContext
-from services.construction_membership_removal_policy import require_organization_removal_policy
+from services.construction.construction_membership_removal_policy import require_organization_removal_policy
 from services.platform_membership_permissions import (
     PLATFORM_ORGANIZATION_MEMBERSHIP_MANAGE, resolve_platform_membership_default_permissions,
     resolve_platform_membership_explicit_permissions,
 )
-from services.construction_permissions import (
+from services.construction.construction_permissions import (
     CONSTRUCTION_ROLE_PERMISSIONS, ConstructionAccessContext, ConstructionGrantContext,
     require_construction_role_scope,
 )
@@ -151,7 +151,7 @@ class PlatformMembershipRemovalAuthorizer:
 
 
 def build_authorized_organization_removal_workflow(*, session, now_provider=None):
-    from services.construction_organization_removal_workflow import build_construction_organization_removal_workflow
+    from services.construction.construction_organization_removal_workflow import build_construction_organization_removal_workflow
     authorization = PlatformMembershipRemovalAuthorizer(session=session,
         repository=PlatformMembershipAuthorizationRepository(session),now_provider=now_provider)
     return build_construction_organization_removal_workflow(session=session,

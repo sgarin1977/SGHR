@@ -7,8 +7,8 @@ from api.responses import success_envelope
 from api.routes.construction import get_construction_scoped_session
 from api.routes.construction import get_construction_access_context
 from api.routes.construction import require_construction_permission
-import services.construction_tenant_settings as settings_domain
-from services.construction_tenant_settings import (
+import services.construction.construction_tenant_settings as settings_domain
+from services.construction.construction_tenant_settings import (
     ConstructionTenantSettingsScopeError,
     build_construction_tenant_settings_service,
 )

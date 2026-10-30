@@ -70,7 +70,10 @@ class ApiEmailIdentityService:
         if (
             user is None
             or user.id != expected_user_id
-            or user.tenant_id is None
+            or (
+                user.tenant_id is not None
+                and not isinstance(user.tenant_id, UUID)
+            )
             or user.status != "active"
             or (
                 expected_tenant_id

@@ -85,6 +85,10 @@ from api.routes.construction_access_issuance import router as construction_acces
 from api.routes.construction_team_block import router as construction_team_block_router
 
 from api.routes.construction_project_read import router as construction_project_read_router
+from api.routes.construction_project_patch import router as construction_project_patch_router
+from api.routes.construction_project_catalog import router as construction_project_catalog_router
+from api.routes.construction_project_areas import router as construction_project_areas_router
+from api.routes.construction_project_area_create import router as construction_project_area_create_router
 from api.routes.construction_address_suggestions import router as construction_address_suggestions_router
 from api.routes.construction_project_create import router as construction_project_create_router
 from api.routes.construction_lead_create import router as construction_lead_create_router
@@ -92,17 +96,28 @@ from api.routes.construction_lead_conversion import router as construction_lead_
 from api.routes.construction_lead_status import router as construction_lead_status_router
 from api.routes.construction_lead_read import router as construction_lead_read_router
 from api.routes.construction_activities import router as construction_activities_router
+from api.routes.construction_project_activities import router as construction_project_activities_router
 from api.routes.construction_area_archive import router as construction_area_archive_router
 from api.routes.construction_area_patch import router as construction_area_patch_router
 from api.routes.construction_client_read import router as construction_client_read_router
+from api.routes.construction_client_catalog import router as construction_client_catalog_router
+from api.routes.construction_client_create import router as construction_client_create_router
+from api.routes.construction_client_patch import router as construction_client_patch_router
+from api.routes.construction_client_archive import router as construction_client_archive_router
 from api.routes.construction_client_confirmation import router as construction_client_confirmation_router
 from api.routes.construction_client_self_link import router as construction_client_self_link_router
 from api.routes.construction_client_link_requests import router as construction_client_link_requests_router
 from api.routes.construction_client_unlink import router as construction_client_unlink_router
 
 from api.routes.platform_telegram_binding import router as platform_telegram_binding_router
+from api.routes.platform_bot_entry import router as platform_bot_entry_router
+from api.routes.platform_bot_client_links import router as platform_bot_client_links_router
+from api.routes.platform_organization_create import router as platform_organization_create_router
+from api.routes.platform_organization_create import bot_router as platform_bot_organization_create_router
+from api.routes.construction_navigation import router as construction_navigation_router
 from api.routes.construction_company_page import router as construction_company_page_router, api_router as construction_company_ui_router
 from api.routes.construction_invitation_page import router as construction_invitation_page_router
+from api.routes.construction_client_link_page import router as construction_client_link_page_router
 from api.routes.platform_telegram_account_state import router as platform_telegram_account_state_router
 from api.routes.construction_client_own_link_state import router as construction_client_own_link_state_router
 
@@ -262,6 +277,10 @@ def create_app() -> FastAPI:
         tags=["Construction"],
     )
     application.include_router(construction_project_read_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_project_patch_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_project_catalog_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_project_areas_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_project_area_create_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(construction_address_suggestions_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_project_create_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(construction_lead_create_router, prefix=API_PREFIX, tags=['Construction'])
@@ -269,9 +288,14 @@ def create_app() -> FastAPI:
     application.include_router(construction_lead_status_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(construction_lead_read_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_activities_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_project_activities_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_area_archive_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(construction_area_patch_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(construction_client_read_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_client_catalog_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_client_create_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_client_patch_router, prefix=API_PREFIX, tags=['Construction'])
+    application.include_router(construction_client_archive_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(construction_client_confirmation_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_client_self_link_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_client_link_requests_router, prefix=API_PREFIX, tags=["Construction"])
@@ -472,10 +496,18 @@ def create_app() -> FastAPI:
     application.include_router(construction_company_page_router)
     application.include_router(construction_company_ui_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_invitation_page_router)
+    application.include_router(construction_client_link_page_router)
     application.include_router(platform_telegram_account_state_router, prefix=API_PREFIX, tags=['Platform Telegram'])
     application.include_router(construction_client_own_link_state_router, prefix=API_PREFIX, tags=['Construction'])
     application.include_router(platform_organization_membership_router, prefix=API_PREFIX, tags=["Platform organizations"])
+    application.include_router(platform_bot_entry_router, prefix=API_PREFIX)
+    application.include_router(platform_bot_client_links_router, prefix=API_PREFIX)
+    application.include_router(platform_organization_create_router, prefix=API_PREFIX, tags=["Platform organizations"])
+    application.include_router(platform_bot_organization_create_router, prefix=API_PREFIX)
+    application.include_router(construction_navigation_router, prefix=API_PREFIX)
     return application
 
 
 app = create_app()
+
+# client_link_confirmation_page_v1

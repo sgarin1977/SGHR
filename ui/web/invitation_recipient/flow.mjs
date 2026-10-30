@@ -12,7 +12,7 @@ export class ApiProblem extends Error {
 }
 export function createHttpClient(fetchImpl, timeoutMs = 20000) {
   return async function request(path, {body, bearer, key} = {}) {
-    if (!/^\/api\/v1\/(auth\/email\/(request|verify)|me|construction\/invitations\/(preview|accept|decline))$/.test(path)) throw new ApiProblem(0, "invalid_request");
+    if (!/^\/api\/v1\/(auth\/email\/(request|verify)|me|construction\/invitations\/(preview|accept|decline)|platform\/integrations\/telegram\/bindings)$/.test(path)) throw new ApiProblem(0, "invalid_request");
     const headers = {Accept: "application/json"};
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (bearer) headers.Authorization = "Bearer " + bearer;
@@ -30,7 +30,7 @@ export function createHttpClient(fetchImpl, timeoutMs = 20000) {
     finally { clearTimeout(timer); }
   };
 }
-export function createInvitationFlow({hash, storage, replaceUrl, request, randomKey, onChange = () => {}}) {
+export function createInvitationFlow({hash, storage, replaceUrl, request, randomKey, onChange = () => {}, onAccepted = () => {}}) {
   let link = null, pending = null, bearer = "", userId = null, challenge = null, preview = null;
   let phase = "invalid", busy = false, message = "invalidLink", email = "", storageOk = true;
   const snapshot = () => ({phase, busy, message, email, preview, storageOk, pendingKind: pending?.kind || null,
@@ -127,8 +127,12 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
           body: {...link, expected_row_version: operation.version}, key: kind === "accept" ? operation.key : undefined});
         if (result.id !== operation.id || result.status !== (kind === "accept" ? "accepted" : "declined")
             || result.row_version !== operation.version + 1) throw new ApiProblem(0, "invalid_response");
+        const acceptedSession = kind === "accept" ? Object.freeze({bearer, userId}) : null;
         link = null; pending = null; preview = null; bearer = ""; userId = null; persist();
         phase = "done"; message = kind === "accept" ? "accepted" : "declined";
+        // This observer cannot change the already confirmed invitation result.
+        // Credentials are handed to the optional in-memory Platform component.
+        if (acceptedSession) { try { onAccepted(acceptedSession); } catch {} }
       } catch (error) {
         if (error.status === 409 && error.code === "ROW_VERSION_CONFLICT") { pending = null; preview = null; phase = "ready"; persist(); }
         // All ambiguous outcomes keep the original payload and accept key.
@@ -139,3 +143,5 @@ export function createInvitationFlow({hash, storage, replaceUrl, request, random
     forget() { if (busy) return; link = null; pending = null; bearer = ""; userId = null; challenge = null; preview = null; email = ""; persist(); phase = "invalid"; message = "cleared"; emit(); },
   };
 }
+
+// invitation_telegram_onboarding_v1

@@ -1,3 +1,4 @@
+from construction_rate_limit_fixture import with_local_api_rate_limit
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
@@ -316,7 +317,7 @@ async def test_admin_complaints_endpoint_uses_current_actor():
                 has_next=False,
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor
@@ -443,7 +444,7 @@ async def test_admin_complaint_detail_endpoint_uses_current_actor():
                 ),
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor
@@ -803,7 +804,7 @@ async def test_admin_complaint_moderation_endpoints_use_current_actor(
                 message="Complaint updated.",
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor
@@ -968,7 +969,7 @@ async def test_admin_complaint_operation_error_is_sanitized():
                 "Sensitive database details."
             )
 
-    application = create_app()
+    application = with_local_api_rate_limit(create_app())
     application.dependency_overrides[
         get_current_actor
     ] = lambda: actor

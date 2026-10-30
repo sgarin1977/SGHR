@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>SGHR · Confirm client link</title>
+  <link rel="stylesheet" href="/construction/client-user-link/confirm/style.css">
+  <script type="module" src="/construction/client-user-link/confirm/boot.mjs"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <strong>SGHR · Platform</strong>
+      <select id="language" aria-label="Language">
+        <option value="uk">UK</option><option value="ru">RU</option>
+        <option value="en">EN</option><option value="pt">PT</option>
+        <option value="pl">PL</option><option value="de">DE</option><option value="nl">NL</option>
+      </select>
+    </header>
+    <h1 data-i18n="title">Confirm client link</h1>
+    <p data-i18n="intro">Sign in with the email that received the request.</p>
+    <p class="meaning" data-i18n="meaning">This links a client record to your Platform account. It does not grant organization or Construction access.</p>
+    <section class="card">
+      <p id="message" role="status" aria-live="polite"></p>
+      <p id="storage-note" class="warning" hidden data-i18n="noStorage">Keep this tab open until you finish.</p>
+      <noscript>JavaScript is required for Platform sign-in and confirmation.</noscript>
+      <form id="email-form" hidden>
+        <label for="email" data-i18n="emailLabel">Email</label>
+        <input id="email" type="email" maxlength="320" autocomplete="email" required>
+        <button id="send-code" type="submit" data-i18n="sendCode">Send sign-in code</button>
+      </form>
+      <form id="code-form" hidden>
+        <label for="code" data-i18n="codeLabel">Verification code</label>
+        <input id="code" type="text" maxlength="512" inputmode="numeric" autocomplete="one-time-code" required>
+        <p id="challenge-note"></p>
+        <button id="verify-code" type="submit" data-i18n="verifyCode">Sign in</button>
+      </form>
+      <section id="review" hidden>
+        <h2 data-i18n="reviewTitle">Your decision</h2>
+        <p id="account"></p>
+        <p data-i18n="consent">Confirm only if you agree to link the client record from this request to your Platform account.</p>
+        <button id="confirm" type="button" data-i18n="confirm">Confirm client link</button>
+      </section>
+      <button id="change-email" type="button" class="secondary" hidden data-i18n="changeEmail">Use another email</button>
+      <button id="forget" type="button" class="secondary" hidden data-i18n="forget">Close this request in this tab</button>
+    </section>
+    <p class="footnote" data-i18n="footnote">Opening the link or signing in does not confirm the link. Closing this page does not revoke the request.</p>
+  </main>
+</body>
+</html>
+
+<!-- client_link_confirmation_page_v1 -->

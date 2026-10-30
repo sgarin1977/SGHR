@@ -23,13 +23,13 @@ from database.construction_session import ConstructionDatabaseConfigurationError
 from services.api_identity import ApiActorContext, ApiIdentityAccessError
 from services.api_platform_principal import ApiPlatformPrincipal, ApiPlatformPrincipalOperationError
 from services.api_rate_limits import ApiRequestRateLimitExceededError
-from services.construction_client_unlink import ConstructionClientUnlinkDeniedError, ConstructionClientUnlinkResult
-from services.construction_client_unlink_context import build_construction_client_own_link_context_service
-from services.construction_client_unlink_workflow import build_construction_client_unlink_workflow
-from services.construction_clients import ConstructionClientNotFoundError, ConstructionClientValidationError
-from services.construction_foundation import ConstructionRowVersionConflictError
-from services.construction_grants import build_construction_access_context_resolver
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_client_unlink import ConstructionClientUnlinkDeniedError, ConstructionClientUnlinkResult
+from services.construction.construction_client_unlink_context import build_construction_client_own_link_context_service
+from services.construction.construction_client_unlink_workflow import build_construction_client_unlink_workflow
+from services.construction.construction_clients import ConstructionClientNotFoundError, ConstructionClientValidationError
+from services.construction.construction_foundation import ConstructionRowVersionConflictError
+from services.construction.construction_grants import build_construction_access_context_resolver
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 from services.module_access import ModuleDisabledError, SuiteDisabledError
 
 
@@ -106,7 +106,8 @@ def get_client_unlink_input(id: UUID, body: ClientUnlinkRequest, request: Reques
     try:
         claims = codec.decode_access_token(token)
         if (not isinstance(principal, ApiPlatformPrincipal) or not isinstance(claims, AccessTokenClaims)
-                or claims.user_id != principal.user_id or not isinstance(claims.tenant_id, UUID)):
+                or claims.user_id != principal.user_id
+                or (claims.tenant_id is not None and not isinstance(claims.tenant_id, UUID))):
             raise ApiAuthenticationError('Invalid unlink principal.')
     except ApiAuthenticationError:
         raise invalid_token_error() from None
@@ -117,9 +118,13 @@ async def get_client_unlink_route(inputs=Depends(get_client_unlink_input), platf
     identity=Depends(get_api_identity_service), rate=Depends(get_api_request_rate_limit_service),
     suites=Depends(get_tenant_suite_access_service), modules=Depends(get_tenant_module_access_service)):
     with unlink_errors():
-        # A verified token tenant is only the existing rate-limit bucket here.
-        # It cannot authorize a lookup or a mutation for the linked owner.
-        await rate.ensure_authenticated_user_allowed(tenant_id=inputs.claims.tenant_id, user_id=inputs.principal.user_id)
+        # The rate-limit context grants no ownership or tenant authority.
+        if inputs.claims.tenant_id is None:
+            await rate.ensure_platform_user_allowed(user_id=inputs.principal.user_id)
+        else:
+            await rate.ensure_authenticated_user_allowed(
+                tenant_id=inputs.claims.tenant_id, user_id=inputs.principal.user_id,
+            )
         own = None
         async with construction_client_unlink_lookup_transaction(
             user_id=inputs.principal.user_id, client_id=inputs.client_id) as session:
@@ -137,6 +142,8 @@ async def get_client_unlink_route(inputs=Depends(get_client_unlink_input), platf
             return ClientUnlinkRoute(actor, own.tenant_id, own.client_id, False)
         # Only this fallback uses the normal signed tenant claim, membership,
         # and Construction permissions. Ownership never becomes edit access.
+        if inputs.claims.tenant_id is None:
+            raise ConstructionClientUnlinkDeniedError()
         try:
             actor = await identity.require_actor(user_id=inputs.principal.user_id, tenant_id=inputs.claims.tenant_id)
         except ApiIdentityAccessError:

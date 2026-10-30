@@ -10,8 +10,8 @@ from api.routes.construction import (
     ConstructionAPIRouter, get_construction_access_context,
     get_construction_scoped_session, require_construction_permission,
 )
-from services.construction_grants import build_construction_access_grant_service, ConstructionGrantOperationError
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_grants import build_construction_access_grant_service, ConstructionGrantOperationError
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 
 class AccessGrantReadResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -50,7 +50,8 @@ def _public_grants(grants, *, tenant_id, target_user_id, project_id):
         output.append(item.model_dump(mode="json"))
     return output
 
-access_permission = require_construction_permission("construction.access.manage")
+from api.routes.construction import require_construction_grant_management
+access_permission = require_construction_grant_management()
 router = ConstructionAPIRouter(
     prefix="/construction/team",
     dependencies=[

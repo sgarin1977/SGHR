@@ -11,13 +11,13 @@ from api.routes.construction import (
     ConstructionAPIRouter, get_construction_access_context,
     get_construction_scoped_session, require_construction_permission,
 )
-from services.construction_foundation import ConstructionRowVersionConflictError
-from services.construction_lead_rules import ConstructionLeadTransitionError, ConstructionLeadValidationError
-from services.construction_lead_status import LEAD_STATUS_PERMISSION, ConstructionLeadStatusNotFoundError
-from services.construction_lead_status_workflow import (
+from services.construction.construction_foundation import ConstructionRowVersionConflictError
+from services.construction.construction_lead_rules import ConstructionLeadTransitionError, ConstructionLeadValidationError
+from services.construction.construction_lead_status import LEAD_STATUS_PERMISSION, ConstructionLeadStatusNotFoundError
+from services.construction.construction_lead_status_workflow import (
     PUBLIC_LEAD_STATUS_FIELDS, build_construction_lead_status_workflow,
 )
-from services.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
+from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 
 
 LeadPipelineStatus = Literal[

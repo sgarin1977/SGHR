@@ -1,4 +1,5 @@
 import {createInvitationFlow, createHttpClient} from "./flow.mjs";
+import {mountTelegramBinding} from "./telegram-binding.mjs";
 const $ = id => document.getElementById(id);
 const translations = {
   en: {eyebrow:"YOUR NEXT PROJECT STARTS HERE",title:"Join the team.",intro:"Verify the email that received this invitation. Then review the access before you decide.",signIn:"Verify email",review:"Review invitation",decision:"Your decision",platform:"SGHR PLATFORM",cardTitle:"Team invitation",emailLabel:"Invited email address",emailHint:"Use the address this invitation was sent to. Sign-in or registration uses the existing Platform email flow.",sendCode:"Send verification code",codeLabel:"Verification code",verifyCode:"Verify and review",role:"Role",expires:"Invitation valid until",accessUntil:"Access valid until",scope:"Access scope",pending:"The previous result is unconfirmed. Retry the same decision to recover its result.",accept:"Accept invitation",decline:"Decline",retryPreview:"Review invitation again",changeEmail:"Use another email",forget:"Clear this invitation from this tab",footnote:"Opening this link does not grant access. Only your confirmed decision changes your membership.",footer:"One platform. A connected team.",invalidLink:"Open the complete invitation link from your email. This page cannot identify an invitation without it.",sessionExpired:"Your session expired. Verify your email again; the pending invitation is kept in this tab.",unavailable:"The invitation is unavailable for this account. Check the invited email. It may also have expired, changed or already been used.",conflict:"The invitation changed. Review the current invitation before deciding again.",rateLimit:"Too many requests. Wait a moment and try again.",invalidRequest:"Check the entered email or code and try again.",network:"The result could not be confirmed. Check your connection and retry. A pending decision retains its original request.",codeSent:"A verification code was requested. Check your email.",differentAccount:"The pending decision belongs to another signed-in account. Verify the original invited account.",accepted:"Invitation accepted. Your organization membership and approved access were saved.",declined:"Invitation declined. No organization access was granted.",cleared:"The invitation has been cleared from this tab. You can reopen the original email link.",noStorage:"This browser cannot retain the invitation across reloads. Keep this tab open until you finish.",codeDeadline:"Code expires",unlimited:"No fixed expiry",tenant:"Organization",project:"Project",confirmDecline:"Decline this invitation? This decision ends the invitation.",roles:{OWNER:"Owner",ADMIN:"Administrator",SURVEYOR:"Surveyor",ESTIMATOR:"Estimator",PROJECT_MANAGER:"Project manager",EXECUTOR:"Executor",OBSERVER:"Observer"}},
@@ -38,9 +39,17 @@ function render(state) {
 }
 let storage;
 try { storage = window.sessionStorage; } catch { storage = {getItem(){return null;}, setItem(){throw new Error();},removeItem(){}}; }
+const telegramBinding = mountTelegramBinding({
+  root: $("telegram-binding"),
+  request: createHttpClient(window.fetch.bind(window)),
+  randomKey: () => crypto.randomUUID(),
+  getLanguage: () => language,
+});
+window.addEventListener("pagehide", () => telegramBinding.close());
 const flow = createInvitationFlow({hash: location.hash, storage,
   replaceUrl: () => history.replaceState(null,"",location.pathname),
-  request: createHttpClient(window.fetch.bind(window)), randomKey: () => crypto.randomUUID(), onChange: render});
+  request: createHttpClient(window.fetch.bind(window)), randomKey: () => crypto.randomUUID(),
+  onAccepted: session => telegramBinding.acceptSession(session), onChange: render});
 render(flow.snapshot());
 $("email-form").addEventListener("submit", event => { event.preventDefault(); flow.sendCode($("email").value); });
 $("code-form").addEventListener("submit", event => { event.preventDefault(); const secret = $("code").value; $("code").value = ""; flow.verifyCode(secret,language); });
@@ -49,4 +58,6 @@ $("decline").addEventListener("click", () => { if (window.confirm(translations[l
 $("retry-preview").addEventListener("click", () => flow.review());
 $("change-email").addEventListener("click", () => { $("email").value = ""; $("code").value = ""; flow.changeEmail(); });
 $("forget").addEventListener("click", () => flow.forget());
-$("language").addEventListener("change", () => { language = $("language").value; render(current); });
+$("language").addEventListener("change", () => { language = $("language").value; render(current); telegramBinding.refreshLanguage(); });
+
+// invitation_telegram_onboarding_v1
