@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import (
     ConversationThread,
+    Language,
     Message,
     Specialist,
     TranslationCache,
@@ -49,6 +50,21 @@ def normalize_translation_mode(
 
 def normalize_translation_language(language: str | None) -> str:
     return language if language in SUPPORTED_TRANSLATION_LANGUAGES else "ru"
+
+
+# CON011_PLATFORM_INTERFACE_CATALOG_V1
+class InterfaceLanguageValidationError(ValueError):
+    pass
+
+
+def normalize_interface_language(language):
+    """Normalize a candidate; availability is checked against Platform languages."""
+    if not isinstance(language, str):
+        raise InterfaceLanguageValidationError("Interface language is invalid.")
+    code = language.strip().lower()
+    if not 2 <= len(code) <= 10 or any(char.isspace() for char in code):
+        raise InterfaceLanguageValidationError("Interface language is invalid.")
+    return code
 
 
 def translation_text_hash(text: str) -> str:
@@ -238,11 +254,12 @@ class TranslationRepository:
             return settings
 
         user = await self.session.get(User, user_id)
+        interface_language = normalize_interface_language(user.language_code if user else None)
         language = normalize_translation_language(user.language_code if user else None)
 
         settings = UserLanguageSetting(
             user_id=user_id,
-            interface_language=language,
+            interface_language=interface_language,
             message_language=language,
             translation_mode="standard",
             auto_translate_enabled=True,
@@ -263,10 +280,21 @@ class TranslationRepository:
         auto_translate_enabled: bool | None = None,
         show_original_button: bool | None = None,
     ) -> UserLanguageSetting:
+        if interface_language is not None:
+            interface_language = normalize_interface_language(interface_language)
+            result = await self.session.execute(
+                select(Language.code)
+                .where(Language.code == interface_language, Language.is_active.is_(True))
+                .with_for_update(read=True)
+                .execution_options(autoflush=False)
+            )
+            if result.scalar_one_or_none() != interface_language:
+                raise InterfaceLanguageValidationError("Interface language is unavailable.")
+
         settings = await self.get_language_settings(user_id)
 
         if interface_language is not None:
-            settings.interface_language = normalize_translation_language(interface_language)
+            settings.interface_language = interface_language
 
         if message_language is not None:
             settings.message_language = normalize_translation_language(message_language)

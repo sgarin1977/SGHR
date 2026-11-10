@@ -16,6 +16,7 @@ from services.api_idempotency import ApiIdempotencyKeyReusedError
 from services.construction.construction_foundation import ConstructionRowVersionConflictError
 from services.construction.construction_lead_conversion import ConstructionLeadConversionCommand, ConstructionLeadConversionNotFoundError
 from services.construction.construction_lead_conversion_rules import ConstructionLeadConversionSelection
+from services.construction.construction_projects import ConstructionProjectCurrencyConfigurationError
 from services.construction.construction_lead_conversion_workflow import (
     CONVERTED_RESPONSE_FIELDS, ConstructionLeadConversionInProgressError,
     build_construction_lead_conversion_workflow,
@@ -117,7 +118,7 @@ router = ConstructionAPIRouter(
         401: {"description": "authentication_required or invalid_token"},
         403: {"description": "MODULE_DISABLED, permission_required or forbidden"},
         404: {"description": "not_found: lead or target resources unavailable"},
-        409: {"description": "ROW_VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED, idempotency_in_progress or conflict"},
+        409: {"description": "ROW_VERSION_CONFLICT, IDEMPOTENCY_KEY_REUSED, idempotency_in_progress, conflict or CURRENCY_CONFIGURATION_REQUIRED"},
         422: {"description": "validation_error"},
         500: {"description": "internal_error"},
     },
@@ -153,6 +154,9 @@ async def convert_lead(
     except ConstructionLeadConversionNotFoundError:
         raise ApiHttpError(status_code=404, code="not_found",
             message="Conversion resources are not available.") from None
+    except ConstructionProjectCurrencyConfigurationError:
+        raise ApiHttpError(status_code=409, code="CURRENCY_CONFIGURATION_REQUIRED",
+            message="Organization currency must be configured before project creation.") from None
     except ConstructionLeadValidationError:
         raise ApiHttpError(status_code=422, code="validation_error",
             message="Lead conversion request is invalid.") from None

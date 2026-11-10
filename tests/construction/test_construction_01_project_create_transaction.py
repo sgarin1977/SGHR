@@ -17,6 +17,17 @@ from services.construction.construction_projects import (
 )
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 @pytest.fixture
 def create_case():
     c = SimpleNamespace(tenant=uuid4(), user=uuid4(), client_id=uuid4(), responsible=uuid4())
@@ -33,10 +44,10 @@ def create_case():
     c.clients = SimpleNamespace(get_active_client=AsyncMock(return_value=SimpleNamespace(id=c.client_id)))
     c.access = SimpleNamespace(has_active_platform_membership=AsyncMock(return_value=True))
     c.events = SimpleNamespace(session=c.session, create_event=AsyncMock())
-    c.service = ConstructionProjectService(
+    c.service = _with_project_currency_fixture(ConstructionProjectService(
         session=c.session, repository=c.repo, client_repository=c.clients,
         access_repository=c.access, event_repository=c.events,
-    )
+    ))
     return c
 
 
@@ -57,7 +68,7 @@ async def test_create_preserves_validation_and_audit_with_explicit_transaction_o
     c.repo.create_project.assert_awaited_once_with(
         tenant_id=c.tenant, client_id=None, name="Transaction project",
         responsible_user_id=None, comment="Project comment",
-        address_raw="Project address", created_by=c.user,
+        address_raw="Project address", created_by=c.user, currency="EUR",
     )
     assert c.events.create_event.await_count == 1
     audit = c.events.create_event.await_args.kwargs
@@ -191,9 +202,9 @@ def real_create(create_case):
             if self.fail_after_insert:
                 raise RuntimeError("forced-audit-storage-failure")
     c.events = Events()
-    c.service = ConstructionProjectService(
+    c.service = _with_project_currency_fixture(ConstructionProjectService(
         session=c.session, repository=c.repo, event_repository=c.events,
-    )
+    ))
     try:
         yield c
     finally:

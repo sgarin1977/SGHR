@@ -1,4 +1,7 @@
 from decimal import Decimal
+
+from database.repositories.construction.construction_project_currency import ConstructionProjectCurrencyRepository
+from services.platform_currency_catalog import PlatformCurrencyCodeError, require_platform_currency
 from uuid import UUID
 
 from services.construction.construction_audit_client_correlation import construction_audit_client_details
@@ -79,6 +82,10 @@ class ConstructionProjectValidationError(
     pass
 
 
+class ConstructionProjectCurrencyConfigurationError(ConstructionProjectValidationError):
+    code = "CURRENCY_CONFIGURATION_REQUIRED"
+
+
 class ConstructionProjectNotFoundError(
     Exception
 ):
@@ -100,9 +107,13 @@ class ConstructionProjectService:
         client_repository=None,
         access_repository=None,
         event_repository=None,
+        currency_reader=None,
     ) -> None:
         self.session = session
         self.repository = repository
+        if currency_reader is not None and getattr(currency_reader, "session", None) is not session:
+            raise ValueError("Project currency reader must share the operation session.")
+        self.currency_reader = currency_reader
         self.client_repository = (
             client_repository
         )
@@ -155,11 +166,30 @@ class ConstructionProjectService:
             if not has_membership:
                 raise ConstructionProjectValidationError('Construction project responsible user is not available.')
         try:
-            project = await self.repository.create_project(tenant_id=actor.tenant_id, client_id=client_id, name=normalized_name, responsible_user_id=responsible_user_id, comment=comment, address_raw=normalized_address_raw, created_by=actor.user_id)
-            await self.audit_logger.record_operation(actor=actor, event_type='construction_project_created', entity_type='construction_project', entity_id=project.id, operation='create', trace_id=trace_id, details=construction_audit_client_details(tenant_id=actor.tenant_id, entity_type="construction_project", entity=project))
+            reader = self.currency_reader
+            if reader is None:
+                reader = ConstructionProjectCurrencyRepository(self.session)
+            if getattr(reader, "session", None) is not self.session:
+                raise ConstructionProjectOperationError("Project currency session is invalid.")
+            raw_currency = await reader.get_for_tenant(actor.tenant_id)
+            try:
+                currency = require_platform_currency(raw_currency).code
+            except PlatformCurrencyCodeError:
+                raise ConstructionProjectCurrencyConfigurationError(
+                    "Organization currency must be configured before project creation."
+                ) from None
+            project = await self.repository.create_project(tenant_id=actor.tenant_id, client_id=client_id, name=normalized_name, responsible_user_id=responsible_user_id, comment=comment, address_raw=normalized_address_raw, created_by=actor.user_id, currency=currency)
+            await self.audit_logger.record_operation(actor=actor, event_type='construction_project_created', entity_type='construction_project', entity_id=project.id, operation='create', trace_id=trace_id, details={
+                **construction_audit_client_details(tenant_id=actor.tenant_id, entity_type="construction_project", entity=project),
+                "currency": currency, "currency_source": "organization_default",
+            })
             if manage_transaction:
                 await self.session.commit()
             return project
+        except ConstructionProjectCurrencyConfigurationError:
+            if manage_transaction:
+                await self.session.rollback()
+            raise
         except Exception as exc:
             if manage_transaction:
                 await self.session.rollback()

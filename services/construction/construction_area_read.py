@@ -125,59 +125,11 @@ class ConstructionProjectAreaReadService:
             # Keep the canonical repository order:
             # sort_order ASC NULLS LAST, created_at ASC, id ASC.
             if include_capabilities:
-                from services.construction.construction_foundation import (
-                    ConstructionProjectTerminalError,
-                    require_construction_project_mutable,
-                )
-                can_create = True
-                try:
-                    require_construction_access(
-                        actor=actor, access_context=fresh_context,
-                        permission_code="construction.projects.create",
-                        project_id=project_id,
-                    )
-                    require_construction_project_mutable(
-                        project_status=project.status,
-                    )
-                except (
-                    ConstructionPermissionDeniedError,
-                    ConstructionScopeDeniedError,
-                    ConstructionProjectTerminalError,
-                ):
-                    can_create = False
-                can_edit = True
-                try:
-                    from services.construction.construction_area_access import (
-                        require_area_edit_project_scope,
-                    )
-                    allowed_projects = require_area_edit_project_scope(
-                        actor, fresh_context,
-                    )
-                    if (
-                        allowed_projects is not None
-                        and project_id not in allowed_projects
-                    ):
-                        raise ConstructionScopeDeniedError(
-                            "Area edit scope is unavailable."
-                        )
-                    require_construction_access(
-                        actor=actor, access_context=fresh_context,
-                        permission_code="construction.projects.edit",
-                        project_id=project_id,
-                    )
-                    require_construction_project_mutable(
-                        project_status=project.status,
-                    )
-                except (
-                    ConstructionPermissionDeniedError,
-                    ConstructionScopeDeniedError,
-                    ConstructionProjectTerminalError,
-                ):
-                    can_edit = False
                 return {
                     "items": result,
-                    "can_create_area": can_create,
-                    "can_edit_area": can_edit,
+                    **project_area_capabilities(
+                        actor=actor, access_context=fresh_context,
+                        project_id=project_id, project_status=project.status),
                 }
             return result
         except (
@@ -202,3 +154,38 @@ def build_construction_project_area_read_service(*, session):
     )
 
 # universal_area_editor_v1
+
+
+def project_area_capabilities(*, actor, access_context, project_id, project_status):
+    from services.construction.construction_foundation import (
+        ConstructionProjectTerminalError, require_construction_project_mutable,
+    )
+    can_create = True
+    try:
+        require_construction_access(
+            actor=actor, access_context=access_context,
+            permission_code="construction.projects.create", project_id=project_id)
+        require_construction_project_mutable(project_status=project_status)
+    except (
+        ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
+        ConstructionProjectTerminalError,
+    ):
+        can_create = False
+    can_edit = True
+    try:
+        from services.construction.construction_area_access import require_area_edit_project_scope
+        allowed_projects = require_area_edit_project_scope(actor, access_context)
+        if allowed_projects is not None and project_id not in allowed_projects:
+            raise ConstructionScopeDeniedError("Area edit scope is unavailable.")
+        require_construction_access(
+            actor=actor, access_context=access_context,
+            permission_code="construction.projects.edit", project_id=project_id)
+        require_construction_project_mutable(project_status=project_status)
+    except (
+        ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
+        ConstructionProjectTerminalError,
+    ):
+        can_edit = False
+    return {"can_create_area": can_create, "can_edit_area": can_edit}
+
+# CON_020B_AREA_LOCALIZED_READ_V1

@@ -388,8 +388,10 @@ class ConstructionProjectRepository:
         comment: str | None,
         address_raw: str,
         created_by: UUID,
+        currency: str | None = None,
     ) -> ConstructionProject:
         project = ConstructionProject(
+            currency=currency,
             tenant_id=tenant_id,
             client_id=client_id,
             name=name,

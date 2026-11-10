@@ -7,6 +7,8 @@ import httpx
 
 from database.repositories.translation import (
     TranslationRepository,
+    InterfaceLanguageValidationError,
+    normalize_interface_language,
     normalize_translation_language,
     normalize_translation_mode,
 )
@@ -14,6 +16,11 @@ from database.repositories.event import EventRepository
 from database.repositories.user import UserRepository
 
 class TranslationError(Exception):
+    pass
+
+
+# CON011_PLATFORM_INTERFACE_CATALOG_V1
+class TranslationLanguageValidationError(TranslationError):
     pass
 
 
@@ -327,11 +334,10 @@ class TranslationService:
         source: str,
         platform: str = "telegram",
     ) -> TranslationSettingsView:
-        normalized_language = (
-            normalize_translation_language(
-                language_code
-            )
-        )
+        try:
+            normalized_language = normalize_interface_language(language_code)
+        except InterfaceLanguageValidationError:
+            raise TranslationLanguageValidationError("Interface language is invalid.") from None
         normalized_source = (
             source or "settings"
         ).strip()[:100]
@@ -371,6 +377,9 @@ class TranslationService:
 
             await self.repository.session.commit()
 
+        except InterfaceLanguageValidationError:
+            await self.repository.session.rollback()
+            raise TranslationLanguageValidationError("Interface language is unavailable.") from None
         except Exception as exc:
             await self.repository.session.rollback()
             raise TranslationError(

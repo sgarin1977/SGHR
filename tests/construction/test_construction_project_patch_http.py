@@ -30,6 +30,17 @@ ADDRESS_FIELDS = (
 )
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 @pytest.fixture
 def project_patch_http(patch_http):
     c = patch_http
@@ -69,11 +80,11 @@ def project_patch_http(patch_http):
     c.project_access = NS(has_active_platform_membership=AsyncMock(
         side_effect=AssertionError("Unchanged responsible must not be reassigned."),
     ))
-    c.project_service = ConstructionProjectService(
+    c.project_service = _with_project_currency_fixture(ConstructionProjectService(
         session=c.session, repository=c.project_repo,
         client_repository=c.project_clients, access_repository=c.project_access,
         event_repository=c.events,
-    )
+    ))
     c.app.dependency_overrides[routes.get_project_patch_service] = lambda: c.project_service
     return c
 

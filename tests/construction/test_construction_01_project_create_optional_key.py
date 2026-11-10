@@ -20,6 +20,17 @@ from test_construction_01_project_create_transaction import create_case, real_cr
 from test_construction_01_project_create_workflow import workflow_case, real_workflow, run
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 async def unkeyed(c, **changes):
     arguments = dict(
         actor=c.actor, access_context=c.context, name="  Transaction project  ",
@@ -189,9 +200,9 @@ def test_factory_without_key_does_not_build_idempotency(workflow_case, monkeypat
         raise AssertionError("Encryption/idempotency configured for unkeyed factory")
     monkeypatch.setattr(module, "build_api_idempotency_service", forbidden)
     c = workflow_case
-    workflow = build_construction_project_create_workflow(
+    workflow = _with_project_currency_fixture(build_construction_project_create_workflow(
         session=c.session, response_projector=public_project,
-    )
+    ))
     assert workflow.idempotency is None
     assert workflow.service.repository.session is c.session
     assert workflow.service.client_repository.session is c.session

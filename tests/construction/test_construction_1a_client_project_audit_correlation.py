@@ -15,6 +15,17 @@ from test_construction_01_client_create_transaction import client_create_case,sq
 from test_construction_01_project_create_transaction import create_case,real_create
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 @pytest.fixture
 def correlation_case():
     c=SimpleNamespace(tenant=uuid4(),user=uuid4(),client_id=uuid4(),project_id=uuid4(),now=datetime(2026,10,14,tzinfo=timezone.utc),events=[],order=[])
@@ -55,7 +66,7 @@ def correlation_case():
         get_active_project_for_update=AsyncMock(return_value=c.project),update_project=AsyncMock(side_effect=updated_project),
         set_project_status=AsyncMock(side_effect=updated_project))
     c.clients=ConstructionClientService(session=c.session,repository=c.client_repo,event_repository=c.event_repo,now_provider=lambda:c.now)
-    c.projects=ConstructionProjectService(session=c.session,repository=c.project_repo,client_repository=c.client_repo,event_repository=c.event_repo)
+    c.projects=_with_project_currency_fixture(ConstructionProjectService(session=c.session,repository=c.project_repo,client_repository=c.client_repo,event_repository=c.event_repo))
     return c
 
 
@@ -245,6 +256,8 @@ async def test_conversion_collector_requires_canonical_selected_client_marker(co
     c=correlation_case
     collector=_ConversionCreationAudit(session=c.session,actor=c.actor,trace_id='convert',client_id=c.client_id)
     payload=dict(operation='create',changes=[],reason=None)
+    if kind == 'project':
+        payload.update(currency='EUR', currency_source='organization_default')
     if marker!='missing':payload['related_client_id']=str(uuid4()) if marker=='foreign' else c.client_id.hex
     with pytest.raises(ConstructionLeadConversionOperationError):
         await collector.create_event(event_type='construction_'+kind+'_created',tenant_id=c.tenant,user_id=c.user,
@@ -261,7 +274,8 @@ async def test_conversion_collector_binds_project_to_created_client_and_preserve
     for kind,identifier in [('client',c.client_id),('project',c.project_id)]:
         await collector.create_event(event_type='construction_'+kind+'_created',tenant_id=c.tenant,user_id=c.user,
             entity_type='construction_'+kind,entity_id=identifier,platform='api',trace_id='convert',
-            payload=dict(operation='create',changes=[],reason=None,related_client_id=str(c.client_id)))
+            payload=dict(operation='create',changes=[],reason=None,related_client_id=str(c.client_id),
+                **({'currency':'EUR','currency_source':'organization_default'} if kind=='project' else {})))
     assert len(collector.events)==2 and c.events==[]
     assert collector.related_client_id==c.client_id
     with pytest.raises(ConstructionLeadConversionOperationError):await collector.create_event(**collector.events[0])

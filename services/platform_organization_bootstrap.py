@@ -25,6 +25,7 @@ from services.api_idempotency import (
     build_api_idempotency_service,
 )
 from services.api_platform_principal import ApiPlatformPrincipal
+from services.platform_currency_catalog import PlatformCurrencyCodeError, require_platform_currency
 
 
 class OrganizationBootstrapError(Exception):
@@ -178,6 +179,10 @@ class PlatformOrganizationBootstrap:
                     raise OrganizationBootstrapError("Bootstrap receipt context differs.")
                 tenant_id = old.tenant_id
             else:
+                try:
+                    require_platform_currency(currency)
+                except PlatformCurrencyCodeError:
+                    raise OrganizationBootstrapValidationError("Organization currency is unavailable.") from None
                 if await self.repository.require_language(language=language) is not True:
                     raise OrganizationBootstrapValidationError("Organization language is unavailable.")
                 tenant_id = uuid4()
@@ -341,3 +346,5 @@ def build_platform_organization_bootstrap(
         ),
         product_policy=policy, now_provider=now_provider,
     )
+
+# con_012_currency_settings_v1

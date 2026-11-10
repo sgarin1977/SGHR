@@ -20,6 +20,17 @@ from services.construction.construction_permissions import (
 )
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 @pytest.fixture
 def conversion_case():
     c = SimpleNamespace(tenant=uuid4(), user=uuid4(), now=datetime(2026, 10, 12, 12, tzinfo=timezone.utc))
@@ -52,9 +63,9 @@ def conversion_case():
     c.projects = SimpleNamespace(session=c.session, get_active_project_for_update=AsyncMock(return_value=c.project),
         create_project=AsyncMock(return_value=c.project))
     c.events = SimpleNamespace(session=c.session, create_event=AsyncMock())
-    c.service = ConstructionLeadConversionService(session=c.session, repository=c.repo,
+    c.service = _with_project_currency_fixture(ConstructionLeadConversionService(session=c.session, repository=c.repo,
         client_repository=c.clients, project_repository=c.projects, access_repository=c.access,
-        event_repository=c.events, now_provider=lambda: c.now)
+        event_repository=c.events, now_provider=lambda: c.now))
     return c
 
 
@@ -116,7 +127,8 @@ async def test_three_modes_and_every_nonterminal_status_use_one_conversion_audit
             {"field": "converted_project_id", "old_value": None, "new_value": str(c.project.id)}],
         "related_client_id": str(c.client.id),
         "created_client_id": str(c.client.id) if mode == "new" else None,
-        "created_project_id": str(c.project.id) if mode != "existing" else None}
+        "created_project_id": str(c.project.id) if mode != "existing" else None,
+        **({"created_project_currency": "EUR"} if mode != "existing" else {})}
     assert c.lead.email not in json.dumps(event["payload"]) and c.lead.comment not in json.dumps(event["payload"])
     if mode == "new":
         c.clients.create_client.assert_awaited_once_with(tenant_id=c.tenant, display_name=c.lead.name,
@@ -124,7 +136,7 @@ async def test_three_modes_and_every_nonterminal_status_use_one_conversion_audit
     if mode != "existing":
         c.projects.create_project.assert_awaited_once_with(tenant_id=c.tenant, client_id=c.client.id,
             name="Project name", address_raw="Lead address", responsible_user_id=c.user,
-            comment="Work context\n\nPrivate comment", created_by=c.user)
+            comment="Work context\n\nPrivate comment", created_by=c.user, currency="EUR")
     no_transaction_ownership(c)
 
 
@@ -305,7 +317,7 @@ def test_constructor_rejects_mixed_sessions(conversion_case, field):
         project_repository=c.projects, access_repository=c.access, event_repository=c.events)
     args[field] = SimpleNamespace(session=object())
     with pytest.raises(ValueError):
-        ConstructionLeadConversionService(**args)
+        _with_project_currency_fixture(ConstructionLeadConversionService(**args))
 
 
 @pytest.mark.asyncio
@@ -394,9 +406,9 @@ def sql_conversion(conversion_case):
             if self.fail_after_insert:
                 raise RuntimeError("private failure after real audit write")
     c.events = Events()
-    c.service = ConstructionLeadConversionService(session=c.session, repository=c.repo,
+    c.service = _with_project_currency_fixture(ConstructionLeadConversionService(session=c.session, repository=c.repo,
         client_repository=c.clients, project_repository=c.projects, access_repository=c.access,
-        event_repository=c.events, now_provider=lambda: c.now)
+        event_repository=c.events, now_provider=lambda: c.now))
     try:
         yield c
     finally:

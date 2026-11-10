@@ -17,6 +17,8 @@ from database.repositories.translation import (
     SUPPORTED_TRANSLATION_LANGUAGES,
     TRANSLATION_MODES,
     TranslationRepository,
+    InterfaceLanguageValidationError,
+    normalize_interface_language,
 )
 from services.legal import (
     LegalService,
@@ -99,6 +101,14 @@ class UserSettingsService:
 
         return normalized
 
+    # CON011_PLATFORM_INTERFACE_CATALOG_V1
+    @staticmethod
+    def validate_interface_language_code(language_code: str) -> str:
+        try:
+            return normalize_interface_language(language_code)
+        except InterfaceLanguageValidationError:
+            raise UserSettingsValidationError("Interface language is invalid.") from None
+
     @staticmethod
     def validate_translation_mode(
         translation_mode: str,
@@ -151,9 +161,8 @@ class UserSettingsService:
             user_id=user.id,
             tenant_id=user.tenant_id,
             interface_language=(
-                self.validate_language_code(
-                    settings.interface_language
-                    or user.language_code
+                self.validate_interface_language_code(
+                    user.language_code
                 )
             ),
             settings=settings,
@@ -167,7 +176,7 @@ class UserSettingsService:
         source: str = "client_settings",
     ) -> TranslationSettingsView:
         normalized_language = (
-            self.validate_language_code(
+            self.validate_interface_language_code(
                 language_code
             )
         )

@@ -19,7 +19,8 @@ from services.construction.construction_permissions import (
     ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
     require_construction_access, require_construction_role_scope,
 )
-from services.construction.construction_projects import ConstructionProjectService
+from services.construction.construction_projects import ConstructionProjectService, ConstructionProjectCurrencyConfigurationError
+from services.platform_currency_catalog import PlatformCurrencyCodeError, require_platform_currency
 
 
 class ConstructionLeadConversionNotFoundError(Exception):
@@ -83,6 +84,14 @@ class _ConversionCreationAudit:
         }
         kind = event.get("event_type")
         related = event.get("entity_id") if kind == "construction_client_created" else self.related_client_id
+        expected_payload = {"operation": "create", "changes": [], "reason": None, "related_client_id": str(related)}
+        if kind == "construction_project_created":
+            payload = event.get("payload")
+            try:
+                currency = require_platform_currency(payload.get("currency") if isinstance(payload, dict) else None).code
+            except PlatformCurrencyCodeError:
+                raise ConstructionLeadConversionOperationError("Conversion project currency audit is invalid.") from None
+            expected_payload.update(currency=currency, currency_source="organization_default")
         if (
             kind not in expected
             or event.get("tenant_id") != self.actor.tenant_id
@@ -92,7 +101,7 @@ class _ConversionCreationAudit:
             or event.get("platform") != "api"
             or event.get("trace_id") != self.trace_id
             or not isinstance(related, UUID)
-            or event.get("payload") != {"operation": "create", "changes": [], "reason": None, "related_client_id": str(related)}
+            or event.get("payload") != expected_payload
             or any(item["event_type"] == kind for item in self.events)
         ):
             raise ConstructionLeadConversionOperationError("Conversion creation audit is invalid.")
@@ -104,7 +113,7 @@ class _ConversionCreationAudit:
 class ConstructionLeadConversionService:
     """No commit/rollback: caller must roll back every failure, including final audit."""
     def __init__(self, *, session, repository, client_repository, project_repository,
-                 access_repository, event_repository, now_provider=None):
+                 access_repository, event_repository, now_provider=None, currency_reader=None):
         methods = (
             (repository, ("get_active_lead_for_update", "complete_conversion")),
             (client_repository, ("get_active_client_for_update", "get_active_client", "create_client")),
@@ -122,6 +131,9 @@ class ConstructionLeadConversionService:
         ):
             raise ValueError("Conversion requires shared-session repository wiring.")
         self.session, self.repository = session, repository
+        if currency_reader is not None and getattr(currency_reader, "session", None) is not session:
+            raise ValueError("Conversion currency reader must share the operation session.")
+        self.currency_reader = currency_reader
         self.client_repository, self.project_repository = client_repository, project_repository
         self.access_repository, self.event_repository = access_repository, event_repository
         self.now_provider = now_provider or (lambda: datetime.now(timezone.utc))
@@ -268,7 +280,8 @@ class ConstructionLeadConversionService:
                 if selection.creates_project:
                     service = ConstructionProjectService(session=self.session,
                         repository=self.project_repository, client_repository=self.client_repository,
-                        access_repository=self.access_repository, event_repository=captured)
+                        access_repository=self.access_repository, event_repository=captured,
+                        currency_reader=self.currency_reader)
                     project = await service.create_project(actor=actor, access_context=context,
                         name=command.project_name, address_raw=address, client_id=client.id,
                         responsible_user_id=data.responsible_user_id, comment=project_comment or None,
@@ -327,12 +340,14 @@ class ConstructionLeadConversionService:
                         **construction_audit_client_details(tenant_id=actor.tenant_id, entity_type="construction_lead", entity=completed),
                         "created_client_id": str(client.id) if selection.creates_client else None,
                         "created_project_id": str(project.id) if selection.creates_project else None,
+                        **({"created_project_currency": captured.events[-1]["payload"]["currency"]}
+                           if selection.creates_project else {}),
                     })
                 return ConstructionLeadConversionResult(completed, client, project, False)
         except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
                 ConstructionLeadValidationError, ConstructionLeadTransitionError,
                 ConstructionRowVersionConflictError, ConstructionLeadConversionNotFoundError,
-                ConstructionLeadConversionOperationError):
+                ConstructionLeadConversionOperationError, ConstructionProjectCurrencyConfigurationError):
             raise
         except Exception:
             raise ConstructionLeadConversionOperationError("Lead conversion failed.") from None

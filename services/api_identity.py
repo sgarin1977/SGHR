@@ -12,6 +12,7 @@ from database.repositories.user import (
 )
 from services.translation import (
     TranslationError,
+    TranslationLanguageValidationError,
     TranslationService,
 )
 from services.user import UserService
@@ -282,6 +283,7 @@ class ApiIdentityService:
             active_role=normalized_role,
         )
 
+    # CON011_PLATFORM_INTERFACE_CATALOG_V1
     async def update_profile(
         self,
         *,
@@ -291,7 +293,7 @@ class ApiIdentityService:
         try:
             normalized_language = (
                 UserSettingsService
-                .validate_language_code(
+                .validate_interface_language_code(
                     language_code
                 )
             )
@@ -314,6 +316,8 @@ class ApiIdentityService:
                     platform="api",
                 )
             )
+        except TranslationLanguageValidationError:
+            raise ApiIdentityProfileValidationError("Profile language is not supported.") from None
         except TranslationError:
             raise ApiIdentityProfileError(
                 "Unable to update API profile."

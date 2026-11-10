@@ -80,6 +80,9 @@ def test_con_c002_tenant_settings_model_has_only_confirmed_overrides():
         "created_at",
         "updated_at",
         "row_version",
+        "onboarding_current_step",
+        "onboarding_step_states",
+        "onboarding_tax_profile_id",
     }
 
     assert table.c.tenant_id.primary_key
@@ -1216,3 +1219,5 @@ def test_c002_effective_presentation_uses_ui_fallback_without_profile():
     assert result["accent_color"] == "#AABBCC"
     assert result["phone"] is None
     assert result["logo_file_id"] is None
+
+# onboarding_explicit_tax_profile_v1

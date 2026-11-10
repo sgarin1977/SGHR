@@ -849,13 +849,15 @@ class ConstructionApiClient:
         return await self._read_entity('construction/clients', session, client_id)
 
     async def project_card(self, *, session, project_id, client_id):
-        from api.routes.construction_project_read import ProjectReadResponse
+        from api.routes.construction_project_read import ProjectDetailsResponse, ProjectReadResponse
 
         if not isinstance(project_id, UUID) or not isinstance(client_id, UUID):
             raise ValueError("Project and client UUIDs required.")
         result = await self.project(session=session, project_id=project_id)
         try:
-            project = ProjectReadResponse.model_validate(result.data)
+            # Accept the original read contract during rollout; keep its shape.
+            model = ProjectDetailsResponse if "currency" in result.data else ProjectReadResponse
+            project = model.model_validate(result.data)
         except (ValueError, TypeError, KeyError, AttributeError):
             raise _response_error() from None
         # An old client-list selection must not silently open a project
@@ -1010,11 +1012,13 @@ class ConstructionApiClient:
         )
 
     async def project_details(self, *, session, project_id):
-        from api.routes.construction_project_read import ProjectReadResponse
+        from api.routes.construction_project_read import ProjectDetailsResponse, ProjectReadResponse
 
         result = await self.project(session=session, project_id=project_id)
         try:
-            project = ProjectReadResponse.model_validate(result.data)
+            # Accept the original read contract during rollout; keep its shape.
+            model = ProjectDetailsResponse if "currency" in result.data else ProjectReadResponse
+            project = model.model_validate(result.data)
         except (ValueError, TypeError, KeyError, AttributeError):
             raise _response_error() from None
         return ConstructionApiResult(

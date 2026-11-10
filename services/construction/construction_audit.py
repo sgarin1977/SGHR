@@ -42,6 +42,26 @@ CONSTRUCTION_STAGE_1A_AUDIT_EVENT_TYPES = frozenset({
 })
 
 
+CONSTRUCTION_STAGE_2_AUDIT_EVENT_TYPES = frozenset({
+    "construction_calculation_settings_created",
+    "construction_calculation_settings_updated",
+    "construction_tax_profile_created",
+    "construction_tax_profile_updated",
+    "construction_tax_rule_created",
+    "construction_tax_rule_updated",
+    "construction_pricing_profile_created",
+    "construction_pricing_profile_updated",
+    "construction_project_pricing_adjustment_created",
+    "construction_project_pricing_adjustment_updated",
+    "construction_measurement_template_copied",
+    "construction_measurement_template_draft_created",
+    "construction_measurement_template_draft_updated",
+    "construction_measurement_template_published",
+    "construction_onboarding_started",
+    "construction_onboarding_progress_updated",
+})
+
+
 class ConstructionAuditContractError(
     ValueError
 ):
@@ -119,6 +139,7 @@ class ConstructionAuditLogger:
             not in (
                 CONSTRUCTION_AUDIT_EVENT_TYPES
                 | CONSTRUCTION_STAGE_1A_AUDIT_EVENT_TYPES
+                | CONSTRUCTION_STAGE_2_AUDIT_EVENT_TYPES
             )
         ):
             raise ConstructionAuditContractError(

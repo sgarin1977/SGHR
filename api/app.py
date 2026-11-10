@@ -65,6 +65,30 @@ from api.routes.partner_api import router as partner_api_router
 
 from api.routes.files import router as files_router
 from api.routes.construction_settings import router as construction_settings_router
+from api.routes.construction_language_settings import router as construction_language_settings_router
+from api.routes.construction_currency_settings import router as construction_currency_settings_router
+from api.routes.construction_region_settings import router as construction_region_settings_router
+from api.routes.construction_unit_catalog import router as construction_unit_catalog_router
+from api.routes.construction_tax_profiles import router as construction_tax_profiles_router
+from api.routes.construction_tax_profile_list import router as construction_tax_profile_list_router
+from api.routes.construction_tax_profile_writes import router as construction_tax_profile_writes_router
+from api.routes.construction_tax_rules import router as construction_tax_rules_router
+from api.routes.construction_tax_rule_writes import router as construction_tax_rule_writes_router
+from api.routes.construction_tax_rule_list import router as construction_tax_rule_list_router
+from api.routes.construction_pricing_profiles import router as construction_pricing_profiles_router
+from api.routes.construction_pricing_profile_writes import router as construction_pricing_profile_writes_router
+from api.routes.construction_calculation_settings import router as construction_calculation_settings_router
+from api.routes.construction_onboarding import router as construction_onboarding_router
+from api.routes.construction_starter_templates import router as construction_starter_templates_router
+from api.routes.construction_template_copy import router as construction_template_copy_router
+from api.routes.construction_organization_templates import router as construction_organization_templates_router
+from api.routes.construction_template_translation_state import (
+    router as construction_template_translation_state_router,
+    install_translation_state_openapi_precision,
+)
+from api.routes.construction_template_versions import router as construction_template_versions_router
+from api.routes.construction_project_pricing_adjustments import router as construction_project_pricing_adjustments_router
+from api.routes.construction_project_pricing_adjustment_writes import router as construction_project_pricing_adjustment_writes_router
 
 from api.routes.construction_invitations import router as construction_invitations_router
 
@@ -312,6 +336,27 @@ def create_app() -> FastAPI:
         prefix=API_PREFIX,
         tags=["Construction"],
     )
+    application.include_router(construction_language_settings_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_currency_settings_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_region_settings_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_unit_catalog_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_tax_profiles_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_tax_profile_list_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_tax_profile_writes_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_tax_rules_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_tax_rule_writes_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_tax_rule_list_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_pricing_profiles_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_pricing_profile_writes_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_calculation_settings_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_onboarding_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_starter_templates_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_template_copy_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_organization_templates_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_template_translation_state_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_template_versions_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_project_pricing_adjustments_router, prefix=API_PREFIX, tags=["Construction settings"])
+    application.include_router(construction_project_pricing_adjustment_writes_router, prefix=API_PREFIX, tags=["Construction settings"])
     application.include_router(construction_invitations_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_invitation_management_router, prefix=API_PREFIX, tags=["Construction"])
     application.include_router(construction_invitation_list_router, prefix=API_PREFIX, tags=["Construction"])
@@ -509,6 +554,17 @@ def create_app() -> FastAPI:
     application.include_router(platform_organization_create_router, prefix=API_PREFIX, tags=["Platform organizations"])
     application.include_router(platform_bot_organization_create_router, prefix=API_PREFIX)
     application.include_router(construction_navigation_router, prefix=API_PREFIX)
+    from api.construction_settings_contract import install_settings_openapi_precision
+    install_settings_openapi_precision(application)
+    from api.routes.construction_organization_templates import install_organization_template_openapi_precision
+    install_organization_template_openapi_precision(application)
+    install_translation_state_openapi_precision(application)
+    from api.construction_project_localization import install_project_localization_openapi_precision
+    install_project_localization_openapi_precision(application)
+    from api.construction_area_localization import install_area_localization_openapi_precision
+    install_area_localization_openapi_precision(application)
+    from api.routes.construction_template_versions import install_template_version_openapi_precision
+    install_template_version_openapi_precision(application)
     return application
 
 
@@ -517,3 +573,9 @@ app = create_app()
 # client_link_confirmation_page_v1
 
 # invitation_identity_only_v1
+
+# con_010_openapi_bigint_precision_v1
+
+# con_011_language_context_read_v1
+
+# con_012_currency_settings_v1

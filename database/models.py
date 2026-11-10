@@ -19,6 +19,7 @@ from sqlalchemy import (
     Boolean,
     Numeric,
     CheckConstraint,
+    PrimaryKeyConstraint,
     UniqueConstraint,
     text,
 )
@@ -4917,6 +4918,8 @@ class ConstructionClient(Base):
 
 class ConstructionProject(Base):
     __tablename__ = "construction_projects"
+    # Native ck_construction_projects_currency enforces the reviewed PG format.
+    currency: Mapped[Optional[str]] = mapped_column(String(3), nullable=True)
     __table_args__ = (
         CheckConstraint(
             "status IN ("
@@ -5439,6 +5442,12 @@ class ConstructionAreaElement(Base):
 class ConstructionTenantSetting(Base):
     __tablename__ = "construction_tenant_settings"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "onboarding_tax_profile_id"],
+            ["construction_tax_profiles.tenant_id", "construction_tax_profiles.id"],
+            name="fk_construction_settings_onboarding_tax_profile",
+            onupdate="NO ACTION", ondelete="RESTRICT",
+        ),
         CheckConstraint(
             "accent_color IS NULL OR "
             "accent_color ~ '^#[0-9A-Fa-f]{6}$'",
@@ -5447,6 +5456,33 @@ class ConstructionTenantSetting(Base):
         CheckConstraint(
             "row_version > 0",
             name="ck_construction_tenant_settings_row_version",
+        ),
+        CheckConstraint(
+            "(onboarding_current_step IS NULL) = (onboarding_step_states IS NULL)",
+            name="ck_construction_tenant_settings_onboarding_pair",
+        ),
+        CheckConstraint(
+            "onboarding_current_step IS NULL OR onboarding_current_step IN "
+            "('COMPANY', 'LOCALIZATION', 'TAXES', 'PRICING_PROFILES', "
+            "'WORK_PRICES', 'MATERIALS_SUPPLIERS', 'MEASUREMENT_TEMPLATES')",
+            name="ck_construction_tenant_settings_onboarding_current_step",
+        ),
+        CheckConstraint(
+            "onboarding_step_states IS NULL OR CASE "
+            "WHEN jsonb_typeof(onboarding_step_states) = 'object' THEN COALESCE("
+            "onboarding_step_states ?& ARRAY['COMPANY', 'LOCALIZATION', 'TAXES', 'PRICING_PROFILES', "
+            "'WORK_PRICES', 'MATERIALS_SUPPLIERS', 'MEASUREMENT_TEMPLATES']::text[] "
+            "AND onboarding_step_states - ARRAY['COMPANY', 'LOCALIZATION', 'TAXES', 'PRICING_PROFILES', "
+            "'WORK_PRICES', 'MATERIALS_SUPPLIERS', 'MEASUREMENT_TEMPLATES']::text[] = '{}'::jsonb "
+            "AND onboarding_step_states ->> 'COMPANY' IN ('PENDING', 'COMPLETED') "
+            "AND onboarding_step_states ->> 'LOCALIZATION' IN ('PENDING', 'COMPLETED') "
+            "AND onboarding_step_states ->> 'TAXES' IN ('PENDING', 'COMPLETED') "
+            "AND onboarding_step_states ->> 'PRICING_PROFILES' IN ('PENDING', 'COMPLETED') "
+            "AND onboarding_step_states ->> 'WORK_PRICES' IN ('PENDING', 'COMPLETED', 'SKIPPED') "
+            "AND onboarding_step_states ->> 'MATERIALS_SUPPLIERS' IN ('PENDING', 'COMPLETED', 'SKIPPED') "
+            "AND onboarding_step_states ->> 'MEASUREMENT_TEMPLATES' IN ('PENDING', 'COMPLETED'), false) "
+            "ELSE false END",
+            name="ck_construction_tenant_settings_onboarding_step_states",
         ),
     )
 
@@ -5503,6 +5539,14 @@ class ConstructionTenantSetting(Base):
         nullable=False,
         default=1,
         server_default=text("1"),
+    )
+
+    onboarding_current_step: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    onboarding_step_states: Mapped[Optional[dict]] = mapped_column(
+        JSONB(none_as_null=True), nullable=True,
+    )
+    onboarding_tax_profile_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        nullable=True,
     )
 
     __mapper_args__ = {
@@ -5938,3 +5982,796 @@ class ConstructionClientUserLinkRequest(Base):
     )
     invalidated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionTaxProfile(Base):
+    """Organization tax configuration; rates and document snapshots are separate."""
+    __tablename__ = "construction_tax_profiles"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="construction_tax_profiles_pkey"),
+        UniqueConstraint("tenant_id", "id", name="uq_construction_tax_profiles_tenant_id_id"),
+        CheckConstraint("name = btrim(name) AND char_length(name) BETWEEN 1 AND 255",
+                        name="ck_construction_tax_profiles_name"),
+        CheckConstraint("client_price_tax_mode IN ('TAX_EXCLUSIVE', 'TAX_INCLUSIVE')",
+                        name="ck_construction_tax_profiles_client_mode"),
+        CheckConstraint("material_cost_basis IN ('NET', 'GROSS')",
+                        name="ck_construction_tax_profiles_material_basis"),
+        CheckConstraint("row_version > 0", name="ck_construction_tax_profiles_row_version"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", name="fk_construction_tax_profiles_tenant",
+                   ondelete="CASCADE", onupdate="NO ACTION"), nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    client_price_tax_mode: Mapped[str] = mapped_column(Text, nullable=False)
+    material_cost_basis: Mapped[str] = mapped_column(Text, nullable=False)
+    row_version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default=text("1"))
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", name="fk_construction_tax_profiles_creator",
+                   ondelete="RESTRICT", onupdate="NO ACTION"), nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionTaxRule(Base):
+    """Tenant/profile-bound tax rate; document snapshots are independent."""
+    __tablename__ = "construction_tax_rules"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="construction_tax_rules_pkey"),
+        UniqueConstraint(
+            "tenant_id", "id",
+            name="uq_construction_tax_rules_tenant_id_id",
+        ),
+        UniqueConstraint(
+            "tenant_id", "tax_profile_id", "category",
+            name="uq_construction_tax_rules_profile_category",
+        ),
+        CheckConstraint(
+            "category IN ('WORK', 'MATERIAL', 'SERVICE', 'EQUIPMENT', 'OTHER')",
+            name="ck_construction_tax_rules_category",
+        ),
+        CheckConstraint(
+            "rate_percent BETWEEN 0 AND 100",
+            name="ck_construction_tax_rules_rate_percent",
+        ),
+        CheckConstraint(
+            "row_version > 0",
+            name="ck_construction_tax_rules_row_version",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "tax_profile_id"],
+            ["construction_tax_profiles.tenant_id", "construction_tax_profiles.id"],
+            name="fk_construction_tax_rules_profile",
+            ondelete="CASCADE", onupdate="NO ACTION",
+        ),
+        Index(
+            "ix_construction_tax_rules_profile_category",
+            "tenant_id", "tax_profile_id", "category", "id",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "tenants.id", name="fk_construction_tax_rules_tenant",
+            ondelete="CASCADE", onupdate="NO ACTION",
+        ),
+        nullable=False,
+    )
+    tax_profile_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    rate_percent: Mapped[Decimal] = mapped_column(
+        Numeric(asdecimal=True), nullable=False,
+    )
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "users.id", name="fk_construction_tax_rules_creator",
+            ondelete="RESTRICT", onupdate="NO ACTION",
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+    )
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionPricingProfile(Base):
+    """CON-017 organization price levels; historical snapshots are independent."""
+    __tablename__ = "construction_pricing_profiles"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="construction_pricing_profiles_pkey"),
+        UniqueConstraint("tenant_id", "id",
+                         name="uq_construction_pricing_profiles_tenant_id_id"),
+        UniqueConstraint("tenant_id", "code",
+                         name="uq_construction_pricing_profiles_tenant_code"),
+        CheckConstraint("code IN ('ECONOMY', 'STANDARD', 'PREMIUM')",
+                        name="ck_construction_pricing_profiles_code"),
+        CheckConstraint(
+            "work_coefficient > 0 AND work_coefficient::text "
+            "NOT IN ('NaN', 'Infinity', '-Infinity')",
+            name="ck_construction_pricing_profiles_work_coefficient"),
+        CheckConstraint(
+            "material_markup_percent >= 0 AND material_markup_percent <= 100",
+            name="ck_construction_pricing_profiles_material_markup_percent"),
+        CheckConstraint("row_version > 0",
+                        name="ck_construction_pricing_profiles_row_version"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", name="fk_construction_pricing_profiles_tenant",
+                   ondelete="CASCADE", onupdate="NO ACTION"), nullable=False)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    work_coefficient: Mapped[Decimal] = mapped_column(Numeric(asdecimal=True), nullable=False)
+    material_markup_percent: Mapped[Decimal] = mapped_column(Numeric(asdecimal=True), nullable=False)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"))
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", name="fk_construction_pricing_profiles_creator",
+                   ondelete="RESTRICT", onupdate="NO ACTION"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionProjectPricingAdjustment(Base):
+    """Explicit project sale-price coefficient; published snapshots are independent."""
+    __tablename__ = "construction_project_pricing_adjustments"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="construction_project_pricing_adjustments_pkey"),
+        UniqueConstraint("tenant_id", "id",
+                         name="uq_construction_project_pricing_adjustments_tenant_id_id"),
+        CheckConstraint("name = btrim(name) AND char_length(name) BETWEEN 1 AND 255",
+                        name="ck_construction_project_pricing_adjustments_name"),
+        CheckConstraint("coefficient > 0 AND coefficient::text NOT IN ('NaN', 'Infinity', '-Infinity')",
+                        name="ck_construction_project_pricing_adjustments_coefficient"),
+        CheckConstraint("row_version > 0",
+                        name="ck_construction_project_pricing_adjustments_row_version"),
+        ForeignKeyConstraint(
+            ["tenant_id", "project_id"], ["construction_projects.tenant_id", "construction_projects.id"],
+            name="fk_construction_project_pricing_adjustments_project",
+            ondelete="CASCADE", onupdate="NO ACTION"),
+        Index("ix_construction_project_pricing_adjustments_project", "tenant_id", "project_id", "id"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", name="fk_construction_project_pricing_adjustments_tenant",
+                   ondelete="CASCADE", onupdate="NO ACTION"), nullable=False)
+    project_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    coefficient: Mapped[Decimal] = mapped_column(Numeric(asdecimal=True), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    row_version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default=text("1"))
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", name="fk_construction_project_pricing_adjustments_creator",
+                   ondelete="RESTRICT", onupdate="NO ACTION"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionCalculationSetting(Base):
+    """Organization calculation configuration; document rounding is separate."""
+    __tablename__ = "construction_calculation_settings"
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "tenant_id", name="construction_calculation_settings_pkey"),
+        CheckConstraint(
+            "money_input_precision BETWEEN 0 AND 6",
+            name="ck_con019_money_precision"),
+        CheckConstraint(
+            "quantity_precision BETWEEN 0 AND 6",
+            name="ck_con019_quantity_precision"),
+        CheckConstraint(
+            "minimum_job_amount IS NULL OR "
+            "(minimum_job_amount >= 0 AND minimum_job_amount < 'Infinity'::numeric)",
+            name="ck_con019_minimum_amount"),
+        CheckConstraint(
+            "(minimum_job_amount IS NULL) = (minimum_job_currency IS NULL)",
+            name="ck_con019_minimum_pair"),
+        CheckConstraint(
+            "minimum_job_currency IS NULL OR "
+            "(char_length(minimum_job_currency) = 3 AND "
+            "translate(minimum_job_currency, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '') = '')",
+            name="ck_con019_minimum_currency"),
+        CheckConstraint(
+            "supplier_stale_price_days BETWEEN 0 AND 3650",
+            name="ck_con019_supplier_days"),
+        CheckConstraint(
+            "default_technological_waste_percent IS NULL OR "
+            "default_technological_waste_percent BETWEEN 0 AND 100",
+            name="ck_con019_waste_percent"),
+        CheckConstraint(
+            "default_local_repair_percent IS NULL OR "
+            "default_local_repair_percent BETWEEN 0 AND 100",
+            name="ck_con019_local_repair_percent"),
+        CheckConstraint("row_version > 0", name="ck_con019_row_version"),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", name="fk_con019_tenant", ondelete="CASCADE"),
+        primary_key=True, nullable=False)
+    money_input_precision: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    quantity_precision: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=4, server_default=text("4"))
+    minimum_job_amount: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(asdecimal=True), nullable=True)
+    minimum_job_currency: Mapped[Optional[str]] = mapped_column(
+        String(3), nullable=True)
+    supplier_stale_price_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    default_technological_waste_percent: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(asdecimal=True), nullable=True)
+    default_local_repair_percent: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(asdecimal=True), nullable=True)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"))
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", name="fk_con019_creator", ondelete="RESTRICT"),
+        nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+
+    __mapper_args__ = {"version_id_col": row_version}
+
+# con016_canonical_categories_unique_v1
+
+# onboarding_explicit_tax_profile_v1
+
+
+class ConstructionStarterMeasurementTemplate(Base):
+    """Platform-owned starter identity; Construction runtime reads only."""
+    __tablename__ = "construction_starter_measurement_templates"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="construction_starter_measurement_templates_pkey"),
+        UniqueConstraint("code", name="uq_con_starter_templates_code"),
+        CheckConstraint(
+            "code = btrim(code) AND code ~ '^[A-Z][A-Z0-9_]{0,63}$'",
+            name="ck_con_starter_templates_code"),
+        CheckConstraint("row_version > 0", name="ck_con_starter_templates_version"),
+        CheckConstraint(
+            "isfinite(created_at) AND isfinite(updated_at)",
+            name="ck_con_starter_templates_time"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    __mapper_args__ = {"version_id_col": row_version}
+
+
+class ConstructionStarterMeasurementTemplateVersion(Base):
+    """Published immutable source; database triggers reject mutation/truncate."""
+    __tablename__ = "construction_starter_measurement_template_versions"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="construction_starter_measurement_template_versions_pkey"),
+        UniqueConstraint("template_id", "version", name="uq_con_starter_versions_template_version"),
+        UniqueConstraint("template_id", "id", name="uq_con_starter_versions_template_id_id"),
+        CheckConstraint("version > 0", name="ck_con_starter_versions_version"),
+        CheckConstraint("definition_schema_version = 1", name="ck_con_starter_versions_schema"),
+        CheckConstraint(
+            "source_language = btrim(source_language) "
+            "AND char_length(source_language) BETWEEN 1 AND 10 "
+            "AND translate(source_language, "
+            "'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-', '') = ''",
+            name="ck_con_starter_versions_language"),
+        CheckConstraint(
+            "length(content_hash) = 64 AND translate(content_hash, '0123456789abcdef', '') = ''",
+            name="ck_con_starter_versions_hash"),
+        CheckConstraint(
+            "isfinite(published_at) AND isfinite(created_at)",
+            name="ck_con_starter_versions_time"),
+        CheckConstraint("""
+            CASE WHEN jsonb_typeof(definition) = 'object' THEN COALESCE(
+                definition ?& ARRAY['title_key','description_key','sections','labels']::text[]
+                AND definition - ARRAY['title_key','description_key','sections','labels']::text[] = '{}'::jsonb
+                AND jsonb_typeof(definition -> 'title_key') = 'string'
+                AND char_length(definition ->> 'title_key') BETWEEN 1 AND 128
+                AND jsonb_typeof(definition -> 'labels') = 'object'
+                AND jsonb_typeof(definition -> 'labels' -> source_language) = 'object'
+                AND jsonb_typeof(
+                    definition -> 'labels' -> source_language -> (definition ->> 'title_key')
+                ) = 'string'
+                AND CASE WHEN jsonb_typeof(definition -> 'description_key') = 'null'
+                    THEN true ELSE
+                    jsonb_typeof(definition -> 'description_key') = 'string'
+                    AND char_length(definition ->> 'description_key') BETWEEN 1 AND 128
+                    AND jsonb_typeof(
+                        definition -> 'labels' -> source_language -> (definition ->> 'description_key')
+                    ) = 'string'
+                END
+                AND CASE WHEN jsonb_typeof(definition -> 'sections') = 'array'
+                    THEN jsonb_array_length(definition -> 'sections') > 0 ELSE false END,
+                false)
+            ELSE false END
+        """, name="ck_con_starter_versions_definition"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    template_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey(
+            "construction_starter_measurement_templates.id",
+            name="fk_con_starter_versions_template",
+            onupdate="NO ACTION", ondelete="RESTRICT"),
+        nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    definition_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_language: Mapped[str] = mapped_column(String(10), nullable=False)
+    definition: Mapped[dict] = mapped_column(JSONB(none_as_null=True), nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+
+
+# con_o003_organization_template_orm_v1
+from sqlalchemy import FetchedValue as _ConTemplateFetchedValue
+
+
+class ConstructionMeasurementTemplate(Base):
+    """Organization-owned template identity."""
+    __tablename__ = "construction_measurement_templates"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="con_mt_pk"),
+        UniqueConstraint("tenant_id", "id", name="con_mt_tenant_id_uq"),
+        UniqueConstraint("tenant_id", "code", name="con_mt_tenant_code_uq"),
+        ForeignKeyConstraint(
+            ["tenant_id"], ["tenants.id"],
+            name="con_mt_tenant_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["created_by"], ["users.id"],
+            name="con_mt_creator_fk", ondelete="RESTRICT"),
+        CheckConstraint("code ~ '^[A-Z][A-Z0-9_]{0,63}$'", name="con_mt_code_ck"),
+        CheckConstraint("row_version > 0", name="con_mt_version_ck"),
+        CheckConstraint(
+            "isfinite(created_at) AND isfinite(updated_at)",
+            name="con_mt_time_ck"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+        server_onupdate=_ConTemplateFetchedValue())
+    created_by: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+        server_onupdate=_ConTemplateFetchedValue())
+
+    __mapper_args__ = {"version_id_col": row_version, "eager_defaults": True}
+
+
+class ConstructionMeasurementTemplateVersion(Base):
+    """Version header; published immutability is enforced by the installed guard."""
+    __tablename__ = "construction_measurement_template_versions"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="con_mtv_pk"),
+        UniqueConstraint("tenant_id", "id", name="con_mtv_tenant_id_uq"),
+        UniqueConstraint(
+            "tenant_id", "template_id", "version", name="con_mtv_number_uq"),
+        ForeignKeyConstraint(
+            ["tenant_id"], ["tenants.id"],
+            name="con_mtv_tenant_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["tenant_id", "template_id"],
+            ["construction_measurement_templates.tenant_id",
+             "construction_measurement_templates.id"],
+            name="con_mtv_template_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["source_starter_version_id"],
+            ["construction_starter_measurement_template_versions.id"],
+            name="con_mtv_source_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["created_by"], ["users.id"],
+            name="con_mtv_creator_fk", ondelete="RESTRICT"),
+        CheckConstraint("version > 0", name="con_mtv_number_ck"),
+        CheckConstraint("row_version > 0", name="con_mtv_row_version_ck"),
+        CheckConstraint("definition_schema_version = 1", name="con_mtv_schema_ck"),
+        CheckConstraint(
+            "(status = 'DRAFT' AND published_at IS NULL) OR "
+            "(status = 'PUBLISHED' AND published_at IS NOT NULL "
+            "AND content_hash IS NOT NULL)",
+            name="con_mtv_lifecycle_ck"),
+        CheckConstraint(
+            "source_language ~ '^[a-z]{2,3}([-_][A-Za-z0-9]{2,6})?$'",
+            name="con_mtv_language_ck"),
+        CheckConstraint(
+            "title_key ~ '^[A-Za-z][A-Za-z0-9_.-]{0,127}$' AND "
+            "(description_key IS NULL OR "
+            "description_key ~ '^[A-Za-z][A-Za-z0-9_.-]{0,127}$')",
+            name="con_mtv_keys_ck"),
+        CheckConstraint("""
+            COALESCE(
+                jsonb_typeof(labels) = 'object'
+                AND jsonb_typeof(labels -> source_language) = 'object'
+                AND jsonb_typeof(labels -> source_language -> title_key) = 'string'
+                AND (
+                    description_key IS NULL
+                    OR jsonb_typeof(
+                        labels -> source_language -> description_key
+                    ) = 'string'
+                ),
+                false
+            )
+        """, name="con_mtv_labels_ck"),
+        CheckConstraint(
+            "content_hash IS NULL OR content_hash ~ '^[0-9a-f]{64}$'",
+            name="con_mtv_hash_ck"),
+        CheckConstraint(
+            "isfinite(created_at) AND isfinite(updated_at) AND "
+            "(published_at IS NULL OR isfinite(published_at))",
+            name="con_mtv_time_ck"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    template_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    source_starter_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    definition_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_language: Mapped[str] = mapped_column(String(10), nullable=False)
+    title_key: Mapped[str] = mapped_column(Text, nullable=False)
+    description_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    labels: Mapped[dict] = mapped_column(JSONB(none_as_null=True), nullable=False)
+    content_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+        server_onupdate=_ConTemplateFetchedValue())
+    created_by: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+        server_onupdate=_ConTemplateFetchedValue())
+    published_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        server_onupdate=_ConTemplateFetchedValue())
+
+    __mapper_args__ = {"version_id_col": row_version, "eager_defaults": True}
+
+
+class ConstructionMeasurementTemplateSection(Base):
+    """Section belonging to exactly one organization template version."""
+    __tablename__ = "construction_measurement_template_sections"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="con_mts_pk"),
+        UniqueConstraint(
+            "tenant_id", "template_version_id", "id",
+            name="con_mts_context_uq"),
+        UniqueConstraint(
+            "tenant_id", "template_version_id", "id", "work_phase_code",
+            name="con_mts_phase_context_uq"),
+        UniqueConstraint(
+            "tenant_id", "template_version_id", "code", name="con_mts_code_uq"),
+        UniqueConstraint(
+            "tenant_id", "template_version_id", "sort_order", name="con_mts_order_uq"),
+        ForeignKeyConstraint(
+            ["tenant_id"], ["tenants.id"],
+            name="con_mts_tenant_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["tenant_id", "template_version_id"],
+            ["construction_measurement_template_versions.tenant_id",
+             "construction_measurement_template_versions.id"],
+            name="con_mts_version_fk", ondelete="RESTRICT"),
+        CheckConstraint(
+            "code ~ '^[A-Z][A-Z0-9_]{0,63}$'", name="con_mts_code_ck"),
+        CheckConstraint(
+            "label_key ~ '^[A-Za-z][A-Za-z0-9_.-]{0,127}$'",
+            name="con_mts_label_ck"),
+        CheckConstraint("""
+            work_phase_code IN (
+                'DEMOLITION', 'PARTITIONS_OPENINGS', 'CHASING',
+                'ROUGH_ELECTRICAL', 'ROUGH_WATER', 'ROUGH_DRAINAGE',
+                'HVAC_VENTILATION', 'PLASTER_PREP', 'WATERPROOFING',
+                'SCREED_LEVELING', 'TILING_STONE', 'PUTTY_PRIMER',
+                'PAINT_FINISH', 'FINISH_FLOOR', 'DOORS_WINDOWS',
+                'FINISH_ELECTRICAL', 'FINISH_PLUMBING',
+                'EQUIPMENT_FURNITURE', 'FINAL_SEALING', 'CLEANING_WASTE'
+            )
+        """, name="con_mts_phase_ck"),
+        CheckConstraint("sort_order >= 0", name="con_mts_order_ck"),
+        CheckConstraint("row_version > 0", name="con_mts_row_version_ck"),
+        CheckConstraint(
+            "isfinite(created_at) AND isfinite(updated_at)", name="con_mts_time_ck"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    template_version_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    label_key: Mapped[str] = mapped_column(Text, nullable=False)
+    work_phase_code: Mapped[str] = mapped_column(Text, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+        server_onupdate=_ConTemplateFetchedValue())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+        server_onupdate=_ConTemplateFetchedValue())
+
+    __mapper_args__ = {"version_id_col": row_version, "eager_defaults": True}
+
+
+class ConstructionMeasurementTemplateQuestion(Base):
+    """Data-driven question; work-type identities are resolved by domain services."""
+    __tablename__ = "construction_measurement_template_questions"
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="con_mtq_pk"),
+        UniqueConstraint(
+            "tenant_id", "template_version_id", "code", name="con_mtq_code_uq"),
+        UniqueConstraint(
+            "tenant_id", "template_section_id", "sort_order", name="con_mtq_order_uq"),
+        ForeignKeyConstraint(
+            ["tenant_id"], ["tenants.id"],
+            name="con_mtq_tenant_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["tenant_id", "template_version_id"],
+            ["construction_measurement_template_versions.tenant_id",
+             "construction_measurement_template_versions.id"],
+            name="con_mtq_version_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["tenant_id", "template_version_id", "template_section_id"],
+            ["construction_measurement_template_sections.tenant_id",
+             "construction_measurement_template_sections.template_version_id",
+             "construction_measurement_template_sections.id"],
+            name="con_mtq_section_fk", ondelete="RESTRICT"),
+        ForeignKeyConstraint(
+            ["tenant_id", "template_version_id", "template_section_id", "work_phase_code"],
+            ["construction_measurement_template_sections.tenant_id",
+             "construction_measurement_template_sections.template_version_id",
+             "construction_measurement_template_sections.id",
+             "construction_measurement_template_sections.work_phase_code"],
+            name="con_mtq_section_phase_fk", ondelete="RESTRICT",
+            deferrable=True, initially="DEFERRED"),
+        CheckConstraint(
+            "code ~ '^[A-Z][A-Z0-9_]{0,63}$'", name="con_mtq_code_ck"),
+        CheckConstraint(
+            "label_key ~ '^[A-Za-z][A-Za-z0-9_.-]{0,127}$'",
+            name="con_mtq_label_ck"),
+        CheckConstraint(
+            "question_type IN ('BOOLEAN', 'NUMBER', 'TEXT', 'SINGLE_CHOICE', "
+            "'MULTI_CHOICE', 'DATE', 'PHOTO', 'ELEMENT', 'CALCULATED')",
+            name="con_mtq_type_ck"),
+        CheckConstraint("""
+            unit_code IS NULL OR (
+                question_type IN ('NUMBER', 'CALCULATED')
+                AND unit_code IN (
+                    'MM', 'CM', 'M', 'M2', 'M3', 'ML', 'L', 'G', 'KG', 'PCS',
+                    'PACKAGE', 'ROLL', 'BAG', 'SET', 'HOUR', 'DAY'
+                )
+            )
+        """, name="con_mtq_unit_ck"),
+        CheckConstraint("""
+            (
+                formula_type IS NULL OR (
+                    question_type IN ('NUMBER', 'CALCULATED')
+                    AND formula_type IN (
+                        'DIRECT', 'RECTANGLE', 'WALL_AREA', 'WALL_NET_AREA',
+                        'PERCENT_OF_BASE', 'PERIMETER', 'REVEAL_THREE_SIDES',
+                        'LINEAR_LENGTH', 'COUNT', 'VOLUME'
+                    )
+                )
+            )
+            AND (question_type <> 'CALCULATED' OR formula_type IS NOT NULL)
+        """, name="con_mtq_formula_ck"),
+        CheckConstraint("""
+            jsonb_typeof(input_schema) = 'object'
+            AND jsonb_typeof(validation_schema) = 'object'
+            AND (show_if IS NULL OR jsonb_typeof(show_if) = 'object')
+        """, name="con_mtq_schemas_ck"),
+        CheckConstraint("""
+            jsonb_typeof(options) = 'array'
+            AND jsonb_array_length(options) <= 128
+            AND (
+                (question_type IN ('SINGLE_CHOICE', 'MULTI_CHOICE')
+                 AND jsonb_array_length(options) >= 1)
+                OR
+                (question_type NOT IN ('SINGLE_CHOICE', 'MULTI_CHOICE')
+                 AND options = '[]'::jsonb)
+            )
+        """, name="con_mtq_options_ck"),
+        CheckConstraint("""
+            default_source IN ('NONE', 'ORG_CONSTANT', 'PROJECT_VALUE')
+            AND CASE WHEN default_source = 'NONE' THEN
+                default_value IS NULL
+            ELSE COALESCE(
+                jsonb_typeof(default_value) = 'object'
+                AND jsonb_typeof(default_value -> 'field') = 'string'
+                AND default_value - 'field' = '{}'::jsonb
+                AND (default_value ->> 'field')
+                    ~ '^[A-Za-z][A-Za-z0-9_.-]{0,127}$',
+                false
+            ) END
+        """, name="con_mtq_default_ck"),
+        CheckConstraint("""
+            COALESCE(
+                CASE WHEN work_type_source IS NULL THEN
+                    work_type_id IS NULL
+                    AND work_type_version_policy IS NULL
+                    AND pinned_work_type_version_id IS NULL
+                ELSE
+                    work_type_source IN ('MASTER', 'ORGANIZATION')
+                    AND work_type_id IS NOT NULL
+                    AND (
+                        (work_type_version_policy = 'CURRENT_PUBLISHED'
+                         AND pinned_work_type_version_id IS NULL)
+                        OR
+                        (work_type_version_policy = 'PINNED'
+                         AND pinned_work_type_version_id IS NOT NULL)
+                    )
+                END,
+                false
+            )
+        """, name="con_mtq_work_binding_ck"),
+        CheckConstraint(
+            "photo_policy IN ('NONE', 'OPTIONAL', 'REQUIRED') "
+            "AND (question_type <> 'PHOTO' OR photo_policy <> 'NONE')",
+            name="con_mtq_photo_ck"),
+        CheckConstraint("""
+            (help_text_key IS NULL
+             OR help_text_key ~ '^[A-Za-z][A-Za-z0-9_.-]{0,127}$')
+            AND (help_media_ref IS NULL
+                 OR help_media_ref ~ '^[A-Za-z][A-Za-z0-9_.-]{0,127}$')
+        """, name="con_mtq_help_ck"),
+        CheckConstraint("sort_order >= 0", name="con_mtq_order_ck"),
+        CheckConstraint("row_version > 0", name="con_mtq_row_version_ck"),
+        CheckConstraint(
+            "isfinite(created_at) AND isfinite(updated_at)", name="con_mtq_time_ck"),
+        Index(
+            "ix_con_mtq_section", "tenant_id", "template_version_id",
+            "template_section_id", "sort_order", "id"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    template_version_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    template_section_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    question_type: Mapped[str] = mapped_column(Text, nullable=False)
+    label_key: Mapped[str] = mapped_column(Text, nullable=False)
+    required: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    unit_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    formula_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    input_schema: Mapped[dict] = mapped_column(JSONB(none_as_null=True), nullable=False)
+    validation_schema: Mapped[dict] = mapped_column(JSONB(none_as_null=True), nullable=False)
+    options: Mapped[list] = mapped_column(JSONB(none_as_null=True), nullable=False)
+    show_if: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    default_source: Mapped[str] = mapped_column(Text, nullable=False)
+    default_value: Mapped[Optional[dict]] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    work_type_source: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    work_type_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    work_type_version_policy: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pinned_work_type_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    work_phase_code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    photo_policy: Mapped[str] = mapped_column(Text, nullable=False)
+    help_text_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    help_media_ref: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"),
+        server_onupdate=_ConTemplateFetchedValue())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+        server_onupdate=_ConTemplateFetchedValue())
+
+    __mapper_args__ = {"version_id_col": row_version, "eager_defaults": True}
+
+
+# CON_020B_CONTENT_TRANSLATION_MODEL_V1
+class ConstructionContentTranslation(Base):
+    __tablename__ = "construction_content_translations"
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "id", name="construction_content_translations_pkey"),
+        UniqueConstraint(
+            "tenant_id", "entity_type", "entity_id", "field_name",
+            "source_language", "target_language",
+            "source_version", "source_text_hash",
+            name="uq_con_content_translation_source"),
+        ForeignKeyConstraint(
+            ["tenant_id"], ["tenants.id"],
+            name="fk_con_content_translation_tenant", ondelete="CASCADE"),
+        ForeignKeyConstraint(
+            ["source_language"], ["languages.code"],
+            name="fk_con_content_translation_source_language"),
+        ForeignKeyConstraint(
+            ["target_language"], ["languages.code"],
+            name="fk_con_content_translation_target_language"),
+        ForeignKeyConstraint(
+            ["reviewed_by"], ["users.id"],
+            name="fk_con_content_translation_reviewer"),
+        CheckConstraint(
+            "entity_type ~ '^[a-z][a-z0-9_]*([.][a-z0-9_]+)*$'",
+            name="ck_con_content_translation_entity_type"),
+        CheckConstraint(
+            "field_name ~ '^[a-z][a-z0-9_]*([.][a-z0-9_]+)*$'",
+            name="ck_con_content_translation_field_name"),
+        CheckConstraint(
+            "source_language ~ '^[a-z]{2,3}([-_][A-Za-z0-9]{2,6})?$'",
+            name="ck_con_content_translation_source_language"),
+        CheckConstraint(
+            "target_language ~ '^[a-z]{2,3}([-_][A-Za-z0-9]{2,6})?$'",
+            name="ck_con_content_translation_target_language"),
+        CheckConstraint(
+            "source_version > 0",
+            name="ck_con_content_translation_source_version"),
+        CheckConstraint(
+            "source_text_hash ~ '^[0-9a-f]{64}$'",
+            name="ck_con_content_translation_source_hash"),
+        CheckConstraint(
+            "translated_text ~ '[^[:space:]]' "
+            "AND octet_length(translated_text) <= 1048576",
+            name="ck_con_content_translation_text"),
+        CheckConstraint(
+            "translation_status IN ('VERIFIED', 'AUTO_TRANSLATED', 'STALE')",
+            name="ck_con_content_translation_status"),
+        CheckConstraint(
+            "row_version > 0",
+            name="ck_con_content_translation_row_version"),
+        CheckConstraint(
+            "source_language <> target_language",
+            name="ck_con_content_translation_distinct_languages"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    field_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_language: Mapped[str] = mapped_column(String(10), nullable=False)
+    target_language: Mapped[str] = mapped_column(String(10), nullable=False)
+    source_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_text_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    translated_text: Mapped[str] = mapped_column(Text, nullable=False)
+    translation_status: Mapped[str] = mapped_column(Text, nullable=False)
+    translated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False)
+    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
+    row_version: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default=text("1"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc))
+
+    __mapper_args__ = {"version_id_col": row_version, "eager_defaults": True}

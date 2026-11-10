@@ -192,7 +192,7 @@ async def test_user_without_tenant_fails_closed():
 
 
 @pytest.mark.asyncio
-async def test_context_uses_persisted_settings():
+async def test_context_uses_canonical_profile_language():
     user = SimpleNamespace(
         id=uuid4(),
         tenant_id=uuid4(),
@@ -211,7 +211,7 @@ async def test_context_uses_persisted_settings():
     ]
     assert context.user_id == user.id
     assert context.tenant_id == user.tenant_id
-    assert context.interface_language == "uk"
+    assert context.interface_language == "ru"
     assert context.settings is translation.settings
     assert translation.calls == [
         (

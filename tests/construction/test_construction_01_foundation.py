@@ -4,6 +4,17 @@ from uuid import uuid4
 import pytest
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 @pytest.mark.asyncio
 async def test_con_001_repository_reuses_active_platform_tenant():
     from sqlalchemy.dialects import postgresql
@@ -2987,6 +2998,7 @@ def test_con_004_project_model_matches_release_and_address_contract():
         "updated_at",
         "deleted_at",
         "row_version",
+        "currency",
     }
 
     assert not table.c.tenant_id.nullable
@@ -3014,6 +3026,10 @@ def test_con_004_project_model_matches_release_and_address_contract():
     assert not table.c.updated_at.nullable
     assert table.c.deleted_at.nullable
     assert not table.c.row_version.nullable
+    assert table.c.currency.nullable
+    assert table.c.currency.type.length == 3
+    assert table.c.currency.default is None
+    assert table.c.currency.server_default is None
 
     assert isinstance(
         table.c.latitude.type,
@@ -3355,11 +3371,11 @@ async def test_con_004_project_service_creates_draft_from_verified_actor_scope()
         ):
             calls.append(("event", kwargs))
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeRepository(),
         event_repository=FakeEventRepository(),
-    )
+    ))
 
     result = await service.create_project(
         actor=actor,
@@ -3386,6 +3402,7 @@ async def test_con_004_project_service_creates_draft_from_verified_actor_scope()
                     "Rua Exemplo 10, Lisboa"
                 ),
                 "created_by": user_id,
+                "currency": "EUR",
             },
         ),
         (
@@ -3402,6 +3419,8 @@ async def test_con_004_project_service_creates_draft_from_verified_actor_scope()
                 "entity_id": project_id,
                 "payload": {
                     "operation": "create",
+                    "currency": "EUR",
+                    "currency_source": "organization_default",
                     "changes": [],
                     "reason": None,
                 },
@@ -3496,14 +3515,14 @@ async def test_con_004_project_service_validates_optional_client_in_actor_tenant
         ):
             calls.append(("event", kwargs))
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeProjectRepository(),
         client_repository=(
             FakeClientRepository()
         ),
         event_repository=FakeEventRepository(),
-    )
+    ))
 
     result = await service.create_project(
         actor=actor,
@@ -3614,14 +3633,14 @@ async def test_con_004_project_service_validates_optional_responsible_platform_m
         ):
             calls.append(("event", kwargs))
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeProjectRepository(),
         access_repository=(
             FakeAccessRepository()
         ),
         event_repository=FakeEventRepository(),
-    )
+    ))
 
     result = await service.create_project(
         actor=actor,
@@ -3802,13 +3821,13 @@ async def test_con_004_project_service_updates_allowed_fields_and_invalidates_ad
         ):
             calls.append(("event", kwargs))
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeProjectRepository(),
         client_repository=FakeClientRepository(),
         access_repository=FakeAccessRepository(),
         event_repository=FakeEventRepository(),
-    )
+    ))
 
     result = await service.update_project(
         actor=actor,
@@ -4051,7 +4070,7 @@ async def test_con_004_project_update_noop_preserves_verified_state_and_row_vers
                 "NO-OP PROJECT MUST NOT BE AUDITED"
             )
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeProjectRepository(),
         client_repository=(
@@ -4063,7 +4082,7 @@ async def test_con_004_project_update_noop_preserves_verified_state_and_row_vers
         event_repository=(
             ForbiddenEventRepository()
         ),
-    )
+    ))
 
     result = await service.update_project(
         actor=actor,
@@ -4178,11 +4197,11 @@ async def test_con_004_project_status_rejects_stale_row_version_before_update():
                 "STALE PROJECT MUST NOT BE AUDITED"
             )
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeRepository(),
         event_repository=FakeEventRepository(),
-    )
+    ))
 
     with pytest.raises(
         ConstructionRowVersionConflictError,
@@ -4289,11 +4308,11 @@ async def test_con_004_project_status_noop_preserves_row_version_without_audit()
                 "NO-OP STATUS MUST NOT BE AUDITED"
             )
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeRepository(),
         event_repository=FakeEventRepository(),
-    )
+    ))
 
     result = await service.transition_project_status(
         actor=actor,
@@ -4560,11 +4579,11 @@ async def test_con_004_project_service_transitions_locked_project_in_verified_sc
         ):
             calls.append(("event", kwargs))
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeRepository(),
         event_repository=FakeEventRepository(),
-    )
+    ))
 
     result = (
         await service
@@ -12633,13 +12652,13 @@ async def test_con_007_project_status_audit_failure_rolls_back_domain_change():
                 "Private audit storage details."
             )
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeRepository(),
         event_repository=(
             FailingEventRepository()
         ),
-    )
+    ))
 
     with pytest.raises(
         ConstructionProjectOperationError,
@@ -13926,11 +13945,11 @@ async def test_con_007_project_create_audit_failure_rolls_back_domain_change():
                 "Private audit storage details."
             )
 
-    service = ConstructionProjectService(
+    service = _with_project_currency_fixture(ConstructionProjectService(
         session=FakeSession(),
         repository=FakeRepository(),
         event_repository=FailingEventRepository(),
-    )
+    ))
 
     with pytest.raises(
         ConstructionProjectOperationError,
@@ -14292,11 +14311,11 @@ async def test_con_008_client_and_project_services_fail_closed_without_permissio
         repository=object(),
         event_repository=object(),
     )
-    project_service = ConstructionProjectService(
+    project_service = _with_project_currency_fixture(ConstructionProjectService(
         session=object(),
         repository=object(),
         event_repository=object(),
-    )
+    ))
 
     operations = (
         (

@@ -1,4 +1,5 @@
 from construction_rate_limit_fixture import with_local_construction_rate_limit, construction_module_dependencies
+from datetime import datetime, timezone
 from services.construction.construction_permissions import CONSTRUCTION_ROLE_PERMISSIONS
 def test_c002_company_settings_routes_are_registered():
     from api.app import create_app
@@ -166,6 +167,7 @@ async def test_c002_owner_http_passes_verified_write_context():
     settings = SimpleNamespace(**{field: None for field in FIELDS})
     settings.tenant_id = actor.tenant_id
     settings.row_version = 5
+    settings.created_at = settings.updated_at = datetime.now(timezone.utc)
     service = SimpleNamespace(
         create_for_actor=AsyncMock(return_value=settings),
         update_for_actor=AsyncMock(return_value=settings),
@@ -301,6 +303,7 @@ async def test_c002_http_converts_logo_reference_to_uuid(method):
     settings.tenant_id = actor.tenant_id
     settings.logo_file_id_override = logo_id
     settings.row_version = 2
+    settings.created_at = settings.updated_at = datetime.now(timezone.utc)
     service = SimpleNamespace(
         create_for_actor=AsyncMock(return_value=settings),
         update_for_actor=AsyncMock(return_value=settings),
@@ -332,3 +335,5 @@ async def test_c002_http_converts_logo_reference_to_uuid(method):
     arguments = operation.await_args.kwargs
     fields = arguments["values" if method == "post" else "changes"]
     assert fields["logo_file_id_override"] == logo_id
+
+# con_010_typed_settings_contract_v1

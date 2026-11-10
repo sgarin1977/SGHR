@@ -35,7 +35,7 @@ def project_http():
         latitude=Decimal("38.123456789012345678"), longitude=Decimal("-9.123456789012345678"),
         address_provider=None, provider_place_id=None, address_verification_status="pending",
         created_by=c.user, created_at=now, updated_at=now, deleted_at=None, row_version=7,
-        private_marker="private-orm-field", token_hash="private-token-hash",
+        currency=None, private_marker="private-orm-field", token_hash="private-token-hash",
     )
     c.session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock(), flush=AsyncMock())
     c.repo = SimpleNamespace(session=c.session, get_active_project=AsyncMock(return_value=c.project))
@@ -235,10 +235,10 @@ def test_project_read_factory_and_openapi_registration(project_http):
     operation = paths[path]["get"]
     parameter = next(p for p in operation["parameters"] if p["name"] == "id")
     assert parameter["in"] == "path" and parameter["schema"]["format"] == "uuid"
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("/ProjectReadEnvelope")
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("/ProjectDetailsEnvelope")
     assert {"401", "403", "404", "422", "500"} <= set(operation["responses"])
     assert not any(p["name"].lower() == "idempotency-key" for p in operation.get("parameters", []))
-    fields = c.app.openapi()["components"]["schemas"]["ProjectReadResponse"]["properties"]
+    fields = c.app.openapi()["components"]["schemas"]["ProjectDetailsResponse"]["properties"]
     assert "row_version" in fields and "deleted_at" not in fields and "token_hash" not in fields
 
 

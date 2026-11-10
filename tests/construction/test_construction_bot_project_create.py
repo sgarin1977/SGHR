@@ -50,8 +50,13 @@ async def test_navigation_creation_capability_uses_server_scope_policy(role, sco
 async def project_data(project_http):
     response = await get(project_http)
     assert response.status_code == 200, response.text
+    from api.routes.construction_project_read import ProjectReadResponse
+    read_data = response.json()["data"]
+    creation_data = {
+        field: read_data[field] for field in ProjectReadResponse.model_fields
+    }
     return {
-        **response.json()["data"], "name": "New project",
+        **creation_data, "name": "New project",
         "address_raw": "Project address", "comment": "Comment",
         "row_version": 1,
     }
@@ -93,6 +98,7 @@ async def test_create_transport_uses_existing_post_and_same_key_after_timeout(pr
         assert len(seen) == 1
         result = await api.create_project(**options)
         assert result.data["client_id"] is None
+        assert result.data == project_data and "currency" not in result.data
     assert seen[0].content == seen[1].content
 
 
@@ -301,3 +307,32 @@ async def test_created_project_actions_require_fresh_read(
     await click(c, "open")
     c.service.read_created_project.assert_awaited_once()
     assert action_prefixes() == (set(prefixes) if allowed else set())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("extra_field", ["currency", "private_field"])
+async def test_create_transport_rejects_fields_outside_original_receipt(project_data, project_http, extra_field):
+    payload = {
+        "name": "New project", "address_raw": "Project address",
+        "comment": "Comment", "client_id": None, "responsible_user_id": None,
+    }
+    invalid = {**project_data, extra_field: "EUR" if extra_field == "currency" else "private"}
+    def transport(request):
+        assert request.method == "POST"
+        assert request.url.path == "/api/v1/construction/projects"
+        assert json.loads(request.content) == payload
+        return httpx.Response(201, json={
+            "data": invalid, "meta": {}, "request_id": "project-create-extra",
+        })
+    async with httpx.AsyncClient(
+        base_url="http://127.0.0.1", transport=httpx.MockTransport(transport),
+    ) as http:
+        with pytest.raises(ConstructionApiClientError) as caught:
+            await ConstructionApiClient(http=http).create_project(
+                session=PlatformApiClientSession(
+                    project_http.user, project_http.tenant, SecretStr("test-secret"),
+                ),
+                payload=payload, idempotency_key="tg-project:extra-field",
+            )
+    assert caught.value.status_code == 502
+    assert caught.value.code == "invalid_api_response"

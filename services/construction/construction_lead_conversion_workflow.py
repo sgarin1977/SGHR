@@ -12,6 +12,7 @@ from services.construction.construction_lead_conversion import (
     build_construction_lead_conversion_service,
 )
 from services.construction.construction_lead_conversion_rules import ConstructionLeadConversionSelection
+from services.construction.construction_projects import ConstructionProjectCurrencyConfigurationError
 from services.construction.construction_lead_rules import ConstructionLeadTransitionError, ConstructionLeadValidationError
 from services.construction.construction_permissions import ConstructionPermissionDeniedError, ConstructionScopeDeniedError
 
@@ -215,7 +216,7 @@ class ConstructionLeadConversionWorkflow:
                 ApiIdempotencyKeyReusedError, ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
                 ConstructionLeadValidationError, ConstructionLeadTransitionError,
                 ConstructionRowVersionConflictError, ConstructionLeadConversionNotFoundError,
-                ConstructionLeadConversionOperationError,
+                ConstructionLeadConversionOperationError, ConstructionProjectCurrencyConfigurationError,
             )):
                 raise
             raise ConstructionLeadConversionOperationError("Lead conversion workflow failed.") from None

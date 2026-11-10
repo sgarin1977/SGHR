@@ -20,7 +20,7 @@ from services.construction.construction_project_create_workflow import (
     ConstructionProjectIdempotencyInProgressError, PUBLIC_PROJECT_FIELDS,
     build_construction_project_create_workflow,
 )
-from services.construction.construction_projects import ConstructionProjectNotFoundError, ConstructionProjectValidationError
+from services.construction.construction_projects import ConstructionProjectNotFoundError, ConstructionProjectValidationError, ConstructionProjectCurrencyConfigurationError
 
 
 class ProjectCreateRequest(BaseModel):
@@ -98,7 +98,7 @@ router = ConstructionAPIRouter(
         401: {"description": "authentication_required or invalid_token"},
         403: {"description": "MODULE_DISABLED, permission_required or forbidden"},
         404: {"description": "not_found: original project unavailable on replay"},
-        409: {"description": "IDEMPOTENCY_KEY_REUSED or idempotency_in_progress"},
+        409: {"description": "IDEMPOTENCY_KEY_REUSED, idempotency_in_progress or CURRENCY_CONFIGURATION_REQUIRED"},
         422: {"description": "validation_error"},
         500: {"description": "internal_error"},
     },
@@ -135,6 +135,11 @@ async def create_project(
     except ConstructionProjectNotFoundError:
         raise ApiHttpError(
             status_code=404, code="not_found", message="Created project is not available.",
+        ) from None
+    except ConstructionProjectCurrencyConfigurationError:
+        raise ApiHttpError(
+            status_code=409, code="CURRENCY_CONFIGURATION_REQUIRED",
+            message="Organization currency must be configured before project creation.",
         ) from None
     except ConstructionProjectValidationError:
         raise ApiHttpError(

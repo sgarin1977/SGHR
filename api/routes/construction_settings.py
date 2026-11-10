@@ -4,6 +4,11 @@ from api.auth import get_current_actor, require_authenticated_user_rate_limit, r
 from api.dependencies import get_api_session
 from api.errors import ApiHttpError
 from api.responses import success_envelope
+from api.construction_settings_contract import (
+    ConstructionCompanySettingsCreate, ConstructionCompanySettingsUpdate,
+    ConstructionCompanySettingsData, ConstructionCompanySettingsEnvelope,
+    ConstructionCompanySettingsWriteEnvelope,
+)
 from api.routes.construction import get_construction_scoped_session
 from api.routes.construction import get_construction_access_context
 from api.routes.construction import require_construction_permission
@@ -22,7 +27,13 @@ router = APIRouter(
         Depends(require_suite("construction", error_code="MODULE_DISABLED")),
         Depends(require_module("construction.core", error_code="MODULE_DISABLED")),
     ],
-    responses={429: {"description": "RATE_LIMIT_EXCEEDED"}},
+    responses={
+        401: {"description": "Platform authentication required"},
+        403: {"description": "Tenant, module or permission unavailable"},
+        422: {"description": "Invalid settings request"},
+        429: {"description": "RATE_LIMIT_EXCEEDED"},
+        500: {"description": "Sanitized settings operation failure"},
+    },
 )
 
 FIELDS = (
@@ -43,7 +54,7 @@ def get_settings_service(
     )
 
 
-@router.get("/company")
+@router.get("/company", response_model=ConstructionCompanySettingsEnvelope)
 async def get_company_settings(
     request: Request,
     actor=Depends(get_current_actor),
@@ -57,12 +68,26 @@ async def get_company_settings(
             message="Construction settings are not available.",
         ) from exc
     return success_envelope(
-        data=(
-            {field: getattr(settings, field) for field in FIELDS}
-            if settings is not None else None
-        ),
+        data=_settings_projection(settings, actor=actor, nullable=True),
         request_id=request.state.request_id,
     )
+
+
+def _settings_projection(settings, *, actor, nullable=False):
+    try:
+        if settings is None:
+            if nullable:
+                return None
+            raise ValueError("Missing settings result.")
+        if settings.tenant_id != actor.tenant_id:
+            raise ValueError("Settings response tenant mismatch.")
+        data = {field: getattr(settings, field) for field in FIELDS}
+        return ConstructionCompanySettingsData.model_validate(data).model_dump(mode="json")
+    except Exception:
+        raise ApiHttpError(
+            status_code=500, code="internal_error",
+            message="Construction settings response is unavailable.",
+        ) from None
 
 
 def _settings_write_error(exc):
@@ -115,36 +140,43 @@ async def _write_settings(*, request, actor, access_context, service, values, cr
             settings_domain.ConstructionTenantSettingsOperationError) as exc:
         raise _settings_write_error(exc) from exc
     return success_envelope(
-        data={field: getattr(settings, field) for field in FIELDS},
+        data=_settings_projection(settings, actor=actor),
         request_id=request.state.request_id,
     )
 
 
-@router.post("/company", status_code=201, dependencies=[
+@router.post("/company", response_model=ConstructionCompanySettingsWriteEnvelope,
+    status_code=201, responses={409: {"description": "Settings already exist or conflict"}},
+    dependencies=[
     Depends(require_construction_permission("construction.settings.manage")),
 ])
 async def create_company_settings(
-    request: Request, values: dict,
+    request: Request, values: ConstructionCompanySettingsCreate,
     actor=Depends(get_current_actor),
     access_context=Depends(get_construction_access_context),
     service=Depends(get_settings_service),
 ):
     return await _write_settings(
         request=request, actor=actor, access_context=access_context,
-        service=service, values=values, create=True,
+        service=service, values=values.model_dump(exclude_unset=True), create=True,
     )
 
 
-@router.patch("/company", dependencies=[
+@router.patch("/company", response_model=ConstructionCompanySettingsWriteEnvelope,
+    responses={404: {"description": "Settings not found"},
+               409: {"description": "ROW_VERSION_CONFLICT or settings conflict"}},
+    dependencies=[
     Depends(require_construction_permission("construction.settings.manage")),
 ])
 async def update_company_settings(
-    request: Request, values: dict,
+    request: Request, values: ConstructionCompanySettingsUpdate,
     actor=Depends(get_current_actor),
     access_context=Depends(get_construction_access_context),
     service=Depends(get_settings_service),
 ):
     return await _write_settings(
         request=request, actor=actor, access_context=access_context,
-        service=service, values=values, create=False,
+        service=service, values=values.model_dump(exclude_unset=True), create=False,
     )
+
+# con_010_typed_settings_contract_v1

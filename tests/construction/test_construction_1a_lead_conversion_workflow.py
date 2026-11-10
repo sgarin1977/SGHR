@@ -25,6 +25,17 @@ from test_construction_1a_lead_conversion_service import conversion_case, sql_co
 from test_construction_1a_lead_create_workflow import MemoryRecords, SqlRecords
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 @pytest.fixture
 def workflow_case(conversion_case):
     c = conversion_case
@@ -324,9 +335,9 @@ def test_factory_wires_one_session_and_requires_encryption(workflow_case):
     c = workflow_case
     c.session.execute, c.session.flush, c.session.add = AsyncMock(), AsyncMock(), Mock()
     with pytest.raises(ValueError):
-        build_construction_lead_conversion_workflow(session=c.session, encryption_key="")
-    workflow = build_construction_lead_conversion_workflow(session=c.session,
-        encryption_key=Fernet.generate_key().decode(), now_provider=lambda: c.now)
+        _with_project_currency_fixture(build_construction_lead_conversion_workflow(session=c.session, encryption_key=""))
+    workflow = _with_project_currency_fixture(build_construction_lead_conversion_workflow(session=c.session,
+        encryption_key=Fernet.generate_key().decode(), now_provider=lambda: c.now))
     assert workflow.session is workflow.service.session is workflow.idempotency.repository.session is c.session
 
 

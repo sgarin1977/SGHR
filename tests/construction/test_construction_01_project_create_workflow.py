@@ -21,6 +21,17 @@ from services.construction.construction_projects import (
 from test_construction_01_project_create_transaction import create_case, real_create
 
 
+
+def _with_project_currency_fixture(value):
+    """Explicit organization currency for pre-existing isolated service doubles."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    target = getattr(value, "service", value)
+    target.currency_reader = SimpleNamespace(
+        session=target.session, get_for_tenant=AsyncMock(return_value="EUR"),
+    )
+    return value
+
 class JsonCodec:
     def encrypt(self, value):
         return json.dumps(value).encode("utf-8")
@@ -248,10 +259,10 @@ async def test_failure_before_or_at_commit_is_rolled_back(workflow_case, failure
 
 def test_factory_wires_every_repository_to_the_same_session(workflow_case):
     c = workflow_case
-    workflow = build_construction_project_create_workflow(
+    workflow = _with_project_currency_fixture(build_construction_project_create_workflow(
         session=c.session, idempotency_encryption_key=Fernet.generate_key().decode(),
         response_projector=public_project,
-    )
+    ))
     assert workflow.service.session is c.session
     assert workflow.service.repository.session is c.session
     assert workflow.service.client_repository.session is c.session
@@ -281,7 +292,8 @@ def real_workflow(real_create):
         fail_completion = False
         async def reserve_record(self, **kwargs):
             record, fresh = await super().reserve_record(**kwargs)
-            c.sql_session.execute(text("INSERT INTO tx_test_result(id) VALUES(:id)"), {"id": str(record.id)})
+            if fresh:
+                c.sql_session.execute(text("INSERT INTO tx_test_result(id) VALUES(:id)"), {"id": str(record.id)})
             return record, fresh
         async def complete_record(self, **kwargs):
             record = await super().complete_record(**kwargs)
