@@ -13,6 +13,9 @@ from api.auth import (
 )
 from api.errors import ApiHttpError
 from api.responses import success_envelope
+from api.construction_timezone_presentation import (
+    get_optional_navigation_timezone, read_navigation_timezone,
+)
 from api.routes.construction import (
     get_construction_access_context, get_construction_scoped_session,
 )
@@ -57,8 +60,12 @@ async def navigation_context(
     context=Depends(get_construction_access_context),
     access=Depends(get_navigation_access),
     organizations=Depends(get_navigation_organization),
+    timezone_reader=Depends(get_optional_navigation_timezone),
 ):
-    if request.query_params:
+    if (
+        set(request.query_params) - {"include_timezone"}
+        or len(request.query_params.getlist("include_timezone")) > 1
+    ):
         raise ApiHttpError(
             status_code=422, code="validation_error",
             message="Navigation query parameters are not supported.",
@@ -68,6 +75,11 @@ async def navigation_context(
             actor=actor, context=context, access=access,
             organizations=organizations,
         )
+        meta = {}
+        if timezone_reader is not None:
+            meta["display_timezone"] = await read_navigation_timezone(
+                timezone_reader, actor=actor,
+            )
     except (
         ConstructionPermissionDeniedError, ConstructionScopeDeniedError,
         ConstructionOrganizationUnavailableError,
@@ -81,4 +93,5 @@ async def navigation_context(
     return success_envelope(
         data=data,
         request_id=request.state.request_id,
+        meta=meta,
     )

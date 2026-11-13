@@ -160,6 +160,10 @@ async def dispatch_construction(callback, state, *, entry, bot=None, event_updat
                 rows.append([InlineKeyboardButton(
                     text=telegram_tr("title", language), callback_data="TGB:open",
                 )])
+                from ui.construction_stage2_settings import tr as stage2_tr
+                rows.append([InlineKeyboardButton(
+                    text=stage2_tr("title", language), callback_data="C2:open",
+                )])
                 from ui.construction_company_profile import tr as company_tr
                 rows.append([InlineKeyboardButton(
                     text=company_tr("button", language), callback_data="CP:open",
@@ -392,3 +396,105 @@ construction_suite_router.include_router(construction_project_activities_router)
 # universal_area_editor_v1
 
 # client_link_operator_bot_v1
+
+
+# CON_STAGE2_TELEGRAM_SETTINGS_LANGUAGE_V1
+from handlers.construction.construction_stage2_settings import (
+    router as construction_stage2_settings_router,
+    navigation_middleware as stage2_settings_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    stage2_settings_navigation_middleware,
+)
+construction_suite_router.include_router(construction_stage2_settings_router)
+
+# CON_STAGE2_TELEGRAM_TAX_PROFILES_V1
+from handlers.construction.construction_tax_profiles import (
+    router as construction_tax_profiles_bot_router,
+    navigation_middleware as tax_profiles_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    tax_profiles_navigation_middleware,
+)
+construction_suite_router.include_router(construction_tax_profiles_bot_router)
+
+# CON_STAGE2_TELEGRAM_PRICING_PROFILES_V1
+from handlers.construction.construction_pricing_profiles import (
+    router as construction_pricing_profiles_bot_router,
+    navigation_middleware as pricing_profiles_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    pricing_profiles_navigation_middleware,
+)
+construction_suite_router.include_router(construction_pricing_profiles_bot_router)
+
+# CON_STAGE2_TELEGRAM_PROJECT_ADJUSTMENTS_V1
+from handlers.construction.construction_project_adjustments import (
+    router as construction_project_adjustments_router,
+    navigation_middleware as project_adjustments_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    project_adjustments_navigation_middleware,
+)
+construction_suite_router.include_router(construction_project_adjustments_router)
+
+# CON_STAGE2_TELEGRAM_CALCULATION_SETTINGS_V1
+from handlers.construction.construction_calculation_settings import (
+    router as construction_calculation_settings_bot_router,
+    navigation_middleware as calculation_settings_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    calculation_settings_navigation_middleware,
+)
+construction_suite_router.include_router(construction_calculation_settings_bot_router)
+
+
+# CON_STAGE2_TELEGRAM_REGION_V1
+from handlers.construction.construction_region_settings import (
+    router as construction_region_settings_bot_router,
+    navigation_middleware as region_settings_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    region_settings_navigation_middleware,
+)
+construction_suite_router.include_router(construction_region_settings_bot_router)
+
+
+# CON_STAGE2_TELEGRAM_ONBOARDING_PROGRESS_V1
+from handlers.construction.construction_onboarding import (
+    router as construction_onboarding_bot_router,
+    navigation_middleware as onboarding_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    onboarding_navigation_middleware,
+)
+construction_suite_router.include_router(construction_onboarding_bot_router)
+
+
+# CON_STAGE2_TELEGRAM_STARTER_TEMPLATES_V1
+from handlers.construction.construction_starter_templates import (
+    router as construction_starter_templates_bot_router,
+    navigation_middleware as starter_templates_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    starter_templates_navigation_middleware,
+)
+construction_suite_router.include_router(construction_starter_templates_bot_router)
+
+
+# CON_STAGE2_TELEGRAM_ONBOARDING_SETTINGS_V1
+from handlers.construction.construction_onboarding_settings import (
+    router as construction_onboarding_settings_router,
+)
+construction_suite_router.include_router(construction_onboarding_settings_router)
+
+
+# CON_STAGE2_TELEGRAM_ORGANIZATION_TEMPLATES_V1
+from handlers.construction.construction_organization_templates import (
+    router as construction_organization_templates_bot_router,
+    navigation_middleware as organization_templates_navigation_middleware,
+)
+construction_suite_router.callback_query.outer_middleware(
+    organization_templates_navigation_middleware,
+)
+construction_suite_router.include_router(construction_organization_templates_bot_router)

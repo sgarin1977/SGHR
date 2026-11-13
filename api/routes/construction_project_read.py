@@ -79,7 +79,7 @@ def get_project_read_service(session=Depends(get_construction_scoped_session)):
     return build_construction_project_read_service(session)
 
 
-def project_action_capabilities(*, actor, access_context, project_id):
+def project_action_capabilities(*, actor, access_context, project_id, project_status=None):
     """Project UI projection; mutation endpoints keep their own authorization."""
     from services.construction.construction_activity_create import ACTIVITY_CREATE_PERMISSION
 
@@ -95,6 +95,8 @@ def project_action_capabilities(*, actor, access_context, project_id):
         ("can_edit_project", "construction.projects.edit"),
         ("can_plan_activity", ACTIVITY_CREATE_PERMISSION),
         ("can_open_team", "construction.team.manage"),
+        ("can_read_pricing_adjustments", "construction.pricing.read"),
+        ("can_edit_pricing_adjustments", "construction.pricing.edit"),
     ):
         try:
             require_construction_access(
@@ -105,6 +107,8 @@ def project_action_capabilities(*, actor, access_context, project_id):
             result[name] = False
         else:
             result[name] = True
+    if project_status in ("completed", "cancelled"):
+        result["can_edit_pricing_adjustments"] = False
     return result
 
 
@@ -175,6 +179,7 @@ async def read_project(
         data = public_project_details(project, tenant_id=actor.tenant_id, project_id=id)
         capabilities = project_action_capabilities(
             actor=actor, access_context=access_context, project_id=id,
+            project_status=data["status"],
         )
         meta = {"capabilities": capabilities}
         if localizer is not None:
@@ -185,7 +190,8 @@ async def read_project(
                 translated, actor=actor, project_id=id, project_data=data)
             meta = {
                 "capabilities": project_action_capabilities(
-                    actor=actor, access_context=translated.access_context, project_id=id),
+                    actor=actor, access_context=translated.access_context,
+                    project_id=id, project_status=data["status"]),
                 "translations": metadata.model_dump(mode="json"),
             }
             response.headers["Cache-Control"] = "private, no-store"

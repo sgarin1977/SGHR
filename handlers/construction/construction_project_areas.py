@@ -9,6 +9,7 @@ from handlers.construction.construction_lead_create import lock_for, private
 from services.construction.construction_api_client import ConstructionApiClientError
 from services.construction.construction_bot_api_entry import construction_bot_api_entry
 from ui.construction_project_areas import areas_text, tr
+from ui.construction_area_translation import area_button_name
 from ui.texts import t
 from utils.telegram_cleanup import edit_or_replace_menu_message
 
@@ -185,21 +186,28 @@ async def areas_callback(callback, state, bot=None, event_update=None):
                     project_id=UUID(selected["project_id"]),
                     expected_user_id=UUID(selected["actor_user_id"]),
                     client_id=UUID(selected["client_id"]) if selected["client_id"] else None,
+                    display_offset=offset,
                 )
             current = binding(
                 await state.get_data(),
                 key=selected["source_key"], token=selected["source_token"],
                 sender=callback.from_user.id, menu=callback.message.message_id,
             )
+            if current != selected:
+                return
             if (
-                current != selected
-                or result["actor_user_id"] != selected["actor_user_id"]
+                result["actor_user_id"] != selected["actor_user_id"]
                 or result["project_id"] != selected["project_id"]
             ):
                 raise ValueError("Area selection changed.")
             language = result["language"] or language
             total = len(result["items"])
             offset = min(offset, ((total - 1) // 5) * 5) if total else 0
+            actual_offset = result.get("display_offset")
+            if actual_offset is not None and (
+                type(actual_offset) is not int or actual_offset != offset
+            ):
+                raise ValueError("Translated area page differs.")
             view = {
                 field: selected[field] for field in (
                     "source_key", "source_token", "telegram_user_id",
@@ -223,7 +231,7 @@ async def areas_callback(callback, state, bot=None, event_update=None):
                     rows.append([button(
                         edit_tr("edit", language) + " · "
                         + str(offset + index + 1) + ". "
-                        + item["name"][:55],
+                        + area_button_name(result, item, language),
                         f'AE:open:{view["nonce"]}:{index}',
                     )])
             if offset:

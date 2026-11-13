@@ -86,6 +86,8 @@ class ConstructionApiClient:
             allow_null and (method, path) not in {
                 ("GET", "organization/company-profile"),
                 ("GET", "construction/settings/company"),
+                ("GET", "construction/settings/calculation"),
+                ("GET", "construction/settings/onboarding/tax-profile"),
             }
         ):
             raise ValueError("Nullable response is not supported for this operation.")
@@ -848,8 +850,22 @@ class ConstructionApiClient:
     async def client(self, *, session, client_id):
         return await self._read_entity('construction/clients', session, client_id)
 
-    async def project_card(self, *, session, project_id, client_id):
+    async def project_card(self, *, session, project_id, client_id,
+                           include_translations=False, expected_language=None):
         from api.routes.construction_project_read import ProjectDetailsResponse, ProjectReadResponse
+
+        if type(include_translations) is not bool:
+            raise ValueError("Invalid presentation flag.")
+        if include_translations:
+            if not isinstance(project_id, UUID) or not isinstance(client_id, UUID):
+                raise ValueError("Project and client UUIDs required.")
+            localized = await self.localized_project(
+                session=session, project_id=project_id,
+                expected_language=expected_language,
+            )
+            if localized.data.get("client_id") != str(client_id):
+                raise _response_error(404, "not_found")
+            return localized
 
         if not isinstance(project_id, UUID) or not isinstance(client_id, UUID):
             raise ValueError("Project and client UUIDs required.")
@@ -1011,8 +1027,17 @@ class ConstructionApiClient:
             item.model_dump(mode="json"), result.meta, result.request_id,
         )
 
-    async def project_details(self, *, session, project_id):
+    async def project_details(self, *, session, project_id,
+                              include_translations=False, expected_language=None):
         from api.routes.construction_project_read import ProjectDetailsResponse, ProjectReadResponse
+
+        if type(include_translations) is not bool:
+            raise ValueError("Invalid presentation flag.")
+        if include_translations:
+            return await self.localized_project(
+                session=session, project_id=project_id,
+                expected_language=expected_language,
+            )
 
         result = await self.project(session=session, project_id=project_id)
         try:
@@ -1023,6 +1048,13 @@ class ConstructionApiClient:
             raise _response_error() from None
         return ConstructionApiResult(
             project.model_dump(mode="json"), result.meta, result.request_id,
+        )
+
+    async def localized_project(self, *, session, project_id, expected_language):
+        from services.construction.construction_project_presentation import read_localized_project
+        return await read_localized_project(
+            self, session=session, project_id=project_id,
+            expected_language=expected_language,
         )
 
     async def project(self, *, session, project_id):
@@ -1903,8 +1935,18 @@ class ConstructionApiClient:
             item.model_dump(mode="json"), result.meta, result.request_id,
         )
 
-    async def project_areas(self, *, session, project_id):
+    async def project_areas(self, *, session, project_id,
+                            include_translations=False, expected_language=None, display_offset=0):
         from api.routes.construction_project_areas import ProjectAreaReadItem
+
+        if type(include_translations) is not bool:
+            raise ValueError("Invalid presentation flag.")
+        if include_translations:
+            from services.construction.construction_area_presentation import read_localized_areas
+            return await read_localized_areas(
+                self, session=session, project_id=project_id,
+                expected_language=expected_language, display_offset=display_offset,
+            )
 
         if not isinstance(project_id, UUID):
             raise ValueError("A project UUID is required.")
@@ -1967,9 +2009,12 @@ class ConstructionApiClient:
             expected_row_version=expected_row_version,
         )
 
-    async def navigation(self, *, session):
+    async def navigation(self, *, session, include_timezone=False):
+        if type(include_timezone) is not bool:
+            raise ValueError("A boolean presentation selector is required.")
+        options = {"params": {"include_timezone": "true"}} if include_timezone else {}
         result = await self._get(
-            "construction/ui/navigation-context", session=session
+            "construction/ui/navigation-context", session=session, **options,
         )
         self._entity(result, session=session)
         data = result.data
@@ -1978,6 +2023,8 @@ class ConstructionApiClient:
             or bool(set(data) - {
                 "tenant_id", "name", "currency", "roles", "can_read_leads",
                 "can_create_project", "can_manage_team", "can_read_projects", "can_read_clients",
+                "can_edit_tax_profiles",
+                "can_edit_pricing_profiles",
             })
             or not isinstance(data["name"], str)
             or not data["name"]
@@ -2002,8 +2049,24 @@ class ConstructionApiClient:
                 "can_manage_team" in data
                 and type(data["can_manage_team"]) is not bool
             )
+            or (
+                "can_edit_tax_profiles" in data
+                and type(data["can_edit_tax_profiles"]) is not bool
+            )
+            or (
+                "can_edit_pricing_profiles" in data
+                and type(data["can_edit_pricing_profiles"]) is not bool
+            )
         ):
             raise _response_error()
+        if include_timezone:
+            from utils.construction_display_timezone import validate_display_timezone
+            try:
+                if set(result.meta) != {"display_timezone"}:
+                    raise ValueError("Presentation metadata differs.")
+                validate_display_timezone(result.meta["display_timezone"])
+            except (ValueError, TypeError, KeyError):
+                raise _response_error() from None
         return result
 
 # project_activity_terminal_v1

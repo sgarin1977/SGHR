@@ -86,7 +86,7 @@ async def client_catalog_navigation_middleware(handler, event, data):
     state = data.get("state")
     if (
         state is not None and private(event)
-        and not (event.data or "").startswith(("AT:", "PAV:", "PDE:", "CDE:", "CLO:", "CL:", "CC:", "PC:", "PA:", "AC:", "AE:", "PT:", "PG:", "PX:", "TP:", "AP:project:"))
+        and not (event.data or "").startswith(("PJA:", "AT:", "PAV:", "PDE:", "CDE:", "CLO:", "CL:", "CC:", "PC:", "PA:", "AC:", "AE:", "PT:", "PG:", "PX:", "TP:", "AP:project:"))
     ):
         saved = (await state.get_data()).get(LIST)
         if isinstance(saved, dict) and saved.get("telegram_user_id") == event.from_user.id:

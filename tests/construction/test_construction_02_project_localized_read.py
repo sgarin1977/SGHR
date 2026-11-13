@@ -226,7 +226,9 @@ async def test_capabilities_use_final_fresh_grants(localized_http):
     response = await get(c)
     assert response.status_code == 200, response.text
     assert response.json()["meta"]["capabilities"] == {
-        "can_edit_project": False, "can_plan_activity": False, "can_open_team": False}
+        "can_edit_project": False, "can_plan_activity": False, "can_open_team": False,
+        "can_read_pricing_adjustments": True, "can_edit_pricing_adjustments": False,
+    }
 
 
 @pytest.mark.asyncio

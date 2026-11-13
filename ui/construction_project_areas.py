@@ -1,4 +1,7 @@
 """Universal project-area list presentation."""
+from ui.construction_area_translation import (
+    area_name_text, project_heading, area_translation_notice,
+)
 LANGUAGES = ("uk", "ru", "en", "pt", "pl", "de", "nl")
 LABELS = {}
 
@@ -45,7 +48,7 @@ def areas_text(result, *, offset, language):
     lines = [
         tr("title", language),
         str(result["organization"])[:120],
-        str(result["project_name"])[:180],
+        project_heading(result, language),
     ]
     items = result["items"]
     if not items:
@@ -54,10 +57,13 @@ def areas_text(result, *, offset, language):
         lines.append(f"{offset + 1}–{min(offset + 5, len(items))} / {len(items)}")
         for index, item in enumerate(items[offset:offset + 5], start=offset + 1):
             lines.append(
-                f'{index}. {item["name"][:180]}\n'
+                str(index) + ". " + area_name_text(result, item, language) + "\n"
                 + tr(item["area_type"], language) + " · "
                 + tr(item["status"], language)
             )
+    notice = area_translation_notice(result, language)
+    if notice:
+        lines.append(notice)
     text = "\n\n".join(lines)
     if len(text) > 3800:
         raise ValueError("Area presentation is too large.")

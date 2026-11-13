@@ -69,7 +69,7 @@ async def catalog_navigation_middleware(handler, event, data):
     state = data.get("state")
     if (
         state is not None and private(event)
-        and not (event.data or "").startswith(("AT:", "PAV:", "PDE:", "PL:", "PA:", "AC:", "AE:", "PT:", "PG:", "PX:", "TP:", "AP:project:"))
+        and not (event.data or "").startswith(("PJA:", "AT:", "PAV:", "PDE:", "PL:", "PA:", "AC:", "AE:", "PT:", "PG:", "PX:", "TP:", "AP:project:"))
     ):
         saved = (await state.get_data()).get(LIST)
         if isinstance(saved, dict) and saved.get("telegram_user_id") == event.from_user.id:
@@ -240,6 +240,10 @@ async def catalog_callback(callback, state, bot=None, event_update=None):
                     rows.append([button(
                         activity_tr("plan_activity", language), "AP:project:" + card["nonce"],
                     )])
+                from ui.construction_project_adjustments import tr as adjustment_tr
+                if result.get("can_read_pricing_adjustments") is True:
+                    rows.append([button(adjustment_tr("title", language),
+                                        "PJA:open:" + card["nonce"])])
                 from ui.construction_project_areas import tr as area_tr
                 rows.extend([
                     [button(area_tr("title", language), "PA:open:" + card["nonce"])],

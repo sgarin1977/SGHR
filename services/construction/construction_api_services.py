@@ -93,6 +93,24 @@ async def read_construction_navigation(*, actor, context, access, organizations)
     except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError):
         can_manage_team = False
 
+    can_edit_tax_profiles = True
+    try:
+        require_construction_access(
+            actor=actor, access_context=context,
+            permission_code="construction.tax.edit",
+        )
+    except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError):
+        can_edit_tax_profiles = False
+
+    can_edit_pricing_profiles = True
+    try:
+        require_construction_access(
+            actor=actor, access_context=context,
+            permission_code="construction.pricing.edit",
+        )
+    except (ConstructionPermissionDeniedError, ConstructionScopeDeniedError):
+        can_edit_pricing_profiles = False
+
     return {
         "tenant_id": str(actor.tenant_id),
         "name": organization.name,
@@ -103,4 +121,6 @@ async def read_construction_navigation(*, actor, context, access, organizations)
         "can_read_projects": can_read_projects,
         "can_create_project": can_create_project,
         "can_manage_team": can_manage_team,
+        "can_edit_tax_profiles": can_edit_tax_profiles,
+        "can_edit_pricing_profiles": can_edit_pricing_profiles,
     }

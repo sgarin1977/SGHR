@@ -14,12 +14,24 @@ from services.platform_bot_api_client import (
 )
 
 
+def _project_display_context(result):
+    meta = getattr(result, "meta", {})
+    unavailable = getattr(result, "translation_unavailable", False)
+    if not isinstance(meta, dict) or type(unavailable) is not bool:
+        raise ConstructionApiClientError(status_code=502, code="invalid_response")
+    return {
+        "translations": meta.get("translations"),
+        "translation_unavailable": unavailable,
+    }
+
+
 def _project_action_flags(result):
     meta = getattr(result, "meta", {})
     if not isinstance(meta, dict):
         raise ConstructionApiClientError(status_code=502, code="invalid_response")
     capabilities = meta.get("capabilities", {})
-    names = ("can_edit_project", "can_plan_activity", "can_open_team")
+    legacy_names = ("can_edit_project", "can_plan_activity", "can_open_team")
+    names = legacy_names + ("can_read_pricing_adjustments", "can_edit_pricing_adjustments")
     if (
         not isinstance(capabilities, dict)
         or any(
@@ -28,7 +40,10 @@ def _project_action_flags(result):
         )
     ):
         raise ConstructionApiClientError(status_code=502, code="invalid_response")
-    return {name: capabilities.get(name) is True for name in names}
+    return {
+        name: capabilities.get(name) is True
+        for name in names if name in legacy_names or name in capabilities
+    }
 
 
 @dataclass
@@ -215,17 +230,21 @@ class ConstructionBotApiEntry:
         )
         return {"item": result.data}
 
-    async def _presentation(self, *, telegram_user_id, tenant_id):
+    async def _presentation(self, *, telegram_user_id, tenant_id, include_timezone=False):
         self._identity(telegram_user_id)
         session = await self.sessions.get(
             api=self.api, context=self.context, tenant_id=tenant_id
         )
         me = await self.api.construction.me(session=session)
-        navigation = await self.api.construction.navigation(session=session)
+        options = {"include_timezone": True} if include_timezone else {}
+        navigation = await self.api.construction.navigation(session=session, **options)
         return session, {
             **navigation.data,
             "language": me.data.get("language_code"),
             "timezone": me.data.get("timezone"),
+            "display_timezone": (
+                navigation.meta["display_timezone"] if include_timezone else None
+            ),
         }
 
     async def client_catalog(
@@ -472,6 +491,7 @@ class ConstructionBotApiEntry:
     ):
         session, home = await self._presentation(
             telegram_user_id=telegram_user_id, tenant_id=tenant_id,
+            include_timezone=True,
         )
         if session.user_id != expected_user_id or session.tenant_id != tenant_id:
             raise ConstructionApiClientError(
@@ -479,17 +499,21 @@ class ConstructionBotApiEntry:
             )
         result = await self.api.construction.project_details(
             session=session, project_id=project_id,
+            include_translations=True, expected_language=home["language"],
         )
         return {
             "item": result.data, "actor_user_id": str(session.user_id),
             "organization": home["name"], "language": home["language"],
             **_project_action_flags(result),
+            **_project_display_context(result),
+            "display_timezone": home.get("display_timezone"),
         }
 
     async def project_card(self, *, telegram_user_id, tenant_id, project_id,
                            client_id, expected_user_id):
         session, home = await self._presentation(
             telegram_user_id=telegram_user_id, tenant_id=tenant_id,
+            include_timezone=True,
         )
         if session.user_id != expected_user_id:
             raise ConstructionApiClientError(
@@ -497,6 +521,7 @@ class ConstructionBotApiEntry:
             )
         result = await self.api.construction.project_card(
             session=session, project_id=project_id, client_id=client_id,
+            include_translations=True, expected_language=home["language"],
         )
         return {
             "item": result.data,
@@ -504,10 +529,12 @@ class ConstructionBotApiEntry:
             "organization": home["name"],
             "language": home["language"],
             **_project_action_flags(result),
+            **_project_display_context(result),
+            "display_timezone": home.get("display_timezone"),
         }
 
     async def project_areas(self, *, telegram_user_id, tenant_id, project_id,
-                            expected_user_id, client_id=None):
+                            expected_user_id, client_id=None, display_offset=None):
         session, home = await self._presentation(
             telegram_user_id=telegram_user_id, tenant_id=tenant_id,
         )
@@ -518,22 +545,36 @@ class ConstructionBotApiEntry:
             raise ConstructionApiClientError(
                 status_code=403, code="account_unavailable",
             )
+        if display_offset is not None and (type(display_offset) is not int or display_offset < 0):
+            raise ValueError("Invalid area display page.")
+        presentation = {} if display_offset is None else {
+            "include_translations": True, "expected_language": home["language"],
+        }
         if client_id is not None:
             project = await self.api.construction.project_card(
                 session=session, project_id=project_id, client_id=client_id,
+                **presentation,
             )
         else:
             project = await self.api.construction.project_details(
                 session=session, project_id=project_id,
+                **presentation,
             )
         result = await self.api.construction.project_areas(
             session=session, project_id=project_id,
+            **({**presentation, "display_offset": display_offset} if display_offset is not None else {}),
         )
         return {
             "items": result.data, "project_id": str(project_id),
             "can_create_area": result.meta.get("capabilities", {}).get("can_create_area") is True,
             "can_edit_area": result.meta.get("capabilities", {}).get("can_edit_area") is True,
             "project_name": project.data["name"],
+            "project_presentation": {
+                "item": {"name": project.data["name"], "row_version": project.data.get("row_version")},
+                **_project_display_context(project),
+            },
+            "display_offset": getattr(result, "display_offset", None),
+            **_project_display_context(result),
             "actor_user_id": str(session.user_id),
             "organization": home["name"], "language": home["language"],
         }
@@ -758,6 +799,7 @@ class ConstructionBotApiEntry:
                                    project_id, expected_user_id):
         session, home = await self._presentation(
             telegram_user_id=telegram_user_id, tenant_id=tenant_id,
+            include_timezone=True,
         )
         if session.user_id != expected_user_id:
             raise ConstructionApiClientError(
@@ -765,11 +807,14 @@ class ConstructionBotApiEntry:
             )
         result = await self.api.construction.project_details(
             session=session, project_id=project_id,
+            include_translations=True, expected_language=home["language"],
         )
         return {
             "item": result.data, "actor_user_id": str(session.user_id),
             "organization": home["name"], "language": home["language"],
             **_project_action_flags(result),
+            **_project_display_context(result),
+            "display_timezone": home.get("display_timezone"),
             "can_create_project": home.get("can_create_project") is True,
         }
 

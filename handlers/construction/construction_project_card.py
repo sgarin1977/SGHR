@@ -176,6 +176,10 @@ async def project_callback(callback, state, bot=None, event_update=None):
             rows.append([button(
                 area_tr("title", language), "PA:open:" + view["nonce"],
             )])
+            from ui.construction_project_adjustments import tr as adjustment_tr
+            if result.get("can_read_pricing_adjustments") is True:
+                rows.append([button(adjustment_tr("title", language),
+                                    "PJA:open:" + view["nonce"])])
             from ui.construction_project_team import tr as project_team_tr
             if result.get("can_open_team") is True:
                 rows.insert(0, [button(

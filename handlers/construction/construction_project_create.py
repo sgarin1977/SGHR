@@ -297,6 +297,10 @@ async def project_create_callback(callback, state, bot=None, event_update=None):
                     from ui.construction_project_edit import tr as edit_tr
                     if result.get("can_edit_project") is True:
                         rows.append([button(edit_tr("edit", language), "PDE:open:" + form["id"])])
+                    from ui.construction_project_adjustments import tr as adjustment_tr
+                    if result.get("can_read_pricing_adjustments") is True:
+                        rows.append([button(adjustment_tr("title", language),
+                                            "PJA:open:" + form["id"])])
                     from ui.construction_project_team import tr as project_team_tr
                     if result.get("can_open_team") is True:
                         rows.insert(0, [button(

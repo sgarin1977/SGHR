@@ -108,7 +108,7 @@ async def test_home_renders_only_available_working_section(
     rows = c.render.await_args.args[3]
     callbacks = [button.callback_data for row in rows for button in row]
     assert callbacks == sections + [
-        "TGB:open", "CP:open", "CS_ORGS", "M_SUITES",
+        "TGB:open", "C2:open", "CP:open", "CS_ORGS", "M_SUITES",
     ]
     c.service.home.assert_awaited_once_with(
         telegram_user_id=123, tenant_id=c.tenant,

@@ -86,6 +86,8 @@ async def test_get_project_uses_real_service_and_actor_tenant(project_http, scop
         "can_edit_project": False,
         "can_plan_activity": False,
         "can_open_team": False,
+        "can_read_pricing_adjustments": False,
+        "can_edit_pricing_adjustments": False,
     }}
     assert body["request_id"] == response.headers["X-Request-ID"] == "project-read-http"
     data = body["data"]
@@ -285,9 +287,16 @@ async def test_project_actions_follow_existing_scoped_policy(
     response = await get(c)
     assert response.status_code == 200, response.text
     caps = response.json()["meta"]["capabilities"]
-    assert caps == dict(zip(
-        ("can_edit_project", "can_plan_activity", "can_open_team"), expected,
-    ))
+    pricing_expected = {
+        "OWNER": (True, True), "ADMIN": (True, True),
+        "PROJECT_MANAGER": (True, False), "SURVEYOR": (False, False),
+        "ESTIMATOR": (True, False), "EXECUTOR": (False, False),
+        "OBSERVER": (True, False),
+    }[role]
+    assert caps == {
+        **dict(zip(("can_edit_project", "can_plan_activity", "can_open_team"), expected)),
+        **dict(zip(("can_read_pricing_adjustments", "can_edit_pricing_adjustments"), pricing_expected)),
+    }
     no_write(c)
 
 
@@ -312,5 +321,7 @@ async def test_other_project_authority_does_not_enable_current_project_actions(p
         "can_edit_project": False,
         "can_plan_activity": False,
         "can_open_team": False,
+        "can_read_pricing_adjustments": True,
+        "can_edit_pricing_adjustments": False,
     }
     no_write(c)
